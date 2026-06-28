@@ -1,0 +1,5 @@
+Approval note
+
+Batch 1 is approved for a pull request into main.
+
+Do not start Batch 2 until this branch is merged or until the local branch is synchronized with all remote review commits.

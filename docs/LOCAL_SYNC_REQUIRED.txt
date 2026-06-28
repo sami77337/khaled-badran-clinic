@@ -1,0 +1,11 @@
+Local sync is required before the next Codex work.
+
+Run locally:
+
+git pull
+git status -sb
+python manage.py check
+python manage.py test
+
+Reason:
+Review documentation commits were added remotely after the initial local push.

@@ -1,0 +1,85 @@
+Implement Batch 2: Core Models and Admin for Dr. Khaled Badran Clinic.
+
+Read first:
+README.md
+
+docs/DECISIONS.md
+
+docs/PROJECT_SPECIFICATION_AR.md
+
+docs/CODEX_BUILD_PLAN.md
+
+docs/BATCH_1_REVIEW.md
+
+docs/BATCH_2_SCOPE.md
+
+Goal:
+Add foundational data models and Django admin registration only.
+
+Hard rules:
+Do not implement public booking flow UI.
+Do not implement patient portal UI.
+Do not implement WhatsApp webhook logic.
+Do not implement file upload handling yet.
+Do not implement dashboard UI yet.
+Do not add real patient data.
+Do not add medical AI, diagnosis automation, or treatment automation.
+Keep this batch limited to models, admin, migrations, and tests.
+
+Models to add:
+
+apps.clinic:
+ClinicProfile
+Doctor
+VisitType
+DoctorSchedule
+ClosedDay
+
+apps.patients:
+Patient
+
+apps.booking:
+Appointment
+AppointmentStatusHistory only if it stays simple.
+
+apps.core:
+AuditLog
+SystemSetting if useful for reminder offset and default settings.
+
+Required project decisions to encode:
+Clinic official name Arabic: عيادة الدكتور خالد بدران
+Clinic official name English: Dr. Khaled Badran Clinic
+Current version has one doctor in scope, but keep Doctor model flexible for future.
+VisitType must support Arabic and English names.
+VisitType must support duration_minutes.
+VisitType must support optional price.
+VisitType must support show_price_to_patient.
+VisitType must support is_active.
+Appointment reminder default must be 3 hours before appointment, configurable later through dashboard/settings.
+Appointment statuses must include CONFIRMED, ARRIVED, COMPLETED, NO_SHOW, CANCELLED, RESCHEDULED.
+Use REQUESTED only if needed for future exceptional cases; do not make it the normal booking default.
+Patient phone should store raw input and normalized E.164 placeholder fields, but full normalization implementation can wait.
+Do not link medical records by name alone.
+
+Admin requirements:
+Register all new models in Django admin.
+Use list_display and useful filters/search fields where appropriate.
+Keep admin simple.
+
+Tests:
+Create model tests for VisitType price visibility behavior, Appointment default status, reminder default equals 3 hours where implemented, Patient raw and normalized phone fields, and Doctor Arabic/English display fields.
+
+Commands to run:
+python manage.py makemigrations
+python manage.py migrate
+python manage.py check
+python manage.py test
+
+Final report:
+Files changed.
+Models created.
+Migrations created.
+Admin registrations added.
+Commands run and exact results.
+Risks or unresolved decisions.
+Recommended next batch.

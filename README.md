@@ -36,7 +36,8 @@ Only Dr. Khaled Hassan Badran is in scope for the initial version. No second doc
 - `docs/PROJECT_SPECIFICATION_AR.md` — Arabic project specification.
 - `docs/DECISIONS.md` — locked decisions and open decisions.
 - `docs/CODEX_BUILD_PLAN.md` — phased implementation plan for Codex CLI.
-- `docs/CODEX_PROMPTS.md` — ready-to-use Codex CLI prompts.
+- `docs/CODEX_START_HERE.md` — Codex CLI starting instructions.
+- `docs/NEXT_BATCH.md` — current recommended implementation batch.
 
 ## Development Policy
 

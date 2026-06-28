@@ -1,0 +1,12 @@
+Branch state
+
+feat/django-foundation is ahead of main and ready for PR creation.
+
+The branch includes:
+- Django foundation implementation.
+- Review notes.
+- Batch 2 scope notes.
+- Security and workflow notes.
+
+Next expected action:
+Open pull request to main.

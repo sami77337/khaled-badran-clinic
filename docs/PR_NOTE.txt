@@ -1,0 +1,9 @@
+PR note
+
+Batch 1 initializes the Django foundation.
+
+Local checks reported as passed:
+python manage.py check
+python manage.py test
+
+Batch 2 starts after merge.
