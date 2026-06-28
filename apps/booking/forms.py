@@ -1,6 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
+from apps.booking import operations
 from apps.booking.phone import normalize_phone
 from apps.booking import services
 from apps.booking.selectors import get_active_doctor
@@ -84,3 +85,78 @@ class PublicBookingForm(forms.Form):
             starts_at=self.cleaned_data["starts_at"],
             booking_note=self.cleaned_data.get("booking_note", ""),
         )
+
+
+class StatusNoteForm(forms.Form):
+    note = forms.CharField(
+        required=False,
+        max_length=500,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label="Staff note",
+    )
+
+    def clean_note(self):
+        return (self.cleaned_data.get("note") or "").strip()
+
+
+class CancelAppointmentForm(StatusNoteForm):
+    note = forms.CharField(
+        required=True,
+        max_length=500,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label="Cancellation reason",
+    )
+
+    def clean_note(self):
+        note = super().clean_note()
+        if not note:
+            raise ValidationError("Cancellation reason is required.")
+        return note
+
+
+class MarkNoShowForm(StatusNoteForm):
+    note = forms.CharField(
+        required=True,
+        max_length=500,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label="No-show reason",
+    )
+
+    def clean_note(self):
+        note = super().clean_note()
+        if not note:
+            raise ValidationError("No-show reason is required.")
+        return note
+
+
+class RescheduleAppointmentForm(forms.Form):
+    starts_at = forms.DateTimeField(
+        input_formats=[
+            "%Y-%m-%dT%H:%M",
+            "%Y-%m-%d %H:%M",
+            "%Y-%m-%d %H:%M:%S",
+        ],
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}),
+        label="New appointment time",
+    )
+    note = forms.CharField(
+        required=False,
+        max_length=500,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label="Reschedule note",
+    )
+
+    def __init__(self, *args, appointment, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.appointment = appointment
+
+    def clean_starts_at(self):
+        starts_at = self.cleaned_data["starts_at"]
+        try:
+            starts_at, _ = operations.validate_reschedule_target(self.appointment, starts_at)
+        except ValidationError as exc:
+            raise ValidationError(exc.messages)
+        return starts_at
+
+    def clean_note(self):
+        return (self.cleaned_data.get("note") or "").strip()

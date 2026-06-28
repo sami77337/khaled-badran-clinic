@@ -16,6 +16,8 @@ class SystemSetting(models.Model):
     BOOKING_MIN_LEAD_MINUTES = "booking_min_lead_minutes"
     BOOKING_MAX_DAYS_AHEAD = "booking_max_days_ahead"
     BOOKING_SLOT_INTERVAL_MINUTES = "booking_slot_interval_minutes"
+    BOOKING_POST_RATE_LIMIT_PER_HOUR = "booking_post_rate_limit_per_hour"
+    BOOKING_PHONE_RATE_LIMIT_PER_DAY = "booking_phone_rate_limit_per_day"
 
     key = models.CharField(max_length=100, unique=True)
     value = models.CharField(max_length=255)

@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">Staff booking operations</p>
+        <h1>Appointments</h1>
+        <p>Staff-only appointment operations for scheduling, arrival, completion, cancellation, and no-show handling.</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container staff-layout">
+        <form class="staff-filter-panel" method="get">
+            <div class="form-field">
+                <label for="status">Status</label>
+                <select id="status" name="status">
+                    <option value="">Any status</option>
+                    {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-field">
+                <label for="scope">Range</label>
+                <select id="scope" name="scope">
+                    <option value="upcoming" {% if filters.scope == "upcoming" %}selected{% endif %}>Upcoming</option>
+                    <option value="past" {% if filters.scope == "past" %}selected{% endif %}>Past</option>
+                    <option value="all" {% if filters.scope == "all" %}selected{% endif %}>All</option>
+                </select>
+            </div>
+            <div class="form-field">
+                <label for="doctor">Doctor</label>
+                <select id="doctor" name="doctor">
+                    <option value="">Any doctor</option>
+                    {% for doctor in doctors %}
+                        <option value="{{ doctor.id }}" {% if filters.doctor == doctor.id|stringformat:"s" %}selected{% endif %}>{{ doctor.display_name_en }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-field">
+                <label for="visit_type">Visit type</label>
+                <select id="visit_type" name="visit_type">
+                    <option value="">Any visit type</option>
+                    {% for visit_type in visit_types %}
+                        <option value="{{ visit_type.id }}" {% if filters.visit_type == visit_type.id|stringformat:"s" %}selected{% endif %}>{{ visit_type.name_en }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-field">
+                <label for="date_from">From</label>
+                <input id="date_from" type="date" name="date_from" value="{{ filters.date_from }}">
+            </div>
+            <div class="form-field">
+                <label for="date_to">To</label>
+                <input id="date_to" type="date" name="date_to" value="{{ filters.date_to }}">
+            </div>
+            <div class="form-field">
+                <label for="q">Patient search</label>
+                <input id="q" type="search" name="q" value="{{ filters.q }}" placeholder="Name or phone">
+            </div>
+            <div class="staff-filter-actions">
+                <button class="btn btn-primary" type="submit">Filter</button>
+                <a class="btn btn-secondary" href="{{ staff_appointments_url }}">Reset</a>
+            </div>
+        </form>
+
+        <div class="staff-table-wrap">
+            <table class="staff-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Patient</th>
+                        <th>Phone</th>
+                        <th>Visit type</th>
+                        <th>Doctor</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for appointment in appointments %}
+                        <tr>
+                            <td>{{ appointment.starts_at|date:"Y-m-d H:i" }}</td>
+                            <td>{{ appointment.patient.full_name }}</td>
+                            <td>{{ appointment.patient.phone_e164|default:appointment.patient.phone_raw }}</td>
+                            <td>{{ appointment.visit_type.name_en }}</td>
+                            <td>{{ appointment.doctor.display_name_en }}</td>
+                            <td><span class="status-pill status-{{ appointment.status }}">{{ appointment.get_status_display }}</span></td>
+                            <td><a class="btn btn-small btn-secondary" href="{% url 'staff_appointment_detail' appointment.id %}">Open</a></td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="7">No appointments match the current filters.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj.has_other_pages %}
+            <nav class="staff-pagination" aria-label="Appointment pages">
+                {% if page_obj.has_previous %}
+                    <a class="btn btn-small btn-secondary" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                {% endif %}
+                <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                {% if page_obj.has_next %}
+                    <a class="btn btn-small btn-secondary" href="?page={{ page_obj.next_page_number }}">Next</a>
+                {% endif %}
+            </nav>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

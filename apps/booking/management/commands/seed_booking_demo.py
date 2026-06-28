@@ -14,6 +14,8 @@ SETTING_DEFAULTS = [
     (SystemSetting.BOOKING_MIN_LEAD_MINUTES, "180", SystemSetting.ValueType.INTEGER, "Minimum lead time before a public booking."),
     (SystemSetting.BOOKING_MAX_DAYS_AHEAD, "30", SystemSetting.ValueType.INTEGER, "Maximum public booking window in days."),
     (SystemSetting.BOOKING_SLOT_INTERVAL_MINUTES, "15", SystemSetting.ValueType.INTEGER, "Public booking slot interval."),
+    (SystemSetting.BOOKING_POST_RATE_LIMIT_PER_HOUR, "10", SystemSetting.ValueType.INTEGER, "Public booking POST attempts allowed per IP per hour."),
+    (SystemSetting.BOOKING_PHONE_RATE_LIMIT_PER_DAY, "5", SystemSetting.ValueType.INTEGER, "Public booking attempts allowed per normalized phone per day."),
     (
         SystemSetting.APPOINTMENT_REMINDER_OFFSET_MINUTES,
         "180",

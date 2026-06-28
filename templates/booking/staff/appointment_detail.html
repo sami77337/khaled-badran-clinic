@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">Staff booking operations</p>
+        <h1>Appointment {{ appointment.confirmation_reference }}</h1>
+        <p>Internal appointment handling. This page is restricted to authenticated staff users.</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container staff-layout">
+        <div class="hero-actions">
+            <a class="btn btn-secondary" href="{{ staff_appointments_url }}">Back to appointments</a>
+        </div>
+
+        {% if messages %}
+            <div class="staff-messages">
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="staff-detail-grid">
+            <section class="staff-panel">
+                <h2>Appointment details</h2>
+                <dl class="detail-list">
+                    <div>
+                        <dt>Internal ID</dt>
+                        <dd>{{ appointment.id }}</dd>
+                    </div>
+                    <div>
+                        <dt>Public reference</dt>
+                        <dd>{{ appointment.confirmation_reference }}</dd>
+                    </div>
+                    <div>
+                        <dt>Public token</dt>
+                        <dd>{{ appointment.public_token }}</dd>
+                    </div>
+                    <div>
+                        <dt>Status</dt>
+                        <dd><span class="status-pill status-{{ appointment.status }}">{{ appointment.get_status_display }}</span></dd>
+                    </div>
+                    <div>
+                        <dt>Time</dt>
+                        <dd>{{ appointment.starts_at|date:"Y-m-d H:i" }} to {{ appointment.ends_at|date:"H:i" }}</dd>
+                    </div>
+                    <div>
+                        <dt>Patient</dt>
+                        <dd>{{ appointment.patient.full_name }}</dd>
+                    </div>
+                    <div>
+                        <dt>Phone</dt>
+                        <dd>{{ appointment.patient.phone_e164|default:appointment.patient.phone_raw }}</dd>
+                    </div>
+                    <div>
+                        <dt>Doctor</dt>
+                        <dd>{{ appointment.doctor.display_name_en }}</dd>
+                    </div>
+                    <div>
+                        <dt>Visit type</dt>
+                        <dd>{{ appointment.visit_type.name_en }}</dd>
+                    </div>
+                    {% if appointment.booking_note %}
+                        <div>
+                            <dt>Public booking note</dt>
+                            <dd>{{ appointment.booking_note }}</dd>
+                        </div>
+                    {% endif %}
+                </dl>
+            </section>
+
+            <section class="staff-panel">
+                <h2>Operations</h2>
+
+                {% if appointment.status == "confirmed" or appointment.status == "rescheduled" %}
+                    <form class="staff-operation-form" method="post" action="{% url 'staff_appointment_arrived' appointment.id %}">
+                        {% csrf_token %}
+                        {{ arrived_form.non_field_errors }}
+                        <div class="form-field">
+                            <label for="{{ arrived_form.note.id_for_label }}">Arrival note</label>
+                            {{ arrived_form.note }}
+                            {{ arrived_form.note.errors }}
+                        </div>
+                        <button class="btn btn-primary" type="submit">Mark arrived</button>
+                    </form>
+                {% endif %}
+
+                {% if appointment.status == "arrived" %}
+                    <form class="staff-operation-form" method="post" action="{% url 'staff_appointment_complete' appointment.id %}">
+                        {% csrf_token %}
+                        {{ complete_form.non_field_errors }}
+                        <div class="form-field">
+                            <label for="{{ complete_form.note.id_for_label }}">Completion note</label>
+                            {{ complete_form.note }}
+                            {{ complete_form.note.errors }}
+                        </div>
+                        <button class="btn btn-primary" type="submit">Mark completed</button>
+                    </form>
+                {% endif %}
+
+                {% if appointment.status == "confirmed" or appointment.status == "rescheduled" %}
+                    <form class="staff-operation-form" method="post" action="{% url 'staff_appointment_reschedule' appointment.id %}">
+                        {% csrf_token %}
+                        {{ reschedule_form.non_field_errors }}
+                        <div class="form-field">
+                            <label for="{{ reschedule_form.starts_at.id_for_label }}">New time</label>
+                            {{ reschedule_form.starts_at }}
+                            {{ reschedule_form.starts_at.errors }}
+                        </div>
+                        <div class="form-field">
+                            <label for="{{ reschedule_form.note.id_for_label }}">Reschedule note</label>
+                            {{ reschedule_form.note }}
+                            {{ reschedule_form.note.errors }}
+                        </div>
+                        <button class="btn btn-secondary" type="submit">Reschedule</button>
+                    </form>
+                {% endif %}
+
+                {% if appointment.status == "confirmed" or appointment.status == "arrived" or appointment.status == "rescheduled" %}
+                    <form class="staff-operation-form" method="post" action="{% url 'staff_appointment_cancel' appointment.id %}">
+                        {% csrf_token %}
+                        {{ cancel_form.non_field_errors }}
+                        <div class="form-field">
+                            <label for="{{ cancel_form.note.id_for_label }}">Cancellation reason</label>
+                            {{ cancel_form.note }}
+                            {{ cancel_form.note.errors }}
+                        </div>
+                        <button class="btn btn-secondary" type="submit">Cancel appointment</button>
+                    </form>
+                {% endif %}
+
+                {% if appointment.status == "confirmed" or appointment.status == "rescheduled" %}
+                    <form class="staff-operation-form" method="post" action="{% url 'staff_appointment_no_show' appointment.id %}">
+                        {% csrf_token %}
+                        {{ no_show_form.non_field_errors }}
+                        <div class="form-field">
+                            <label for="{{ no_show_form.note.id_for_label }}">No-show reason</label>
+                            {{ no_show_form.note }}
+                            {{ no_show_form.note.errors }}
+                        </div>
+                        <button class="btn btn-secondary" type="submit">Mark no-show</button>
+                    </form>
+                {% endif %}
+
+                {% if appointment.status == "completed" or appointment.status == "cancelled" or appointment.status == "no_show" %}
+                    <p class="placeholder-note">This appointment is terminal. Restore is intentionally not available in this batch.</p>
+                {% endif %}
+            </section>
+        </div>
+
+        <section class="staff-panel">
+            <h2>Status history</h2>
+            <div class="staff-table-wrap">
+                <table class="staff-table">
+                    <thead>
+                        <tr>
+                            <th>When</th>
+                            <th>Old</th>
+                            <th>New</th>
+                            <th>Changed by</th>
+                            <th>Note</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in status_history %}
+                            <tr>
+                                <td>{{ item.created_at|date:"Y-m-d H:i" }}</td>
+                                <td>{{ item.old_status|default:"created" }}</td>
+                                <td>{{ item.new_status }}</td>
+                                <td>{{ item.changed_by|default:"system/public" }}</td>
+                                <td>{{ item.note|default:"" }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="5">No status history has been recorded yet.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="staff-panel">
+            <h2>Audit events</h2>
+            <div class="staff-table-wrap">
+                <table class="staff-table">
+                    <thead>
+                        <tr>
+                            <th>When</th>
+                            <th>Action</th>
+                            <th>User</th>
+                            <th>Message</th>
+                            <th>Metadata</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for event in audit_logs %}
+                            <tr>
+                                <td>{{ event.created_at|date:"Y-m-d H:i" }}</td>
+                                <td>{{ event.get_action_display }}</td>
+                                <td>{{ event.user|default:"system/public" }}</td>
+                                <td>{{ event.message }}</td>
+                                <td><code>{{ event.metadata }}</code></td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="5">No audit events have been recorded yet.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</section>
+{% endblock %}
