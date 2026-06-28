@@ -1,0 +1,9 @@
+Do not edit main directly.
+
+Use one branch per batch.
+
+Current branch:
+feat/django-foundation
+
+Next branch after merge:
+feat/core-models-admin
