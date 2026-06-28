@@ -1,0 +1,9 @@
+Next local commands after PR review commits:
+
+cd "$env:USERPROFILE\Desktop\khaled-badran-clinic"
+git pull
+git status -sb
+python manage.py check
+python manage.py test
+
+Do not start Batch 2 until instructed.
