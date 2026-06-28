@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "partials/page_hero.html" %}
+
+<section class="section legal-page">
+    <div class="container legal-container">
+        <p class="legal-review-note">
+            {% if is_arabic %}
+                هذه السياسة مسودة تشغيلية أولية وليست نصيحة قانونية. يوصى بمراجعة قانونية قبل الإنتاج.
+            {% else %}
+                This policy is an initial operational draft, not legal advice. Legal review is recommended before production.
+            {% endif %}
+        </p>
+        <h2>{% if is_arabic %}نطاق واتساب{% else %}WhatsApp Scope{% endif %}</h2>
+        <p>
+            {% if is_arabic %}
+                واتساب قناة تواصل مبدئية وإدارية. لا توجد في هذه الدفعة رسائل واتساب فعلية أو Webhook أو إرسال آلي.
+            {% else %}
+                WhatsApp is an initial administrative communication channel. This batch has no real WhatsApp sending, webhook, or automation.
+            {% endif %}
+        </p>
+        <h2>{% if is_arabic %}المعلومات الحساسة{% else %}Sensitive Information{% endif %}</h2>
+        <p>
+            {% if is_arabic %}
+                لا ينبغي إرسال حالات طارئة أو ملفات حساسة عبر واتساب قبل اعتماد سياسة الخصوصية وتدفق العمل النهائي.
+            {% else %}
+                Emergencies and sensitive files should not be sent through WhatsApp before final privacy policy and workflow approval.
+            {% endif %}
+        </p>
+        <h2>{% if is_arabic %}الطوارئ{% else %}Emergencies{% endif %}</h2>
+        <p>{{ labels.not_emergency }}</p>
+    </div>
+</section>
+{% endblock %}

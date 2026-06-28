@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "partials/page_hero.html" %}
+
+<section class="section">
+    <div class="container booking-layout">
+        <div class="placeholder-note">
+            <h2>{% if is_arabic %}الحجز غير متاح حالياً{% else %}Booking unavailable{% endif %}</h2>
+            <p>{{ reason }}</p>
+            <p>{{ labels.not_emergency }}</p>
+            <a class="btn btn-secondary" href="{{ contact_url }}">{{ labels.contact }}</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

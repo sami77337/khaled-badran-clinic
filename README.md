@@ -54,3 +54,70 @@ Recommended order:
 7. Dashboard.
 8. Privacy/consent/deletion workflows.
 9. Tests, security hardening, and deployment preparation.
+
+## Local Development Commands
+
+Install dependencies in an activated Python environment:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Run Django checks and tests:
+
+```bash
+python manage.py check
+python manage.py test
+```
+
+Seed safe public clinic content:
+
+```bash
+python manage.py seed_public_content
+```
+
+Seed safe local booking demo setup:
+
+```bash
+python manage.py seed_booking_demo
+```
+
+Run the local development server:
+
+```bash
+python manage.py runserver
+```
+
+Useful local public pages:
+
+- Arabic home: `http://127.0.0.1:8000/`
+- Arabic doctor: `http://127.0.0.1:8000/doctor/`
+- Arabic services: `http://127.0.0.1:8000/services/`
+- Arabic contact: `http://127.0.0.1:8000/contact/`
+- Arabic booking: `http://127.0.0.1:8000/book/`
+- Arabic booking visit type: `http://127.0.0.1:8000/book/visit-type/`
+- Arabic booking slots: `http://127.0.0.1:8000/book/slots/`
+- Arabic booking confirm: `http://127.0.0.1:8000/book/confirm/`
+- Arabic booking success: `http://127.0.0.1:8000/book/success/<public-token>/`
+- English home: `http://127.0.0.1:8000/en/`
+- English doctor: `http://127.0.0.1:8000/en/doctor/`
+- English services: `http://127.0.0.1:8000/en/services/`
+- English contact: `http://127.0.0.1:8000/en/contact/`
+- English booking: `http://127.0.0.1:8000/en/book/`
+- English booking visit type: `http://127.0.0.1:8000/en/book/visit-type/`
+- English booking slots: `http://127.0.0.1:8000/en/book/slots/`
+- English booking confirm: `http://127.0.0.1:8000/en/book/confirm/`
+- English booking success: `http://127.0.0.1:8000/en/book/success/<public-token>/`
+- Legal pages: `/privacy/`, `/terms/`, `/medical-disclaimer/`, `/whatsapp-policy/`
+- SEO basics: `/robots.txt`, `/sitemap.xml`
+
+Booking safety boundaries:
+
+- Public booking creates confirmed appointments without requiring login.
+- The current public scope resolves the active doctor automatically.
+- Public success pages use non-enumerable UUID public tokens, not numeric appointment IDs.
+- Public success pages may show appointment time, doctor, visit type, patient name, and a short confirmation reference.
+- Public success pages must not show internal notes, audit logs, internal IDs, private medical data, staff-only fields, or future medical-record data.
+- No WhatsApp API sending or webhook is implemented.
+- No patient portal, uploads, online payments, or medical automation are implemented.
+- Demo seed commands do not create real patients or appointments.

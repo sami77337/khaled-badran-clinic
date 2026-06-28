@@ -1,0 +1,8 @@
+<nav class="booking-steps" aria-label="{% if is_arabic %}خطوات الحجز{% else %}Booking steps{% endif %}">
+    {% for key, label in booking_steps %}
+        <span class="booking-step {% if active_step == key %}is-active{% endif %}">
+            <span>{{ forloop.counter }}</span>
+            {{ label }}
+        </span>
+    {% endfor %}
+</nav>

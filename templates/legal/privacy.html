@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "partials/page_hero.html" %}
+
+<section class="section legal-page">
+    <div class="container legal-container">
+        <p class="legal-review-note">
+            {% if is_arabic %}
+                هذه مسودة تشغيلية أولية وليست نصيحة قانونية. يوصى بإجراء مراجعة قانونية نهائية قبل الإنتاج.
+            {% else %}
+                This is an initial operational draft, not legal advice. Final legal review is recommended before production.
+            {% endif %}
+        </p>
+        <h2>{% if is_arabic %}نطاق البيانات{% else %}Data Scope{% endif %}</h2>
+        <p>
+            {% if is_arabic %}
+                يجمع الموقع العام بيانات محدودة فقط عند اعتماد نماذج التواصل أو الحجز لاحقاً. لا تحتوي هذه الدفعة على نماذج حجز أو بوابة مريض أو رفع ملفات.
+            {% else %}
+                The public website will collect limited data only when contact or booking forms are approved later. This batch includes no booking forms, patient portal, or file uploads.
+            {% endif %}
+        </p>
+        <h2>{% if is_arabic %}الملفات الطبية{% else %}Medical Files{% endif %}</h2>
+        <p>
+            {% if is_arabic %}
+                لا يتم رفع أو نشر ملفات طبية عامة في هذه المرحلة. أي ملفات طبية مستقبلية يجب أن تحفظ في تخزين خاص وليس بروابط عامة.
+            {% else %}
+                No public medical files are uploaded or published in this stage. Future medical files must use private storage, not public links.
+            {% endif %}
+        </p>
+        <h2>{% if is_arabic %}الطوارئ{% else %}Emergencies{% endif %}</h2>
+        <p>{{ labels.not_emergency }}</p>
+    </div>
+</section>
+{% endblock %}

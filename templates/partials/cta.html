@@ -1,0 +1,13 @@
+<section class="cta-band" aria-labelledby="cta-title">
+    <div class="container cta-inner">
+        <div>
+            <p class="eyebrow">{% if is_arabic %}الخطوة التالية{% else %}Next Step{% endif %}</p>
+            <h2 id="cta-title">{% if is_arabic %}ابدأ بالتواصل مع العيادة{% else %}Start by contacting the clinic{% endif %}</h2>
+            <p>{{ labels.book_note }}</p>
+        </div>
+        <div class="cta-actions">
+            <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
+            <a class="btn btn-secondary" href="{{ whatsapp_placeholder_url }}" data-whatsapp-placeholder="true">{{ labels.whatsapp }}</a>
+        </div>
+    </div>
+</section>

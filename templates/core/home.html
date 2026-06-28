@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="home-hero">
+    <div class="container home-hero-inner">
+        <p class="eyebrow">{{ page.hero_label }}</p>
+        <h1>{{ page.headline }}</h1>
+        <p class="hero-subtitle">{{ page.subtitle }}</p>
+        <p class="bilingual-line">{% if is_arabic %}{{ clinic.name_en }}{% else %}{{ clinic.name_ar }}{% endif %}</p>
+        <div class="hero-actions">
+            <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
+            <a class="btn btn-ghost" href="{{ doctor_url }}">{{ labels.doctor }}</a>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container split-layout">
+        <div>
+            <p class="eyebrow">{% if is_arabic %}عن العيادة{% else %}About the Clinic{% endif %}</p>
+            <h2>{% if is_arabic %}تجربة طبية منظمة بتفاصيل دافئة{% else %}Organized care with a warm clinic feel{% endif %}</h2>
+        </div>
+        <div class="prose">
+            <p>
+                {% if is_arabic %}
+                    يقدم الموقع واجهة عامة ثنائية اللغة لعيادة الدكتور خالد بدران، مع تركيز على الوضوح، سهولة الوصول، وتجهيز البنية لحجز المواعيد لاحقاً دون تنفيذ الحجز في هذه المرحلة.
+                {% else %}
+                    This public foundation presents Dr. Khaled Badran Clinic in Arabic and English, focused on clarity, accessibility, and preparation for a later booking workflow without processing booking now.
+                {% endif %}
+            </p>
+            <p class="trust-note">{{ labels.not_emergency }}</p>
+        </div>
+    </div>
+</section>
+
+<section class="section section-soft">
+    <div class="container">
+        <div class="section-heading">
+            <p class="eyebrow">{{ labels.services }}</p>
+            <h2>{% if is_arabic %}خدمات بارزة{% else %}Highlighted Services{% endif %}</h2>
+        </div>
+        <div class="card-grid">
+            {% for service in service_highlights %}
+                {% include "partials/service_card.html" with service=service %}
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <div class="section-heading">
+            <p class="eyebrow">{% if is_arabic %}لماذا العيادة؟{% else %}Why This Clinic{% endif %}</p>
+            <h2>{% if is_arabic %}وضوح، خصوصية، وتجربة مريحة{% else %}Clarity, privacy, and a comfortable experience{% endif %}</h2>
+        </div>
+        <div class="feature-grid">
+            <article>
+                <h3>{% if is_arabic %}هوية ثنائية اللغة{% else %}Bilingual Access{% endif %}</h3>
+                <p>{% if is_arabic %}العربية هي التجربة الافتراضية مع دعم إنجليزي واضح.{% else %}Arabic is the default experience with clean English support.{% endif %}</p>
+            </article>
+            <article>
+                <h3>{% if is_arabic %}تصميم دافئ{% else %}Warm Premium Design{% endif %}</h3>
+                <p>{% if is_arabic %}ألوان عاجية وخشبية مع لمسة حمراء هادئة مستوحاة من العيادة.{% else %}Ivory, wood, and restrained burgundy accents inspired by the clinic direction.{% endif %}</p>
+            </article>
+            <article>
+                <h3>{% if is_arabic %}سلامة وخصوصية{% else %}Safety and Privacy{% endif %}</h3>
+                <p>{% if is_arabic %}لا تشخيص عبر الموقع، ولا بيانات مرضى حقيقية ضمن المحتوى العام.{% else %}No website diagnosis and no real patient data in public content.{% endif %}</p>
+            </article>
+        </div>
+    </div>
+</section>
+
+{% include "partials/cta.html" %}
+
+<section class="section">
+    <div class="container contact-strip">
+        <div>
+            <p class="eyebrow">{{ labels.contact }}</p>
+            <h2>{% if is_arabic %}الموقع وساعات العمل{% else %}Location and Hours{% endif %}</h2>
+            <p>{% if is_arabic %}{{ clinic.address_ar }}{% else %}{{ clinic.address_en }}{% endif %}</p>
+        </div>
+        <a class="btn btn-secondary" href="{{ contact_url }}">{{ labels.contact }}</a>
+    </div>
+</section>
+{% endblock %}

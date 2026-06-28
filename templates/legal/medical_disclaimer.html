@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "partials/page_hero.html" %}
+
+<section class="section legal-page">
+    <div class="container legal-container">
+        <p class="legal-review-note">
+            {% if is_arabic %}
+                هذه مسودة تشغيلية أولية وليست نصيحة قانونية أو طبية شخصية. يوصى بمراجعة قانونية قبل الإنتاج.
+            {% else %}
+                This is an initial operational draft, not legal advice or personal medical advice. Legal review is recommended before production.
+            {% endif %}
+        </p>
+        <h2>{% if is_arabic %}لا تشخيص عبر الموقع{% else %}No Online Diagnosis{% endif %}</h2>
+        <p>
+            {% if is_arabic %}
+                لا يقدم الموقع تشخيصاً أو علاجاً أو قراراً طبياً آلياً. أي تقييم طبي يحتاج مراجعة مباشرة من الطبيب.
+            {% else %}
+                The website does not provide diagnosis, treatment, or automated medical decisions. Medical assessment requires direct clinical review.
+            {% endif %}
+        </p>
+        <h2>{% if is_arabic %}ليس للطوارئ{% else %}Not for Emergencies{% endif %}</h2>
+        <p>{{ labels.not_emergency }}</p>
+        <h2>{% if is_arabic %}حدود المحتوى{% else %}Content Limits{% endif %}</h2>
+        <p>
+            {% if is_arabic %}
+                معلومات الخدمات والزيارة أولية وقد تتغير بعد اعتماد المحتوى الطبي والإداري النهائي.
+            {% else %}
+                Service and visit information is preliminary and may change after final medical and operational approval.
+            {% endif %}
+        </p>
+    </div>
+</section>
+{% endblock %}

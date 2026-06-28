@@ -1,0 +1,28 @@
+<article class="service-card">
+    {% if service.title %}
+        <h3>{{ service.title }}</h3>
+    {% else %}
+        <h3>{{ service.name }}</h3>
+    {% endif %}
+    {% if service.items %}
+        <ul>
+            {% for item in service.items %}
+                <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="muted">
+            {% if is_arabic %}
+                مدة تقديرية: {{ service.duration_minutes }} دقيقة
+            {% else %}
+                Estimated duration: {{ service.duration_minutes }} minutes
+            {% endif %}
+        </p>
+        {% if service.instructions %}
+            <p>{{ service.instructions }}</p>
+        {% endif %}
+        {% if service.price %}
+            <p class="service-price">{{ service.price }}</p>
+        {% endif %}
+    {% endif %}
+</article>

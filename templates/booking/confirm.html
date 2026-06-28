@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "partials/page_hero.html" %}
+
+<section class="section">
+    <div class="container booking-layout">
+        {% include "booking/partials/progress_steps.html" %}
+
+        <div class="booking-summary">
+            <div>
+                <p class="eyebrow">{% if is_arabic %}الخطوة الثالثة{% else %}Step Three{% endif %}</p>
+                <h2>{% if is_arabic %}تأكيد الموعد{% else %}Confirm appointment{% endif %}</h2>
+                <p>
+                    {% if is_arabic %}
+                        يتم إنشاء الموعد المؤكد فقط بعد إرسال هذا النموذج.
+                    {% else %}
+                        A confirmed appointment is created only after submitting this form.
+                    {% endif %}
+                </p>
+            </div>
+            <dl class="detail-list">
+                <div>
+                    <dt>{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</dt>
+                    <dd>{% if is_arabic %}{{ visit_type.name_ar }}{% else %}{{ visit_type.name_en }}{% endif %}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}الوقت{% else %}Time{% endif %}</dt>
+                    <dd>{{ slot_display|date:"Y-m-d H:i" }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <form class="booking-form" method="post" action="{{ confirm_url }}" novalidate>
+            {% csrf_token %}
+            {{ form.visit_type }}
+            {{ form.starts_at }}
+
+            {% if form.non_field_errors %}
+                <div class="form-errors" role="alert">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <div class="form-field">
+                <label for="{{ form.full_name.id_for_label }}">{{ form.full_name.label }}</label>
+                {{ form.full_name }}
+                {{ form.full_name.errors }}
+            </div>
+            <div class="form-field">
+                <label for="{{ form.phone.id_for_label }}">{{ form.phone.label }}</label>
+                {{ form.phone }}
+                {{ form.phone.errors }}
+            </div>
+            <div class="form-field form-check">
+                {{ form.same_as_phone }}
+                <label for="{{ form.same_as_phone.id_for_label }}">{{ form.same_as_phone.label }}</label>
+                {{ form.same_as_phone.errors }}
+            </div>
+            <div class="form-field">
+                <label for="{{ form.whatsapp_phone.id_for_label }}">{{ form.whatsapp_phone.label }}</label>
+                {{ form.whatsapp_phone }}
+                {{ form.whatsapp_phone.errors }}
+            </div>
+            <div class="form-field">
+                <label for="{{ form.booking_note.id_for_label }}">{{ form.booking_note.label }}</label>
+                {{ form.booking_note }}
+                {{ form.booking_note.errors }}
+            </div>
+
+            <p class="trust-note">{{ labels.not_emergency }}</p>
+            <button class="btn btn-primary" type="submit">
+                {% if is_arabic %}تأكيد الموعد{% else %}Confirm appointment{% endif %}
+            </button>
+        </form>
+    </div>
+</section>
+{% endblock %}

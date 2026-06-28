@@ -1,4 +1,5 @@
 from datetime import timedelta
+import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -35,6 +36,12 @@ class Appointment(models.Model):
         blank=True,
         related_name="appointments",
     )
+    public_token = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        db_index=True,
+    )
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField()
     status = models.CharField(
@@ -62,6 +69,10 @@ class Appointment(models.Model):
                 condition=models.Q(ends_at__gt=models.F("starts_at")),
                 name="appointment_ends_after_start",
             ),
+            models.UniqueConstraint(
+                fields=["doctor", "starts_at", "status"],
+                name="unique_appointment_doctor_start_status",
+            ),
         ]
 
     def __str__(self):
@@ -70,6 +81,10 @@ class Appointment(models.Model):
     @property
     def reminder_due_at(self):
         return self.starts_at - self.reminder_offset
+
+    @property
+    def confirmation_reference(self):
+        return str(self.public_token).split("-")[0].upper()
 
     def clean(self):
         if self.starts_at and self.ends_at and self.ends_at <= self.starts_at:

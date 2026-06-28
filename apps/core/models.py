@@ -12,6 +12,10 @@ class SystemSetting(models.Model):
         DURATION_MINUTES = "duration_minutes", "Duration in minutes"
 
     APPOINTMENT_REMINDER_OFFSET_MINUTES = "appointment_reminder_offset_minutes"
+    BOOKING_ENABLED = "booking_enabled"
+    BOOKING_MIN_LEAD_MINUTES = "booking_min_lead_minutes"
+    BOOKING_MAX_DAYS_AHEAD = "booking_max_days_ahead"
+    BOOKING_SLOT_INTERVAL_MINUTES = "booking_slot_interval_minutes"
 
     key = models.CharField(max_length=100, unique=True)
     value = models.CharField(max_length=255)

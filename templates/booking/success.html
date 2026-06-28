@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">{% if is_arabic %}تم تأكيد الموعد{% else %}Appointment Confirmed{% endif %}</p>
+        <h1>{% if is_arabic %}تم إنشاء موعدك بنجاح{% else %}Your appointment has been created{% endif %}</h1>
+        <p>{{ labels.not_emergency }}</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container booking-layout">
+        <div class="success-card">
+            <h2>{% if is_arabic %}تفاصيل الموعد{% else %}Appointment details{% endif %}</h2>
+            <p class="trust-note">
+                {% if is_arabic %}
+                    تم تأكيد موعدك. احتفظ برقم التأكيد الآمن أدناه عند التواصل مع العيادة.
+                {% else %}
+                    Your appointment is confirmed. Keep the safe confirmation reference below when contacting the clinic.
+                {% endif %}
+            </p>
+            <dl class="detail-list">
+                <div>
+                    <dt>{% if is_arabic %}رقم التأكيد{% else %}Confirmation reference{% endif %}</dt>
+                    <dd>{{ appointment.confirmation_reference }}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}المريض{% else %}Patient{% endif %}</dt>
+                    <dd>{{ appointment.patient.full_name }}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</dt>
+                    <dd>{% if is_arabic %}{{ appointment.doctor.display_name_ar }}{% else %}{{ appointment.doctor.display_name_en }}{% endif %}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</dt>
+                    <dd>{% if is_arabic %}{{ appointment.visit_type.name_ar }}{% else %}{{ appointment.visit_type.name_en }}{% endif %}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}الوقت{% else %}Time{% endif %}</dt>
+                    <dd>{{ appointment.starts_at|date:"Y-m-d H:i" }}</dd>
+                </div>
+            </dl>
+            <p class="muted">
+                {% if is_arabic %}
+                    هذه الصفحة لا تعرض ملاحظات داخلية أو سجلات طبية أو أي بيانات خاصة. في الحالات الطارئة تواصل مع خدمات الطوارئ المحلية فوراً.
+                {% else %}
+                    This page does not show internal notes, medical records, or private clinical data. For emergencies, contact local emergency services immediately.
+                {% endif %}
+            </p>
+            <div class="hero-actions">
+                <a class="btn btn-primary" href="{{ booking_home_url }}">
+                    {% if is_arabic %}حجز موعد آخر{% else %}Book another appointment{% endif %}
+                </a>
+                <a class="btn btn-secondary" href="{{ home_url }}">
+                    {% if is_arabic %}العودة للرئيسية{% else %}Back to home{% endif %}
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

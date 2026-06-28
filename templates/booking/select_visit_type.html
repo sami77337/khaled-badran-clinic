@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "partials/page_hero.html" %}
+
+<section class="section">
+    <div class="container booking-layout">
+        {% include "booking/partials/progress_steps.html" %}
+
+        <div class="section-heading">
+            <p class="eyebrow">{% if is_arabic %}الخطوة الأولى{% else %}Step One{% endif %}</p>
+            <h2>{% if is_arabic %}اختر نوع الزيارة{% else %}Choose a visit type{% endif %}</h2>
+            <p>
+                {% if is_arabic %}
+                    الموعد لا يتم إنشاؤه في هذه الخطوة. سيتم تأكيده فقط بعد اختيار الوقت وإرسال بيانات التواصل.
+                {% else %}
+                    No appointment is created on this step. It is confirmed only after choosing a time and submitting contact details.
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="service-list-grid">
+            {% for visit_type in visit_types %}
+                <article class="booking-option">
+                    <h3>{% if is_arabic %}{{ visit_type.name_ar }}{% else %}{{ visit_type.name_en }}{% endif %}</h3>
+                    <p class="muted">
+                        {% if is_arabic %}
+                            مدة تقديرية: {{ visit_type.duration_minutes }} دقيقة
+                        {% else %}
+                            Estimated duration: {{ visit_type.duration_minutes }} minutes
+                        {% endif %}
+                    </p>
+                    {% if is_arabic and visit_type.instructions_ar %}
+                        <p>{{ visit_type.instructions_ar }}</p>
+                    {% elif visit_type.instructions_en %}
+                        <p>{{ visit_type.instructions_en }}</p>
+                    {% endif %}
+                    <a class="btn btn-primary" href="{{ slots_url }}?visit_type={{ visit_type.id }}">
+                        {% if is_arabic %}عرض الأوقات المتاحة{% else %}View available times{% endif %}
+                    </a>
+                </article>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}

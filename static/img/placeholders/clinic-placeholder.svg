@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Clinic placeholder</title>
+  <desc id="desc">Clearly labeled local placeholder for clinic photography until official clinic images are added.</desc>
+  <rect width="1440" height="900" fill="#F8F7F0"/>
+  <rect x="90" y="90" width="1260" height="720" rx="18" fill="#FFFFFF" stroke="#C7B6A2" stroke-width="6"/>
+  <rect x="150" y="150" width="1140" height="120" rx="8" fill="#645A4C"/>
+  <rect x="150" y="306" width="370" height="360" rx="8" fill="#E9E2D8"/>
+  <rect x="560" y="306" width="320" height="360" rx="8" fill="#F8F7F0" stroke="#C7B6A2" stroke-width="4"/>
+  <rect x="920" y="306" width="370" height="360" rx="8" fill="#E9E2D8"/>
+  <path d="M630 486h180M720 396v180" stroke="#B75844" stroke-width="30" stroke-linecap="round"/>
+  <circle cx="1180" cy="210" r="28" fill="#B75844"/>
+  <text x="720" y="735" text-anchor="middle" font-family="Arial, sans-serif" font-size="40" font-weight="700" fill="#332C29">Clinic image placeholder</text>
+  <text x="720" y="785" text-anchor="middle" font-family="Tahoma, Arial, sans-serif" font-size="34" fill="#6B625B">صورة مؤقتة لحين إضافة صور العيادة الرسمية</text>
+</svg>
