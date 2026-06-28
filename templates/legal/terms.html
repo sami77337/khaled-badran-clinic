@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "partials/page_hero.html" %}
+
+<section class="section legal-page">
+    <div class="container legal-container">
+        <p class="legal-review-note">
+            {% if is_arabic %}
+                هذه الشروط مسودة تشغيلية أولية وليست نصيحة قانونية. يوصى بمراجعة قانونية قبل الإنتاج.
+            {% else %}
+                These terms are an initial operational draft, not legal advice. Legal review is recommended before production.
+            {% endif %}
+        </p>
+        <h2>{% if is_arabic %}استخدام الموقع{% else %}Website Use{% endif %}</h2>
+        <p>
+            {% if is_arabic %}
+                يستخدم الموقع للتعريف بالعيادة والخدمات وبيانات التواصل. لا ينشئ الضغط على أزرار الحجز أو واتساب حجزاً فعلياً في هذه الدفعة.
+            {% else %}
+                The website presents the clinic, services, and contact details. Booking and WhatsApp buttons do not create a real booking in this batch.
+            {% endif %}
+        </p>
+        <h2>{% if is_arabic %}المحتوى الطبي{% else %}Medical Content{% endif %}</h2>
+        <p>
+            {% if is_arabic %}
+                المحتوى للتوعية العامة والتعريف فقط، ولا يعتبر تشخيصاً أو خطة علاج.
+            {% else %}
+                Content is for general information and presentation only. It is not a diagnosis or treatment plan.
+            {% endif %}
+        </p>
+        <h2>{% if is_arabic %}التغييرات{% else %}Changes{% endif %}</h2>
+        <p>
+            {% if is_arabic %}
+                يمكن تحديث هذه الشروط بعد اعتماد الحجز، بوابة المريض، واتساب، وسياسات الخصوصية النهائية.
+            {% else %}
+                These terms may be updated after booking, patient portal, WhatsApp, and final privacy workflows are approved.
+            {% endif %}
+        </p>
+    </div>
+</section>
+{% endblock %}

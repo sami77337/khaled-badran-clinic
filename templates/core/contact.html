@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+{% include "partials/page_hero.html" %}
+
+<section class="section">
+    <div class="container contact-grid">
+        <div class="contact-panel">
+            <p class="eyebrow">{{ labels.contact }}</p>
+            <h2>{% if is_arabic %}بيانات التواصل{% else %}Contact Details{% endif %}</h2>
+            <dl class="detail-list">
+                <div>
+                    <dt>{% if is_arabic %}الهاتف{% else %}Phone{% endif %}</dt>
+                    <dd>{{ clinic.phone_raw }}</dd>
+                </div>
+                <div id="whatsapp-placeholder">
+                    <dt>{% if is_arabic %}واتساب{% else %}WhatsApp{% endif %}</dt>
+                    <dd>{{ labels.whatsapp_note }}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}العنوان{% else %}Address{% endif %}</dt>
+                    <dd>{% if is_arabic %}{{ clinic.address_ar }}{% else %}{{ clinic.address_en }}{% endif %}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}ساعات العمل{% else %}Clinic Hours{% endif %}</dt>
+                    <dd>{% if is_arabic %}تضاف بعد اعتماد جدول الدوام.{% else %}To be added after schedule approval.{% endif %}</dd>
+                </div>
+            </dl>
+            <div id="booking-placeholder" class="placeholder-note">
+                <strong>{{ labels.book }}</strong>
+                <p>{{ labels.book_note }}</p>
+                <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
+            </div>
+        </div>
+        <div class="map-panel">
+            <img src="{% static 'img/placeholders/map-placeholder.svg' %}" alt="{% if is_arabic %}خريطة مؤقتة لحين إضافة موقع العيادة الرسمي{% else %}Map placeholder until the official clinic location is added{% endif %}">
+        </div>
+    </div>
+</section>
+
+<section class="section section-soft">
+    <div class="container safety-panel">
+        <p class="eyebrow">{% if is_arabic %}تنبيه طوارئ{% else %}Emergency Notice{% endif %}</p>
+        <h2>{% if is_arabic %}هذا الموقع ليس للطوارئ{% else %}This website is not for emergencies{% endif %}</h2>
+        <p>{{ labels.not_emergency }}</p>
+    </div>
+</section>
+
+{% include "partials/cta.html" %}
+{% endblock %}

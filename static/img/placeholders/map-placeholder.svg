@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="720" viewBox="0 0 960 720" role="img" aria-labelledby="title desc">
+  <title id="title">Map placeholder</title>
+  <desc id="desc">Clearly labeled local placeholder for the clinic map until the official location is added.</desc>
+  <rect width="960" height="720" fill="#F8F7F0"/>
+  <rect x="48" y="48" width="864" height="624" rx="16" fill="#FFFFFF" stroke="#C7B6A2" stroke-width="4"/>
+  <path d="M130 188c160 34 250 0 360-40 104-38 210-72 340-32v430c-130-40-236-6-340 32-110 40-200 74-360 40V188Z" fill="#E9E2D8"/>
+  <path d="M300 180v430M530 150v430M730 126v430" stroke="#FFFFFF" stroke-width="16"/>
+  <path d="M180 340h660M150 500h660" stroke="#FFFFFF" stroke-width="16"/>
+  <path d="M480 260c-52 0-94 42-94 94 0 72 94 172 94 172s94-100 94-172c0-52-42-94-94-94Z" fill="#B75844"/>
+  <circle cx="480" cy="354" r="34" fill="#FFFFFF"/>
+  <text x="480" y="620" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#332C29">Map placeholder</text>
+  <text x="480" y="658" text-anchor="middle" font-family="Tahoma, Arial, sans-serif" font-size="28" fill="#6B625B">خريطة مؤقتة لحين اعتماد الموقع الرسمي</text>
+</svg>

@@ -14,9 +14,11 @@ class AppointmentAdmin(admin.ModelAdmin):
         "status",
         "reminder_offset",
         "reminder_enabled",
+        "patient_phone",
     )
     list_filter = ("status", "doctor", "visit_type", "reminder_enabled", "starts_at")
     search_fields = (
+        "=public_token",
         "patient__full_name",
         "patient__phone_raw",
         "patient__phone_e164",
@@ -26,11 +28,17 @@ class AppointmentAdmin(admin.ModelAdmin):
         "visit_type__name_ar",
     )
     autocomplete_fields = ("doctor", "patient", "visit_type")
-    readonly_fields = ("created_at", "updated_at", "reminder_due_at_display")
+    readonly_fields = ("public_token", "created_at", "updated_at", "reminder_due_at_display")
+    date_hierarchy = "starts_at"
+    list_select_related = ("doctor", "patient", "visit_type")
 
     @admin.display(description="Reminder due at")
     def reminder_due_at_display(self, obj):
         return obj.reminder_due_at
+
+    @admin.display(description="Patient phone")
+    def patient_phone(self, obj):
+        return obj.patient.phone_e164 or obj.patient.phone_raw
 
 
 @admin.register(AppointmentStatusHistory)
@@ -46,3 +54,4 @@ class AppointmentStatusHistoryAdmin(admin.ModelAdmin):
     )
     autocomplete_fields = ("appointment", "changed_by")
     readonly_fields = ("created_at",)
+    list_select_related = ("appointment", "appointment__patient", "changed_by")

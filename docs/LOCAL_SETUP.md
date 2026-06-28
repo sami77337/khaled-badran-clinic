@@ -39,3 +39,37 @@ Read README.md and all docs. Inspect the repository. Do not modify files yet. Re
 - Use `.env.example` as a template only.
 - Do not add real WhatsApp credentials.
 - Do not add real patient data.
+
+## Current Local Commands
+
+Run checks and tests:
+
+```bash
+python manage.py check
+python manage.py test
+```
+
+Seed safe public content and booking demo setup:
+
+```bash
+python manage.py seed_public_content
+python manage.py seed_booking_demo
+```
+
+Run the server:
+
+```bash
+python manage.py runserver
+```
+
+Booking URLs:
+
+- Arabic: `/book/`, `/book/visit-type/`, `/book/slots/`, `/book/confirm/`
+- English: `/en/book/`, `/en/book/visit-type/`, `/en/book/slots/`, `/en/book/confirm/`
+
+Safety boundaries:
+
+- Do not add real patient data.
+- Do not add WhatsApp credentials.
+- Do not expose private medical data.
+- Booking demo setup creates schedules/settings only, not appointments.

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "partials/page_hero.html" %}
+
+<section class="section">
+    <div class="container booking-layout">
+        {% include "booking/partials/progress_steps.html" %}
+
+        <div class="section-heading">
+            <p class="eyebrow">{% if is_arabic %}الخطوة الثانية{% else %}Step Two{% endif %}</p>
+            <h2>{% if is_arabic %}اختر الوقت المتاح{% else %}Choose an available time{% endif %}</h2>
+            <p>
+                {% if is_arabic %}
+                    نوع الزيارة: {{ visit_type.name_ar }}. يتم التحقق من الوقت مرة أخرى عند التأكيد.
+                {% else %}
+                    Visit type: {{ visit_type.name_en }}. The time is checked again on confirmation.
+                {% endif %}
+            </p>
+        </div>
+
+        {% if grouped_slots %}
+            <div class="slot-day-list">
+                {% for group in grouped_slots %}
+                    <section class="slot-day">
+                        <h3>{{ group.date }}</h3>
+                        <div class="slot-grid">
+                            {% for slot in group.slots %}
+                                <a class="slot-button" href="{{ confirm_url }}?visit_type={{ visit_type.id }}&starts_at={{ slot.value|urlencode }}">
+                                    {{ slot.local_time|time:"H:i" }}
+                                </a>
+                            {% endfor %}
+                        </div>
+                    </section>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="placeholder-note">
+                <h3>{% if is_arabic %}لا توجد أوقات متاحة{% else %}No available times{% endif %}</h3>
+                <p>
+                    {% if is_arabic %}
+                        جرّب نوع زيارة آخر أو تواصل مع العيادة. لا يتم إنشاء أي موعد من هذه الصفحة.
+                    {% else %}
+                        Try another visit type or contact the clinic. No appointment is created from this page.
+                    {% endif %}
+                </p>
+                <a class="btn btn-secondary" href="{{ visit_type_url }}">
+                    {% if is_arabic %}تغيير نوع الزيارة{% else %}Change visit type{% endif %}
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

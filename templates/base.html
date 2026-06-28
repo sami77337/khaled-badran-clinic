@@ -1,11 +1,30 @@
+{% load static %}
 <!doctype html>
-<html lang="ar" dir="rtl">
+<html lang="{{ language|default:'ar' }}" dir="{{ direction|default:'rtl' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Dr. Khaled Badran Clinic{% endblock %}</title>
+    <title>{% block title %}{{ page_title|default:"Dr. Khaled Badran Clinic" }}{% endblock %}</title>
+    <meta name="description" content="{{ meta_description|default:'Dr. Khaled Badran Clinic public website.' }}">
+    <meta name="theme-color" content="#F8F7F0">
+    <link rel="canonical" href="{{ canonical_url }}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{ page_title|default:'Dr. Khaled Badran Clinic' }}">
+    <meta property="og:description" content="{{ meta_description|default:'Dr. Khaled Badran Clinic public website.' }}">
+    <meta property="og:image" content="{{ og_image_url }}">
+    <meta property="og:locale" content="{% if is_arabic %}ar_JO{% else %}en_US{% endif %}">
+    <link rel="manifest" href="{% static 'site.webmanifest' %}">
+    <link rel="icon" href="{% static 'img/icons/site-icon.svg' %}" type="image/svg+xml">
+    <link rel="stylesheet" href="{% static 'css/site.css' %}">
+    {% block extra_head %}{% endblock %}
 </head>
-<body>
-    {% block content %}{% endblock %}
+<body class="site-shell page-{{ page_key }} {% if is_arabic %}is-rtl{% else %}is-ltr{% endif %}">
+    <a class="skip-link" href="#main-content">{% if is_arabic %}تجاوز إلى المحتوى{% else %}Skip to content{% endif %}</a>
+    {% include "partials/header.html" %}
+    <main id="main-content">
+        {% block content %}{% endblock %}
+    </main>
+    {% include "partials/footer.html" %}
+    <script src="{% static 'js/site.js' %}" defer></script>
 </body>
 </html>

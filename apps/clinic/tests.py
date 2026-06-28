@@ -1,9 +1,14 @@
 
 from decimal import Decimal
+from io import StringIO
 
+from django.core.management import call_command
 from django.test import TestCase
 
-from .models import Doctor, VisitType
+from apps.booking.models import Appointment
+from apps.patients.models import Patient
+
+from .models import ClinicProfile, Doctor, VisitType
 
 
 class VisitTypeModelTests(TestCase):
@@ -54,3 +59,46 @@ class DoctorModelTests(TestCase):
 
         self.assertEqual(doctor.display_name_ar, "د. خالد حسان بدران")
         self.assertEqual(doctor.display_name_en, "Dr. Khaled Hassan Badran")
+
+
+class SeedPublicContentCommandTests(TestCase):
+    def call_seed(self):
+        output = StringIO()
+        call_command("seed_public_content", stdout=output)
+        return output.getvalue()
+
+    def test_seed_command_creates_public_content(self):
+        output = self.call_seed()
+
+        self.assertIn("Seeded public content", output)
+        self.assertEqual(ClinicProfile.objects.count(), 1)
+        self.assertEqual(Doctor.objects.count(), 1)
+        self.assertEqual(VisitType.objects.count(), 9)
+        self.assertTrue(
+            ClinicProfile.objects.filter(
+                official_name_ar="عيادة الدكتور خالد بدران",
+                official_name_en="Dr. Khaled Badran Clinic",
+            ).exists()
+        )
+        self.assertTrue(
+            VisitType.objects.filter(
+                name_ar="كشف جديد",
+                name_en="New consultation",
+                price__isnull=True,
+                show_price_to_patient=False,
+            ).exists()
+        )
+
+    def test_seed_command_is_idempotent(self):
+        self.call_seed()
+        self.call_seed()
+
+        self.assertEqual(ClinicProfile.objects.count(), 1)
+        self.assertEqual(Doctor.objects.count(), 1)
+        self.assertEqual(VisitType.objects.count(), 9)
+
+    def test_seed_command_does_not_create_patient_or_appointment_records(self):
+        self.call_seed()
+
+        self.assertEqual(Patient.objects.count(), 0)
+        self.assertEqual(Appointment.objects.count(), 0)

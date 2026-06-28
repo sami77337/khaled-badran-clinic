@@ -1,0 +1,26 @@
+<footer class="site-footer">
+    <div class="container footer-grid">
+        <div>
+            <p class="footer-brand">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</p>
+            <p class="muted">
+                {% if is_arabic %}
+                    موقع تعريفي أولي لعيادة الدكتور خالد بدران. تفاصيل الحجز والواتساب ستضاف لاحقاً ضمن نطاق مضبوط.
+                {% else %}
+                    Initial public website for Dr. Khaled Badran Clinic. Booking and WhatsApp workflows will be added later in bounded batches.
+                {% endif %}
+            </p>
+        </div>
+        <div>
+            <h2 class="footer-heading">{% if is_arabic %}روابط{% else %}Links{% endif %}</h2>
+            <ul class="footer-links">
+                {% for label, url in legal_links %}
+                    <li><a href="{{ url }}">{{ label }}</a></li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div>
+            <h2 class="footer-heading">{% if is_arabic %}تنبيه سلامة{% else %}Safety Note{% endif %}</h2>
+            <p class="muted">{{ labels.not_emergency }}</p>
+        </div>
+    </div>
+</footer>
