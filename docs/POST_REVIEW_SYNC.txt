@@ -1,0 +1,8 @@
+Post review sync
+
+The local branch must pull remote changes before the next local batch.
+
+Commands:
+git pull
+python manage.py check
+python manage.py test
