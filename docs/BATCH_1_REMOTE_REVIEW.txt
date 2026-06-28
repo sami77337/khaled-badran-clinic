@@ -1,0 +1,5 @@
+Remote review note
+
+After the local Batch 1 commit, additional documentation-only review notes were added remotely on the same branch.
+
+Local developer must run git pull before any next Codex work.
