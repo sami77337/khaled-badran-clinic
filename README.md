@@ -108,6 +108,8 @@ Useful local public pages:
 - English booking slots: `http://127.0.0.1:8000/en/book/slots/`
 - English booking confirm: `http://127.0.0.1:8000/en/book/confirm/`
 - English booking success: `http://127.0.0.1:8000/en/book/success/<public-token>/`
+- Staff appointment list: `http://127.0.0.1:8000/staff/appointments/`
+- Staff appointment detail: `http://127.0.0.1:8000/staff/appointments/<appointment-id>/`
 - Legal pages: `/privacy/`, `/terms/`, `/medical-disclaimer/`, `/whatsapp-policy/`
 - SEO basics: `/robots.txt`, `/sitemap.xml`
 
@@ -118,6 +120,71 @@ Booking safety boundaries:
 - Public success pages use non-enumerable UUID public tokens, not numeric appointment IDs.
 - Public success pages may show appointment time, doctor, visit type, patient name, and a short confirmation reference.
 - Public success pages must not show internal notes, audit logs, internal IDs, private medical data, staff-only fields, or future medical-record data.
+- Staff appointment pages require an authenticated active user with `is_staff=True`.
+- Anonymous users are redirected to the admin login before staff appointment pages load.
+- Authenticated non-staff users receive 403 for staff appointment pages and staff operations.
+- Staff appointment operations are intentionally bounded to booking list/detail, cancel, reschedule, arrived, complete, and no-show workflows.
+- Staff operations use internal numeric appointment IDs only behind staff-only authorization; public appointment confirmation remains UUID token based.
+- Rescheduled appointments keep the same database row and `public_token`; the appointment status becomes `rescheduled`, which is treated as an active operational status.
+- Terminal booking statuses are `completed`, `cancelled`, and `no_show`; restore/undo is intentionally not implemented until a reviewed correction workflow exists.
+- Public booking POSTs have lightweight Django-cache rate limiting by IP and normalized phone hash.
 - No WhatsApp API sending or webhook is implemented.
 - No patient portal, uploads, online payments, or medical automation are implemented.
 - Demo seed commands do not create real patients or appointments.
+
+## Staff Booking Operations
+
+Staff booking operations added in Batch 5:
+
+- `GET /staff/appointments/` lists appointments with filters for status, range, doctor, visit type, date range, and patient name/phone search.
+- `GET /staff/appointments/<appointment-id>/` shows staff-only appointment detail, status history, audit events, and operation forms.
+- `POST /staff/appointments/<appointment-id>/cancel/` cancels a confirmed, arrived, or rescheduled appointment. A cancellation note is required.
+- `POST /staff/appointments/<appointment-id>/reschedule/` moves a confirmed or rescheduled appointment to a validated available slot. The same `public_token` is preserved.
+- `POST /staff/appointments/<appointment-id>/arrived/` marks a confirmed or rescheduled appointment as arrived.
+- `POST /staff/appointments/<appointment-id>/complete/` marks an arrived appointment as completed.
+- `POST /staff/appointments/<appointment-id>/no-show/` marks a confirmed or rescheduled appointment as no-show. A no-show note is required.
+
+Audit policy:
+
+- Public booking creation writes an `AuditLog` entry and initial `AppointmentStatusHistory`.
+- Staff cancel/reschedule/arrived/complete/no-show operations write `AppointmentStatusHistory` and `AuditLog` entries.
+- Audit metadata stores operational identifiers and short operational notes only: internal appointment ID, public token, old/new status, old/new start times, actor user ID, and a trimmed operation note.
+- Audit logs and status history are visible on staff detail pages only.
+
+Rate limiting:
+
+- `booking_post_rate_limit_per_hour` defaults to `10` public booking POST attempts per IP per hour.
+- `booking_phone_rate_limit_per_day` defaults to `5` public booking attempts per normalized phone per day.
+- Public booking IP rate limits trust `REMOTE_ADDR` by default.
+- `X-Forwarded-For` is ignored unless `BOOKING_TRUST_X_FORWARDED_FOR=True` is explicitly set in Django settings.
+- In production, enable `BOOKING_TRUST_X_FORWARDED_FOR` only when Django is behind a trusted reverse proxy that strips untrusted incoming `X-Forwarded-For` headers.
+- Cache keys hash IP/phone identities and do not store raw phone numbers in cache keys.
+- Staff operations are not rate limited by the public booking guard.
+
+Database and concurrency hardening:
+
+- `Appointment.public_token` remains the only public success lookup.
+- Appointment operations use `transaction.atomic()`.
+- Staff rescheduling revalidates schedule availability, closed days, min lead time, max days ahead, inactive doctor/visit type, exact duplicates, and overlaps.
+- Duplicate exact active slots are protected by a conditional unique constraint on `doctor + starts_at` for active statuses: `confirmed`, `arrived`, and `rescheduled`.
+- Useful appointment operation indexes include `doctor + starts_at`, `doctor + status + starts_at`, `status + starts_at`, `patient + starts_at`, `starts_at`, and the unique/indexed `public_token`.
+
+## Production Hardening Checklist
+
+- HTTPS and HSTS configured at the edge and in Django production settings.
+- Secure cookies enabled: `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, and appropriate SameSite settings.
+- CSRF trusted origins configured for production domains.
+- `ALLOWED_HOSTS` locked to production domains.
+- PostgreSQL used for production with tested migrations.
+- Database connection pooling planned and tested.
+- Shared production cache backend configured for rate limiting.
+- `BOOKING_TRUST_X_FORWARDED_FOR` left disabled unless a trusted reverse proxy strips untrusted incoming `X-Forwarded-For`.
+- Backup and restore policy documented and tested.
+- Structured application logging enabled.
+- Monitoring and uptime checks configured.
+- Error reporting configured without leaking patient data.
+- Static files served through a production static pipeline or CDN.
+- Media/private storage designed before uploads are implemented.
+- Audit retention and access review policy defined.
+- Data protection and legal review completed before launch.
+- Load testing completed before launch.

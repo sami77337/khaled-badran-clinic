@@ -61,8 +61,10 @@ class Appointment(models.Model):
         ordering = ["starts_at"]
         indexes = [
             models.Index(fields=["doctor", "starts_at"]),
+            models.Index(fields=["doctor", "status", "starts_at"]),
             models.Index(fields=["patient", "starts_at"]),
             models.Index(fields=["status", "starts_at"]),
+            models.Index(fields=["starts_at"]),
         ]
         constraints = [
             models.CheckConstraint(
@@ -72,6 +74,17 @@ class Appointment(models.Model):
             models.UniqueConstraint(
                 fields=["doctor", "starts_at", "status"],
                 name="unique_appointment_doctor_start_status",
+            ),
+            models.UniqueConstraint(
+                fields=["doctor", "starts_at"],
+                condition=models.Q(
+                    status__in=[
+                        "confirmed",
+                        "arrived",
+                        "rescheduled",
+                    ]
+                ),
+                name="unique_active_appointment_doctor_start",
             ),
         ]
 

@@ -75,6 +75,37 @@ urlpatterns = [
         {"language": "en"},
         name="booking_success_en",
     ),
+    path("staff/appointments/", booking_views.staff_appointment_list, name="staff_appointment_list"),
+    path(
+        "staff/appointments/<int:appointment_id>/",
+        booking_views.staff_appointment_detail,
+        name="staff_appointment_detail",
+    ),
+    path(
+        "staff/appointments/<int:appointment_id>/cancel/",
+        booking_views.staff_appointment_cancel,
+        name="staff_appointment_cancel",
+    ),
+    path(
+        "staff/appointments/<int:appointment_id>/reschedule/",
+        booking_views.staff_appointment_reschedule,
+        name="staff_appointment_reschedule",
+    ),
+    path(
+        "staff/appointments/<int:appointment_id>/arrived/",
+        booking_views.staff_appointment_arrived,
+        name="staff_appointment_arrived",
+    ),
+    path(
+        "staff/appointments/<int:appointment_id>/complete/",
+        booking_views.staff_appointment_complete,
+        name="staff_appointment_complete",
+    ),
+    path(
+        "staff/appointments/<int:appointment_id>/no-show/",
+        booking_views.staff_appointment_no_show,
+        name="staff_appointment_no_show",
+    ),
     path("en/privacy/", views.privacy, {"language": "en"}, name="privacy_en"),
     path("en/terms/", views.terms, {"language": "en"}, name="terms_en"),
     path(

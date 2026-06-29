@@ -606,6 +606,106 @@ ul {
     max-width: 760px;
 }
 
+.staff-layout {
+    display: grid;
+    gap: 1.2rem;
+}
+
+.staff-filter-panel,
+.staff-panel,
+.staff-table-wrap,
+.staff-messages {
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius);
+    background: var(--color-white);
+    padding: 1rem;
+    box-shadow: 0 8px 22px rgba(51, 44, 41, 0.05);
+}
+
+.staff-filter-panel {
+    display: grid;
+    gap: 0.9rem;
+}
+
+.staff-filter-actions,
+.staff-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.staff-table-wrap {
+    overflow-x: auto;
+    padding: 0;
+}
+
+.staff-table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: collapse;
+}
+
+.staff-table th,
+.staff-table td {
+    border-bottom: 1px solid var(--color-line);
+    padding: 0.75rem;
+    text-align: start;
+    vertical-align: top;
+}
+
+.staff-table th {
+    color: var(--color-wood);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.status-pill {
+    display: inline-flex;
+    min-height: 30px;
+    align-items: center;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius);
+    background: var(--color-ivory);
+    padding: 0.25rem 0.55rem;
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.status-confirmed,
+.status-rescheduled,
+.status-arrived {
+    border-color: rgba(183, 88, 68, 0.35);
+    color: var(--color-burgundy);
+}
+
+.status-completed {
+    border-color: rgba(100, 90, 76, 0.35);
+    color: var(--color-wood);
+}
+
+.status-cancelled,
+.status-no_show {
+    color: var(--color-muted);
+}
+
+.staff-detail-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.staff-operation-form {
+    display: grid;
+    gap: 0.75rem;
+    border-top: 1px solid var(--color-line);
+    padding-top: 1rem;
+}
+
+.staff-operation-form:first-of-type {
+    border-top: 0;
+    padding-top: 0;
+}
+
 .site-footer {
     border-top: 1px solid var(--color-line);
     background: var(--color-white);
@@ -692,6 +792,18 @@ ul {
 
     .booking-summary {
         grid-template-columns: 1fr 1fr;
+    }
+
+    .staff-filter-panel {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .staff-filter-actions {
+        align-self: end;
+    }
+
+    .staff-detail-grid {
+        grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
     }
 
     .contact-strip,

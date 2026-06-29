@@ -2,16 +2,17 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from apps.booking.models import Appointment
+from apps.booking.audit import create_appointment_audit
+from apps.booking.models import Appointment, AppointmentStatusHistory
 from apps.booking.phone import normalize_phone
 from apps.booking.selectors import get_active_doctor, get_active_visit_type, get_active_visit_types
 from apps.clinic.models import ClosedDay, DoctorSchedule
-from apps.core.models import SystemSetting
+from apps.core.models import AuditLog, SystemSetting
 from apps.patients.models import Patient
 
 
@@ -21,12 +22,12 @@ DEFAULT_BOOKING_MAX_DAYS_AHEAD = 30
 DEFAULT_BOOKING_SLOT_INTERVAL_MINUTES = 15
 DEFAULT_APPOINTMENT_REMINDER_OFFSET_MINUTES = 180
 
-BLOCKING_APPOINTMENT_STATUSES = [
+ACTIVE_APPOINTMENT_STATUSES = [
     Appointment.Status.CONFIRMED,
     Appointment.Status.ARRIVED,
-    Appointment.Status.COMPLETED,
-    Appointment.Status.NO_SHOW,
+    Appointment.Status.RESCHEDULED,
 ]
+BLOCKING_APPOINTMENT_STATUSES = ACTIVE_APPOINTMENT_STATUSES
 
 
 @dataclass(frozen=True)
@@ -56,43 +57,71 @@ class BookingSlot:
         return timezone.localtime(self.starts_at).time()
 
 
-def get_bool_setting(key, default):
+def _get_setting_value(key):
     setting = SystemSetting.objects.filter(key=key).first()
     if setting is None:
+        return None
+    return setting.value
+
+
+def get_boolean_setting(key, default):
+    value = _get_setting_value(key)
+    if value is None:
         return default
-    return setting.value.strip().lower() in {"1", "true", "yes", "on"}
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
+def get_integer_setting(key, default, minimum=0, maximum=None):
+    value = _get_setting_value(key)
+    if value is None:
+        return default
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    if parsed < minimum:
+        return default
+    if maximum is not None and parsed > maximum:
+        return maximum
+    return parsed
+
+
+def get_duration_setting(key, default_minutes, minimum=0):
+    return timedelta(minutes=get_integer_setting(key, default_minutes, minimum=minimum))
+
+
+def get_bool_setting(key, default):
+    return get_boolean_setting(key, default)
 
 
 def get_int_setting(key, default, minimum=0):
-    setting = SystemSetting.objects.filter(key=key).first()
-    if setting is None:
-        return default
-    try:
-        value = int(setting.value)
-    except (TypeError, ValueError):
-        return default
-    return max(value, minimum)
+    return get_integer_setting(key, default, minimum=minimum)
 
 
 def get_booking_settings():
     return BookingSettings(
-        enabled=get_bool_setting(SystemSetting.BOOKING_ENABLED, DEFAULT_BOOKING_ENABLED),
-        min_lead_minutes=get_int_setting(
+        enabled=get_boolean_setting(SystemSetting.BOOKING_ENABLED, DEFAULT_BOOKING_ENABLED),
+        min_lead_minutes=get_integer_setting(
             SystemSetting.BOOKING_MIN_LEAD_MINUTES,
             DEFAULT_BOOKING_MIN_LEAD_MINUTES,
             minimum=0,
         ),
-        max_days_ahead=get_int_setting(
+        max_days_ahead=get_integer_setting(
             SystemSetting.BOOKING_MAX_DAYS_AHEAD,
             DEFAULT_BOOKING_MAX_DAYS_AHEAD,
             minimum=1,
         ),
-        slot_interval_minutes=get_int_setting(
+        slot_interval_minutes=get_integer_setting(
             SystemSetting.BOOKING_SLOT_INTERVAL_MINUTES,
             DEFAULT_BOOKING_SLOT_INTERVAL_MINUTES,
             minimum=1,
         ),
-        reminder_offset_minutes=get_int_setting(
+        reminder_offset_minutes=get_integer_setting(
             SystemSetting.APPOINTMENT_REMINDER_OFFSET_MINUTES,
             DEFAULT_APPOINTMENT_REMINDER_OFFSET_MINUTES,
             minimum=0,
@@ -119,18 +148,43 @@ def is_closed_day(doctor, day):
     ).exists()
 
 
-def overlaps_existing_appointment(doctor, starts_at, ends_at):
-    return Appointment.objects.filter(
+def overlaps_existing_appointment(doctor, starts_at, ends_at, exclude_appointment_id=None):
+    queryset = Appointment.objects.filter(
         doctor=doctor,
         status__in=BLOCKING_APPOINTMENT_STATUSES,
         starts_at__lt=ends_at,
         ends_at__gt=starts_at,
-    ).exists()
+    )
+    if exclude_appointment_id is not None:
+        queryset = queryset.exclude(id=exclude_appointment_id)
+    return queryset.exists()
 
 
 def _combine_local(day, slot_time):
     combined = datetime.combine(day, slot_time)
     return timezone.make_aware(combined, timezone.get_current_timezone())
+
+
+def _day_bounds(day):
+    starts_at = _combine_local(day, time.min)
+    return starts_at, starts_at + timedelta(days=1)
+
+
+def _blocking_intervals_for_day(doctor, day, exclude_appointment_id=None):
+    day_start, day_end = _day_bounds(day)
+    queryset = Appointment.objects.filter(
+        doctor=doctor,
+        status__in=BLOCKING_APPOINTMENT_STATUSES,
+        starts_at__lt=day_end,
+        ends_at__gt=day_start,
+    )
+    if exclude_appointment_id is not None:
+        queryset = queryset.exclude(id=exclude_appointment_id)
+    return list(queryset.values_list("starts_at", "ends_at"))
+
+
+def _slot_overlaps_intervals(starts_at, ends_at, intervals):
+    return any(existing_start < ends_at and existing_end > starts_at for existing_start, existing_end in intervals)
 
 
 def _iter_schedule_slots(schedule, day, visit_type, settings, now):
@@ -147,7 +201,14 @@ def _iter_schedule_slots(schedule, day, visit_type, settings, now):
         starts_at += interval
 
 
-def generate_available_slots(visit_type, target_date=None, now=None, settings=None, doctor=None):
+def generate_available_slots(
+    visit_type,
+    target_date=None,
+    now=None,
+    settings=None,
+    doctor=None,
+    exclude_appointment_id=None,
+):
     settings = settings or get_booking_settings()
     if not settings.enabled or visit_type is None or not visit_type.is_active:
         return []
@@ -179,16 +240,28 @@ def generate_available_slots(visit_type, target_date=None, now=None, settings=No
             weekday=day.weekday(),
             is_active=True,
         ).order_by("start_time")
+        blocking_intervals = _blocking_intervals_for_day(
+            doctor,
+            day,
+            exclude_appointment_id=exclude_appointment_id,
+        )
 
         for schedule in schedules:
             for slot in _iter_schedule_slots(schedule, day, visit_type, settings, now):
-                if not overlaps_existing_appointment(doctor, slot.starts_at, slot.ends_at):
+                if not _slot_overlaps_intervals(slot.starts_at, slot.ends_at, blocking_intervals):
                     slots.append(slot)
 
     return slots
 
 
-def is_slot_available(visit_type, starts_at, settings=None, doctor=None, now=None):
+def is_slot_available(
+    visit_type,
+    starts_at,
+    settings=None,
+    doctor=None,
+    now=None,
+    exclude_appointment_id=None,
+):
     settings = settings or get_booking_settings()
     starts_at = parse_slot_datetime(starts_at)
     slots = generate_available_slots(
@@ -197,6 +270,7 @@ def is_slot_available(visit_type, starts_at, settings=None, doctor=None, now=Non
         now=now,
         settings=settings,
         doctor=doctor,
+        exclude_appointment_id=exclude_appointment_id,
     )
     return any(slot.starts_at == starts_at for slot in slots)
 
@@ -280,7 +354,25 @@ def create_public_appointment(
         booking_note=(booking_note or "").strip(),
     )
     appointment.full_clean()
-    appointment.save()
+    try:
+        appointment.save()
+    except IntegrityError as exc:
+        raise ValidationError("This appointment time is no longer available.") from exc
+
+    AppointmentStatusHistory.objects.create(
+        appointment=appointment,
+        old_status="",
+        new_status=appointment.status,
+        note="Created through public booking.",
+    )
+    create_appointment_audit(
+        appointment=appointment,
+        action=AuditLog.Action.CREATE,
+        message="Appointment created through public booking.",
+        old_status="",
+        new_status=appointment.status,
+        new_starts_at=appointment.starts_at,
+    )
     return appointment
 
 
