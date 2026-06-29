@@ -44,6 +44,12 @@ Only Dr. Khaled Hassan Badran is in scope for the initial version. No second doc
 - `docs/DEPLOYMENT_CHECKLIST.md` - future deployment checklist; no deployment has been performed.
 - `docs/SECURITY_HARDENING.md` - Batch 6 security posture and remaining security work.
 - `docs/BATCH_6_STATUS.md` - production-readiness batch status.
+- `docs/BACKUP_RESTORE_RUNBOOK.md` - backup, restore, retention, and restore-drill expectations.
+- `docs/INCIDENT_RESPONSE_RUNBOOK.md` - incident severity, containment, recovery, and review outline.
+- `docs/RELEASE_CHECKLIST.md` - local/staging/production release validation checklist and pre-portal gates.
+- `docs/LOAD_TEST_PLAN.md` - staging-only load and concurrency test plan.
+- `docs/SECURITY_REGRESSION_CHECKLIST.md` - security regression checklist for booking, staff, proxy, and smoke gates.
+- `docs/BATCH_7_STATUS.md` - staging-readiness validation batch status.
 
 ## Development Policy
 
@@ -74,6 +80,12 @@ Run Django checks and tests:
 ```bash
 python manage.py check
 python manage.py test
+```
+
+Run the safe local deployment smoke check:
+
+```bash
+python manage.py deployment_smoke
 ```
 
 Seed safe public clinic content:
@@ -108,6 +120,8 @@ Local defaults:
 
 Production uses `config.settings.prod`.
 
+Staging should also use `config.settings.prod` unless a future reviewed staging wrapper is added. Staging must be production-like but non-public or access-restricted, with its own generated application secret, exact allowed hosts, CSRF trusted HTTPS origins, PostgreSQL, shared Redis/cache, HTTPS, no real patient data, and secure uncommitted admin credentials. Staging setup should use only `seed_public_content` and `seed_booking_demo` for clinic/public/booking demo data.
+
 Production behavior:
 
 - `DJANGO_SECRET_KEY` is required and must be environment-driven.
@@ -136,6 +150,13 @@ Health endpoints:
 - `/health/ready/` is a readiness endpoint intended for private/internal monitoring; it checks database connectivity and returns no detailed failures.
 
 This project is not deployed and is not fully launch-ready. Remaining launch work includes real hosting, TLS/proxy setup, PostgreSQL and Redis provisioning, backups and restore drills, monitoring/error reporting, legal/privacy review, static serving strategy, private media design before uploads, vulnerability scanning, and load testing. See `docs/PRODUCTION_READINESS.md` and `docs/DEPLOYMENT_CHECKLIST.md`.
+
+Deployment smoke command:
+
+- `python manage.py deployment_smoke` runs safe startup, database, migration, cache, public-content, booking-settings, health import, readiness, and public-booking safety checks.
+- `python manage.py deployment_smoke --json` emits safe machine-readable JSON.
+- `python manage.py deployment_smoke --strict` is intended for staging/production-like validation and fails on hard failures or strict staging/production blockers.
+- The command does not print application secrets, database connection strings, cache connection strings, passwords, tokens, cookies, or raw environment dumps.
 
 Useful local public pages:
 

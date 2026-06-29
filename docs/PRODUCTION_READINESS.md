@@ -14,11 +14,12 @@ Ready for future deployment planning:
 - PostgreSQL is supported through `DATABASE_URL`.
 - Redis cache is supported through `CACHE_URL` for production rate limiting.
 - Production-only Django system checks flag unsafe production configurations.
+- `python manage.py deployment_smoke` provides safe local/staging/production-like smoke validation without printing secrets.
 - Logging is configured for stdout/stderr collection without adding request body logging.
 - `/health/` provides public liveness without internals.
 - `/health/ready/` checks database connectivity and returns only `ok` or `unavailable`.
 - Booking confirmation/success and staff appointment pages are marked no-cache.
-- CI runs migrations check, Django check, and tests on SQLite.
+- CI runs migrations check, Django check, local SQLite migration for smoke validation, `deployment_smoke`, and tests on SQLite.
 
 Not production-ready until these are completed:
 
@@ -32,6 +33,18 @@ Not production-ready until these are completed:
 - Private media design is completed before uploads.
 - Load testing and concurrency testing are performed.
 - Dependency vulnerability scanning and update policy are in place.
+
+## Operational Documentation
+
+Batch 7 adds operational docs for future staging and production operators:
+
+- `docs/BACKUP_RESTORE_RUNBOOK.md` - backup, restore, retention, and restore-drill expectations.
+- `docs/INCIDENT_RESPONSE_RUNBOOK.md` - incident severity, containment, recovery, communication, and review outline.
+- `docs/RELEASE_CHECKLIST.md` - pre-merge, pre-deploy, migration, smoke, rollback, monitoring, and post-deploy checklist.
+- `docs/LOAD_TEST_PLAN.md` - staging-only public page, booking, staff list, DB concurrency, and Redis rate-limit test plan.
+- `docs/SECURITY_REGRESSION_CHECKLIST.md` - public-token, staff-only, CSRF, route, rate-limit, proxy, cookie, HSTS, secret, CI, and smoke checklist.
+
+These documents do not prove staging or production readiness by themselves. They define how a future operator should validate it.
 
 ## Settings Behavior
 
@@ -59,6 +72,80 @@ Production behavior:
 - HSTS defaults to one year with includeSubDomains and preload enabled.
 - `CSRF_TRUSTED_ORIGINS` comes from `DJANGO_CSRF_TRUSTED_ORIGINS`.
 - `SECURE_PROXY_SSL_HEADER` is set only when `DJANGO_SECURE_PROXY_SSL_HEADER_ENABLED=true`.
+
+Staging should also use `config.settings.prod` unless a future reviewed `config.settings.staging` wrapper is added. Staging must be production-like but non-public or restricted, with its own generated application secret, exact allowed hosts, CSRF trusted HTTPS origins, PostgreSQL, shared Redis/cache, HTTPS, no real patient data, and secure uncommitted admin credentials.
+
+## Deployment Smoke Command
+
+Run:
+
+```bash
+python manage.py deployment_smoke
+```
+
+The command checks:
+
+- Django startup and settings load.
+- Database connectivity.
+- Applied migration state.
+- Default cache set/get/delete reachability.
+- Active clinic profile, active doctor, and active visit types, reported as warnings if missing.
+- Booking settings load and safe summary.
+- Health and readiness endpoint import.
+- Readiness database check.
+- Production-mode flags and project production-readiness checks.
+- Public booking safety summary, including UUID public-token success lookup and staff-only numeric operations.
+
+Options:
+
+```bash
+python manage.py deployment_smoke --json
+python manage.py deployment_smoke --strict
+```
+
+Output rules:
+
+- Does not print application secret values.
+- Does not print database connection strings.
+- Does not print cache connection strings.
+- Does not print passwords, tokens, cookies, or raw environment dumps.
+- Prints only safe redacted statuses, counts, booleans, and backend categories.
+
+Local development may show warnings for DEBUG, SQLite, LocMemCache, and disabled HTTPS redirect. Those warnings mean local settings are not staging or production settings.
+
+Strict mode is for staging/production-like validation. It exits non-zero for hard failures and staging/production blockers.
+
+## Safe Command Sequences
+
+Local:
+
+```bash
+python manage.py check
+python manage.py test
+python manage.py deployment_smoke
+```
+
+Staging:
+
+```bash
+python manage.py migrate --check
+python manage.py check
+python manage.py check --deploy
+python manage.py deployment_smoke --strict
+python manage.py seed_public_content
+python manage.py seed_booking_demo
+```
+
+Run `python manage.py test` in staging only if the staging database is disposable or a separate CI clone is used.
+
+Production:
+
+```bash
+python manage.py check --deploy
+python manage.py deployment_smoke --strict
+```
+
+Production migrations require a backup and rollback plan. Do not run destructive seed commands in production unless explicitly approved.
 
 ## Database Readiness
 
@@ -239,12 +326,12 @@ If enabling client IP extraction from `X-Forwarded-For`:
 
 ## Recommended Next Batch
 
-Before patient portal, uploads, WhatsApp, or records, the next batch should validate deployment infrastructure assumptions in a staging-like environment:
+Before patient portal, uploads, WhatsApp, or records, the next batch should use the Batch 7 tooling against real staging infrastructure:
 
-- Exercise production settings with placeholder staging secrets.
-- Provision PostgreSQL and Redis in staging.
-- Run migrations and seed commands in staging.
-- Verify reverse proxy headers.
-- Verify `/health/` and `/health/ready/` behavior through the proxy.
-- Add vulnerability/dependency scanning.
-- Draft incident response and backup restore runbooks.
+- Provision restricted staging with PostgreSQL and Redis.
+- Exercise `config.settings.prod` with staging-only generated secrets.
+- Run `check --deploy` and `deployment_smoke --strict` in staging.
+- Verify reverse proxy headers and HTTPS behavior through the real staging proxy.
+- Verify `/health/` and `/health/ready/` through the proxy.
+- Complete a restore drill with synthetic data.
+- Add dependency/security scanning if approved.

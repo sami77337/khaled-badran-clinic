@@ -11,6 +11,7 @@ This checklist is for a future deployment engineer. Batch 6 does not deploy anyt
 - Run `python manage.py check`.
 - Run `python manage.py test`.
 - Review `python manage.py check --deploy` output under the intended production settings.
+- Run `python manage.py deployment_smoke --strict` in the intended staging/production-like settings.
 - Confirm dependency installation from `requirements.txt`.
 - Run dependency vulnerability scanning.
 - Confirm legal/privacy review status before public launch.
@@ -164,6 +165,7 @@ This checklist is for a future deployment engineer. Batch 6 does not deploy anyt
 - Run vulnerability scan.
 - Run dependency update review.
 - Review Django security settings with `check --deploy`.
+- Run deployment smoke with `python manage.py deployment_smoke --strict`.
 - Review admin exposure and rate limits.
 
 ## Incident Response

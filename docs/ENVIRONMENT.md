@@ -3,11 +3,86 @@
 This project uses split Django settings:
 
 - Local development: `DJANGO_SETTINGS_MODULE=config.settings.dev`
+- Staging: `DJANGO_SETTINGS_MODULE=config.settings.prod`
 - Production: `DJANGO_SETTINGS_MODULE=config.settings.prod`
 
 Local development remains simple. If `DATABASE_URL` and `CACHE_URL` are empty, the app uses SQLite and Django LocMemCache. Production must be explicit and should use PostgreSQL and a shared cache.
 
 Do not commit `.env`, real secrets, database passwords, WhatsApp credentials, patient data, logs, or private media.
+
+## Environment Profiles
+
+### Local Development
+
+Local development uses `config.settings.dev` by default through `manage.py`.
+
+Expected local behavior:
+
+- `DJANGO_DEBUG` defaults to true.
+- Empty `DATABASE_URL` uses SQLite at `db.sqlite3`.
+- Empty `CACHE_URL` uses Django LocMemCache.
+- HTTPS redirect, HSTS, and secure cookies are disabled for local simplicity.
+- `BOOKING_TRUST_X_FORWARDED_FOR` defaults to false.
+- `python manage.py deployment_smoke` may warn about local-only SQLite, LocMemCache, DEBUG, and disabled HTTPS redirect.
+
+Local development must not be treated as staging or production validation.
+
+### Staging
+
+Staging must be production-like but non-public or access-restricted.
+
+Batch 7 does not add `config/settings/staging.py`. Staging should use `config.settings.prod` so it inherits production-safe defaults and fails closed when required settings are missing. A future `config/settings/staging.py` may be added only if it inherits production-safe defaults and does not silently weaken security.
+
+Required staging behavior:
+
+- Staging requires its own generated application secret through `DJANGO_SECRET_KEY`.
+- Staging requires `DJANGO_ALLOWED_HOSTS`.
+- Staging requires `DJANGO_CSRF_TRUSTED_ORIGINS`.
+- Staging uses PostgreSQL through `DATABASE_URL`, not SQLite.
+- Staging uses Redis or another shared cache through `CACHE_URL`, not LocMemCache.
+- Staging should use HTTPS.
+- Staging must not contain real patient data.
+- Staging should use `seed_public_content` and `seed_booking_demo` only for clinic/public/booking demo setup.
+- Staging admin credentials must be generated securely by the operator and must not be committed.
+- Staging should run `python manage.py deployment_smoke --strict` before any patient portal, upload, WhatsApp, payment, medical-record, or medical automation work begins.
+
+Recommended staging command sequence:
+
+```bash
+python manage.py migrate --check
+python manage.py check
+python manage.py check --deploy
+python manage.py deployment_smoke --strict
+python manage.py seed_public_content
+python manage.py seed_booking_demo
+```
+
+Run `python manage.py test` in staging only when the staging database is disposable or tests use a separate CI clone.
+
+### Production
+
+Production uses `config.settings.prod`.
+
+Required production behavior:
+
+- `DJANGO_SECRET_KEY` is required and must be generated outside Git.
+- `DJANGO_DEBUG=false`.
+- `DJANGO_ALLOWED_HOSTS` is required and must contain exact public hostnames.
+- `DJANGO_CSRF_TRUSTED_ORIGINS` is required for HTTPS origins.
+- `DATABASE_URL` must point to PostgreSQL.
+- `CACHE_URL` should point to Redis or another shared cache.
+- HTTPS redirect, secure cookies, and HSTS are enabled by default.
+- `BOOKING_TRUST_X_FORWARDED_FOR` remains false unless trusted proxy stripping is verified.
+- No destructive seed commands should run unless explicitly approved.
+
+Recommended production validation:
+
+```bash
+python manage.py check --deploy
+python manage.py deployment_smoke --strict
+```
+
+Run migrations only with a backup and rollback plan.
 
 ## Core Variables
 
