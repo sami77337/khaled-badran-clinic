@@ -99,3 +99,52 @@ Safety boundaries:
 - Booking demo setup creates schedules/settings only, not appointments.
 - Do not use local demo data as real clinic data.
 - Do not add patient portal, uploads, WhatsApp API/webhooks, payments, or medical automation in the booking operations batch.
+
+## Batch 6 Local Development Notes
+
+Local development still uses:
+
+```bash
+python manage.py check
+python manage.py test
+python manage.py runserver
+```
+
+`manage.py` defaults to:
+
+```text
+DJANGO_SETTINGS_MODULE=config.settings.dev
+```
+
+Local defaults:
+
+- Empty `DATABASE_URL` uses `db.sqlite3`.
+- Empty `CACHE_URL` uses Django LocMemCache.
+- `DJANGO_DEBUG` defaults to true in development settings.
+- HTTPS redirect, HSTS, and secure cookies are disabled for local simplicity.
+- `BOOKING_TRUST_X_FORWARDED_FOR` is false by default.
+
+Use `.env.example` as a template only. Keep `.env` out of Git.
+
+New documentation:
+
+- `docs/ENVIRONMENT.md`
+- `docs/PRODUCTION_READINESS.md`
+- `docs/DEPLOYMENT_CHECKLIST.md`
+- `docs/SECURITY_HARDENING.md`
+- `docs/BATCH_6_STATUS.md`
+
+Health checks:
+
+- Public liveness: `/health/`
+- Internal/private readiness: `/health/ready/`
+
+The readiness endpoint checks database connectivity but intentionally does not expose database details or exception text.
+
+Production planning notes:
+
+- SQLite is local/CI only.
+- PostgreSQL is required for production.
+- LocMemCache is local only.
+- Redis or another shared cache is required for production rate limiting.
+- Do not enable `BOOKING_TRUST_X_FORWARDED_FOR` unless a trusted reverse proxy strips incoming client-supplied `X-Forwarded-For` and sets its own.

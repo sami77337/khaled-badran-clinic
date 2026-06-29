@@ -123,5 +123,6 @@ urlpatterns = [
     path("robots.txt", views.robots_txt, name="robots_txt"),
     path("sitemap.xml", views.sitemap_xml, name="sitemap_xml"),
     path("health/", views.health_check, name="health"),
+    path("health/ready/", views.readiness_check, name="health_ready"),
     path("admin/", admin.site.urls),
 ]
