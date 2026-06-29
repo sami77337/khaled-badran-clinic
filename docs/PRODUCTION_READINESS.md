@@ -19,6 +19,8 @@ Ready for future deployment planning:
 - `/health/` provides public liveness without internals.
 - `/health/ready/` checks database connectivity and returns only `ok` or `unavailable`.
 - Booking confirmation/success and staff appointment pages are marked no-cache.
+- Patient portal foundation pages are marked no-cache.
+- Optional patient portal account registration, login, appointment linking, and linked appointment viewing exist without requiring login for public booking.
 - CI runs migrations check, Django check, local SQLite migration for smoke validation, `deployment_smoke`, and tests on SQLite.
 
 Not production-ready until these are completed:
@@ -29,6 +31,7 @@ Not production-ready until these are completed:
 - Backups and restore drills are tested.
 - Monitoring, uptime checks, and error reporting are configured.
 - Legal/privacy review is complete.
+- Patient account recovery, email verification/reset policy, patient identity verification policy, and abuse monitoring are defined.
 - Static serving strategy is chosen and tested.
 - Private media design is completed before uploads.
 - Load testing and concurrency testing are performed.
@@ -95,6 +98,7 @@ The command checks:
 - Readiness database check.
 - Production-mode flags and project production-readiness checks.
 - Public booking safety summary, including UUID public-token success lookup and staff-only numeric operations.
+- Patient portal foundation route summary without requiring patient accounts or printing patient data.
 
 Options:
 
@@ -314,7 +318,9 @@ If enabling client IP extraction from `X-Forwarded-For`:
 
 - No deployment has been performed.
 - No production database, cache, TLS, DNS, or proxy exists in this repo.
-- No patient portal, uploads, WhatsApp sending/webhooks, payments, medical records, or medical automation are implemented.
+- The patient portal is a foundation only: optional account, login, appointment linking, and linked appointment viewing.
+- No uploads, WhatsApp sending/webhooks, payments, medical records, or medical automation are implemented.
+- Patient portal production launch still needs email verification/reset policy, account recovery, patient identity verification policy, privacy/legal review, rate-limit review, and abuse monitoring.
 - No real patient data should be present.
 - No structured JSON logging dependency is active.
 - No Sentry/error reporting SDK is active.
@@ -326,7 +332,7 @@ If enabling client IP extraction from `X-Forwarded-For`:
 
 ## Recommended Next Batch
 
-Before patient portal, uploads, WhatsApp, or records, the next batch should use the Batch 7 tooling against real staging infrastructure:
+Before expanding patient portal capabilities, uploads, WhatsApp, payments, or records, the next batch should use the Batch 7 tooling against real staging infrastructure:
 
 - Provision restricted staging with PostgreSQL and Redis.
 - Exercise `config.settings.prod` with staging-only generated secrets.

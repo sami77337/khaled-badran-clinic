@@ -56,6 +56,9 @@
                 <a class="btn btn-secondary" href="{{ home_url }}">
                     {% if is_arabic %}العودة للرئيسية{% else %}Back to home{% endif %}
                 </a>
+                <a class="btn btn-secondary" href="{% if is_arabic %}{% url 'patient_portal_link_appointment' %}{% else %}{% url 'patient_portal_link_appointment_en' %}{% endif %}?token={{ appointment.public_token }}">
+                    {% if is_arabic %}ربط الموعد بالبوابة{% else %}Link in patient portal{% endif %}
+                </a>
             </div>
         </div>
     </div>

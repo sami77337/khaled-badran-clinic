@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">{% if is_arabic %}ربط آمن{% else %}Secure Linking{% endif %}</p>
+        <h1>{% if is_arabic %}ربط موعد بالحساب{% else %}Link an Appointment{% endif %}</h1>
+        <p>{{ labels.not_emergency }}</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container booking-layout">
+        {% if messages %}
+            <div class="staff-messages">
+                {% for message in messages %}
+                    <p class="muted">{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+        <form class="booking-form" method="post" action="{{ portal_link_url }}">
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="form-field">
+                {{ form.public_token.label_tag }}
+                {{ form.public_token }}
+                {{ form.public_token.errors }}
+            </div>
+            <div class="form-field">
+                {{ form.phone.label_tag }}
+                {{ form.phone }}
+                {{ form.phone.errors }}
+            </div>
+            <div class="hero-actions">
+                <button class="btn btn-primary" type="submit">{% if is_arabic %}ربط الموعد{% else %}Link appointment{% endif %}</button>
+                <a class="btn btn-secondary" href="{{ portal_dashboard_url }}">
+                    {% if is_arabic %}العودة للبوابة{% else %}Back to portal{% endif %}
+                </a>
+            </div>
+        </form>
+        <p class="trust-note">
+            {% if is_arabic %}
+                يجب أن يتطابق رقم الهاتف مع الرقم المستخدم في الحجز. لا تعرض البوابة السجلات الطبية أو المرفقات حالياً.
+            {% else %}
+                The phone number must match the booking phone number. Medical records and uploads are not available in this portal yet.
+            {% endif %}
+        </p>
+    </div>
+</section>
+{% endblock %}

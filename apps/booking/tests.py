@@ -686,11 +686,12 @@ class PublicBookingViewTests(BookingTestDataMixin, TestCase):
         whatsapp_models = list(apps.get_app_config("whatsapp").get_models())
         self.assertEqual(whatsapp_models, [])
 
-    def test_no_patient_portal_or_upload_routes_are_added(self):
+    def test_patient_portal_is_authenticated_and_upload_route_is_absent(self):
         portal_response = self.client.get("/portal/")
         uploads_response = self.client.get("/uploads/")
 
-        self.assertEqual(portal_response.status_code, 404)
+        self.assertEqual(portal_response.status_code, 302)
+        self.assertIn(reverse("patient_portal_login"), portal_response["Location"])
         self.assertEqual(uploads_response.status_code, 404)
 
     def test_booking_disabled_shows_unavailable_and_blocks_post(self):
@@ -1460,6 +1461,12 @@ class PublicPrivacyBoundaryTests(BookingTestDataMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.appointment.confirmation_reference)
 
+    def test_public_success_page_offers_optional_portal_link(self):
+        response = self.client.get(reverse("booking_success", kwargs={"public_token": self.appointment.public_token}))
+
+        self.assertContains(response, reverse("patient_portal_link_appointment"))
+        self.assertContains(response, str(self.appointment.public_token))
+
     def test_numeric_success_url_returns_404(self):
         response = self.client.get(f"/book/success/{self.appointment.id}/")
 
@@ -1484,10 +1491,11 @@ class PublicPrivacyBoundaryTests(BookingTestDataMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "/staff/appointments/")
 
-    def test_no_patient_portal_route_exists(self):
+    def test_patient_portal_route_requires_authentication(self):
         response = self.client.get("/portal/")
 
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("patient_portal_login"), response["Location"])
 
     def test_no_upload_route_exists(self):
         response = self.client.get("/uploads/")

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">{% if is_arabic %}مواعيدي{% else %}My Appointments{% endif %}</p>
+        <h1>{% if is_arabic %}المواعيد المرتبطة{% else %}Linked Appointments{% endif %}</h1>
+        <p>{{ labels.not_emergency }}</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container staff-layout">
+        <div class="hero-actions">
+            <a class="btn btn-primary" href="{{ portal_link_url }}">{% if is_arabic %}ربط موعد{% else %}Link appointment{% endif %}</a>
+            <a class="btn btn-secondary" href="{{ portal_dashboard_url }}">{% if is_arabic %}العودة للبوابة{% else %}Back to portal{% endif %}</a>
+        </div>
+        <div class="staff-table-wrap">
+            <table class="staff-table">
+                <thead>
+                    <tr>
+                        <th>{% if is_arabic %}التاريخ والوقت{% else %}Date and time{% endif %}</th>
+                        <th>{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</th>
+                        <th>{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</th>
+                        <th>{% if is_arabic %}الحالة{% else %}Status{% endif %}</th>
+                        <th>{% if is_arabic %}رابط{% else %}Link{% endif %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in appointments %}
+                        <tr>
+                            <td>{{ item.appointment.starts_at|date:"Y-m-d H:i" }}</td>
+                            <td>{% if is_arabic %}{{ item.appointment.visit_type.name_ar }}{% else %}{{ item.appointment.visit_type.name_en }}{% endif %}</td>
+                            <td>{% if is_arabic %}{{ item.appointment.doctor.display_name_ar }}{% else %}{{ item.appointment.doctor.display_name_en }}{% endif %}</td>
+                            <td><span class="status-pill status-{{ item.appointment.status }}">{{ item.status_label }}</span></td>
+                            <td>
+                                <a href="{% if is_arabic %}{% url 'patient_portal_appointment_detail' public_token=item.appointment.public_token %}{% else %}{% url 'patient_portal_appointment_detail_en' public_token=item.appointment.public_token %}{% endif %}">
+                                    {% if is_arabic %}عرض{% else %}View{% endif %}
+                                </a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5">{% if is_arabic %}لا توجد مواعيد مرتبطة بهذا الحساب بعد.{% else %}No appointments are linked to this account yet.{% endif %}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="trust-note">
+            {% if is_arabic %}
+                تعرض هذه القائمة بيانات مواعيد آمنة فقط، ولا تعرض ملاحظات داخلية أو سجلات طبية أو مرفقات.
+            {% else %}
+                This list shows patient-safe appointment data only, not internal notes, medical records, or uploads.
+            {% endif %}
+        </p>
+    </div>
+</section>
+{% endblock %}

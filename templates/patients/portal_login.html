@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">{% if is_arabic %}دخول آمن{% else %}Secure Sign In{% endif %}</p>
+        <h1>{% if is_arabic %}تسجيل الدخول إلى بوابة المريض{% else %}Sign in to the Patient Portal{% endif %}</h1>
+        <p>{{ labels.not_emergency }}</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container booking-layout">
+        <form class="booking-form" method="post" action="{{ portal_login_url }}">
+            {% csrf_token %}
+            {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+            {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="form-field">
+                {{ form.phone.label_tag }}
+                {{ form.phone }}
+                {{ form.phone.errors }}
+            </div>
+            <div class="form-field">
+                {{ form.password.label_tag }}
+                {{ form.password }}
+                {{ form.password.errors }}
+            </div>
+            <div class="hero-actions">
+                <button class="btn btn-primary" type="submit">{% if is_arabic %}دخول{% else %}Sign in{% endif %}</button>
+                <a class="btn btn-secondary" href="{{ portal_register_url }}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">
+                    {% if is_arabic %}إنشاء حساب{% else %}Create account{% endif %}
+                </a>
+            </div>
+        </form>
+        <p class="trust-note">
+            {% if is_arabic %}
+                الحساب اختياري. يمكنك حجز موعد من الموقع بدون تسجيل دخول.
+            {% else %}
+                Accounts are optional. You can book an appointment from the public site without signing in.
+            {% endif %}
+        </p>
+    </div>
+</section>
+{% endblock %}

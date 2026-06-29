@@ -52,7 +52,9 @@ Preserved boundaries:
 - Anonymous users are redirected to Django admin login before staff pages load.
 - Authenticated non-staff users receive 403.
 - Staff operations remain bounded to appointment list/detail and status operations.
-- No patient portal routes are added.
+- Patient portal foundation routes are added for optional account registration, login, appointment linking, and linked appointment viewing.
+- Patient portal appointment detail uses UUID `public_token` URLs and authenticated ownership checks.
+- Patient portal linking requires a public token and matching booking phone, with generic errors for wrong phone or nonexistent token.
 - No upload routes are added.
 - No WhatsApp webhook/API routes are added.
 - No payments, medical records, medical AI, diagnosis automation, triage automation, or treatment automation are added.
@@ -87,6 +89,7 @@ Batch 6 marks these responses as no-cache:
 - Booking confirmation.
 - Booking success.
 - Staff appointment pages and operations.
+- Patient portal pages.
 
 Public informational pages can be made cacheable later after a reviewed policy. Staff, medical, private, and patient-specific pages must not be cached publicly.
 
@@ -163,6 +166,7 @@ Media/private files:
 Before launch:
 
 - Complete legal/privacy review.
+- Define email verification, password reset, account recovery, patient identity verification, and portal abuse monitoring policies before public portal launch.
 - Configure actual production hosting, TLS, proxy, PostgreSQL, Redis, monitoring, and backups.
 - Add dependency vulnerability scanning.
 - Add error reporting with privacy scrubbing if approved.

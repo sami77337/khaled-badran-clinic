@@ -5,6 +5,7 @@ from django.urls import path
 
 from apps.booking import views as booking_views
 from apps.core import views
+from apps.patients import views as patient_views
 
 
 urlpatterns = [
@@ -124,5 +125,49 @@ urlpatterns = [
     path("sitemap.xml", views.sitemap_xml, name="sitemap_xml"),
     path("health/", views.health_check, name="health"),
     path("health/ready/", views.readiness_check, name="health_ready"),
+    path("portal/", patient_views.portal_dashboard, {"language": "ar"}, name="patient_portal_dashboard"),
+    path("portal/login/", patient_views.portal_login, {"language": "ar"}, name="patient_portal_login"),
+    path("portal/logout/", patient_views.portal_logout, {"language": "ar"}, name="patient_portal_logout"),
+    path("portal/register/", patient_views.portal_register, {"language": "ar"}, name="patient_portal_register"),
+    path(
+        "portal/link-appointment/",
+        patient_views.portal_link_appointment,
+        {"language": "ar"},
+        name="patient_portal_link_appointment",
+    ),
+    path(
+        "portal/appointments/",
+        patient_views.portal_appointment_list,
+        {"language": "ar"},
+        name="patient_portal_appointment_list",
+    ),
+    path(
+        "portal/appointments/<uuid:public_token>/",
+        patient_views.portal_appointment_detail,
+        {"language": "ar"},
+        name="patient_portal_appointment_detail",
+    ),
+    path("en/portal/", patient_views.portal_dashboard, {"language": "en"}, name="patient_portal_dashboard_en"),
+    path("en/portal/login/", patient_views.portal_login, {"language": "en"}, name="patient_portal_login_en"),
+    path("en/portal/logout/", patient_views.portal_logout, {"language": "en"}, name="patient_portal_logout_en"),
+    path("en/portal/register/", patient_views.portal_register, {"language": "en"}, name="patient_portal_register_en"),
+    path(
+        "en/portal/link-appointment/",
+        patient_views.portal_link_appointment,
+        {"language": "en"},
+        name="patient_portal_link_appointment_en",
+    ),
+    path(
+        "en/portal/appointments/",
+        patient_views.portal_appointment_list,
+        {"language": "en"},
+        name="patient_portal_appointment_list_en",
+    ),
+    path(
+        "en/portal/appointments/<uuid:public_token>/",
+        patient_views.portal_appointment_detail,
+        {"language": "en"},
+        name="patient_portal_appointment_detail_en",
+    ),
     path("admin/", admin.site.urls),
 ]

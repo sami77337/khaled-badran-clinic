@@ -159,6 +159,12 @@ PAGE_COPY = {
             "headline": "حجز موعد",
             "subtitle": "اختر نوع الزيارة والوقت المتاح، ثم أكد بيانات التواصل.",
         },
+        "patient_portal": {
+            "title": "بوابة المريض",
+            "description": "بوابة اختيارية لعرض المواعيد المرتبطة فقط في عيادة الدكتور خالد بدران.",
+            "headline": "بوابة المريض",
+            "subtitle": "حساب اختياري لربط المواعيد باستخدام رمز التأكيد ورقم الهاتف.",
+        },
     },
     "en": {
         "home": {
@@ -216,6 +222,12 @@ PAGE_COPY = {
             "headline": "Book an Appointment",
             "subtitle": "Choose a visit type and available time, then confirm contact details.",
         },
+        "patient_portal": {
+            "title": "Patient Portal",
+            "description": "Optional patient portal for linked appointments only at Dr. Khaled Badran Clinic.",
+            "headline": "Patient Portal",
+            "subtitle": "Optional account access for appointments linked by confirmation token and phone number.",
+        },
     },
 }
 
@@ -233,6 +245,7 @@ LABELS = {
         "terms": "الشروط",
         "medical_disclaimer": "إخلاء طبي",
         "whatsapp_policy": "سياسة واتساب",
+        "patient_portal": "بوابة المريض",
         "not_emergency": "الموقع وواتساب غير مخصصين للطوارئ. في الحالات الطارئة اتصل بخدمات الطوارئ المحلية فوراً.",
         "verify_profile": "تحتاج تفاصيل المؤهلات والعضويات والخبرة إلى تدقيق نهائي قبل النشر العام.",
     },
@@ -249,6 +262,7 @@ LABELS = {
         "terms": "Terms",
         "medical_disclaimer": "Medical Disclaimer",
         "whatsapp_policy": "WhatsApp Policy",
+        "patient_portal": "Patient Portal",
         "not_emergency": "This website and WhatsApp are not for emergencies. For urgent symptoms, contact local emergency services immediately.",
         "verify_profile": "Credentials, memberships, and experience details should be verified before final public publication.",
     },
@@ -264,6 +278,7 @@ ROUTE_NAMES = {
     "medical_disclaimer": {"ar": "medical_disclaimer", "en": "medical_disclaimer_en"},
     "whatsapp_policy": {"ar": "whatsapp_policy", "en": "whatsapp_policy_en"},
     "booking": {"ar": "book", "en": "book_en"},
+    "patient_portal": {"ar": "patient_portal_dashboard", "en": "patient_portal_dashboard_en"},
 }
 
 
@@ -388,6 +403,7 @@ def _base_context(request, page_key, language):
             ("doctor", LABELS[language]["doctor"], _route_url("doctor", language)),
             ("services", LABELS[language]["services"], _route_url("services", language)),
             ("contact", LABELS[language]["contact"], _route_url("contact", language)),
+            ("patient_portal", LABELS[language]["patient_portal"], _route_url("patient_portal", language)),
         ],
         "legal_links": [
             (LABELS[language]["privacy"], _route_url("privacy", language)),

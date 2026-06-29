@@ -9,6 +9,7 @@ from django.core.checks import Error
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
+from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
 from apps.booking import services
@@ -187,6 +188,7 @@ def run_deployment_smoke(*, strict=False):
     _add_health_import_check(result)
     _add_readiness_db_check(result)
     _add_public_booking_summary(result)
+    _add_patient_portal_summary(result)
 
     return result.as_dict()
 
@@ -483,6 +485,42 @@ def _add_public_booking_summary(result):
                 else "remote_addr"
             ),
             "cache_backend": _cache_backend_label(),
+        },
+    )
+
+
+def _add_patient_portal_summary(result):
+    required_routes = [
+        "patient_portal_dashboard",
+        "patient_portal_login",
+        "patient_portal_logout",
+        "patient_portal_register",
+        "patient_portal_link_appointment",
+        "patient_portal_appointment_list",
+    ]
+    try:
+        for route_name in required_routes:
+            reverse(route_name)
+    except NoReverseMatch:
+        result.add(
+            "patient_portal_routes",
+            CHECK_FAIL,
+            "Patient portal foundation routes could not be reversed.",
+        )
+        return
+
+    result.add(
+        "patient_portal_security_summary",
+        CHECK_PASS,
+        "Patient portal foundation routes are importable without requiring patient accounts.",
+        details={
+            "portal_scope": "account_login_linked_appointment_viewing",
+            "public_booking_requires_login": False,
+            "appointment_lookup": "uuid_public_token_with_authenticated_owner",
+            "uploads_enabled": False,
+            "medical_records_enabled": False,
+            "whatsapp_api_enabled": False,
+            "payments_enabled": False,
         },
     )
 

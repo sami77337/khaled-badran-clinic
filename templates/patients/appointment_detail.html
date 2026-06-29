@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">{% if is_arabic %}تفاصيل الموعد{% else %}Appointment Details{% endif %}</p>
+        <h1>{% if is_arabic %}موعدك في العيادة{% else %}Your Clinic Appointment{% endif %}</h1>
+        <p>{{ labels.not_emergency }}</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container booking-layout">
+        {% if messages %}
+            <div class="staff-messages">
+                {% for message in messages %}
+                    <p class="muted">{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+        <div class="success-card">
+            <h2>{% if is_arabic %}بيانات الموعد{% else %}Appointment information{% endif %}</h2>
+            <dl class="detail-list">
+                <div>
+                    <dt>{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</dt>
+                    <dd>{% if is_arabic %}{{ appointment.visit_type.name_ar }}{% else %}{{ appointment.visit_type.name_en }}{% endif %}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}التاريخ والوقت{% else %}Date and time{% endif %}</dt>
+                    <dd>{{ appointment.starts_at|date:"Y-m-d H:i" }}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}الحالة{% else %}Status{% endif %}</dt>
+                    <dd><span class="status-pill status-{{ appointment.status }}">{{ status_label }}</span></dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</dt>
+                    <dd>{% if is_arabic %}{{ appointment.doctor.display_name_ar }}{% else %}{{ appointment.doctor.display_name_en }}{% endif %}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}العيادة{% else %}Clinic{% endif %}</dt>
+                    <dd>{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}العنوان{% else %}Address{% endif %}</dt>
+                    <dd>{% if is_arabic %}{{ clinic.address_ar }}{% else %}{{ clinic.address_en }}{% endif %}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}تاريخ الإنشاء{% else %}Created{% endif %}</dt>
+                    <dd>{{ appointment.created_at|date:"Y-m-d H:i" }}</dd>
+                </div>
+            </dl>
+            <div class="hero-actions">
+                <a class="btn btn-primary" href="{{ portal_appointments_url }}">
+                    {% if is_arabic %}كل المواعيد{% else %}All appointments{% endif %}
+                </a>
+                <a class="btn btn-secondary" href="{{ portal_dashboard_url }}">
+                    {% if is_arabic %}العودة للبوابة{% else %}Back to portal{% endif %}
+                </a>
+            </div>
+        </div>
+        <p class="trust-note">
+            {% if is_arabic %}
+                هذه الصفحة لا تعرض ملاحظات الطبيب الداخلية أو سجل الحالة أو سجل التدقيق أو أي سجلات طبية أو مرفقات.
+            {% else %}
+                This page does not show internal doctor notes, status history, audit logs, medical records, or uploads.
+            {% endif %}
+        </p>
+    </div>
+</section>
+{% endblock %}

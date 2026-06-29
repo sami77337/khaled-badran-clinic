@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">{% if is_arabic %}حساب اختياري{% else %}Optional Account{% endif %}</p>
+        <h1>{% if is_arabic %}إنشاء حساب بوابة المريض{% else %}Create a Patient Portal Account{% endif %}</h1>
+        <p>{{ labels.not_emergency }}</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container booking-layout">
+        <form class="booking-form" method="post" action="{{ portal_register_url }}">
+            {% csrf_token %}
+            {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+            {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="form-field">
+                {{ form.full_name.label_tag }}
+                {{ form.full_name }}
+                {{ form.full_name.errors }}
+            </div>
+            <div class="form-field">
+                {{ form.phone.label_tag }}
+                {{ form.phone }}
+                {{ form.phone.errors }}
+            </div>
+            <div class="form-field">
+                {{ form.email.label_tag }}
+                {{ form.email }}
+                {{ form.email.errors }}
+            </div>
+            <div class="form-field">
+                {{ form.password1.label_tag }}
+                {{ form.password1 }}
+                {{ form.password1.errors }}
+            </div>
+            <div class="form-field">
+                {{ form.password2.label_tag }}
+                {{ form.password2 }}
+                {{ form.password2.errors }}
+            </div>
+            <div class="hero-actions">
+                <button class="btn btn-primary" type="submit">{% if is_arabic %}إنشاء الحساب{% else %}Create account{% endif %}</button>
+                <a class="btn btn-secondary" href="{{ portal_login_url }}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">
+                    {% if is_arabic %}لدي حساب{% else %}I have an account{% endif %}
+                </a>
+            </div>
+        </form>
+        <p class="trust-note">
+            {% if is_arabic %}
+                بعد إنشاء الحساب، اربط موعدك باستخدام رمز التأكيد ورقم الهاتف المستخدم في الحجز.
+            {% else %}
+                After creating an account, link your appointment using the confirmation token and booking phone number.
+            {% endif %}
+        </p>
+    </div>
+</section>
+{% endblock %}
