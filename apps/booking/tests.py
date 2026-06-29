@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, connection, transaction
-from django.test import TestCase
+from django.test import RequestFactory, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
@@ -14,7 +14,7 @@ from django.utils import timezone
 from apps.booking.forms import PublicBookingForm
 from apps.booking.models import Appointment, AppointmentStatusHistory
 from apps.booking.phone import normalize_phone
-from apps.booking import operations, services
+from apps.booking import operations, rate_limits, services
 from apps.clinic.models import ClosedDay, Doctor, DoctorSchedule, VisitType
 from apps.core.models import AuditLog, SystemSetting
 from apps.patients.models import Patient
@@ -1245,6 +1245,34 @@ class BookingSettingsSafetyTests(BookingTestDataMixin, TestCase):
         self.assertEqual(slots, [])
 
 
+class BookingClientIpTests(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def request(self, *, remote_addr="10.0.0.10", forwarded_for=None):
+        extra = {"REMOTE_ADDR": remote_addr}
+        if forwarded_for is not None:
+            extra["HTTP_X_FORWARDED_FOR"] = forwarded_for
+        return self.factory.get("/", **extra)
+
+    def test_get_client_ip_ignores_forwarded_for_by_default(self):
+        request = self.request(remote_addr="10.0.0.10", forwarded_for="203.0.113.5, 198.51.100.7")
+
+        self.assertEqual(rate_limits.get_client_ip(request), "10.0.0.10")
+
+    @override_settings(BOOKING_TRUST_X_FORWARDED_FOR=True)
+    def test_get_client_ip_uses_first_forwarded_for_ip_when_trusted(self):
+        request = self.request(remote_addr="10.0.0.10", forwarded_for="203.0.113.5, 198.51.100.7")
+
+        self.assertEqual(rate_limits.get_client_ip(request), "203.0.113.5")
+
+    @override_settings(BOOKING_TRUST_X_FORWARDED_FOR=True)
+    def test_get_client_ip_falls_back_to_remote_addr_when_trusted_header_missing(self):
+        request = self.request(remote_addr="10.0.0.10")
+
+        self.assertEqual(rate_limits.get_client_ip(request), "10.0.0.10")
+
+
 class PublicBookingRateLimitTests(BookingTestDataMixin, TestCase):
     def setUp(self):
         cache.clear()
@@ -1279,6 +1307,56 @@ class PublicBookingRateLimitTests(BookingTestDataMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Too many booking attempts")
+
+    @override_settings(BOOKING_TRUST_X_FORWARDED_FOR=False)
+    def test_forwarded_for_changes_do_not_bypass_ip_rate_limit_when_untrusted(self):
+        self.set_setting(SystemSetting.BOOKING_POST_RATE_LIMIT_PER_HOUR, 1)
+        invalid_data = dict(self.post_data, full_name="")
+
+        self.client.post(
+            reverse("booking_confirm"),
+            invalid_data,
+            REMOTE_ADDR="10.0.0.1",
+            HTTP_X_FORWARDED_FOR="203.0.113.1",
+        )
+        response = self.client.post(
+            reverse("booking_confirm"),
+            invalid_data,
+            REMOTE_ADDR="10.0.0.1",
+            HTTP_X_FORWARDED_FOR="203.0.113.2",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Too many booking attempts")
+
+    @override_settings(BOOKING_TRUST_X_FORWARDED_FOR=True)
+    def test_forwarded_for_ips_have_separate_rate_limit_when_trusted(self):
+        self.set_setting(SystemSetting.BOOKING_POST_RATE_LIMIT_PER_HOUR, 1)
+        invalid_data = dict(self.post_data, full_name="")
+
+        self.client.post(
+            reverse("booking_confirm"),
+            invalid_data,
+            REMOTE_ADDR="10.0.0.1",
+            HTTP_X_FORWARDED_FOR="203.0.113.1",
+        )
+        second_response = self.client.post(
+            reverse("booking_confirm"),
+            invalid_data,
+            REMOTE_ADDR="10.0.0.1",
+            HTTP_X_FORWARDED_FOR="203.0.113.2",
+        )
+        third_response = self.client.post(
+            reverse("booking_confirm"),
+            invalid_data,
+            REMOTE_ADDR="10.0.0.1",
+            HTTP_X_FORWARDED_FOR="203.0.113.1",
+        )
+
+        self.assertEqual(second_response.status_code, 200)
+        self.assertNotContains(second_response, "Too many booking attempts")
+        self.assertEqual(third_response.status_code, 200)
+        self.assertContains(third_response, "Too many booking attempts")
 
     def test_phone_quota_blocks_repeated_phone_booking(self):
         self.set_setting(SystemSetting.BOOKING_POST_RATE_LIMIT_PER_HOUR, 20)

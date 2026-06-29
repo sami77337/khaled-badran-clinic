@@ -1,6 +1,7 @@
 import hashlib
 from dataclasses import dataclass
 
+from django.conf import settings
 from django.core.cache import cache
 
 from apps.booking import services
@@ -43,11 +44,21 @@ def _rate_limit(scope, identity, *, limit, timeout, message):
     return RateLimitResult(True, count, limit)
 
 
-def get_client_ip(request):
+def get_remote_addr(request):
+    return request.META.get("REMOTE_ADDR", "unknown")
+
+
+def get_forwarded_for_ip(request):
     forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR", "")
     if forwarded_for:
         return forwarded_for.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR", "unknown")
+    return ""
+
+
+def get_client_ip(request):
+    if getattr(settings, "BOOKING_TRUST_X_FORWARDED_FOR", False):
+        return get_forwarded_for_ip(request) or get_remote_addr(request)
+    return get_remote_addr(request)
 
 
 def check_public_booking_ip_rate_limit(request):
@@ -78,4 +89,3 @@ def check_public_booking_phone_rate_limit(normalized_phone):
         timeout=60 * 60 * 24,
         message="This phone number has reached the daily booking attempt limit.",
     )
-

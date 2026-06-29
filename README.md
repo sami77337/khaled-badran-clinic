@@ -155,6 +155,9 @@ Rate limiting:
 
 - `booking_post_rate_limit_per_hour` defaults to `10` public booking POST attempts per IP per hour.
 - `booking_phone_rate_limit_per_day` defaults to `5` public booking attempts per normalized phone per day.
+- Public booking IP rate limits trust `REMOTE_ADDR` by default.
+- `X-Forwarded-For` is ignored unless `BOOKING_TRUST_X_FORWARDED_FOR=True` is explicitly set in Django settings.
+- In production, enable `BOOKING_TRUST_X_FORWARDED_FOR` only when Django is behind a trusted reverse proxy that strips untrusted incoming `X-Forwarded-For` headers.
 - Cache keys hash IP/phone identities and do not store raw phone numbers in cache keys.
 - Staff operations are not rate limited by the public booking guard.
 
@@ -175,6 +178,7 @@ Database and concurrency hardening:
 - PostgreSQL used for production with tested migrations.
 - Database connection pooling planned and tested.
 - Shared production cache backend configured for rate limiting.
+- `BOOKING_TRUST_X_FORWARDED_FOR` left disabled unless a trusted reverse proxy strips untrusted incoming `X-Forwarded-For`.
 - Backup and restore policy documented and tested.
 - Structured application logging enabled.
 - Monitoring and uptime checks configured.

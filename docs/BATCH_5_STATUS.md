@@ -127,6 +127,8 @@ Defaults:
 
 - `booking_post_rate_limit_per_hour = 10` per IP
 - `booking_phone_rate_limit_per_day = 5` per normalized phone
+- Client IP identity uses `REMOTE_ADDR` by default.
+- `X-Forwarded-For` is ignored unless `BOOKING_TRUST_X_FORWARDED_FOR=True`.
 
 Behavior:
 
@@ -135,6 +137,7 @@ Behavior:
 - Phone identities are hashed before use in cache keys.
 - Staff operations are not blocked by public booking rate limits.
 - Production should use a shared cache backend such as Redis or Memcached. LocMemCache is acceptable for local development only.
+- Only enable `BOOKING_TRUST_X_FORWARDED_FOR` behind a trusted reverse proxy that strips untrusted incoming `X-Forwarded-For` headers before forwarding requests to Django.
 
 ## Database and Concurrency Hardening
 
@@ -234,7 +237,7 @@ python manage.py test
 
 - Use PostgreSQL in production and test migrations there.
 - Configure a shared cache backend for rate limiting.
-- Confirm reverse proxy IP handling before trusting `X-Forwarded-For`.
+- Keep `BOOKING_TRUST_X_FORWARDED_FOR=False` unless Django runs behind a trusted reverse proxy that strips untrusted incoming `X-Forwarded-For`.
 - Add production structured logging.
 - Add monitoring, error reporting, and uptime checks.
 - Define backup and restore procedures.
@@ -272,4 +275,3 @@ Recommended Batch 6:
 - Keep patient portal and uploads out until authentication/privacy rules are explicitly designed.
 - Add a small staff settings workflow only if needed for booking settings, with audit logging and staff authorization.
 - Or implement a production deployment readiness batch focused on PostgreSQL, cache backend, security settings, logging, and deploy checks.
-
