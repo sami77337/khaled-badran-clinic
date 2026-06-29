@@ -31,9 +31,23 @@ Run this checklist before any staging launch, production launch, or feature batc
 - `DJANGO_CSRF_TRUSTED_ORIGINS` is set for staging and production HTTPS origins.
 - No CSRF trusted origin wildcard is used.
 
+## Patient Portal Foundation
+
+- `/portal/` requires authenticated patient access.
+- `/portal/login/`, `/portal/register/`, and `/portal/link-appointment/` POSTs use CSRF protection.
+- Patient portal pages are marked no-cache.
+- Patient appointment detail URLs use UUID `public_token`, not numeric appointment IDs.
+- `/portal/appointments/<numeric-id>/` returns 404.
+- User A cannot access User B's linked appointment.
+- Appointment linking requires an authenticated user, the appointment public token, and a phone number matching the appointment patient's normalized phone.
+- Wrong phone and nonexistent token cases use a generic error and do not link.
+- A Patient already linked to another user cannot be stolen.
+- Re-linking an appointment already linked to the same user is a safe no-op.
+- Portal appointment pages show only patient-safe appointment data.
+- Portal appointment pages do not show internal IDs, staff notes, booking notes, status history notes, audit logs, medical records, uploads, WhatsApp messages, or payment admin details.
+
 ## Routes Not Yet Implemented
 
-- No patient portal routes yet.
 - No upload routes yet.
 - No WhatsApp webhook routes yet.
 - No online payment routes yet.
@@ -96,6 +110,6 @@ Run this checklist before any staging launch, production launch, or feature batc
 - In staging/production-like settings, `python manage.py check --deploy` is reviewed.
 - In staging/production-like settings, `python manage.py deployment_smoke --strict` passes.
 
-## Pre-Portal Gate
+## Portal Expansion Gate
 
-Do not begin patient portal, uploads, WhatsApp sending/webhooks, medical records, online payments, or medical automation until staging smoke and this security regression checklist are reviewed.
+Do not expand beyond the Batch 8 patient portal foundation, add uploads, implement WhatsApp sending/webhooks, expose medical records, add online payments, or add medical automation until staging smoke and this security regression checklist are reviewed.

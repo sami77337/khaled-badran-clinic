@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">{% if is_arabic %}بوابة اختيارية{% else %}Optional Portal{% endif %}</p>
+        <h1>{% if is_arabic %}بوابة المريض{% else %}Patient Portal{% endif %}</h1>
+        <p>{{ labels.not_emergency }}</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container booking-layout">
+        {% if messages %}
+            <div class="staff-messages">
+                {% for message in messages %}
+                    <p class="muted">{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="booking-summary">
+            <div class="success-card">
+                <p class="eyebrow">{% if is_arabic %}مرحباً{% else %}Welcome{% endif %}</p>
+                <h2>{{ display_name }}</h2>
+                <p class="muted">
+                    {% if is_arabic %}
+                        لديك {{ linked_count }} موعد مرتبط بهذا الحساب.
+                    {% else %}
+                        You have {{ linked_count }} appointment{{ linked_count|pluralize }} linked to this account.
+                    {% endif %}
+                </p>
+                <div class="hero-actions">
+                    <a class="btn btn-primary" href="{{ portal_link_url }}">
+                        {% if is_arabic %}ربط موعد{% else %}Link appointment{% endif %}
+                    </a>
+                    <a class="btn btn-secondary" href="{{ portal_appointments_url }}">
+                        {% if is_arabic %}عرض المواعيد{% else %}View appointments{% endif %}
+                    </a>
+                </div>
+            </div>
+            <div class="success-card">
+                <h2>{% if is_arabic %}حدود البوابة{% else %}Portal Limits{% endif %}</h2>
+                <p class="muted">
+                    {% if is_arabic %}
+                        السجلات الطبية ورفع الملفات غير متاحة حالياً. تظهر هنا بيانات المواعيد الآمنة فقط.
+                    {% else %}
+                        Medical records and uploads are not available yet. This portal shows patient-safe appointment data only.
+                    {% endif %}
+                </p>
+                <form method="post" action="{{ portal_logout_url }}">
+                    {% csrf_token %}
+                    <button class="btn btn-secondary" type="submit">
+                        {% if is_arabic %}تسجيل الخروج{% else %}Log out{% endif %}
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="staff-detail-grid">
+            <div class="staff-panel">
+                <h2>{% if is_arabic %}المواعيد القادمة{% else %}Upcoming appointments{% endif %}</h2>
+                {% if upcoming_appointments %}
+                    <div class="slot-day-list">
+                        {% for item in upcoming_appointments %}
+                            <article class="booking-option">
+                                <h3>{% if is_arabic %}{{ item.appointment.visit_type.name_ar }}{% else %}{{ item.appointment.visit_type.name_en }}{% endif %}</h3>
+                                <p class="muted">{{ item.appointment.starts_at|date:"Y-m-d H:i" }}</p>
+                                <p><span class="status-pill status-{{ item.appointment.status }}">{{ item.status_label }}</span></p>
+                                <a class="btn btn-secondary" href="{% if is_arabic %}{% url 'patient_portal_appointment_detail' public_token=item.appointment.public_token %}{% else %}{% url 'patient_portal_appointment_detail_en' public_token=item.appointment.public_token %}{% endif %}">
+                                    {% if is_arabic %}التفاصيل{% else %}Details{% endif %}
+                                </a>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="muted">{% if is_arabic %}لا توجد مواعيد قادمة مرتبطة بعد.{% else %}No linked upcoming appointments yet.{% endif %}</p>
+                {% endif %}
+            </div>
+
+            <div class="staff-panel">
+                <h2>{% if is_arabic %}المواعيد السابقة{% else %}Recent appointments{% endif %}</h2>
+                {% if recent_appointments %}
+                    <div class="slot-day-list">
+                        {% for item in recent_appointments %}
+                            <article class="booking-option">
+                                <h3>{% if is_arabic %}{{ item.appointment.visit_type.name_ar }}{% else %}{{ item.appointment.visit_type.name_en }}{% endif %}</h3>
+                                <p class="muted">{{ item.appointment.starts_at|date:"Y-m-d H:i" }}</p>
+                                <p><span class="status-pill status-{{ item.appointment.status }}">{{ item.status_label }}</span></p>
+                                <a class="btn btn-secondary" href="{% if is_arabic %}{% url 'patient_portal_appointment_detail' public_token=item.appointment.public_token %}{% else %}{% url 'patient_portal_appointment_detail_en' public_token=item.appointment.public_token %}{% endif %}">
+                                    {% if is_arabic %}التفاصيل{% else %}Details{% endif %}
+                                </a>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="muted">{% if is_arabic %}لا توجد مواعيد سابقة مرتبطة بعد.{% else %}No linked recent appointments yet.{% endif %}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

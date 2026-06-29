@@ -371,10 +371,10 @@ class OperationalDocumentationTests(SimpleTestCase):
                 self.assertIn(link, readme)
                 self.assertIn(link, production_readiness)
 
-    def test_release_checklist_contains_pre_portal_safety_gates(self):
+    def test_release_checklist_contains_portal_foundation_safety_gates(self):
         content = self.read_doc("RELEASE_CHECKLIST.md")
 
-        self.assertIn("no patient portal until staging smoke passes", content)
+        self.assertIn("patient portal foundation remains account and appointment linking only", content)
         self.assertIn("no uploads until private media design exists", content)
         self.assertIn("no WhatsApp until consent/logging/cost/security design exists", content)
         self.assertIn("no medical records until authorization/audit/patient visibility rules are tested", content)
@@ -385,10 +385,15 @@ class OperationalDocumentationTests(SimpleTestCase):
         self.assertIn("python manage.py deployment_smoke", workflow)
 
 
-class PrePortalSafetyRouteTests(TestCase):
-    def test_patient_portal_upload_and_whatsapp_routes_remain_absent(self):
+class PortalFoundationRouteTests(TestCase):
+    def test_patient_portal_requires_authentication(self):
+        response = self.client.get("/portal/")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("patient_portal_login"), response["Location"])
+
+    def test_upload_and_whatsapp_routes_remain_absent(self):
         blocked_paths = [
-            "/portal/",
             "/uploads/",
             "/whatsapp/webhook/",
             "/api/whatsapp/",
