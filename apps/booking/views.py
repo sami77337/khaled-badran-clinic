@@ -1,3 +1,5 @@
+from functools import wraps
+
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import ValidationError
@@ -7,6 +9,7 @@ from django.http import HttpResponseForbidden, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 
 from apps.booking.forms import (
     CancelAppointmentForm,
@@ -136,6 +139,7 @@ def select_slot(request, language="ar"):
     )
 
 
+@never_cache
 def confirm_booking(request, language="ar"):
     language = _language(language)
     doctor = get_active_doctor()
@@ -212,6 +216,7 @@ def confirm_booking(request, language="ar"):
     )
 
 
+@never_cache
 def booking_success(request, public_token, language="ar"):
     appointment = get_object_or_404(
         Appointment.objects.select_related("doctor", "patient", "visit_type"),
@@ -230,6 +235,8 @@ def booking_success(request, public_token, language="ar"):
 
 
 def _staff_required(view_func):
+    @wraps(view_func)
+    @never_cache
     def wrapped(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect_to_login(request.get_full_path(), login_url=reverse("admin:login"))

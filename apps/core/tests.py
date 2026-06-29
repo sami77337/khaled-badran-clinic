@@ -1,7 +1,19 @@
-from django.test import TestCase
+from unittest.mock import patch
+
+from django.conf import settings
+from django.test import SimpleTestCase, TestCase, override_settings
+from django.test.utils import ignore_warnings
 from django.urls import reverse
 
 from apps.booking.models import Appointment
+from apps.core.checks import production_readiness_checks
+from config.settings.helpers import (
+    build_cache_config,
+    build_database_config,
+    parse_bool,
+    parse_int,
+    parse_list,
+)
 
 
 class HealthRouteTests(TestCase):
@@ -10,6 +22,173 @@ class HealthRouteTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Dr. Khaled Badran Clinic")
+        self.assertEqual(response.json()["status"], "ok")
+
+    def test_readiness_route_responds_without_internal_details(self):
+        response = self.client.get(reverse("health_ready"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok"})
+        content = response.content.decode()
+        self.assertNotIn("sqlite", content.lower())
+        self.assertNotIn("password", content.lower())
+
+    def test_readiness_route_hides_database_failure_details(self):
+        with patch("apps.core.views.connection.ensure_connection", side_effect=Exception("password=secret")):
+            with self.assertLogs("django.request", level="ERROR"):
+                response = self.client.get(reverse("health_ready"))
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {"status": "unavailable"})
+        self.assertNotContains(response, "password", status_code=503)
+        self.assertNotContains(response, "secret", status_code=503)
+
+
+class SettingsHelperTests(SimpleTestCase):
+    def test_parse_bool_handles_common_values_and_defaults(self):
+        self.assertTrue(parse_bool("true"))
+        self.assertTrue(parse_bool("1"))
+        self.assertFalse(parse_bool("false", default=True))
+        self.assertFalse(parse_bool("0", default=True))
+        self.assertTrue(parse_bool("not-a-bool", default=True))
+
+    def test_parse_list_trims_empty_values(self):
+        self.assertEqual(parse_list("clinic.example.com, www.example.com, "), ["clinic.example.com", "www.example.com"])
+        self.assertEqual(parse_list("", default=["localhost"]), ["localhost"])
+
+    def test_parse_int_enforces_bounds_and_defaults(self):
+        self.assertEqual(parse_int("30", default=5, minimum=1), 30)
+        self.assertEqual(parse_int("0", default=5, minimum=1), 5)
+        self.assertEqual(parse_int("500", default=5, maximum=60), 60)
+        self.assertEqual(parse_int("invalid", default=5), 5)
+
+    def test_database_helper_uses_sqlite_fallback_for_local_development(self):
+        databases = build_database_config("", sqlite_path=settings.BASE_DIR / "db.sqlite3")
+
+        self.assertEqual(databases["default"]["ENGINE"], "django.db.backends.sqlite3")
+        self.assertEqual(databases["default"]["NAME"], settings.BASE_DIR / "db.sqlite3")
+
+    def test_database_helper_parses_postgres_database_url(self):
+        databases = build_database_config(
+            "postgres://clinic_user:clinic_pass@db.example.test:5432/clinic_db",
+            sqlite_path=settings.BASE_DIR / "db.sqlite3",
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=True,
+        )
+
+        default = databases["default"]
+        self.assertEqual(default["ENGINE"], "django.db.backends.postgresql")
+        self.assertEqual(default["NAME"], "clinic_db")
+        self.assertEqual(default["CONN_MAX_AGE"], 600)
+        self.assertTrue(default["CONN_HEALTH_CHECKS"])
+
+    def test_cache_helper_uses_locmem_without_cache_url(self):
+        caches = build_cache_config("", key_prefix="test")
+
+        self.assertEqual(caches["default"]["BACKEND"], "django.core.cache.backends.locmem.LocMemCache")
+        self.assertEqual(caches["default"]["KEY_PREFIX"], "test")
+
+    def test_cache_helper_supports_redis_cache_url(self):
+        caches = build_cache_config("redis://redis.example.test:6379/1", key_prefix="test")
+
+        self.assertEqual(caches["default"]["BACKEND"], "django.core.cache.backends.redis.RedisCache")
+        self.assertEqual(caches["default"]["LOCATION"], "redis://redis.example.test:6379/1")
+
+
+class LocalSettingsDefaultTests(SimpleTestCase):
+    def test_local_settings_remain_development_oriented(self):
+        self.assertFalse(settings.PRODUCTION)
+        self.assertFalse(settings.BOOKING_TRUST_X_FORWARDED_FOR)
+        self.assertEqual(settings.CACHES["default"]["BACKEND"], "django.core.cache.backends.locmem.LocMemCache")
+
+
+class ProductionReadinessCheckTests(SimpleTestCase):
+    @override_settings(PRODUCTION=False, DEBUG=True, SECRET_KEY="change-me", ALLOWED_HOSTS=[])
+    def test_local_mode_does_not_emit_production_readiness_errors(self):
+        self.assertEqual(production_readiness_checks(None), [])
+
+    @ignore_warnings(message="Overriding setting DATABASES can lead to unexpected behavior.")
+    @override_settings(
+        PRODUCTION=True,
+        DEBUG=True,
+        SECRET_KEY="change-me",
+        ALLOWED_HOSTS=[],
+        CSRF_TRUSTED_ORIGINS=[],
+        CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": "db.sqlite3"}},
+        BOOKING_TRUST_X_FORWARDED_FOR=False,
+    )
+    def test_production_mode_flags_insecure_core_settings(self):
+        issue_ids = {issue.id for issue in production_readiness_checks(None)}
+
+        self.assertIn("clinic.E001", issue_ids)
+        self.assertIn("clinic.E002", issue_ids)
+        self.assertIn("clinic.E003", issue_ids)
+        self.assertIn("clinic.E005", issue_ids)
+        self.assertIn("clinic.E006", issue_ids)
+
+    @ignore_warnings(message="Overriding setting DATABASES can lead to unexpected behavior.")
+    @override_settings(
+        PRODUCTION=True,
+        DEBUG=False,
+        SECRET_KEY="test-only-long-production-secret-placeholder",
+        ALLOWED_HOSTS=["clinic.example.test"],
+        CSRF_TRUSTED_ORIGINS=[],
+        CACHES={
+            "default": {
+                "BACKEND": "django.core.cache.backends.redis.RedisCache",
+                "LOCATION": "redis://redis.example.test:6379/1",
+            }
+        },
+        DATABASES={"default": {"ENGINE": "django.db.backends.postgresql", "NAME": "clinic_db"}},
+        BOOKING_TRUST_X_FORWARDED_FOR=False,
+    )
+    def test_production_mode_requires_csrf_trusted_origins_with_hosts(self):
+        issue_ids = {issue.id for issue in production_readiness_checks(None)}
+
+        self.assertIn("clinic.E004", issue_ids)
+
+    @ignore_warnings(message="Overriding setting DATABASES can lead to unexpected behavior.")
+    @override_settings(
+        PRODUCTION=True,
+        DEBUG=False,
+        SECRET_KEY="test-only-long-production-secret-placeholder",
+        ALLOWED_HOSTS=["clinic.example.test"],
+        CSRF_TRUSTED_ORIGINS=["https://clinic.example.test"],
+        CACHES={
+            "default": {
+                "BACKEND": "django.core.cache.backends.redis.RedisCache",
+                "LOCATION": "redis://redis.example.test:6379/1",
+            }
+        },
+        DATABASES={"default": {"ENGINE": "django.db.backends.postgresql", "NAME": "clinic_db"}},
+        BOOKING_TRUST_X_FORWARDED_FOR=False,
+    )
+    def test_production_mode_passes_core_readiness_checks_when_configured(self):
+        self.assertEqual(production_readiness_checks(None), [])
+
+    @ignore_warnings(message="Overriding setting DATABASES can lead to unexpected behavior.")
+    @override_settings(
+        PRODUCTION=True,
+        DEBUG=False,
+        SECRET_KEY="test-only-long-production-secret-placeholder",
+        ALLOWED_HOSTS=["clinic.example.test"],
+        CSRF_TRUSTED_ORIGINS=["https://clinic.example.test"],
+        CACHES={
+            "default": {
+                "BACKEND": "django.core.cache.backends.redis.RedisCache",
+                "LOCATION": "redis://redis.example.test:6379/1",
+            }
+        },
+        DATABASES={"default": {"ENGINE": "django.db.backends.postgresql", "NAME": "clinic_db"}},
+        BOOKING_TRUST_X_FORWARDED_FOR=True,
+        BOOKING_TRUSTED_PROXY_CONFIGURED=False,
+    )
+    def test_forwarded_for_trust_requires_proxy_attestation(self):
+        issue_ids = {issue.id for issue in production_readiness_checks(None)}
+
+        self.assertIn("clinic.W001", issue_ids)
 
 
 class PublicPageSmokeTests(TestCase):

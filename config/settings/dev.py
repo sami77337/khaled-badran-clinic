@@ -2,11 +2,11 @@
 
 import os
 
-import dj_database_url
-
 from .base import *  # noqa: F403
+from .helpers import build_database_config  # noqa: F401
 
 
+PRODUCTION = False
 DEBUG = env_bool("DJANGO_DEBUG", True)  # noqa: F405
 ALLOWED_HOSTS = env_list(  # noqa: F405
     "DJANGO_ALLOWED_HOSTS",
@@ -14,17 +14,10 @@ ALLOWED_HOSTS = env_list(  # noqa: F405
 )
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-if DATABASE_URL:
-    DATABASES = {
-        "default": dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=0,
-        )
-    }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",  # noqa: F405
-        }
-    }
+DATABASES = build_database_config(  # noqa: F405
+    DATABASE_URL,
+    sqlite_path=BASE_DIR / "db.sqlite3",  # noqa: F405
+    conn_max_age=0,
+    conn_health_checks=False,
+    ssl_require=False,
+)

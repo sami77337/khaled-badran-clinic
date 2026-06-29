@@ -1,7 +1,10 @@
-from django.http import HttpResponse
+from django.db import connection
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.templatetags.static import static
 from django.urls import reverse
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_GET
 
 from apps.clinic.models import (
     CLINIC_OFFICIAL_NAME_AR,
@@ -264,11 +267,25 @@ ROUTE_NAMES = {
 }
 
 
+@require_GET
+@never_cache
 def health_check(request):
-    return HttpResponse(
-        "Dr. Khaled Badran Clinic foundation is running.",
-        content_type="text/plain; charset=utf-8",
+    return JsonResponse(
+        {
+            "status": "ok",
+            "service": "Dr. Khaled Badran Clinic",
+        }
     )
+
+
+@require_GET
+@never_cache
+def readiness_check(request):
+    try:
+        connection.ensure_connection()
+    except Exception:
+        return JsonResponse({"status": "unavailable"}, status=503)
+    return JsonResponse({"status": "ok"})
 
 
 def _normalize_language(language):

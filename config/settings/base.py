@@ -5,29 +5,51 @@ import os
 
 from dotenv import load_dotenv
 
+from .helpers import (
+    build_cache_config,
+    env_bool,
+    env_int,
+    env_list,
+    secure_proxy_ssl_header,
+)
+
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 load_dotenv(BASE_DIR / ".env")
 
 
-def env_bool(name, default=False):
-    value = os.getenv(name)
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def env_list(name, default=None):
-    value = os.getenv(name)
-    if value is None or value.strip() == "":
-        return list(default or [])
-    return [item.strip() for item in value.split(",") if item.strip()]
-
-
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-local-dev-only")
 DEBUG = env_bool("DJANGO_DEBUG", False)
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS")
+CSRF_TRUSTED_ORIGINS = env_list(
+    "DJANGO_CSRF_TRUSTED_ORIGINS",
+    env_list("CSRF_TRUSTED_ORIGINS"),
+)
+PRODUCTION = env_bool("DJANGO_PRODUCTION", False)
+BOOKING_TRUST_X_FORWARDED_FOR = env_bool("BOOKING_TRUST_X_FORWARDED_FOR", False)
+BOOKING_TRUSTED_PROXY_CONFIGURED = env_bool("BOOKING_TRUSTED_PROXY_CONFIGURED", False)
+
+SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", False)
+SESSION_COOKIE_SECURE = env_bool("DJANGO_SESSION_COOKIE_SECURE", False)
+CSRF_COOKIE_SECURE = env_bool("DJANGO_CSRF_COOKIE_SECURE", False)
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+SECURE_HSTS_SECONDS = env_int("DJANGO_SECURE_HSTS_SECONDS", 0, minimum=0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
+    "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS",
+    False,
+)
+SECURE_HSTS_PRELOAD = env_bool("DJANGO_SECURE_HSTS_PRELOAD", False)
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
+
+SECURE_PROXY_SSL_HEADER = secure_proxy_ssl_header(
+    env_bool("DJANGO_SECURE_PROXY_SSL_HEADER_ENABLED", False)
+)
 
 
 INSTALLED_APPS = [
@@ -114,6 +136,57 @@ MEDIA_URL = "/media/"
 PRIVATE_MEDIA_ROOT = Path(os.getenv("MEDIA_PRIVATE_ROOT", "media_private"))
 if not PRIVATE_MEDIA_ROOT.is_absolute():
     PRIVATE_MEDIA_ROOT = BASE_DIR / PRIVATE_MEDIA_ROOT
+
+
+CACHES = build_cache_config(
+    os.getenv("CACHE_URL", ""),
+    key_prefix=os.getenv("DJANGO_CACHE_KEY_PREFIX", "kbc"),
+)
+
+
+LOG_LEVEL = os.getenv("DJANGO_LOG_LEVEL", "INFO").upper()
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "console": {
+            "format": "{levelname} {asctime} {name} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "console",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOG_LEVEL,
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "django.security": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "apps.booking": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+    },
+}
 
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

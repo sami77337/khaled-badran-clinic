@@ -39,6 +39,12 @@ Only Dr. Khaled Hassan Badran is in scope for the initial version. No second doc
 - `docs/CODEX_START_HERE.md` — Codex CLI starting instructions.
 - `docs/NEXT_BATCH.md` — current recommended implementation batch.
 
+- `docs/ENVIRONMENT.md` - environment variables and local/production settings behavior.
+- `docs/PRODUCTION_READINESS.md` - current deployment-readiness status and known gaps.
+- `docs/DEPLOYMENT_CHECKLIST.md` - future deployment checklist; no deployment has been performed.
+- `docs/SECURITY_HARDENING.md` - Batch 6 security posture and remaining security work.
+- `docs/BATCH_6_STATUS.md` - production-readiness batch status.
+
 ## Development Policy
 
 Work must be delivered in small auditable batches. Do not ask Codex or any AI agent to implement the entire system in one step.
@@ -87,6 +93,49 @@ Run the local development server:
 ```bash
 python manage.py runserver
 ```
+
+## Environment and Production Readiness
+
+Local development uses `config.settings.dev` by default through `manage.py`.
+
+Local defaults:
+
+- Empty `DATABASE_URL` uses `db.sqlite3`.
+- Empty `CACHE_URL` uses Django LocMemCache.
+- `DJANGO_DEBUG` defaults to true in development settings.
+- HTTPS redirect, HSTS, and secure cookies are disabled for local simplicity.
+- `BOOKING_TRUST_X_FORWARDED_FOR` is false by default.
+
+Production uses `config.settings.prod`.
+
+Production behavior:
+
+- `DJANGO_SECRET_KEY` is required and must be environment-driven.
+- `DJANGO_DEBUG` is environment-driven and defaults to false.
+- `DJANGO_ALLOWED_HOSTS` is required and environment-driven.
+- `DJANGO_CSRF_TRUSTED_ORIGINS` is environment-driven.
+- `DATABASE_URL` is required and should point to PostgreSQL.
+- `CACHE_URL` should point to a shared cache such as Redis for rate limiting.
+- HTTPS redirect, secure cookies, and HSTS are enabled by default only in production settings.
+- `SECURE_PROXY_SSL_HEADER` is enabled only when `DJANGO_SECURE_PROXY_SSL_HEADER_ENABLED=true`.
+- `BOOKING_TRUST_X_FORWARDED_FOR` remains false unless a trusted reverse proxy strips client-supplied `X-Forwarded-For`.
+
+Batch 6 added production-readiness checks for unsafe production combinations:
+
+- `DEBUG=True`.
+- Missing/placeholder `SECRET_KEY`.
+- Empty or wildcard `ALLOWED_HOSTS`.
+- Empty `CSRF_TRUSTED_ORIGINS`.
+- LocMemCache in production.
+- SQLite in production.
+- Trusted forwarded IPs without proxy attestation.
+
+Health endpoints:
+
+- `/health/` is a public liveness endpoint with no internals.
+- `/health/ready/` is a readiness endpoint intended for private/internal monitoring; it checks database connectivity and returns no detailed failures.
+
+This project is not deployed and is not fully launch-ready. Remaining launch work includes real hosting, TLS/proxy setup, PostgreSQL and Redis provisioning, backups and restore drills, monitoring/error reporting, legal/privacy review, static serving strategy, private media design before uploads, vulnerability scanning, and load testing. See `docs/PRODUCTION_READINESS.md` and `docs/DEPLOYMENT_CHECKLIST.md`.
 
 Useful local public pages:
 
@@ -175,9 +224,13 @@ Database and concurrency hardening:
 - Secure cookies enabled: `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, and appropriate SameSite settings.
 - CSRF trusted origins configured for production domains.
 - `ALLOWED_HOSTS` locked to production domains.
+- `DJANGO_SECRET_KEY` stored outside Git with a documented rotation policy.
 - PostgreSQL used for production with tested migrations.
 - Database connection pooling planned and tested.
+- Automated database backups configured.
+- Restore drills completed and scheduled.
 - Shared production cache backend configured for rate limiting.
+- Rate limit behavior tested against the shared cache backend.
 - `BOOKING_TRUST_X_FORWARDED_FOR` left disabled unless a trusted reverse proxy strips untrusted incoming `X-Forwarded-For`.
 - Backup and restore policy documented and tested.
 - Structured application logging enabled.
@@ -185,6 +238,11 @@ Database and concurrency hardening:
 - Error reporting configured without leaking patient data.
 - Static files served through a production static pipeline or CDN.
 - Media/private storage designed before uploads are implemented.
+- No sensitive medical files cached publicly.
 - Audit retention and access review policy defined.
+- Least-privilege admin/staff accounts configured and reviewed.
 - Data protection and legal review completed before launch.
 - Load testing completed before launch.
+- Dependency update policy defined.
+- Vulnerability scanning configured.
+- Incident response and secret-rotation notes documented.

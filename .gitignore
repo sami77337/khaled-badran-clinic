@@ -4,6 +4,9 @@ __pycache__/
 *$py.class
 *.so
 .Python
+.cache/
+.mypy_cache/
+.ruff_cache/
 .env
 .env.*
 !.env.example
@@ -16,11 +19,16 @@ dist/
 
 # Django
 *.log
+logs/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+*.sqlite3
+*.sqlite3-journal
+*.db
 media/
 media_private/
+private_media/
 staticfiles/
 
 # Editors
@@ -41,6 +49,7 @@ yarn-error.log*
 
 # Coverage
 .coverage
+coverage.xml
 htmlcov/
 .pytest_cache/
 
