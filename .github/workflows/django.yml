@@ -40,5 +40,11 @@ jobs:
       - name: Run Django checks
         run: python manage.py check
 
+      - name: Apply local CI migrations for smoke checks
+        run: python manage.py migrate --noinput
+
+      - name: Run deployment smoke
+        run: python manage.py deployment_smoke
+
       - name: Run tests
         run: python manage.py test

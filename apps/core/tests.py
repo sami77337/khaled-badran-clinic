@@ -1,6 +1,11 @@
+import json
+import os
+from io import StringIO
+from pathlib import Path
 from unittest.mock import patch
 
 from django.conf import settings
+from django.core.management import CommandError, call_command
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.test.utils import ignore_warnings
 from django.urls import reverse
@@ -189,6 +194,211 @@ class ProductionReadinessCheckTests(SimpleTestCase):
         issue_ids = {issue.id for issue in production_readiness_checks(None)}
 
         self.assertIn("clinic.W001", issue_ids)
+
+
+class DeploymentSmokeCommandTests(TestCase):
+    def call_smoke(self, **options):
+        output = StringIO()
+        call_command("deployment_smoke", stdout=output, **options)
+        return output.getvalue()
+
+    def test_default_mode_succeeds_in_local_development_with_warnings(self):
+        output = self.call_smoke()
+
+        self.assertIn("Deployment smoke for Dr. Khaled Badran Clinic", output)
+        self.assertIn("[WARN]", output)
+        self.assertIn("Result: WARNING", output)
+
+    def test_json_mode_outputs_valid_safe_json(self):
+        output = self.call_smoke(json_output=True)
+        payload = json.loads(output)
+
+        self.assertEqual(payload["command"], "deployment_smoke")
+        self.assertEqual(payload["status"], "warning")
+        self.assertEqual(payload["exit_code"], 0)
+        self.assertIn("checks", payload)
+        self.assertGreaterEqual(payload["summary"]["warnings"], 1)
+
+    @override_settings(
+        PRODUCTION=True,
+        DEBUG=True,
+        SECRET_KEY="change-me",
+        ALLOWED_HOSTS=[],
+        CSRF_TRUSTED_ORIGINS=[],
+        BOOKING_TRUST_X_FORWARDED_FOR=False,
+    )
+    def test_strict_fails_when_production_like_requirements_are_missing(self):
+        output = StringIO()
+
+        with self.assertRaises(CommandError):
+            call_command("deployment_smoke", strict=True, stdout=output)
+
+        text = output.getvalue()
+        self.assertIn("[FAIL]", text)
+        self.assertIn("application secret", text)
+        self.assertNotIn("SECRET_KEY", text)
+
+    def test_output_does_not_include_raw_secret_or_connection_values(self):
+        output = StringIO()
+        secret_value = "super-secret-smoke-value"
+        database_value = "postgres://user:db-secret@example.test:5432/clinic"
+        cache_value = "redis://:cache-secret@example.test:6379/1"
+
+        with override_settings(SECRET_KEY=secret_value):
+            with patch.dict(
+                os.environ,
+                {
+                    "DJANGO_SECRET_KEY": secret_value,
+                    "DATABASE_URL": database_value,
+                    "CACHE_URL": cache_value,
+                },
+            ):
+                call_command("deployment_smoke", stdout=output)
+
+        text = output.getvalue()
+        self.assertNotIn(secret_value, text)
+        self.assertNotIn(database_value, text)
+        self.assertNotIn(cache_value, text)
+        self.assertNotIn("db-secret", text)
+        self.assertNotIn("cache-secret", text)
+        self.assertNotIn("SECRET_KEY", text)
+        self.assertNotIn("DATABASE_URL", text)
+        self.assertNotIn("CACHE_URL", text)
+
+    def test_json_output_does_not_include_raw_secret_or_connection_values(self):
+        output = StringIO()
+        secret_value = "json-secret-value"
+        database_value = "postgres://user:json-db-secret@example.test:5432/clinic"
+        cache_value = "redis://:json-cache-secret@example.test:6379/1"
+
+        with override_settings(SECRET_KEY=secret_value):
+            with patch.dict(
+                os.environ,
+                {
+                    "DJANGO_SECRET_KEY": secret_value,
+                    "DATABASE_URL": database_value,
+                    "CACHE_URL": cache_value,
+                },
+            ):
+                call_command("deployment_smoke", json_output=True, stdout=output)
+
+        text = output.getvalue()
+        json.loads(text)
+        self.assertNotIn(secret_value, text)
+        self.assertNotIn(database_value, text)
+        self.assertNotIn(cache_value, text)
+        self.assertNotIn("json-db-secret", text)
+        self.assertNotIn("json-cache-secret", text)
+        self.assertNotIn("SECRET_KEY", text)
+        self.assertNotIn("DATABASE_URL", text)
+        self.assertNotIn("CACHE_URL", text)
+
+    def test_database_failure_is_reported_without_exception_details(self):
+        output = StringIO()
+
+        with patch(
+            "apps.core.management.commands.deployment_smoke.connection.ensure_connection",
+            side_effect=Exception("password=raw-secret"),
+        ):
+            with self.assertRaises(CommandError):
+                call_command("deployment_smoke", stdout=output)
+
+        text = output.getvalue()
+        self.assertIn("Database connectivity failed", text)
+        self.assertNotIn("raw-secret", text)
+        self.assertNotIn("password=raw-secret", text)
+
+    def test_cache_failure_is_reported_without_backend_url_details(self):
+        output = StringIO()
+
+        with patch(
+            "apps.core.management.commands.deployment_smoke.cache.set",
+            side_effect=Exception("redis://:raw-cache-secret@example.test:6379/1"),
+        ):
+            with self.assertRaises(CommandError):
+                call_command("deployment_smoke", stdout=output)
+
+        text = output.getvalue()
+        self.assertIn("Default cache check failed", text)
+        self.assertNotIn("raw-cache-secret", text)
+        self.assertNotIn("redis://", text)
+
+
+class OperationalDocumentationTests(SimpleTestCase):
+    docs_dir = Path(settings.BASE_DIR) / "docs"
+
+    def read_doc(self, name):
+        return (self.docs_dir / name).read_text(encoding="utf-8")
+
+    def test_batch_7_runbook_documents_exist(self):
+        expected_docs = [
+            "BACKUP_RESTORE_RUNBOOK.md",
+            "INCIDENT_RESPONSE_RUNBOOK.md",
+            "RELEASE_CHECKLIST.md",
+            "LOAD_TEST_PLAN.md",
+            "SECURITY_REGRESSION_CHECKLIST.md",
+            "BATCH_7_STATUS.md",
+        ]
+
+        for doc_name in expected_docs:
+            with self.subTest(doc_name=doc_name):
+                self.assertTrue((self.docs_dir / doc_name).exists())
+
+    def test_environment_doc_defines_local_staging_and_production(self):
+        content = self.read_doc("ENVIRONMENT.md")
+
+        self.assertIn("Local development", content)
+        self.assertIn("Staging", content)
+        self.assertIn("Production", content)
+        self.assertIn("config.settings.prod", content)
+        self.assertIn("PostgreSQL", content)
+        self.assertIn("Redis", content)
+        self.assertIn("must not contain real patient data", content)
+
+    def test_new_operational_docs_are_linked_from_readme_and_production_readiness(self):
+        readme = Path(settings.BASE_DIR, "README.md").read_text(encoding="utf-8")
+        production_readiness = self.read_doc("PRODUCTION_READINESS.md")
+        expected_links = [
+            "BACKUP_RESTORE_RUNBOOK.md",
+            "INCIDENT_RESPONSE_RUNBOOK.md",
+            "RELEASE_CHECKLIST.md",
+            "LOAD_TEST_PLAN.md",
+            "SECURITY_REGRESSION_CHECKLIST.md",
+        ]
+
+        for link in expected_links:
+            with self.subTest(link=link):
+                self.assertIn(link, readme)
+                self.assertIn(link, production_readiness)
+
+    def test_release_checklist_contains_pre_portal_safety_gates(self):
+        content = self.read_doc("RELEASE_CHECKLIST.md")
+
+        self.assertIn("no patient portal until staging smoke passes", content)
+        self.assertIn("no uploads until private media design exists", content)
+        self.assertIn("no WhatsApp until consent/logging/cost/security design exists", content)
+        self.assertIn("no medical records until authorization/audit/patient visibility rules are tested", content)
+
+    def test_ci_workflow_runs_deployment_smoke(self):
+        workflow = Path(settings.BASE_DIR, ".github", "workflows", "django.yml").read_text(encoding="utf-8")
+
+        self.assertIn("python manage.py deployment_smoke", workflow)
+
+
+class PrePortalSafetyRouteTests(TestCase):
+    def test_patient_portal_upload_and_whatsapp_routes_remain_absent(self):
+        blocked_paths = [
+            "/portal/",
+            "/uploads/",
+            "/whatsapp/webhook/",
+            "/api/whatsapp/",
+        ]
+
+        for path in blocked_paths:
+            with self.subTest(path=path):
+                response = self.client.get(path)
+
+                self.assertEqual(response.status_code, 404)
 
 
 class PublicPageSmokeTests(TestCase):
