@@ -30,13 +30,16 @@
                 <a class="btn btn-secondary" href="{{ portal_register_url }}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">
                     {% if is_arabic %}إنشاء حساب{% else %}Create account{% endif %}
                 </a>
+                <a class="btn btn-secondary" href="{{ portal_account_recovery_url }}">
+                    {% if is_arabic %}استعادة الحساب{% else %}Account recovery{% endif %}
+                </a>
             </div>
         </form>
         <p class="trust-note">
             {% if is_arabic %}
-                الحساب اختياري. يمكنك حجز موعد من الموقع بدون تسجيل دخول.
+                الحساب اختياري. يمكنك حجز موعد من الموقع بدون تسجيل دخول. استعادة الحساب تتم بمساعدة العيادة حاليا.
             {% else %}
-                Accounts are optional. You can book an appointment from the public site without signing in.
+                Accounts are optional. You can book an appointment from the public site without signing in. Account recovery is clinic-assisted for now.
             {% endif %}
         </p>
     </div>

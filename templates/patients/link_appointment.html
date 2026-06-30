@@ -11,6 +11,8 @@
 
 <section class="section">
     <div class="container booking-layout">
+        {% include "patients/_portal_nav.html" %}
+
         {% if messages %}
             <div class="staff-messages">
                 {% for message in messages %}

@@ -45,13 +45,16 @@
                 <a class="btn btn-secondary" href="{{ portal_login_url }}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">
                     {% if is_arabic %}لدي حساب{% else %}I have an account{% endif %}
                 </a>
+                <a class="btn btn-secondary" href="{{ portal_account_recovery_url }}">
+                    {% if is_arabic %}استعادة الحساب{% else %}Account recovery{% endif %}
+                </a>
             </div>
         </form>
         <p class="trust-note">
             {% if is_arabic %}
-                بعد إنشاء الحساب، اربط موعدك باستخدام رمز التأكيد ورقم الهاتف المستخدم في الحجز.
+                بعد إنشاء الحساب، اربط موعدك باستخدام رمز التأكيد ورقم الهاتف المستخدم في الحجز. السجلات الطبية ورفع الملفات غير متاحة حاليا.
             {% else %}
-                After creating an account, link your appointment using the confirmation token and booking phone number.
+                After creating an account, link your appointment using the confirmation token and booking phone number. Medical records and uploads are not available yet.
             {% endif %}
         </p>
     </div>

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">{% if is_arabic %}حساب البوابة{% else %}Portal Account{% endif %}</p>
+        <h1>{% if is_arabic %}بيانات حسابك{% else %}Your Account{% endif %}</h1>
+        <p>{{ labels.not_emergency }}</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container booking-layout">
+        {% include "patients/_portal_nav.html" %}
+
+        {% if messages %}
+            <div class="staff-messages">
+                {% for message in messages %}
+                    <p class="muted">{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="booking-summary">
+            <div class="success-card">
+                <h2>{% if is_arabic %}معلومات الحساب{% else %}Account Information{% endif %}</h2>
+                <dl class="detail-list">
+                    <div>
+                        <dt>{% if is_arabic %}الاسم الظاهر{% else %}Display name{% endif %}</dt>
+                        <dd>{{ display_name }}</dd>
+                    </div>
+                    <div>
+                        <dt>{% if is_arabic %}رقم الدخول{% else %}Username / phone{% endif %}</dt>
+                        <dd>{{ masked_username }}</dd>
+                    </div>
+                    <div>
+                        <dt>{% if is_arabic %}البريد الإلكتروني{% else %}Email{% endif %}</dt>
+                        <dd>{% if email %}{{ email }}{% else %}{% if is_arabic %}غير مضاف{% else %}Not provided{% endif %}{% endif %}</dd>
+                    </div>
+                    <div>
+                        <dt>{% if is_arabic %}المواعيد المرتبطة{% else %}Linked appointments{% endif %}</dt>
+                        <dd>{{ linked_count }}</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="success-card">
+                <h2>{% if is_arabic %}إدارة الحساب{% else %}Account Actions{% endif %}</h2>
+                <p class="muted">
+                    {% if is_arabic %}
+                        تعديل الهاتف أو البريد الإلكتروني يتطلب التواصل مع العيادة حاليا حتى يتم اعتماد سياسة تحقق آمنة.
+                    {% else %}
+                        Phone and email changes require clinic support for now until a verified ownership policy is approved.
+                    {% endif %}
+                </p>
+                <div class="hero-actions">
+                    <a class="btn btn-primary" href="{{ portal_appointments_url }}">
+                        {% if is_arabic %}المواعيد{% else %}Appointments{% endif %}
+                    </a>
+                    <a class="btn btn-secondary" href="{{ portal_link_url }}">
+                        {% if is_arabic %}ربط موعد{% else %}Link Appointment{% endif %}
+                    </a>
+                    <a class="btn btn-secondary" href="{{ portal_password_change_url }}">
+                        {% if is_arabic %}تغيير كلمة المرور{% else %}Change Password{% endif %}
+                    </a>
+                    <a class="btn btn-secondary" href="{{ portal_account_recovery_url }}">
+                        {% if is_arabic %}استعادة الحساب{% else %}Account Recovery{% endif %}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <p class="trust-note">
+            {% if is_arabic %}
+                تعرض هذه الصفحة معلومات حساب آمنة فقط. السجلات الطبية ورفع الملفات والمدفوعات ورسائل واتساب غير متاحة في البوابة حاليا.
+            {% else %}
+                This page shows safe account information only. Medical records, uploads, payments, and WhatsApp messages are not available in the portal yet.
+            {% endif %}
+        </p>
+    </div>
+</section>
+{% endblock %}

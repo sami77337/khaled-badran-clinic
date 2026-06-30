@@ -20,7 +20,8 @@ Ready for future deployment planning:
 - `/health/ready/` checks database connectivity and returns only `ok` or `unavailable`.
 - Booking confirmation/success and staff appointment pages are marked no-cache.
 - Patient portal foundation pages are marked no-cache.
-- Optional patient portal account registration, login, appointment linking, and linked appointment viewing exist without requiring login for public booking.
+- Optional patient portal account registration, login, password change, account summary, clinic-assisted recovery policy, appointment linking, and linked appointment viewing exist without requiring login for public booking.
+- Email-based password reset is not implemented because safe production email ownership, delivery, and recovery policy are not configured yet.
 - CI runs migrations check, Django check, local SQLite migration for smoke validation, `deployment_smoke`, and tests on SQLite.
 
 Not production-ready until these are completed:
@@ -31,7 +32,7 @@ Not production-ready until these are completed:
 - Backups and restore drills are tested.
 - Monitoring, uptime checks, and error reporting are configured.
 - Legal/privacy review is complete.
-- Patient account recovery, email verification/reset policy, patient identity verification policy, and abuse monitoring are defined.
+- Verified email or phone ownership, a secure account recovery process, patient identity verification policy, production rate-limit tuning, and abuse monitoring are defined.
 - Static serving strategy is chosen and tested.
 - Private media design is completed before uploads.
 - Load testing and concurrency testing are performed.
@@ -98,7 +99,7 @@ The command checks:
 - Readiness database check.
 - Production-mode flags and project production-readiness checks.
 - Public booking safety summary, including UUID public-token success lookup and staff-only numeric operations.
-- Patient portal foundation route summary without requiring patient accounts or printing patient data.
+- Patient portal account-security route summary without requiring patient accounts or printing patient data.
 
 Options:
 
@@ -204,6 +205,14 @@ Public booking rate limits use Django cache:
 - IP hourly quota.
 - Normalized phone daily quota.
 - Cache keys hash identities and do not store raw phone numbers.
+
+Patient portal rate limits also use Django cache:
+
+- Appointment linking throttles by authenticated user/IP and normalized phone hash when available.
+- Login throttles by IP and normalized phone hash when available.
+- Registration throttles by IP and normalized phone hash when available.
+- Cache keys hash sensitive identities and do not store raw phone numbers, public tokens, or passwords.
+- Defaults are intentionally light for local development and must be tuned with staging traffic and a shared cache.
 
 Local LocMemCache is acceptable for development. It is not acceptable for production because each process has a separate in-memory cache.
 
@@ -318,9 +327,9 @@ If enabling client IP extraction from `X-Forwarded-For`:
 
 - No deployment has been performed.
 - No production database, cache, TLS, DNS, or proxy exists in this repo.
-- The patient portal is a foundation only: optional account, login, appointment linking, and linked appointment viewing.
+- The patient portal is a bounded account and appointment foundation only: optional account, login, password change, account summary, clinic-assisted recovery policy, appointment linking, and linked appointment viewing.
 - No uploads, WhatsApp sending/webhooks, payments, medical records, or medical automation are implemented.
-- Patient portal production launch still needs email verification/reset policy, account recovery, patient identity verification policy, privacy/legal review, rate-limit review, and abuse monitoring.
+- Patient portal production launch still needs verified email or phone ownership policy, secure account recovery process, patient identity verification policy, privacy/legal review, production rate-limit tuning, monitoring, alerting, and abuse monitoring.
 - No real patient data should be present.
 - No structured JSON logging dependency is active.
 - No Sentry/error reporting SDK is active.
@@ -332,7 +341,7 @@ If enabling client IP extraction from `X-Forwarded-For`:
 
 ## Recommended Next Batch
 
-Before expanding patient portal capabilities, uploads, WhatsApp, payments, or records, the next batch should use the Batch 7 tooling against real staging infrastructure:
+Before expanding patient portal capabilities, uploads, WhatsApp, payments, or records, the next batch should validate account security under real staging infrastructure:
 
 - Provision restricted staging with PostgreSQL and Redis.
 - Exercise `config.settings.prod` with staging-only generated secrets.
@@ -341,3 +350,5 @@ Before expanding patient portal capabilities, uploads, WhatsApp, payments, or re
 - Verify `/health/` and `/health/ready/` through the proxy.
 - Complete a restore drill with synthetic data.
 - Add dependency/security scanning if approved.
+- Tune portal and booking rate limits against Redis/shared cache.
+- Define verified email/phone ownership and secure account recovery operations before enabling any self-service reset.

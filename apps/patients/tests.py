@@ -1,9 +1,11 @@
 
 from datetime import datetime, time, timedelta
 import uuid
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.core.cache import cache
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -11,10 +13,12 @@ from apps.booking.models import Appointment, AppointmentStatusHistory
 from apps.clinic.models import Doctor, VisitType
 from apps.core.models import AuditLog
 from apps.patients.forms import GENERIC_LINK_ERROR, GENERIC_LOGIN_ERROR, GENERIC_REGISTRATION_ERROR
+from apps.patients import rate_limits
 from .models import Patient
 
 
 TEST_PASSWORD = "PortalPass123!Strong"
+NEW_TEST_PASSWORD = "NewPortalPass123!Strong"
 
 
 class PatientModelTests(TestCase):
@@ -201,6 +205,165 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         self.assertContains(response, "Portal Patient")
 
 
+class PatientPortalPasswordChangeTests(PatientPortalTestMixin, TestCase):
+    def test_anonymous_password_change_redirects_to_portal_login(self):
+        response = self.client.get(reverse("patient_portal_password_change"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("patient_portal_login"), response["Location"])
+
+    def test_authenticated_user_can_change_password_and_keep_session(self):
+        user = self.create_user()
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse("patient_portal_password_change"),
+            {
+                "old_password": TEST_PASSWORD,
+                "new_password1": NEW_TEST_PASSWORD,
+                "new_password2": NEW_TEST_PASSWORD,
+            },
+        )
+
+        self.assertRedirects(response, reverse("patient_portal_account"), fetch_redirect_response=False)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password(NEW_TEST_PASSWORD))
+        self.assertFalse(user.check_password(TEST_PASSWORD))
+        self.assertEqual(self.client.get(reverse("patient_portal_dashboard")).status_code, 200)
+
+        self.client.logout()
+        self.assertFalse(self.client.login(username=user.username, password=TEST_PASSWORD))
+        self.assertTrue(self.client.login(username=user.username, password=NEW_TEST_PASSWORD))
+
+    def test_password_change_uses_django_password_validation(self):
+        user = self.create_user()
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse("patient_portal_password_change"),
+            {
+                "old_password": TEST_PASSWORD,
+                "new_password1": "short",
+                "new_password2": "short",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password(TEST_PASSWORD))
+
+    def test_password_change_page_is_no_cache(self):
+        user = self.create_user()
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("patient_portal_password_change"))
+
+        self.assert_no_cache(response)
+
+    def test_csrf_is_enforced_for_password_change_post(self):
+        user = self.create_user()
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(user)
+
+        response = csrf_client.post(
+            reverse("patient_portal_password_change"),
+            {
+                "old_password": TEST_PASSWORD,
+                "new_password1": NEW_TEST_PASSWORD,
+                "new_password2": NEW_TEST_PASSWORD,
+            },
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+
+class PatientPortalAccountTests(PatientPortalTestMixin, TestCase):
+    def test_anonymous_account_redirects_to_portal_login(self):
+        response = self.client.get(reverse("patient_portal_account"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("patient_portal_login"), response["Location"])
+
+    def test_authenticated_user_can_access_account_page(self):
+        user = self.create_user()
+        self.create_appointment(user=user)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("patient_portal_account_en"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Test Patient")
+        self.assertContains(response, "portal@example.test")
+        self.assertContains(response, "Linked appointments")
+
+    def test_account_page_masks_phone_and_hides_internal_ids(self):
+        user = self.create_user()
+        appointment = self.create_appointment(user=user)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("patient_portal_account_en"))
+
+        self.assertNotContains(response, user.username)
+        self.assertContains(response, "+96279")
+        self.assertContains(response, "*****")
+        self.assertNotContains(response, str(appointment.public_token))
+        self.assertNotContains(response, "Internal ID")
+        self.assertNotContains(response, "object_id")
+
+    def test_account_page_does_not_expose_private_operational_content(self):
+        user = self.create_user()
+        appointment = self.create_appointment(user=user)
+        AppointmentStatusHistory.objects.create(
+            appointment=appointment,
+            old_status=Appointment.Status.CONFIRMED,
+            new_status=Appointment.Status.CANCELLED,
+            note="Staff-only status history note.",
+        )
+        AuditLog.objects.create(
+            user=user,
+            action=AuditLog.Action.STATUS_CHANGE,
+            app_label="booking",
+            model_name="Appointment",
+            object_id=str(appointment.id),
+            message="Staff-only audit event.",
+            metadata={"operation_note": "Internal audit note."},
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("patient_portal_account_en"))
+
+        self.assertNotContains(response, "Private booking note")
+        self.assertNotContains(response, "Staff-only status history note")
+        self.assertNotContains(response, "Staff-only audit event")
+        self.assertNotContains(response, "Internal audit note")
+        self.assertNotContains(response, "/staff/appointments/")
+        self.assertNotContains(response, "payment admin")
+
+    def test_account_page_links_to_password_change_and_recovery_policy(self):
+        user = self.create_user()
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("patient_portal_account_en"))
+
+        self.assertContains(response, f'href="{reverse("patient_portal_password_change_en")}"')
+        self.assertContains(response, f'href="{reverse("patient_portal_account_recovery_en")}"')
+
+    def test_account_recovery_page_is_static_and_does_not_collect_sensitive_data(self):
+        response = self.client.get(reverse("patient_portal_account_recovery_en"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "clinic-assisted")
+        self.assertContains(response, "does not confirm")
+        self.assertNotContains(response, "<form")
+        self.assertNotContains(response, 'name="phone"')
+        self.assertNotContains(response, 'name="email"')
+
+    def test_account_recovery_rejects_post(self):
+        response = self.client.post(reverse("patient_portal_account_recovery"), {"phone": "0791234567"})
+
+        self.assertEqual(response.status_code, 405)
+
+
 class PatientPortalLinkingTests(PatientPortalTestMixin, TestCase):
     def setUp(self):
         self.user = self.create_user()
@@ -293,6 +456,119 @@ class PatientPortalLinkingTests(PatientPortalTestMixin, TestCase):
         self.assertEqual(patient.user, self.user)
 
 
+class PatientPortalRateLimitTests(PatientPortalTestMixin, TestCase):
+    def setUp(self):
+        cache.clear()
+        self.user = self.create_user()
+        self.client.force_login(self.user)
+
+    def tearDown(self):
+        cache.clear()
+
+    @override_settings(PATIENT_PORTAL_LINK_ATTEMPTS_PER_HOUR=1)
+    def test_appointment_linking_rate_limit_still_works(self):
+        appointment = self.create_appointment()
+        post_data = {"public_token": str(appointment.public_token), "phone": "0790000000"}
+
+        self.client.post(reverse("patient_portal_link_appointment"), post_data, REMOTE_ADDR="10.0.0.1")
+        response = self.client.post(reverse("patient_portal_link_appointment"), post_data, REMOTE_ADDR="10.0.0.1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, rate_limits.GENERIC_LINK_RATE_LIMIT_MESSAGE)
+
+    @override_settings(PATIENT_PORTAL_LOGIN_IP_ATTEMPTS_PER_WINDOW=1)
+    def test_login_rate_limit_uses_generic_error_without_password_leakage(self):
+        self.client.logout()
+        post_data = {"phone": "0791234567", "password": "wrong-password"}
+
+        self.client.post(reverse("patient_portal_login"), post_data, REMOTE_ADDR="10.0.0.2")
+        response = self.client.post(reverse("patient_portal_login"), post_data, REMOTE_ADDR="10.0.0.2")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, rate_limits.GENERIC_PORTAL_RATE_LIMIT_MESSAGE)
+        self.assertNotContains(response, "wrong-password")
+
+    @override_settings(PATIENT_PORTAL_REGISTRATION_IP_ATTEMPTS_PER_HOUR=1)
+    def test_registration_rate_limit_uses_generic_error_without_password_leakage(self):
+        self.client.logout()
+        post_data = {
+            "full_name": "",
+            "phone": "0791234567",
+            "email": "patient@example.test",
+            "password1": TEST_PASSWORD,
+            "password2": TEST_PASSWORD,
+        }
+
+        self.client.post(reverse("patient_portal_register"), post_data, REMOTE_ADDR="10.0.0.3")
+        response = self.client.post(reverse("patient_portal_register"), post_data, REMOTE_ADDR="10.0.0.3")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, rate_limits.GENERIC_PORTAL_RATE_LIMIT_MESSAGE)
+        self.assertNotContains(response, TEST_PASSWORD)
+
+    def test_rate_limit_cache_keys_do_not_include_raw_phone_or_token(self):
+        appointment = self.create_appointment()
+        post_data = {"public_token": str(appointment.public_token), "phone": "0791234567"}
+        observed_keys = []
+        original_add = rate_limits.cache.add
+
+        def capture_key(key, *args, **kwargs):
+            observed_keys.append(key)
+            return original_add(key, *args, **kwargs)
+
+        with patch("apps.patients.rate_limits.cache.add", side_effect=capture_key):
+            self.client.post(reverse("patient_portal_link_appointment"), post_data, REMOTE_ADDR="10.0.0.4")
+
+        self.assertTrue(observed_keys)
+        for key in observed_keys:
+            self.assertNotIn(str(appointment.public_token), key)
+            self.assertNotIn("0791234567", key)
+            self.assertNotIn("+962791234567", key)
+
+
+class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
+    def test_authenticated_portal_pages_include_expected_safe_navigation_links(self):
+        user = self.create_user()
+        appointment = self.create_appointment(user=user)
+        self.client.force_login(user)
+        expected_links = [
+            reverse("patient_portal_dashboard"),
+            reverse("patient_portal_appointment_list"),
+            reverse("patient_portal_link_appointment"),
+            reverse("patient_portal_account"),
+            reverse("patient_portal_password_change"),
+        ]
+        page_urls = [
+            reverse("patient_portal_dashboard"),
+            reverse("patient_portal_appointment_list"),
+            reverse("patient_portal_link_appointment"),
+            reverse("patient_portal_account"),
+            reverse("patient_portal_password_change"),
+            reverse("patient_portal_appointment_detail", kwargs={"public_token": appointment.public_token}),
+        ]
+
+        for url in page_urls:
+            response = self.client.get(url)
+            with self.subTest(url=url):
+                self.assertEqual(response.status_code, 200)
+                for expected_link in expected_links:
+                    self.assertContains(response, f'href="{expected_link}"')
+                self.assertContains(response, f'action="{reverse("patient_portal_logout")}"')
+                self.assertContains(response, 'method="post"')
+
+    def test_logout_remains_post_only(self):
+        user = self.create_user()
+        self.client.force_login(user)
+
+        get_response = self.client.get(reverse("patient_portal_logout"))
+        post_response = self.client.post(reverse("patient_portal_logout"))
+
+        self.assertEqual(get_response.status_code, 405)
+        self.assertRedirects(post_response, reverse("patient_portal_login"), fetch_redirect_response=False)
+        dashboard_response = self.client.get(reverse("patient_portal_dashboard"))
+        self.assertEqual(dashboard_response.status_code, 302)
+
+
 class PatientPortalPrivacyTests(PatientPortalTestMixin, TestCase):
     def test_user_a_cannot_access_user_b_appointment(self):
         user_a = self.create_user(username="+962790000001", email="a@example.test")
@@ -371,6 +647,8 @@ class PatientPortalPrivacyTests(PatientPortalTestMixin, TestCase):
 
         authenticated_urls = [
             reverse("patient_portal_dashboard"),
+            reverse("patient_portal_account"),
+            reverse("patient_portal_password_change"),
             reverse("patient_portal_link_appointment"),
             reverse("patient_portal_appointment_list"),
             reverse("patient_portal_appointment_detail", kwargs={"public_token": appointment.public_token}),
@@ -380,7 +658,11 @@ class PatientPortalPrivacyTests(PatientPortalTestMixin, TestCase):
                 self.assert_no_cache(self.client.get(url))
 
         anonymous_client = Client()
-        for url in [reverse("patient_portal_login"), reverse("patient_portal_register")]:
+        for url in [
+            reverse("patient_portal_login"),
+            reverse("patient_portal_register"),
+            reverse("patient_portal_account_recovery"),
+        ]:
             with self.subTest(url=url):
                 self.assert_no_cache(anonymous_client.get(url))
 
@@ -415,11 +697,15 @@ class PatientPortalPrivacyTests(PatientPortalTestMixin, TestCase):
     def test_upload_whatsapp_and_medical_record_routes_remain_absent(self):
         blocked_paths = [
             "/uploads/",
+            "/portal/uploads/",
             "/whatsapp/webhook/",
             "/api/whatsapp/",
+            "/whatsapp/api/",
             "/records/",
             "/medical-records/",
             "/portal/medical-records/",
+            "/payments/",
+            "/portal/payments/",
         ]
 
         for path in blocked_paths:

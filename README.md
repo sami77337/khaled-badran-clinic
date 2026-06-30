@@ -51,6 +51,7 @@ Only Dr. Khaled Hassan Badran is in scope for the initial version. No second doc
 - `docs/SECURITY_REGRESSION_CHECKLIST.md` - security regression checklist for booking, staff, proxy, and smoke gates.
 - `docs/BATCH_7_STATUS.md` - staging-readiness validation batch status.
 - `docs/BATCH_8_STATUS.md` - patient portal foundation status.
+- `docs/BATCH_9_STATUS.md` - portal account security and patient portal polish status.
 
 ## Development Policy
 
@@ -154,7 +155,7 @@ This project is not deployed and is not fully launch-ready. Remaining launch wor
 
 Deployment smoke command:
 
-- `python manage.py deployment_smoke` runs safe startup, database, migration, cache, public-content, booking-settings, health import, readiness, public-booking safety, and patient-portal route-summary checks.
+- `python manage.py deployment_smoke` runs safe startup, database, migration, cache, public-content, booking-settings, health import, readiness, public-booking safety, and patient-portal account-security route-summary checks.
 - `python manage.py deployment_smoke --json` emits safe machine-readable JSON.
 - `python manage.py deployment_smoke --strict` is intended for staging/production-like validation and fails on hard failures or strict staging/production blockers.
 - The command does not print application secrets, database connection strings, cache connection strings, passwords, tokens, cookies, or raw environment dumps.
@@ -172,6 +173,9 @@ Useful local public pages:
 - Arabic booking success: `http://127.0.0.1:8000/book/success/<public-token>/`
 - Arabic patient portal: `http://127.0.0.1:8000/portal/`
 - Arabic patient portal login: `http://127.0.0.1:8000/portal/login/`
+- Arabic patient account: `http://127.0.0.1:8000/portal/account/`
+- Arabic patient password change: `http://127.0.0.1:8000/portal/password/change/`
+- Arabic patient account recovery policy: `http://127.0.0.1:8000/portal/account-recovery/`
 - Arabic patient appointment linking: `http://127.0.0.1:8000/portal/link-appointment/`
 - English home: `http://127.0.0.1:8000/en/`
 - English doctor: `http://127.0.0.1:8000/en/doctor/`
@@ -184,6 +188,9 @@ Useful local public pages:
 - English booking success: `http://127.0.0.1:8000/en/book/success/<public-token>/`
 - English patient portal: `http://127.0.0.1:8000/en/portal/`
 - English patient portal login: `http://127.0.0.1:8000/en/portal/login/`
+- English patient account: `http://127.0.0.1:8000/en/portal/account/`
+- English patient password change: `http://127.0.0.1:8000/en/portal/password/change/`
+- English patient account recovery policy: `http://127.0.0.1:8000/en/portal/account-recovery/`
 - English patient appointment linking: `http://127.0.0.1:8000/en/portal/link-appointment/`
 - Staff appointment list: `http://127.0.0.1:8000/staff/appointments/`
 - Staff appointment detail: `http://127.0.0.1:8000/staff/appointments/<appointment-id>/`
@@ -206,18 +213,21 @@ Booking safety boundaries:
 - Terminal booking statuses are `completed`, `cancelled`, and `no_show`; restore/undo is intentionally not implemented until a reviewed correction workflow exists.
 - Public booking POSTs have lightweight Django-cache rate limiting by IP and normalized phone hash.
 - No WhatsApp API sending or webhook is implemented.
-- Patient portal foundation is implemented as an optional account, login, appointment linking, and appointment viewing flow only.
+- Patient portal foundation is implemented as an optional account, login, password change, account summary, clinic-assisted recovery policy, appointment linking, and appointment viewing flow only.
 - No patient uploads, online payments, medical records, WhatsApp API/webhook integration, or medical automation are implemented.
 - Demo seed commands do not create real patients or appointments.
 
-## Patient Portal Foundation
+## Patient Portal Foundation and Account Security
 
-Patient portal routes added in Batch 8:
+Patient portal routes:
 
 - `GET /portal/` dashboard for authenticated patients.
 - `GET|POST /portal/login/` phone/password login using Django authentication.
 - `POST /portal/logout/` logout with CSRF protection.
 - `GET|POST /portal/register/` optional patient account registration.
+- `GET /portal/account/` authenticated account summary.
+- `GET|POST /portal/password/change/` authenticated password change.
+- `GET /portal/account-recovery/` static clinic-assisted recovery policy.
 - `GET|POST /portal/link-appointment/` appointment linking.
 - `GET /portal/appointments/` linked appointment list.
 - `GET /portal/appointments/<public-token>/` linked appointment detail.
@@ -227,13 +237,20 @@ Portal behavior:
 
 - The portal is optional. Public booking still works without login.
 - Patient accounts use Django's built-in password hashing.
+- Logged-in patients can change their password with Django password validation and hashing.
+- Successful password changes keep the current session valid with Django session hash rotation.
 - The login username is the normalized phone number captured at registration.
 - Registration collects full name, phone, optional email, password, and password confirmation.
+- The account page shows display name, masked username/phone, optional email, and linked appointment count only.
+- Phone and email updates require clinic support for now; no self-service contact editing is implemented in this batch.
+- Account recovery is clinic-assisted for now. Email password reset is not implemented because no safe production email ownership and delivery policy is configured yet.
 - Appointment linking requires a logged-in account, the appointment `public_token`, and a phone number matching the appointment patient's normalized phone.
 - If the token is missing, wrong, nonexistent, or the phone does not match, the portal uses a generic error and does not link the appointment.
 - If the appointment patient is already linked to another user, the portal blocks linking with the same generic error.
 - If the appointment is already linked to the same user, linking is a safe no-op.
+- Appointment linking, login, and registration have lightweight Django-cache rate limits by IP and, where practical, normalized phone hash.
 - Patient portal pages are marked no-cache.
+- Portal navigation consistently links to dashboard, appointments, link appointment, account, change password, and POST-only logout.
 
 Patient-visible appointment fields are limited to:
 
@@ -243,6 +260,13 @@ Patient-visible appointment fields are limited to:
 - doctor display name,
 - clinic name/address,
 - created date.
+
+Patient-visible account fields are limited to:
+
+- display name,
+- masked username/phone,
+- email if provided,
+- linked appointment count.
 
 The portal does not show:
 
@@ -259,10 +283,11 @@ The portal does not show:
 
 Remaining production needs before a public patient portal launch:
 
-- email verification and password reset/account recovery policy,
+- verified email or phone ownership policy,
+- secure account recovery process beyond the current clinic-assisted placeholder,
 - patient identity verification policy,
 - privacy/legal review,
-- stronger rate limiting for auth and linking if required by the deployment risk review,
+- production rate-limit tuning against Redis/shared cache,
 - abuse monitoring and alerting,
 - staging validation with PostgreSQL and Redis/shared cache.
 
@@ -289,6 +314,7 @@ Rate limiting:
 
 - `booking_post_rate_limit_per_hour` defaults to `10` public booking POST attempts per IP per hour.
 - `booking_phone_rate_limit_per_day` defaults to `5` public booking attempts per normalized phone per day.
+- Patient portal login, registration, and appointment-link throttles use Django cache with hashed identities. Defaults are intentionally light for local development and must be tuned in staging/production.
 - Public booking IP rate limits trust `REMOTE_ADDR` by default.
 - `X-Forwarded-For` is ignored unless `BOOKING_TRUST_X_FORWARDED_FOR=True` is explicitly set in Django settings.
 - In production, enable `BOOKING_TRUST_X_FORWARDED_FOR` only when Django is behind a trusted reverse proxy that strips untrusted incoming `X-Forwarded-For` headers.
