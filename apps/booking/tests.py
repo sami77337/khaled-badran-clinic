@@ -1,10 +1,12 @@
 from datetime import datetime, time, timedelta
+from io import StringIO
 from unittest.mock import patch
 
 from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
 from django.db import IntegrityError, connection, transaction
 from django.test import RequestFactory, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
@@ -454,6 +456,37 @@ class PublicBookingViewTests(BookingTestDataMixin, TestCase):
         response = self.client.get(reverse("book_en"))
 
         self.assertEqual(response.status_code, 200)
+
+    def test_public_booking_routes_do_not_require_login(self):
+        route_requests = [
+            (reverse("book"), {}),
+            (reverse("book_en"), {}),
+            (reverse("booking_visit_type"), {}),
+            (reverse("booking_visit_type_en"), {}),
+            (
+                reverse("booking_slots"),
+                {"visit_type": self.visit_type.id, "date": self.tomorrow.isoformat()},
+            ),
+            (
+                reverse("booking_slots_en"),
+                {"visit_type": self.visit_type.id, "date": self.tomorrow.isoformat()},
+            ),
+            (
+                reverse("booking_confirm"),
+                {"visit_type": self.visit_type.id, "starts_at": self.slot.value},
+            ),
+            (
+                reverse("booking_confirm_en"),
+                {"visit_type": self.visit_type.id, "starts_at": self.slot.value},
+            ),
+        ]
+
+        for url, params in route_requests:
+            with self.subTest(url=url):
+                response = self.client.get(url, params)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertNotIn("/portal/login/", response.request.get("PATH_INFO", ""))
 
     def test_visit_type_step_returns_200(self):
         response = self.client.get(reverse("booking_visit_type"))
@@ -1246,6 +1279,19 @@ class BookingSettingsSafetyTests(BookingTestDataMixin, TestCase):
         self.assertEqual(slots, [])
 
 
+class SeedBookingDemoCommandTests(TestCase):
+    def test_seed_booking_demo_does_not_create_patient_or_appointment_records(self):
+        output = StringIO()
+
+        call_command("seed_booking_demo", stdout=output)
+
+        text = output.getvalue()
+        self.assertIn("Seeded booking demo setup", text)
+        self.assertIn("No patients, appointments", text)
+        self.assertEqual(Patient.objects.count(), 0)
+        self.assertEqual(Appointment.objects.count(), 0)
+
+
 class BookingClientIpTests(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
@@ -1502,9 +1548,22 @@ class PublicPrivacyBoundaryTests(BookingTestDataMixin, TestCase):
 
         self.assertEqual(response.status_code, 404)
 
-    def test_no_whatsapp_api_or_webhook_route_exists(self):
-        webhook_response = self.client.get("/whatsapp/webhook/")
-        api_response = self.client.get("/api/whatsapp/")
+    def test_no_upload_medical_record_whatsapp_or_payment_routes_exist(self):
+        blocked_paths = [
+            "/uploads/",
+            "/portal/uploads/",
+            "/whatsapp/webhook/",
+            "/api/whatsapp/",
+            "/whatsapp/api/",
+            "/records/",
+            "/medical-records/",
+            "/portal/medical-records/",
+            "/payments/",
+            "/portal/payments/",
+        ]
 
-        self.assertEqual(webhook_response.status_code, 404)
-        self.assertEqual(api_response.status_code, 404)
+        for path in blocked_paths:
+            with self.subTest(path=path):
+                response = self.client.get(path)
+
+                self.assertEqual(response.status_code, 404)

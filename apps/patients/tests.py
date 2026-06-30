@@ -595,6 +595,32 @@ class PatientPortalPrivacyTests(PatientPortalTestMixin, TestCase):
         self.assertEqual(token_response.status_code, 200)
         self.assertEqual(numeric_response.status_code, 404)
 
+    def test_english_appointment_detail_numeric_url_returns_404(self):
+        user = self.create_user()
+        appointment = self.create_appointment(user=user)
+        self.client.force_login(user)
+
+        response = self.client.get(f"/en/portal/appointments/{appointment.id}/")
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_account_and_dashboard_do_not_expose_raw_public_tokens(self):
+        user = self.create_user()
+        appointment = self.create_appointment(user=user)
+        self.client.force_login(user)
+
+        page_urls = [
+            reverse("patient_portal_dashboard"),
+            reverse("patient_portal_account"),
+        ]
+        for url in page_urls:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertNotContains(response, str(appointment.public_token))
+                self.assertNotContains(response, appointment.confirmation_reference)
+
     def test_appointment_detail_shows_only_patient_safe_fields(self):
         user = self.create_user()
         appointment = self.create_appointment(user=user)
@@ -627,6 +653,74 @@ class PatientPortalPrivacyTests(PatientPortalTestMixin, TestCase):
         self.assertNotContains(response, "Internal audit note")
         self.assertNotContains(response, "/staff/appointments/")
         self.assertNotContains(response, str(appointment.public_token))
+
+    def test_patient_pages_do_not_link_staff_operation_urls(self):
+        user = self.create_user()
+        appointment = self.create_appointment(user=user)
+        self.client.force_login(user)
+        page_urls = [
+            reverse("patient_portal_dashboard"),
+            reverse("patient_portal_account"),
+            reverse("patient_portal_password_change"),
+            reverse("patient_portal_link_appointment"),
+            reverse("patient_portal_appointment_list"),
+            reverse("patient_portal_appointment_detail", kwargs={"public_token": appointment.public_token}),
+        ]
+        blocked_fragments = [
+            "/staff/appointments/",
+            "/cancel/",
+            "/reschedule/",
+            "/arrived/",
+            "/complete/",
+            "/no-show/",
+        ]
+
+        for url in page_urls:
+            response = self.client.get(url)
+            with self.subTest(url=url):
+                self.assertEqual(response.status_code, 200)
+                for fragment in blocked_fragments:
+                    self.assertNotContains(response, fragment)
+
+    def test_patient_pages_do_not_expose_private_operational_strings(self):
+        user = self.create_user()
+        appointment = self.create_appointment(user=user)
+        AppointmentStatusHistory.objects.create(
+            appointment=appointment,
+            old_status=Appointment.Status.CONFIRMED,
+            new_status=Appointment.Status.RESCHEDULED,
+            note="Status history private note.",
+        )
+        AuditLog.objects.create(
+            user=user,
+            action=AuditLog.Action.STATUS_CHANGE,
+            app_label="booking",
+            model_name="Appointment",
+            object_id=str(appointment.id),
+            message="Audit log private message.",
+            metadata={"operation_note": "Audit metadata private note."},
+        )
+        self.client.force_login(user)
+        page_urls = [
+            reverse("patient_portal_dashboard"),
+            reverse("patient_portal_account"),
+            reverse("patient_portal_appointment_list"),
+            reverse("patient_portal_appointment_detail", kwargs={"public_token": appointment.public_token}),
+        ]
+        blocked_text = [
+            "Private booking note",
+            "Status history private note",
+            "Audit log private message",
+            "Audit metadata private note",
+            "operation_note",
+        ]
+
+        for url in page_urls:
+            response = self.client.get(url)
+            with self.subTest(url=url):
+                self.assertEqual(response.status_code, 200)
+                for text in blocked_text:
+                    self.assertNotContains(response, text)
 
     def test_patient_safe_status_label_for_no_show_is_missed(self):
         user = self.create_user()

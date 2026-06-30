@@ -52,10 +52,23 @@ Only Dr. Khaled Hassan Badran is in scope for the initial version. No second doc
 - `docs/BATCH_7_STATUS.md` - staging-readiness validation batch status.
 - `docs/BATCH_8_STATUS.md` - patient portal foundation status.
 - `docs/BATCH_9_STATUS.md` - portal account security and patient portal polish status.
+- `docs/PROJECT_MAP.md` - current app/module/test/command inventory.
+- `docs/ROUTE_ACCESS_MATRIX.md` - route access, CSRF, cache, ownership, and prohibited route matrix.
+- `docs/DATA_EXPOSURE_MATRIX.md` - public, portal, staff-only, internal, and never-on-patient-page data boundaries.
+- `docs/STAGING_VALIDATION_PLAN.md` - production-like restricted staging validation plan.
+- `docs/FIGMA_DESIGN_HANDOFF.md` - Figma source-of-truth rule for future visual changes.
+- `docs/PROJECT_RELEASE_SCORECARD.md` - conservative release-readiness scorecard and next batches.
+- `docs/BATCH_10_STATUS.md` - Batch 10 consolidation summary.
 
 ## Development Policy
 
 Work must be delivered in small auditable batches. Do not ask Codex or any AI agent to implement the entire system in one step.
+
+## Design Governance
+
+Figma is the source of truth for visual design. Codex must not invent or independently change colors, spacing systems, typography systems, visual hierarchy, animations, decorative elements, shadows, borders, hover effects, brand style, or layout density. Future visual changes require an approved Figma handoff before implementation. See `docs/FIGMA_DESIGN_HANDOFF.md`.
+
+Design approval cannot bypass security or privacy requirements. Public booking, UUID-only public success URLs, staff-only appointment operations, CSRF, portal no-cache behavior, patient ownership filtering, and prohibited feature boundaries must remain intact.
 
 Recommended order:
 
@@ -88,6 +101,13 @@ Run the safe local deployment smoke check:
 
 ```bash
 python manage.py deployment_smoke
+```
+
+Run the safe read-only project status report:
+
+```bash
+python manage.py project_status_report
+python manage.py project_status_report --json
 ```
 
 Seed safe public clinic content:
@@ -152,6 +172,36 @@ Health endpoints:
 - `/health/ready/` is a readiness endpoint intended for private/internal monitoring; it checks database connectivity and returns no detailed failures.
 
 This project is not deployed and is not fully launch-ready. Remaining launch work includes real hosting, TLS/proxy setup, PostgreSQL and Redis provisioning, backups and restore drills, monitoring/error reporting, legal/privacy review, static serving strategy, private media design before uploads, vulnerability scanning, and load testing. See `docs/PRODUCTION_READINESS.md` and `docs/DEPLOYMENT_CHECKLIST.md`.
+
+## Current Status and Next Steps
+
+After Batch 10, the project has a consolidated project map, route/access matrix,
+data exposure matrix, staging validation plan, Figma handoff governance, release
+scorecard, expanded security regressions, and safer operational smoke summaries.
+
+Current safe demo scope remains limited to synthetic data:
+
+- public bilingual pages,
+- login-free public booking,
+- UUID public booking success,
+- bounded staff appointment operations,
+- optional patient portal account/login/password/account recovery policy,
+- patient appointment linking and linked appointment viewing.
+
+Still not launch-safe:
+
+- real staging/prod infrastructure has not been validated,
+- legal/privacy review is not complete,
+- monitoring and alerting are not configured,
+- backup/restore drills have not been completed,
+- production rate limits have not been tuned against Redis/shared cache,
+- uploads, medical records, WhatsApp API/webhooks, payments, diagnosis, triage,
+  treatment automation, and medical AI remain absent.
+
+Recommended next batch: restricted staging validation with PostgreSQL,
+Redis/shared cache, HTTPS/reverse proxy review, `check --deploy`,
+`deployment_smoke --strict`, synthetic seed commands, and a synthetic
+backup/restore drill.
 
 Deployment smoke command:
 

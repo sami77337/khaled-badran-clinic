@@ -2,6 +2,19 @@
 
 Run this checklist before any staging launch, production launch, or feature batch that touches routing, booking, authentication, settings, cache, proxy handling, or patient-facing data.
 
+## Batch 10 Matrix Checks
+
+- Review `docs/ROUTE_ACCESS_MATRIX.md` before merging route, view, URL, template,
+  middleware, or auth changes.
+- Review `docs/DATA_EXPOSURE_MATRIX.md` before merging public, portal, staff,
+  account, smoke, logging, or template changes.
+- Confirm `docs/PROJECT_MAP.md` remains accurate after app/module/command/test
+  changes.
+- Confirm `docs/STAGING_VALIDATION_PLAN.md` is followed before claiming staging
+  readiness.
+- Confirm future visual changes follow `docs/FIGMA_DESIGN_HANDOFF.md` and do not
+  weaken route, CSRF, cache, ownership, or privacy protections.
+
 ## Public Booking Tokens
 
 - Public appointment success URLs use UUID `public_token` values.
@@ -53,6 +66,10 @@ Run this checklist before any staging launch, production launch, or feature batc
 - Re-linking an appointment already linked to the same user is a safe no-op.
 - Portal appointment pages show only patient-safe appointment data.
 - Portal appointment pages do not show internal IDs, staff notes, booking notes, status history notes, audit logs, medical records, uploads, WhatsApp messages, or payment admin details.
+- Patient account and dashboard pages do not expose raw appointment public
+  tokens.
+- Patient pages do not link staff appointment operation URLs.
+- Patient templates do not expose audit/status-history/private-note strings.
 
 ## Routes Not Yet Implemented
 
@@ -118,8 +135,26 @@ Run this checklist before any staging launch, production launch, or feature batc
 - `python manage.py check` passes.
 - `python manage.py test` passes.
 - `python manage.py deployment_smoke` runs in CI.
+- `python manage.py deployment_smoke --json` emits safe JSON keys only.
+- Deployment smoke includes public booking security summary.
+- Deployment smoke includes patient portal security summary.
+- Deployment smoke includes project consolidation summary.
+- Deployment smoke includes prohibited-feature disabled summary.
+- Deployment smoke does not print patient names, emails, phone numbers, raw
+  public tokens, or appointment confirmation references.
+- `python manage.py project_status_report` and
+  `python manage.py project_status_report --json` do not print patient names,
+  emails, phone numbers, raw public tokens, secrets, or connection strings.
 - In staging/production-like settings, `python manage.py check --deploy` is reviewed.
 - In staging/production-like settings, `python manage.py deployment_smoke --strict` passes.
+
+## Seed Command Safety
+
+- `python manage.py seed_public_content` does not create patients or
+  appointments.
+- `python manage.py seed_booking_demo` does not create patients or appointments.
+- Seed commands do not create WhatsApp messages, uploads, secrets, credentials,
+  payments, medical records, or real patient data.
 
 ## Portal Expansion Gate
 

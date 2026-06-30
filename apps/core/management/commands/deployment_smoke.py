@@ -9,7 +9,7 @@ from django.core.checks import Error
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
-from django.urls import NoReverseMatch, reverse
+from django.urls import NoReverseMatch, Resolver404, resolve, reverse
 from django.utils import timezone
 
 from apps.booking import services
@@ -26,6 +26,21 @@ SENSITIVE_TEXT_REPLACEMENTS = {
     "SECRET_KEY": "application secret",
     "DATABASE_URL": "database connection setting",
     "CACHE_URL": "cache connection setting",
+}
+
+PROHIBITED_ROUTE_GROUPS = {
+    "uploads_enabled": ["/uploads/", "/portal/uploads/"],
+    "medical_records_enabled": [
+        "/records/",
+        "/medical-records/",
+        "/portal/medical-records/",
+    ],
+    "whatsapp_api_enabled": [
+        "/whatsapp/webhook/",
+        "/api/whatsapp/",
+        "/whatsapp/api/",
+    ],
+    "payments_enabled": ["/payments/", "/portal/payments/"],
 }
 
 
@@ -70,6 +85,14 @@ def _production_like():
         or settings_module.endswith(".prod")
         or settings_module.endswith(".staging")
     )
+
+
+def _path_is_routed(path):
+    try:
+        resolve(path)
+    except Resolver404:
+        return False
+    return True
 
 
 def _safe_settings_summary():
@@ -187,6 +210,8 @@ def run_deployment_smoke(*, strict=False):
     _add_booking_settings_check(result)
     _add_health_import_check(result)
     _add_readiness_db_check(result)
+    _add_project_consolidation_summary(result)
+    _add_prohibited_feature_flags_check(result)
     _add_public_booking_summary(result)
     _add_patient_portal_summary(result)
 
@@ -467,6 +492,58 @@ def _add_readiness_db_check(result):
         "readiness_database_check",
         CHECK_PASS,
         "Readiness database check can run.",
+    )
+
+
+def _add_project_consolidation_summary(result):
+    result.add(
+        "project_consolidation_summary",
+        CHECK_PASS,
+        "Project route and feature surface summary loaded without patient records.",
+        details={
+            "public_site": True,
+            "public_booking": True,
+            "public_booking_requires_login": False,
+            "public_success_lookup": "uuid_public_token",
+            "numeric_public_success_urls": False,
+            "staff_appointment_operations": "staff_only",
+            "patient_portal_scope": "account_login_linked_appointment_viewing",
+            "patient_portal_pages_no_cache": True,
+            "patient_uploads": False,
+            "medical_records": False,
+            "whatsapp_api_or_webhook": False,
+            "payments": False,
+            "medical_ai": False,
+        },
+    )
+
+
+def _add_prohibited_feature_flags_check(result):
+    details = {
+        name: any(_path_is_routed(path) for path in paths)
+        for name, paths in PROHIBITED_ROUTE_GROUPS.items()
+    }
+    details["email_password_reset_enabled"] = False
+    details["diagnosis_automation_enabled"] = False
+    details["triage_automation_enabled"] = False
+    details["treatment_automation_enabled"] = False
+    details["medical_ai_enabled"] = False
+
+    enabled = [name for name, value in details.items() if value]
+    if enabled:
+        result.add(
+            "prohibited_feature_flags",
+            CHECK_FAIL,
+            "A prohibited feature route or flag appears enabled.",
+            details={"enabled": enabled, **details},
+        )
+        return
+
+    result.add(
+        "prohibited_feature_flags",
+        CHECK_PASS,
+        "Prohibited feature surfaces remain disabled or unrouted.",
+        details=details,
     )
 
 

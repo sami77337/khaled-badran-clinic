@@ -50,6 +50,23 @@ Batch 7 adds operational docs for future staging and production operators:
 
 These documents do not prove staging or production readiness by themselves. They define how a future operator should validate it.
 
+Batch 10 adds consolidation and staging-readiness documents:
+
+- `docs/PROJECT_MAP.md` - current app, module, command, seed, and test map.
+- `docs/ROUTE_ACCESS_MATRIX.md` - route access, CSRF, cache, ownership, and
+  prohibited-route matrix.
+- `docs/DATA_EXPOSURE_MATRIX.md` - public, portal, staff-only, internal-only,
+  and never-on-patient-page data boundaries.
+- `docs/STAGING_VALIDATION_PLAN.md` - restricted production-like staging
+  validation plan.
+- `docs/FIGMA_DESIGN_HANDOFF.md` - Figma source-of-truth rule for future visual
+  changes.
+- `docs/PROJECT_RELEASE_SCORECARD.md` - conservative release-readiness
+  scorecard.
+
+These Batch 10 documents also do not prove staging or production readiness by
+themselves. They are review aids and validation checklists.
+
 ## Settings Behavior
 
 Local development uses `config.settings.dev` by default through `manage.py`.
@@ -78,6 +95,24 @@ Production behavior:
 - `SECURE_PROXY_SSL_HEADER` is set only when `DJANGO_SECURE_PROXY_SSL_HEADER_ENABLED=true`.
 
 Staging should also use `config.settings.prod` unless a future reviewed `config.settings.staging` wrapper is added. Staging must be production-like but non-public or restricted, with its own generated application secret, exact allowed hosts, CSRF trusted HTTPS origins, PostgreSQL, shared Redis/cache, HTTPS, no real patient data, and secure uncommitted admin credentials.
+
+Batch 10 staging prerequisites before claiming staging readiness:
+
+- Follow `docs/STAGING_VALIDATION_PLAN.md`.
+- Use PostgreSQL, not SQLite.
+- Use Redis/shared cache, not LocMemCache.
+- Use `DEBUG=False`.
+- Use HTTPS and reviewed reverse proxy headers.
+- Use secure cookies and exact CSRF trusted origins.
+- Use no real patient data.
+- Run `python manage.py migrate`.
+- Run `python manage.py check`.
+- Run `python manage.py check --deploy`.
+- Run `python manage.py deployment_smoke --strict`.
+- Run `python manage.py deployment_smoke --json` and confirm no secrets or
+  patient data are printed.
+- Run seed commands only with synthetic/public demo data.
+- Complete a backup/restore drill with synthetic data before launch.
 
 ## Deployment Smoke Command
 
