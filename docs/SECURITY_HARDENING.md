@@ -52,7 +52,10 @@ Preserved boundaries:
 - Anonymous users are redirected to Django admin login before staff pages load.
 - Authenticated non-staff users receive 403.
 - Staff operations remain bounded to appointment list/detail and status operations.
-- Patient portal foundation routes are added for optional account registration, login, appointment linking, and linked appointment viewing.
+- Patient portal routes are added for optional account registration, login, account summary, password change, clinic-assisted recovery policy, appointment linking, and linked appointment viewing.
+- Patient password change uses Django password validation, Django password hashing, CSRF protection, `sensitive_post_parameters`, no-cache responses, and session hash refresh after success.
+- Email password reset is not implemented because production email ownership, delivery, and recovery policy are not configured yet.
+- Account recovery is informational and clinic-assisted for now; it does not collect sensitive data, send email, send WhatsApp messages, create support tickets, or disclose whether an account exists.
 - Patient portal appointment detail uses UUID `public_token` URLs and authenticated ownership checks.
 - Patient portal linking requires a public token and matching booking phone, with generic errors for wrong phone or nonexistent token.
 - No upload routes are added.
@@ -66,6 +69,14 @@ Public booking POSTs use Django cache rate limiting:
 - Per-IP hourly quota.
 - Per-normalized-phone daily quota.
 - Raw phone numbers are not stored in cache keys.
+
+Patient portal rate limiting uses Django cache:
+
+- Appointment linking is throttled by authenticated user/IP and normalized phone hash when available.
+- Login is throttled by IP and normalized phone hash when available.
+- Registration is throttled by IP and normalized phone hash when available.
+- Raw public tokens, raw phone numbers, and passwords are not stored in portal cache keys.
+- Defaults are intentionally light for local development; staging and production must tune these limits against shared-cache behavior.
 
 Default IP behavior:
 
@@ -89,7 +100,7 @@ Batch 6 marks these responses as no-cache:
 - Booking confirmation.
 - Booking success.
 - Staff appointment pages and operations.
-- Patient portal pages.
+- Patient portal pages, including account, password change, and account recovery policy.
 
 Public informational pages can be made cacheable later after a reviewed policy. Staff, medical, private, and patient-specific pages must not be cached publicly.
 
@@ -166,7 +177,8 @@ Media/private files:
 Before launch:
 
 - Complete legal/privacy review.
-- Define email verification, password reset, account recovery, patient identity verification, and portal abuse monitoring policies before public portal launch.
+- Define verified email or phone ownership, secure self-service account recovery if desired, patient identity verification, and portal abuse monitoring policies before public portal launch.
+- Tune portal login, registration, and appointment-link rate limits in staging with Redis/shared cache.
 - Configure actual production hosting, TLS, proxy, PostgreSQL, Redis, monitoring, and backups.
 - Add dependency vulnerability scanning.
 - Add error reporting with privacy scrubbing if approved.

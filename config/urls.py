@@ -129,6 +129,19 @@ urlpatterns = [
     path("portal/login/", patient_views.portal_login, {"language": "ar"}, name="patient_portal_login"),
     path("portal/logout/", patient_views.portal_logout, {"language": "ar"}, name="patient_portal_logout"),
     path("portal/register/", patient_views.portal_register, {"language": "ar"}, name="patient_portal_register"),
+    path("portal/account/", patient_views.portal_account, {"language": "ar"}, name="patient_portal_account"),
+    path(
+        "portal/password/change/",
+        patient_views.portal_password_change,
+        {"language": "ar"},
+        name="patient_portal_password_change",
+    ),
+    path(
+        "portal/account-recovery/",
+        patient_views.portal_account_recovery,
+        {"language": "ar"},
+        name="patient_portal_account_recovery",
+    ),
     path(
         "portal/link-appointment/",
         patient_views.portal_link_appointment,
@@ -151,6 +164,19 @@ urlpatterns = [
     path("en/portal/login/", patient_views.portal_login, {"language": "en"}, name="patient_portal_login_en"),
     path("en/portal/logout/", patient_views.portal_logout, {"language": "en"}, name="patient_portal_logout_en"),
     path("en/portal/register/", patient_views.portal_register, {"language": "en"}, name="patient_portal_register_en"),
+    path("en/portal/account/", patient_views.portal_account, {"language": "en"}, name="patient_portal_account_en"),
+    path(
+        "en/portal/password/change/",
+        patient_views.portal_password_change,
+        {"language": "en"},
+        name="patient_portal_password_change_en",
+    ),
+    path(
+        "en/portal/account-recovery/",
+        patient_views.portal_account_recovery,
+        {"language": "en"},
+        name="patient_portal_account_recovery_en",
+    ),
     path(
         "en/portal/link-appointment/",
         patient_views.portal_link_appointment,

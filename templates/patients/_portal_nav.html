@@ -1,0 +1,11 @@
+<nav class="hero-actions" aria-label="{% if is_arabic %}تنقل بوابة المريض{% else %}Patient portal navigation{% endif %}">
+    {% for item in portal_nav_items %}
+        <a class="btn btn-secondary" href="{{ item.url }}"{% if portal_section == item.key %} aria-current="page"{% endif %}>{{ item.label }}</a>
+    {% endfor %}
+    {% if request.user.is_authenticated %}
+        <form method="post" action="{{ portal_logout_url }}">
+            {% csrf_token %}
+            <button class="btn btn-secondary" type="submit">{{ portal_logout_label }}</button>
+        </form>
+    {% endif %}
+</nav>

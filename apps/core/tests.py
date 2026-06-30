@@ -219,6 +219,16 @@ class DeploymentSmokeCommandTests(TestCase):
         self.assertIn("checks", payload)
         self.assertGreaterEqual(payload["summary"]["warnings"], 1)
 
+    def test_patient_portal_account_security_routes_are_summarized(self):
+        output = self.call_smoke(json_output=True)
+        payload = json.loads(output)
+        portal_check = next(
+            check for check in payload["checks"] if check["name"] == "patient_portal_security_summary"
+        )
+
+        self.assertTrue(portal_check["details"]["account_security_routes"])
+        self.assertFalse(portal_check["details"]["email_password_reset_enabled"])
+
     @override_settings(
         PRODUCTION=True,
         DEBUG=True,
@@ -374,7 +384,9 @@ class OperationalDocumentationTests(SimpleTestCase):
     def test_release_checklist_contains_portal_foundation_safety_gates(self):
         content = self.read_doc("RELEASE_CHECKLIST.md")
 
-        self.assertIn("patient portal foundation remains account and appointment linking only", content)
+        self.assertIn("patient portal remains bounded to account security and linked-appointment viewing", content)
+        self.assertIn("logged-in password change uses Django validation/hashing", content)
+        self.assertIn("account recovery is clinic-assisted", content)
         self.assertIn("no uploads until private media design exists", content)
         self.assertIn("no WhatsApp until consent/logging/cost/security design exists", content)
         self.assertIn("no medical records until authorization/audit/patient visibility rules are tested", content)
@@ -395,8 +407,14 @@ class PortalFoundationRouteTests(TestCase):
     def test_upload_and_whatsapp_routes_remain_absent(self):
         blocked_paths = [
             "/uploads/",
+            "/portal/uploads/",
             "/whatsapp/webhook/",
             "/api/whatsapp/",
+            "/records/",
+            "/medical-records/",
+            "/portal/medical-records/",
+            "/payments/",
+            "/portal/payments/",
         ]
 
         for path in blocked_paths:

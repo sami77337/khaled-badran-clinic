@@ -31,11 +31,19 @@ Run this checklist before any staging launch, production launch, or feature batc
 - `DJANGO_CSRF_TRUSTED_ORIGINS` is set for staging and production HTTPS origins.
 - No CSRF trusted origin wildcard is used.
 
-## Patient Portal Foundation
+## Patient Portal Foundation and Account Security
 
 - `/portal/` requires authenticated patient access.
-- `/portal/login/`, `/portal/register/`, and `/portal/link-appointment/` POSTs use CSRF protection.
+- `/portal/account/` requires authenticated patient access.
+- `/portal/password/change/` requires authenticated patient access.
+- `/portal/account-recovery/` is informational only and does not collect sensitive data.
+- `/portal/login/`, `/portal/register/`, `/portal/password/change/`, and `/portal/link-appointment/` POSTs use CSRF protection.
+- Password change uses Django password validation, Django password hashing, and session hash refresh after success.
+- Email password reset is not implemented unless a safe production email ownership and delivery policy is approved.
+- Account recovery remains clinic-assisted and must not disclose whether an account exists.
 - Patient portal pages are marked no-cache.
+- Portal navigation keeps logout as POST-only.
+- Patient account pages show only display name, masked username/phone, optional email, and linked appointment count.
 - Patient appointment detail URLs use UUID `public_token`, not numeric appointment IDs.
 - `/portal/appointments/<numeric-id>/` returns 404.
 - User A cannot access User B's linked appointment.
@@ -48,7 +56,7 @@ Run this checklist before any staging launch, production launch, or feature batc
 
 ## Routes Not Yet Implemented
 
-- No upload routes yet.
+- No upload routes yet, including under `/portal/`.
 - No WhatsApp webhook routes yet.
 - No online payment routes yet.
 - No medical record routes yet.
@@ -74,6 +82,9 @@ Run this checklist before any staging launch, production launch, or feature batc
 - Public booking IP rate limit is active.
 - Public booking phone rate limit is active.
 - Raw phone numbers are not used in cache keys.
+- Patient portal appointment-link rate limit is active.
+- Patient portal login and registration rate limits are active if enabled by the current code path.
+- Patient portal cache keys do not include raw public tokens, raw phone numbers, or passwords.
 - Staff operations are not blocked by public booking rate limits.
 - Staging and production use shared cache, not LocMemCache.
 
@@ -112,4 +123,4 @@ Run this checklist before any staging launch, production launch, or feature batc
 
 ## Portal Expansion Gate
 
-Do not expand beyond the Batch 8 patient portal foundation, add uploads, implement WhatsApp sending/webhooks, expose medical records, add online payments, or add medical automation until staging smoke and this security regression checklist are reviewed.
+Do not expand beyond bounded portal account security and linked-appointment viewing, add uploads, implement WhatsApp sending/webhooks, expose medical records, add online payments, or add medical automation until staging smoke and this security regression checklist are reviewed.

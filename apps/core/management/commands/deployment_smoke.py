@@ -495,6 +495,9 @@ def _add_patient_portal_summary(result):
         "patient_portal_login",
         "patient_portal_logout",
         "patient_portal_register",
+        "patient_portal_account",
+        "patient_portal_password_change",
+        "patient_portal_account_recovery",
         "patient_portal_link_appointment",
         "patient_portal_appointment_list",
     ]
@@ -515,6 +518,8 @@ def _add_patient_portal_summary(result):
         "Patient portal foundation routes are importable without requiring patient accounts.",
         details={
             "portal_scope": "account_login_linked_appointment_viewing",
+            "account_security_routes": True,
+            "email_password_reset_enabled": False,
             "public_booking_requires_login": False,
             "appointment_lookup": "uuid_public_token_with_authenticated_owner",
             "uploads_enabled": False,

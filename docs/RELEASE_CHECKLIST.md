@@ -47,7 +47,7 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 ## Pre-Merge Checklist
 
 - Scope matches the approved batch.
-- No patient portal expansion, uploads, WhatsApp API sending/webhooks, online payments, medical records, or medical automation were added unless the batch explicitly approves them.
+- No patient portal expansion beyond the approved batch, uploads, WhatsApp API sending/webhooks, online payments, medical records, or medical automation were added unless the batch explicitly approves them.
 - No real secrets, credentials, patient data, logs, private files, or database dumps are committed.
 - Public booking success URLs still use UUID `public_token` values.
 - Numeric appointment success routes remain absent.
@@ -121,16 +121,21 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - No unexpected routes are exposed.
 - Release notes and incident timeline are updated if anything failed.
 
-## Patient Portal Foundation Gates
+## Patient Portal Account Security Gates
 
-- patient portal foundation remains account and appointment linking only
+- patient portal remains bounded to account security and linked-appointment viewing
+- logged-in password change uses Django validation/hashing and keeps the session valid after success
+- email password reset is not implemented unless production email ownership and recovery policy are approved
+- account recovery is clinic-assisted and informational only for now
 - public booking still works without login
 - portal appointment access uses UUID `public_token` URLs and authenticated ownership checks
 - appointment linking requires `public_token` plus matching booking phone
 - portal pages are no-cache
+- portal login, registration, password change, and appointment linking keep CSRF protection
+- portal rate limits use hashed identities and do not store raw public tokens, raw phone numbers, or passwords in cache keys
 - no uploads until private media design exists
 - no WhatsApp until consent/logging/cost/security design exists
 - no medical records until authorization/audit/patient visibility rules are tested
 - no payments until a payment provider, privacy, refund, and reconciliation policy is reviewed
 
-These gates are intentional blockers for future batches beyond the Batch 8 portal foundation.
+These gates are intentional blockers for future batches beyond the Batch 9 portal account-security polish.

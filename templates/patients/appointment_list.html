@@ -11,9 +11,12 @@
 
 <section class="section">
     <div class="container staff-layout">
+        {% include "patients/_portal_nav.html" %}
+
         <div class="hero-actions">
             <a class="btn btn-primary" href="{{ portal_link_url }}">{% if is_arabic %}ربط موعد{% else %}Link appointment{% endif %}</a>
             <a class="btn btn-secondary" href="{{ portal_dashboard_url }}">{% if is_arabic %}العودة للبوابة{% else %}Back to portal{% endif %}</a>
+            <a class="btn btn-secondary" href="{{ portal_account_url }}">{% if is_arabic %}الحساب{% else %}Account{% endif %}</a>
         </div>
         <div class="staff-table-wrap">
             <table class="staff-table">

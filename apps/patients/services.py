@@ -52,6 +52,17 @@ def patient_display_name(user):
     return user.username
 
 
+def masked_account_identifier(value):
+    value = str(value or "").strip()
+    if not value:
+        return ""
+    if len(value) <= 4:
+        return "*" * len(value)
+    if value.startswith("+") and len(value) > 8:
+        return f"{value[:6]}{'*' * max(4, len(value) - 8)}{value[-2:]}"
+    return f"{value[:2]}{'*' * max(4, len(value) - 4)}{value[-2:]}"
+
+
 def user_patient_profile(user):
     return Patient.objects.filter(user=user).first()
 

@@ -11,6 +11,8 @@
 
 <section class="section">
     <div class="container booking-layout">
+        {% include "patients/_portal_nav.html" %}
+
         {% if messages %}
             <div class="staff-messages">
                 {% for message in messages %}
@@ -56,6 +58,9 @@
                 </a>
                 <a class="btn btn-secondary" href="{{ portal_dashboard_url }}">
                     {% if is_arabic %}العودة للبوابة{% else %}Back to portal{% endif %}
+                </a>
+                <a class="btn btn-secondary" href="{{ portal_account_url }}">
+                    {% if is_arabic %}الحساب{% else %}Account{% endif %}
                 </a>
             </div>
         </div>
