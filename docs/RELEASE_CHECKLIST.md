@@ -49,9 +49,16 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - Scope matches the approved batch.
 - No patient portal expansion beyond the approved batch, uploads, WhatsApp API sending/webhooks, online payments, medical records, or medical automation were added unless the batch explicitly approves them.
 - No real secrets, credentials, patient data, logs, private files, or database dumps are committed.
+- Route changes are reviewed against `docs/ROUTE_ACCESS_MATRIX.md`.
+- Patient/public/staff data exposure changes are reviewed against `docs/DATA_EXPOSURE_MATRIX.md`.
+- Future visual changes have an approved Figma handoff and do not bypass security/privacy requirements.
 - Public booking success URLs still use UUID `public_token` values.
 - Numeric appointment success routes remain absent.
 - Staff appointment pages and operations remain staff-only.
+- Patient portal pages remain no-cache.
+- Portal logout remains POST-only.
+- Account recovery remains GET-only/static unless a secure recovery process is separately approved.
+- Prohibited upload, medical-record, WhatsApp API/webhook, and payment routes remain absent.
 - Tests were added for changed behavior.
 - `python manage.py makemigrations --check --dry-run` passes.
 - `python manage.py check` passes.
@@ -61,6 +68,7 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 
 - Release revision is identified.
 - Environment variables are configured outside Git.
+- Staging validation follows `docs/STAGING_VALIDATION_PLAN.md`.
 - Staging has its own generated application secret.
 - Staging and production use exact allowed hosts.
 - CSRF trusted origins are set to HTTPS origins.
@@ -86,11 +94,40 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - `python manage.py check` passes.
 - `python manage.py check --deploy` is reviewed in production-like settings.
 - `python manage.py deployment_smoke --strict` passes in production-like settings.
+- `python manage.py deployment_smoke --json` emits only safe keys and values.
 - `/health/` returns safe liveness.
 - `/health/ready/` returns safe readiness through the private/internal path.
 - Public booking pages render.
 - Staff appointment pages require authentication and staff status.
 - Smoke output does not print secrets, database connection strings, cache connection strings, passwords, tokens, cookies, or raw environment dumps.
+- Smoke output does not print patient names, emails, phone numbers, appointment
+  tokens, or patient data.
+- Smoke output includes public booking, patient portal, project consolidation,
+  and prohibited-feature summaries.
+- `python manage.py project_status_report` and
+  `python manage.py project_status_report --json` remain read-only and print
+  counts, booleans, and route/security categories only.
+
+## Batch 10 Route, Security, and Staging Gates
+
+- `docs/PROJECT_MAP.md` is current for apps, modules, tests, and commands.
+- `docs/ROUTE_ACCESS_MATRIX.md` is current for implemented and prohibited routes.
+- `docs/DATA_EXPOSURE_MATRIX.md` is current for patient-safe, staff-only,
+  internal-only, and never-on-patient-page fields.
+- `docs/STAGING_VALIDATION_PLAN.md` is followed before claiming staging
+  readiness.
+- `docs/FIGMA_DESIGN_HANDOFF.md` is followed before any future visual change.
+- Public booking remains login-free.
+- Public booking success remains UUID `public_token` based.
+- Numeric public appointment success URLs remain 404.
+- Staff appointment operations require authenticated staff.
+- Patient appointment detail requires authenticated ownership filtering.
+- Patient account/dashboard pages do not expose raw appointment public tokens
+  except where an explicit linking/detail flow requires a UUID URL.
+- Portal pages remain no-cache.
+- Account recovery remains GET-only/static.
+- Seed commands do not create patients or appointments.
+- Upload, medical-record, WhatsApp API/webhook, and payment routes remain 404.
 
 ## Rollback Checklist
 

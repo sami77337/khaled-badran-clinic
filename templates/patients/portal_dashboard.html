@@ -72,7 +72,7 @@
                                 <h3>{% if is_arabic %}{{ item.appointment.visit_type.name_ar }}{% else %}{{ item.appointment.visit_type.name_en }}{% endif %}</h3>
                                 <p class="muted">{{ item.appointment.starts_at|date:"Y-m-d H:i" }}</p>
                                 <p><span class="status-pill status-{{ item.appointment.status }}">{{ item.status_label }}</span></p>
-                                <a class="btn btn-secondary" href="{% if is_arabic %}{% url 'patient_portal_appointment_detail' public_token=item.appointment.public_token %}{% else %}{% url 'patient_portal_appointment_detail_en' public_token=item.appointment.public_token %}{% endif %}">
+                                <a class="btn btn-secondary" href="{{ portal_appointments_url }}">
                                     {% if is_arabic %}التفاصيل{% else %}Details{% endif %}
                                 </a>
                             </article>
@@ -92,7 +92,7 @@
                                 <h3>{% if is_arabic %}{{ item.appointment.visit_type.name_ar }}{% else %}{{ item.appointment.visit_type.name_en }}{% endif %}</h3>
                                 <p class="muted">{{ item.appointment.starts_at|date:"Y-m-d H:i" }}</p>
                                 <p><span class="status-pill status-{{ item.appointment.status }}">{{ item.status_label }}</span></p>
-                                <a class="btn btn-secondary" href="{% if is_arabic %}{% url 'patient_portal_appointment_detail' public_token=item.appointment.public_token %}{% else %}{% url 'patient_portal_appointment_detail_en' public_token=item.appointment.public_token %}{% endif %}">
+                                <a class="btn btn-secondary" href="{{ portal_appointments_url }}">
                                     {% if is_arabic %}التفاصيل{% else %}Details{% endif %}
                                 </a>
                             </article>

@@ -1,17 +1,22 @@
 import json
 import os
+from datetime import timedelta
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.management import CommandError, call_command
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.test.utils import ignore_warnings
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.booking.models import Appointment
+from apps.clinic.models import Doctor, VisitType
 from apps.core.checks import production_readiness_checks
+from apps.patients.models import Patient
 from config.settings.helpers import (
     build_cache_config,
     build_database_config,
@@ -202,6 +207,41 @@ class DeploymentSmokeCommandTests(TestCase):
         call_command("deployment_smoke", stdout=output, **options)
         return output.getvalue()
 
+    def create_patient_appointment(self):
+        user = get_user_model().objects.create_user(
+            username="+962799999999",
+            email="private-patient@example.test",
+            password="test-password",
+            first_name="Private Patient",
+        )
+        doctor = Doctor.objects.create(
+            full_name_ar="ط®ط§ظ„ط¯ ط­ط³ط§ظ† ط¨ط¯ط±ط§ظ†",
+            full_name_en="Khaled Hassan Badran",
+            title_en="Dr.",
+            is_active=True,
+        )
+        visit_type = VisitType.objects.create(
+            doctor=doctor,
+            name_ar="ظƒط´ظپ",
+            name_en="Private Visit",
+            duration_minutes=30,
+            is_active=True,
+        )
+        patient = Patient.objects.create(
+            user=user,
+            full_name="Batch Ten Private Patient",
+            phone_raw="0799999999",
+            phone_e164="+962799999999",
+        )
+        starts_at = timezone.now() + timedelta(days=1)
+        return Appointment.objects.create(
+            doctor=doctor,
+            patient=patient,
+            visit_type=visit_type,
+            starts_at=starts_at,
+            ends_at=starts_at + timedelta(minutes=30),
+        )
+
     def test_default_mode_succeeds_in_local_development_with_warnings(self):
         output = self.call_smoke()
 
@@ -218,6 +258,19 @@ class DeploymentSmokeCommandTests(TestCase):
         self.assertEqual(payload["exit_code"], 0)
         self.assertIn("checks", payload)
         self.assertGreaterEqual(payload["summary"]["warnings"], 1)
+        self.assertEqual(
+            set(payload.keys()),
+            {
+                "checks",
+                "command",
+                "exit_code",
+                "generated_at",
+                "settings",
+                "status",
+                "strict",
+                "summary",
+            },
+        )
 
     def test_patient_portal_account_security_routes_are_summarized(self):
         output = self.call_smoke(json_output=True)
@@ -228,6 +281,36 @@ class DeploymentSmokeCommandTests(TestCase):
 
         self.assertTrue(portal_check["details"]["account_security_routes"])
         self.assertFalse(portal_check["details"]["email_password_reset_enabled"])
+
+    def test_public_booking_security_summary_is_summarized(self):
+        output = self.call_smoke(json_output=True)
+        payload = json.loads(output)
+        booking_check = next(
+            check for check in payload["checks"] if check["name"] == "public_booking_security_summary"
+        )
+
+        self.assertEqual(booking_check["details"]["public_success_lookup"], "uuid_public_token")
+        self.assertFalse(booking_check["details"]["numeric_success_route"])
+        self.assertTrue(booking_check["details"]["staff_operations_require_staff"])
+
+    def test_project_consolidation_and_prohibited_feature_flags_are_summarized(self):
+        output = self.call_smoke(json_output=True)
+        payload = json.loads(output)
+        consolidation_check = next(
+            check for check in payload["checks"] if check["name"] == "project_consolidation_summary"
+        )
+        prohibited_check = next(
+            check for check in payload["checks"] if check["name"] == "prohibited_feature_flags"
+        )
+
+        self.assertEqual(consolidation_check["status"], "pass")
+        self.assertEqual(consolidation_check["details"]["public_success_lookup"], "uuid_public_token")
+        self.assertFalse(consolidation_check["details"]["numeric_public_success_urls"])
+        self.assertFalse(prohibited_check["details"]["uploads_enabled"])
+        self.assertFalse(prohibited_check["details"]["medical_records_enabled"])
+        self.assertFalse(prohibited_check["details"]["whatsapp_api_enabled"])
+        self.assertFalse(prohibited_check["details"]["payments_enabled"])
+        self.assertFalse(prohibited_check["details"]["email_password_reset_enabled"])
 
     @override_settings(
         PRODUCTION=True,
@@ -303,6 +386,21 @@ class DeploymentSmokeCommandTests(TestCase):
         self.assertNotIn("DATABASE_URL", text)
         self.assertNotIn("CACHE_URL", text)
 
+    def test_output_does_not_include_patient_data_or_tokens(self):
+        appointment = self.create_patient_appointment()
+
+        human_output = self.call_smoke()
+        json_output = self.call_smoke(json_output=True)
+        combined = human_output + json_output
+        json.loads(json_output)
+
+        self.assertNotIn("Batch Ten Private Patient", combined)
+        self.assertNotIn("private-patient@example.test", combined)
+        self.assertNotIn("0799999999", combined)
+        self.assertNotIn("+962799999999", combined)
+        self.assertNotIn(str(appointment.public_token), combined)
+        self.assertNotIn(appointment.confirmation_reference, combined)
+
     def test_database_failure_is_reported_without_exception_details(self):
         output = StringIO()
 
@@ -332,6 +430,88 @@ class DeploymentSmokeCommandTests(TestCase):
         self.assertIn("Default cache check failed", text)
         self.assertNotIn("raw-cache-secret", text)
         self.assertNotIn("redis://", text)
+
+
+class ProjectStatusReportCommandTests(TestCase):
+    def call_report(self, **options):
+        output = StringIO()
+        call_command("project_status_report", stdout=output, **options)
+        return output.getvalue()
+
+    def create_private_records(self):
+        user = get_user_model().objects.create_user(
+            username="+962788888888",
+            email="status-private@example.test",
+            password="test-password",
+            first_name="Status Private",
+        )
+        doctor = Doctor.objects.create(
+            full_name_ar="ط®ط§ظ„ط¯ ط­ط³ط§ظ† ط¨ط¯ط±ط§ظ†",
+            full_name_en="Khaled Hassan Badran",
+            title_en="Dr.",
+            is_active=True,
+        )
+        visit_type = VisitType.objects.create(
+            doctor=doctor,
+            name_ar="ظƒط´ظپ",
+            name_en="Status Visit",
+            duration_minutes=30,
+            is_active=True,
+        )
+        patient = Patient.objects.create(
+            user=user,
+            full_name="Status Private Patient",
+            phone_raw="0788888888",
+            phone_e164="+962788888888",
+        )
+        starts_at = timezone.now() + timedelta(days=1)
+        return Appointment.objects.create(
+            doctor=doctor,
+            patient=patient,
+            visit_type=visit_type,
+            starts_at=starts_at,
+            ends_at=starts_at + timedelta(minutes=30),
+        )
+
+    def assert_private_values_absent(self, text, appointment):
+        self.assertNotIn("Status Private Patient", text)
+        self.assertNotIn("status-private@example.test", text)
+        self.assertNotIn("0788888888", text)
+        self.assertNotIn("+962788888888", text)
+        self.assertNotIn(str(appointment.public_token), text)
+        self.assertNotIn(appointment.confirmation_reference, text)
+
+    def test_text_output_is_counts_only_and_safe(self):
+        appointment = self.create_private_records()
+
+        text = self.call_report()
+
+        self.assertIn("Project status report for Dr. Khaled Badran Clinic", text)
+        self.assertIn("patients=1", text)
+        self.assertIn("appointments=1", text)
+        self.assertIn("public_success_lookup=uuid_public_token", text)
+        self.assertIn("uploads=False", text)
+        self.assertIn("medical_records=False", text)
+        self.assertIn("whatsapp_api_or_webhook=False", text)
+        self.assertIn("payments=False", text)
+        self.assert_private_values_absent(text, appointment)
+
+    def test_json_output_is_counts_only_and_safe(self):
+        appointment = self.create_private_records()
+
+        text = self.call_report(json_output=True)
+        payload = json.loads(text)
+
+        self.assertEqual(payload["command"], "project_status_report")
+        self.assertEqual(payload["counts"]["patients"], 1)
+        self.assertEqual(payload["counts"]["appointments"], 1)
+        self.assertEqual(payload["security"]["public_success_lookup"], "uuid_public_token")
+        self.assertFalse(payload["features"]["uploads"])
+        self.assertFalse(payload["features"]["medical_records"])
+        self.assertFalse(payload["features"]["whatsapp_api_or_webhook"])
+        self.assertFalse(payload["features"]["payments"])
+        self.assertFalse(payload["security"]["prohibited_features"]["uploads_enabled"])
+        self.assert_private_values_absent(text, appointment)
 
 
 class OperationalDocumentationTests(SimpleTestCase):
@@ -396,6 +576,85 @@ class OperationalDocumentationTests(SimpleTestCase):
 
         self.assertIn("python manage.py deployment_smoke", workflow)
 
+    def test_batch_10_consolidation_documents_exist_and_are_linked(self):
+        expected_docs = [
+            "PROJECT_MAP.md",
+            "ROUTE_ACCESS_MATRIX.md",
+            "DATA_EXPOSURE_MATRIX.md",
+            "STAGING_VALIDATION_PLAN.md",
+            "FIGMA_DESIGN_HANDOFF.md",
+            "PROJECT_RELEASE_SCORECARD.md",
+            "BATCH_10_STATUS.md",
+            "BATCH_10_PROGRESS.md",
+        ]
+        readme = Path(settings.BASE_DIR, "README.md").read_text(encoding="utf-8")
+
+        for doc_name in expected_docs:
+            with self.subTest(doc_name=doc_name):
+                self.assertTrue((self.docs_dir / doc_name).exists())
+                if doc_name not in {"BATCH_10_PROGRESS.md"}:
+                    self.assertIn(doc_name, readme)
+
+    def test_route_access_and_data_exposure_docs_cover_security_boundaries(self):
+        route_matrix = self.read_doc("ROUTE_ACCESS_MATRIX.md")
+        data_matrix = self.read_doc("DATA_EXPOSURE_MATRIX.md")
+
+        for expected in [
+            "/book/success/<uuid:public_token>/",
+            "/staff/appointments/<appointment-id>/cancel/",
+            "/portal/appointments/<uuid:public_token>/",
+            "/whatsapp/api/",
+            "/portal/payments/",
+            "CSRF expectation",
+            "never_cache",
+        ]:
+            with self.subTest(expected=expected):
+                self.assertIn(expected, route_matrix)
+
+        for expected in [
+            "Patient-safe fields visible in the patient portal",
+            "Booking success must not expose",
+            "Never on Patient Pages",
+            "status history notes",
+            "WhatsApp must not carry detailed medical information",
+        ]:
+            with self.subTest(expected=expected):
+                self.assertIn(expected, data_matrix)
+
+    def test_staging_plan_documents_production_like_prerequisites(self):
+        content = self.read_doc("STAGING_VALIDATION_PLAN.md")
+
+        for expected in [
+            "PostgreSQL required",
+            "Redis or another shared Django cache required",
+            "DEBUG=False",
+            "No real patient data",
+            "deployment_smoke --strict",
+            "project_status_report --json",
+            "backup/restore drill",
+        ]:
+            with self.subTest(expected=expected):
+                self.assertIn(expected, content)
+
+    def test_figma_handoff_rule_is_documented_without_bypassing_security(self):
+        figma_doc = self.read_doc("FIGMA_DESIGN_HANDOFF.md")
+        readme = Path(settings.BASE_DIR, "README.md").read_text(encoding="utf-8")
+        security = self.read_doc("SECURITY_HARDENING.md")
+
+        self.assertIn("Codex does not design", figma_doc)
+        self.assertIn("Figma is the source of truth", figma_doc)
+        self.assertIn("Design approval cannot bypass security", readme)
+        self.assertIn("Design Governance and Security", security)
+
+    def test_project_status_report_is_documented_as_safe(self):
+        readme = Path(settings.BASE_DIR, "README.md").read_text(encoding="utf-8")
+        project_map = self.read_doc("PROJECT_MAP.md")
+        security_checklist = self.read_doc("SECURITY_REGRESSION_CHECKLIST.md")
+
+        self.assertIn("python manage.py project_status_report", readme)
+        self.assertIn("project_status_report", project_map)
+        self.assertIn("do not print patient names", security_checklist)
+
 
 class PortalFoundationRouteTests(TestCase):
     def test_patient_portal_requires_authentication(self):
@@ -410,6 +669,7 @@ class PortalFoundationRouteTests(TestCase):
             "/portal/uploads/",
             "/whatsapp/webhook/",
             "/api/whatsapp/",
+            "/whatsapp/api/",
             "/records/",
             "/medical-records/",
             "/portal/medical-records/",

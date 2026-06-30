@@ -62,6 +62,16 @@ Preserved boundaries:
 - No WhatsApp webhook/API routes are added.
 - No payments, medical records, medical AI, diagnosis automation, triage automation, or treatment automation are added.
 
+Batch 10 adds explicit route and data-surface inventories:
+
+- `docs/ROUTE_ACCESS_MATRIX.md` documents method, auth, staff, ownership, CSRF,
+  cache, data exposure, implementation file, and prohibited-route expectations.
+- `docs/DATA_EXPOSURE_MATRIX.md` documents public, patient portal, staff-only,
+  internal-only, and never-on-patient-page fields.
+
+Future route or template changes must be checked against both matrices before
+merge.
+
 ## Rate Limiting and IP Handling
 
 Public booking POSTs use Django cache rate limiting:
@@ -90,6 +100,18 @@ Only enable `BOOKING_TRUST_X_FORWARDED_FOR=true` when:
 - The deployment engineer sets `BOOKING_TRUSTED_PROXY_CONFIGURED=true` after review.
 
 Production rate limiting must use shared cache, not LocMemCache.
+
+Account-security reminder:
+
+- Portal login, registration, password change, logout, account recovery, and
+  appointment linking must preserve CSRF expectations.
+- Portal logout must remain POST-only.
+- Account recovery must remain GET-only/static until a reviewed recovery process
+  exists.
+- Email password reset must remain disabled until production email ownership,
+  delivery, and recovery policy are approved.
+- Staging and production must tune public booking and portal rate limits against
+  Redis/shared cache behavior.
 
 ## Caching Rules
 
@@ -162,6 +184,25 @@ Media/private files:
 - No sensitive medical files should have public URLs.
 - No sensitive medical files should be cached publicly.
 - Future private media backups and restore drills must be included.
+
+## Design Governance and Security
+
+Figma is the source of truth for visual design. Codex must not invent visual
+design decisions or use design changes to bypass security/privacy requirements.
+
+Future Figma-approved visual implementation must preserve:
+
+- UUID-only public booking success URLs,
+- public booking without login,
+- staff-only appointment operations,
+- CSRF protection,
+- no-cache patient portal pages,
+- patient appointment ownership filtering,
+- static/clinic-assisted account recovery until a recovery design is approved,
+- no upload, medical-record, WhatsApp API/webhook, payment, diagnosis, triage,
+  treatment automation, or medical AI routes unless separately approved.
+
+See `docs/FIGMA_DESIGN_HANDOFF.md`.
 
 ## Dependency and Secret Hygiene
 
