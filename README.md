@@ -70,6 +70,11 @@ Only Dr. Khaled Hassan Badran is in scope for the initial version. No second doc
 - `docs/PROJECT_RELEASE_SCORECARD.md` - conservative release-readiness scorecard and next batches.
 - `docs/BATCH_10_STATUS.md` - Batch 10 consolidation summary.
 - `docs/BATCH_11_STATUS.md` - Batch 11 restricted staging validation operations summary.
+- `docs/FINAL_PRODUCT_COMPLETION_PLAN.md` - Batch 12 final product completion track and ordered roadmap.
+- `docs/FINAL_PRODUCT_QUALITY_STANDARD.md` - final product quality bar and launch evidence standard.
+- `docs/DOCTOR_MANAGED_CONFIGURATION_STANDARD.md` - dashboard-managed routine configuration standard.
+- `docs/AUTHORIZED_SHOWCASE_REQUIREMENTS.md` - authorized cases/reviews/media showcase consent requirements.
+- `docs/BATCH_12_STATUS.md` - Batch 12 documentation/planning alignment status.
 
 ## Development Policy
 
@@ -245,11 +250,17 @@ Still not launch-safe:
 - uploads, medical records, WhatsApp API/webhooks, payments, diagnosis, triage,
   treatment automation, and medical AI remain absent.
 
-Recommended next batch: execute a restricted, non-public staging validation
-against real PostgreSQL, Redis/shared cache, HTTPS/reverse proxy settings,
-synthetic seed data, monitoring/error-reporting placeholders, dependency scan
-evidence, and a synthetic backup/restore drill. That work must remain
-restricted and must not launch the site publicly.
+Current planning direction after Batch 12: Final Product Completion Track.
+DEMO_TRACK is no longer the project priority. Synthetic demo data and seed
+commands may remain only for local validation/testing, not as the delivery
+goal.
+
+Recommended next batch: Batch 13, Figma/UX final handoff or final design
+specification alignment. The ordered roadmap continues with restricted staging
+validation, synthetic backup/restore evidence, monitoring/alerting planning,
+legal/privacy/account recovery policy, dashboard workflow completion, patient
+portal hardening, gated WhatsApp design/implementation, authorized
+cases/reviews/media showcase requirements, and release candidate hardening.
 
 Deployment smoke command:
 
