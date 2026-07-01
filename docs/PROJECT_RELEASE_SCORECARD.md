@@ -4,6 +4,11 @@ Batch 11 release-readiness scorecard for Dr. Khaled Badran Clinic after the
 restricted staging validation operations and production-like safety harness
 work.
 
+Batch 12 planning update: the active planning direction is now the Final
+Product Completion Track. DEMO_TRACK is no longer the project priority.
+Synthetic demo data remains allowed only for local validation/testing. This
+planning update does not change the factual readiness claims below.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -181,25 +186,25 @@ Not safe to demo as real or production functionality:
 - No audit retention/access review policy is defined.
 - No Figma handoff exists for future visual changes.
 
-## Recommended Next 5 Batches
+## Recommended Next Batches
 
-1. Execute restricted staging validation with real staging PostgreSQL,
-   Redis/shared cache, HTTPS, reverse proxy review, `check --deploy`,
-   `deployment_smoke --strict`, seed commands, and safe status/settings
-   reports.
-2. Run a synthetic PostgreSQL backup/restore drill and record evidence outside
-   Git, including RPO/RTO owner decisions and failure checklist rehearsal.
-3. Monitoring and abuse operations batch: uptime checks, alert routing, safe
-   error reporting with scrubbing, portal/booking abuse monitoring, backup
-   failure alerts, and dependency scan alerts.
-4. Legal/privacy and account recovery policy batch: verified email/phone
-   ownership, patient identity verification, retention/deletion process,
-   privacy copy review workflow, and no new patient data surfaces.
-5. Figma-approved design implementation batch or staff operations hardening
-   batch, depending on owner priority. Design work must come from Figma;
-   staff hardening should focus on least privilege, audit retention, correction
-   workflow design, and staff runbook refinement without adding records or
-   uploads.
+1. Batch 13: Figma/UX final handoff or final design specification alignment.
+2. Batch 14: restricted staging validation with PostgreSQL/Redis/HTTPS/proxy.
+3. Batch 15: backup/restore synthetic drill evidence and
+   monitoring/alerting setup plan.
+4. Batch 16: legal/privacy/account recovery and patient identity verification
+   policy.
+5. Batch 17: doctor dashboard workflow completion/polish.
+6. Batch 18: patient portal completion/hardening.
+7. Batch 19: WhatsApp limited integration design/implementation only after
+   privacy gates.
+8. Batch 20: approved cases/reviews/media showcase plus private publication
+   rules.
+9. Batch 21: release candidate hardening.
+
+Batch 12 adds planning documents for final product completion, doctor-managed
+configuration, and authorized showcase publication-consent requirements. It
+does not implement code or change launch readiness.
 
 ## Design Status
 
