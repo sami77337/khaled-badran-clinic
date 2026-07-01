@@ -9,6 +9,13 @@ Product Completion Track. DEMO_TRACK is no longer the project priority.
 Synthetic demo data remains allowed only for local validation/testing. This
 planning update does not change the factual readiness claims below.
 
+Batch 13 planning update: final UX/product-flow specifications and design
+handoff requirements were added for public site, booking, doctor/admin
+dashboard, patient portal, bilingual content, and mobile/accessibility review.
+Batch 13 did not create Figma work, visual design, application code, or launch
+evidence. This planning update does not increase whole-project completion or
+change the factual readiness claims below.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -39,7 +46,7 @@ Status labels:
 | Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. No real uptime checks, alert routing, error reporting, or abuse alerts are configured. |
 | Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. No vulnerability scan evidence or approved response owner exists yet. |
 | Staff/admin governance | Partial | Staff access governance is documented and staff route tests exist. Real staff roster, superuser minimization, and access review remain manual/pre-launch. |
-| Design/Figma | Blocked | Current code has existing visual foundation from earlier batches. Future visual changes require Figma handoff and approval before Codex implementation. |
+| Design/Figma | Blocked | Current code has existing visual foundation from earlier batches. Batch 13 defines UX/product-flow and design handoff requirements only. Future visual changes still require human/Figma handoff and approval before Codex implementation. |
 | Uploads | Out of Scope for Now | No upload routes or private media handling are implemented. Private storage, malware scanning, retention, access control, and legal design are required first. |
 | Medical records | Out of Scope for Now | No medical-record routes or models are implemented. Authorization, audit, retention, patient visibility, legal, and clinical workflows are required first. |
 | WhatsApp | Out of Scope for Now | No WhatsApp API sending, webhook, message model, or credential use is implemented. Consent, security, logging, provider, and medical-information boundaries are required first. |
@@ -188,8 +195,9 @@ Not safe to demo as real or production functionality:
 
 ## Recommended Next Batches
 
-1. Batch 13: Figma/UX final handoff or final design specification alignment.
-2. Batch 14: restricted staging validation with PostgreSQL/Redis/HTTPS/proxy.
+1. Batch 14: restricted staging validation with PostgreSQL/Redis/HTTPS/proxy.
+2. Batch 14A: dashboard implementation planning/authorization, only if the
+   owner explicitly chooses planning before dashboard code.
 3. Batch 15: backup/restore synthetic drill evidence and
    monitoring/alerting setup plan.
 4. Batch 16: legal/privacy/account recovery and patient identity verification
@@ -206,10 +214,15 @@ Batch 12 adds planning documents for final product completion, doctor-managed
 configuration, and authorized showcase publication-consent requirements. It
 does not implement code or change launch readiness.
 
+Batch 13 adds final UX/product-flow audit and specifications plus design
+handoff requirements. It does not create Figma work, visual design, product
+code, deployment, external infrastructure, real patient data, or launch
+readiness.
+
 ## Design Status
 
 - Figma required for future visual changes.
 - Codex must not invent colors, spacing, typography, visual hierarchy,
   animations, decorative elements, brand style, shadows, borders, or hover
   effects.
-- Batch 11 status: No visual design work performed by Codex.
+- Batch 13 status: No visual design work performed by Codex.
