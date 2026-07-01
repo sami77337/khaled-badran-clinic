@@ -1,0 +1,37 @@
+name: khaled-badran-clinic-staging-validation
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kbc-staging-validation-postgres
+    environment:
+      POSTGRES_DB: kbc_staging_validation
+      POSTGRES_USER: kbc_local
+      POSTGRES_PASSWORD: local_validation_password
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - kbc_staging_validation_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kbc_local -d kbc_staging_validation"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: kbc-staging-validation-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:63790:6379"
+    volumes:
+      - kbc_staging_validation_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  kbc_staging_validation_postgres:
+  kbc_staging_validation_redis:

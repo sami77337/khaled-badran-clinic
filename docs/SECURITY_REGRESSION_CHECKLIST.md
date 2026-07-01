@@ -15,6 +15,30 @@ Run this checklist before any staging launch, production launch, or feature batc
 - Confirm future visual changes follow `docs/FIGMA_DESIGN_HANDOFF.md` and do not
   weaken route, CSRF, cache, ownership, or privacy protections.
 
+## Batch 11 Operational Validation Checks
+
+- Review `docs/STAGING_GAP_ANALYSIS.md` before claiming staging readiness.
+- Review `docs/STAGING_ENVIRONMENT_CONTRACT.md` before setting staging
+  environment variables.
+- Review `docs/POSTGRESQL_READINESS.md` before claiming PostgreSQL readiness.
+- Review `docs/REDIS_RATE_LIMIT_READINESS.md` before claiming Redis/shared-cache
+  readiness.
+- Review `docs/BACKUP_RESTORE_DRILL.md` before claiming restore readiness.
+- Review `docs/MONITORING_ALERTING_READINESS.md` before claiming monitoring
+  readiness.
+- Review `docs/STAFF_ACCESS_GOVERNANCE.md` before creating production
+  staff/admin accounts.
+- Review `docs/LEGAL_PRIVACY_OPERATIONS.md` before public launch.
+- `python manage.py production_settings_report` and `--json` must not print
+  application secrets, connection strings, host values, passwords, tokens, or
+  patient-identifying data.
+- `scripts/validate_local_release.*` and `scripts/validate_staging_env.*` must
+  not deploy, commit, push, merge, provision resources, or print secret values.
+- `docker-compose.staging-validation.yml` must stay local-only, service-only,
+  and bound to localhost.
+- `.github/dependabot.yml` must stay bounded to Python and GitHub Actions
+  without auto-merge or secrets.
+
 ## Public Booking Tokens
 
 - Public appointment success URLs use UUID `public_token` values.
@@ -102,6 +126,11 @@ Run this checklist before any staging launch, production launch, or feature batc
 - Patient portal appointment-link rate limit is active.
 - Patient portal login and registration rate limits are active if enabled by the current code path.
 - Patient portal cache keys do not include raw public tokens, raw phone numbers, or passwords.
+- Booking rate-limit cache keys do not include raw phone numbers or raw IP
+  identities.
+- Portal login, registration, and appointment-link cache keys do not include raw
+  phone numbers, normalized phone numbers, raw public tokens, passwords, or
+  emails.
 - Staff operations are not blocked by public booking rate limits.
 - Staging and production use shared cache, not LocMemCache.
 
@@ -145,6 +174,9 @@ Run this checklist before any staging launch, production launch, or feature batc
 - `python manage.py project_status_report` and
   `python manage.py project_status_report --json` do not print patient names,
   emails, phone numbers, raw public tokens, secrets, or connection strings.
+- `python manage.py production_settings_report` and
+  `python manage.py production_settings_report --json` print only safe booleans,
+  counts, and backend categories.
 - In staging/production-like settings, `python manage.py check --deploy` is reviewed.
 - In staging/production-like settings, `python manage.py deployment_smoke --strict` passes.
 

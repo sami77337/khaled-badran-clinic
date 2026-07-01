@@ -525,6 +525,57 @@ class PatientPortalRateLimitTests(PatientPortalTestMixin, TestCase):
             self.assertNotIn("0791234567", key)
             self.assertNotIn("+962791234567", key)
 
+    def test_login_rate_limit_cache_keys_do_not_include_raw_phone_or_password(self):
+        self.client.logout()
+        observed_keys = []
+        original_add = rate_limits.cache.add
+
+        def capture_key(key, *args, **kwargs):
+            observed_keys.append(key)
+            return original_add(key, *args, **kwargs)
+
+        with patch("apps.patients.rate_limits.cache.add", side_effect=capture_key):
+            self.client.post(
+                reverse("patient_portal_login"),
+                {"phone": "0791234567", "password": "wrong-password"},
+                REMOTE_ADDR="10.0.0.5",
+            )
+
+        self.assertTrue(observed_keys)
+        for key in observed_keys:
+            self.assertNotIn("0791234567", key)
+            self.assertNotIn("+962791234567", key)
+            self.assertNotIn("wrong-password", key)
+
+    def test_registration_rate_limit_cache_keys_do_not_include_raw_phone_or_password(self):
+        self.client.logout()
+        observed_keys = []
+        original_add = rate_limits.cache.add
+
+        def capture_key(key, *args, **kwargs):
+            observed_keys.append(key)
+            return original_add(key, *args, **kwargs)
+
+        with patch("apps.patients.rate_limits.cache.add", side_effect=capture_key):
+            self.client.post(
+                reverse("patient_portal_register"),
+                {
+                    "full_name": "Portal Patient",
+                    "phone": "0791234567",
+                    "email": "patient@example.test",
+                    "password1": TEST_PASSWORD,
+                    "password2": TEST_PASSWORD,
+                },
+                REMOTE_ADDR="10.0.0.6",
+            )
+
+        self.assertTrue(observed_keys)
+        for key in observed_keys:
+            self.assertNotIn("0791234567", key)
+            self.assertNotIn("+962791234567", key)
+            self.assertNotIn(TEST_PASSWORD, key)
+            self.assertNotIn("patient@example.test", key)
+
 
 class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
     def test_authenticated_portal_pages_include_expected_safe_navigation_links(self):

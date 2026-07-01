@@ -196,6 +196,12 @@ Implemented modules:
 - `apps/core/management/commands/deployment_smoke.py`
 - `.env.example`
 - `.github/workflows/django.yml`
+- `.github/dependabot.yml`
+- `docker-compose.staging-validation.yml`
+- `scripts/validate_local_release.ps1`
+- `scripts/validate_local_release.sh`
+- `scripts/validate_staging_env.ps1`
+- `scripts/validate_staging_env.sh`
 
 Current production-readiness behavior:
 
@@ -208,6 +214,9 @@ Current production-readiness behavior:
 - Production checks flag unsafe production combinations.
 - Health/readiness endpoints avoid internal details.
 - No real deployment has been performed.
+- Batch 11 adds a safe `production_settings_report` command, local validation
+  scripts, local-only PostgreSQL/Redis service harness, and stricter
+  production-like smoke blockers.
 
 ## Deployment Smoke Modules
 
@@ -217,6 +226,8 @@ Implemented command:
 python manage.py deployment_smoke
 python manage.py deployment_smoke --json
 python manage.py deployment_smoke --strict
+python manage.py production_settings_report
+python manage.py production_settings_report --json
 ```
 
 Implementation file:
@@ -233,6 +244,9 @@ Current smoke behavior:
 - Does not require patient accounts.
 - Does not print raw application secrets, database URLs, cache URLs, passwords,
   tokens, cookies, or raw environment dumps.
+- Batch 11 strict-mode checks explicitly fail unsafe production-like DEBUG,
+  SQLite, LocMemCache, HTTPS/cookie/HSTS, CSRF origin, host, and booking proxy
+  attestation combinations.
 
 ## Management Commands
 
@@ -242,8 +256,56 @@ Current custom management commands:
 | --- | --- | --- |
 | `deployment_smoke` | `apps/core/management/commands/deployment_smoke.py` | Safe read-only deployment/staging smoke checks with human, JSON, and strict modes. |
 | `project_status_report` | `apps/core/management/commands/project_status_report.py` | Safe read-only project status snapshot with counts, feature-disabled summary, route/security categories, and JSON mode. |
+| `production_settings_report` | `apps/core/management/commands/production_settings_report.py` | Safe read-only production-like settings snapshot with booleans, counts, backend categories, and JSON mode. |
 | `seed_public_content` | `apps/clinic/management/commands/seed_public_content.py` | Idempotently upserts safe clinic profile, doctor, and visit types. |
 | `seed_booking_demo` | `apps/booking/management/commands/seed_booking_demo.py` | Runs public content seed, then upserts safe booking settings and demo doctor schedules. |
+
+## Batch 11 Validation Scripts and Harnesses
+
+Local validation scripts:
+
+- `scripts/validate_local_release.ps1`
+- `scripts/validate_local_release.sh`
+- `scripts/validate_staging_env.ps1`
+- `scripts/validate_staging_env.sh`
+
+Script behavior:
+
+- detect the repository root,
+- show current branch and `HEAD`,
+- run safe Django validation commands,
+- redact environment-like output,
+- do not deploy, commit, push, merge, provision resources, or print secret
+  values.
+
+Optional local service harness:
+
+- `docker-compose.staging-validation.yml`
+
+Harness behavior:
+
+- service-only PostgreSQL and Redis,
+- localhost bindings only,
+- obvious local placeholder credentials,
+- no Django production deployment container,
+- no public launch behavior.
+
+## Batch 11 Operational Documents
+
+Added Batch 11 documents:
+
+- `docs/STAGING_GAP_ANALYSIS.md`
+- `docs/STAGING_ENVIRONMENT_CONTRACT.md`
+- `docs/LOCAL_STAGING_SIMULATION.md`
+- `docs/POSTGRESQL_READINESS.md`
+- `docs/REDIS_RATE_LIMIT_READINESS.md`
+- `docs/BACKUP_RESTORE_DRILL.md`
+- `docs/MONITORING_ALERTING_READINESS.md`
+- `docs/DEPENDENCY_SECURITY_READINESS.md`
+- `docs/STAFF_ACCESS_GOVERNANCE.md`
+- `docs/LEGAL_PRIVACY_OPERATIONS.md`
+- `docs/BATCH_11_PROGRESS.md`
+- `docs/BATCH_11_STATUS.md`
 
 ## Seed Commands
 

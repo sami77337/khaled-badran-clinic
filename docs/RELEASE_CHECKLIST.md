@@ -129,6 +129,26 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - Seed commands do not create patients or appointments.
 - Upload, medical-record, WhatsApp API/webhook, and payment routes remain 404.
 
+## Batch 11 CI and Local Validation Gates
+
+- CI remains local-only and does not require external PostgreSQL, Redis, Docker,
+  DNS, TLS, cloud resources, or secrets.
+- CI runs `python manage.py makemigrations --check --dry-run`.
+- CI runs `python manage.py check`.
+- CI runs `python manage.py check --deploy`; local development warnings are
+  reviewed as warnings and do not prove production readiness.
+- CI applies local SQLite migrations for smoke validation.
+- CI runs `python manage.py deployment_smoke`.
+- CI runs `python manage.py deployment_smoke --json`.
+- CI runs `python manage.py project_status_report`.
+- CI runs `python manage.py project_status_report --json`.
+- CI runs `python manage.py production_settings_report`.
+- CI runs `python manage.py production_settings_report --json`.
+- CI runs `python manage.py test`.
+- Batch 11 validation scripts remain operator-run harnesses and do not deploy,
+  commit, push, merge, or provision resources.
+- `docker-compose.staging-validation.yml` is local-only and not a CI service.
+
 ## Rollback Checklist
 
 - Last known good revision is identified.

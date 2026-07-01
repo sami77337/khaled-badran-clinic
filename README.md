@@ -45,6 +45,7 @@ Only Dr. Khaled Hassan Badran is in scope for the initial version. No second doc
 - `docs/SECURITY_HARDENING.md` - Batch 6 security posture and remaining security work.
 - `docs/BATCH_6_STATUS.md` - production-readiness batch status.
 - `docs/BACKUP_RESTORE_RUNBOOK.md` - backup, restore, retention, and restore-drill expectations.
+- `docs/BACKUP_RESTORE_DRILL.md` - Batch 11 synthetic-only backup and restore drill procedure.
 - `docs/INCIDENT_RESPONSE_RUNBOOK.md` - incident severity, containment, recovery, and review outline.
 - `docs/RELEASE_CHECKLIST.md` - local/staging/production release validation checklist and pre-portal gates.
 - `docs/LOAD_TEST_PLAN.md` - staging-only load and concurrency test plan.
@@ -56,9 +57,19 @@ Only Dr. Khaled Hassan Badran is in scope for the initial version. No second doc
 - `docs/ROUTE_ACCESS_MATRIX.md` - route access, CSRF, cache, ownership, and prohibited route matrix.
 - `docs/DATA_EXPOSURE_MATRIX.md` - public, portal, staff-only, internal, and never-on-patient-page data boundaries.
 - `docs/STAGING_VALIDATION_PLAN.md` - production-like restricted staging validation plan.
+- `docs/STAGING_GAP_ANALYSIS.md` - Batch 11 gap analysis against the staging validation plan.
+- `docs/STAGING_ENVIRONMENT_CONTRACT.md` - required staging environment variable contract without secret values.
+- `docs/LOCAL_STAGING_SIMULATION.md` - optional local-only PostgreSQL/Redis service harness for validation.
+- `docs/POSTGRESQL_READINESS.md` - PostgreSQL migration, constraint, and concurrency validation plan.
+- `docs/REDIS_RATE_LIMIT_READINESS.md` - Redis/shared-cache rate-limit readiness and cache-key privacy plan.
+- `docs/MONITORING_ALERTING_READINESS.md` - health, alerting, logging, and abuse monitoring readiness plan.
+- `docs/DEPENDENCY_SECURITY_READINESS.md` - dependency scanning and update governance plan.
+- `docs/STAFF_ACCESS_GOVERNANCE.md` - staff/admin least-privilege and access review plan.
+- `docs/LEGAL_PRIVACY_OPERATIONS.md` - legal/privacy operations and review blockers.
 - `docs/FIGMA_DESIGN_HANDOFF.md` - Figma source-of-truth rule for future visual changes.
 - `docs/PROJECT_RELEASE_SCORECARD.md` - conservative release-readiness scorecard and next batches.
 - `docs/BATCH_10_STATUS.md` - Batch 10 consolidation summary.
+- `docs/BATCH_11_STATUS.md` - Batch 11 restricted staging validation operations summary.
 
 ## Development Policy
 
@@ -109,6 +120,39 @@ Run the safe read-only project status report:
 python manage.py project_status_report
 python manage.py project_status_report --json
 ```
+
+Run the safe read-only production-like settings report:
+
+```bash
+python manage.py production_settings_report
+python manage.py production_settings_report --json
+```
+
+Run the Batch 11 local validation script from PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/validate_local_release.ps1
+```
+
+Run the Batch 11 local validation script from Bash when Bash is available:
+
+```bash
+bash scripts/validate_local_release.sh
+```
+
+Run the Batch 11 restricted staging environment validation script only from a
+trusted operator shell with staging environment variables set outside Git:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/validate_staging_env.ps1 -Strict -Json
+```
+
+```bash
+bash scripts/validate_staging_env.sh --strict --json
+```
+
+These scripts do not deploy, commit, push, merge, provision resources, or print
+environment secret values. They are validation harnesses only.
 
 Seed safe public clinic content:
 
@@ -175,9 +219,12 @@ This project is not deployed and is not fully launch-ready. Remaining launch wor
 
 ## Current Status and Next Steps
 
-After Batch 10, the project has a consolidated project map, route/access matrix,
-data exposure matrix, staging validation plan, Figma handoff governance, release
-scorecard, expanded security regressions, and safer operational smoke summaries.
+After Batch 11, the project has restricted staging validation operations,
+production-like settings reporting, local validation scripts, a local-only
+PostgreSQL/Redis service harness, backup/restore drill planning, monitoring and
+alerting readiness documentation, dependency governance, staff access
+governance, legal/privacy operations documentation, strengthened CI release
+gates, and expanded security regressions.
 
 Current safe demo scope remains limited to synthetic data:
 
@@ -198,10 +245,11 @@ Still not launch-safe:
 - uploads, medical records, WhatsApp API/webhooks, payments, diagnosis, triage,
   treatment automation, and medical AI remain absent.
 
-Recommended next batch: restricted staging validation with PostgreSQL,
-Redis/shared cache, HTTPS/reverse proxy review, `check --deploy`,
-`deployment_smoke --strict`, synthetic seed commands, and a synthetic
-backup/restore drill.
+Recommended next batch: execute a restricted, non-public staging validation
+against real PostgreSQL, Redis/shared cache, HTTPS/reverse proxy settings,
+synthetic seed data, monitoring/error-reporting placeholders, dependency scan
+evidence, and a synthetic backup/restore drill. That work must remain
+restricted and must not launch the site publicly.
 
 Deployment smoke command:
 

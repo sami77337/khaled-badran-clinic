@@ -1,7 +1,8 @@
 # Project Release Scorecard
 
-Batch 10 release-readiness scorecard for Dr. Khaled Badran Clinic after the
-Batch 10 consolidation work.
+Batch 11 release-readiness scorecard for Dr. Khaled Badran Clinic after the
+restricted staging validation operations and production-like safety harness
+work.
 
 Status labels:
 
@@ -23,29 +24,62 @@ Status labels:
 | Staff operations | Partial | Staff-only appointment list/detail and bounded status operations exist with authorization and tests. Broader dashboard, staff access review, audit retention, and operational policies remain. |
 | Patient portal | Partial | Optional account, login, logout, password change, account summary, static recovery policy, appointment linking, and linked appointment viewing exist. Identity verification, secure recovery process, abuse monitoring, legal review, and staging validation remain. |
 | Account security | Partial | Password hashing/validation, CSRF, POST-only logout, no-cache portal pages, generic linking errors, and rate limits exist. Email/phone ownership, recovery operations, production tuning, and abuse monitoring remain. |
-| Production settings | Partial | Split settings, production checks, secure-cookie defaults, PostgreSQL/Redis support, and environment docs exist. Real hosting, TLS, proxy, database, cache, backups, monitoring, and scanning remain. |
-| Deployment smoke | Done | Safe smoke command exists with human/JSON/strict modes, route/security summaries, prohibited-feature checks, and redaction rules. It does not deploy or prove infrastructure readiness by itself. |
-| Staging readiness | Partial | Staging validation plan and operational runbooks exist. Actual restricted staging infrastructure has not been provisioned or validated. |
+| Production settings | Partial | Split settings, production checks, secure-cookie defaults, PostgreSQL/Redis support, strict smoke blockers, environment contract, and safe production settings report exist. Real hosting, TLS, proxy, database, cache, backups, monitoring, and scanning remain. |
+| Deployment smoke | Done | Safe smoke command exists with human/JSON/strict modes, route/security summaries, prohibited-feature checks, redaction rules, and stronger production-like blockers. It does not deploy or prove infrastructure readiness by itself. |
+| Staging readiness | Partial | Staging validation plan, gap analysis, environment contract, local validation scripts, and local PostgreSQL/Redis harness exist. Actual restricted staging infrastructure has not been provisioned or validated. |
+| PostgreSQL readiness | Partial | PostgreSQL expectations, migration/concurrency plans, local constraint tests, and optional local Docker PostgreSQL harness exist. Actual PostgreSQL staging validation has not run. |
+| Redis/shared cache readiness | Partial | Redis expectations and cache-key privacy tests exist. Actual Redis/shared-cache multi-process and outage validation has not run. |
+| Backup/restore | Planned | Synthetic-only drill plan and runbooks exist. No actual PostgreSQL restore drill evidence exists. |
 | Privacy/legal | Blocked | Draft pages and privacy matrices exist. Formal legal/privacy review, retention/deletion policy, recovery policy, and patient identity verification are required before launch. |
-| Monitoring | Not Started | Health/readiness endpoints and logging foundation exist, but no real monitoring, uptime checks, alert routing, error reporting, or abuse alerts are configured. |
+| Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. No real uptime checks, alert routing, error reporting, or abuse alerts are configured. |
+| Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. No vulnerability scan evidence or approved response owner exists yet. |
+| Staff/admin governance | Partial | Staff access governance is documented and staff route tests exist. Real staff roster, superuser minimization, and access review remain manual/pre-launch. |
 | Design/Figma | Blocked | Current code has existing visual foundation from earlier batches. Future visual changes require Figma handoff and approval before Codex implementation. |
 | Uploads | Out of Scope for Now | No upload routes or private media handling are implemented. Private storage, malware scanning, retention, access control, and legal design are required first. |
 | Medical records | Out of Scope for Now | No medical-record routes or models are implemented. Authorization, audit, retention, patient visibility, legal, and clinical workflows are required first. |
 | WhatsApp | Out of Scope for Now | No WhatsApp API sending, webhook, message model, or credential use is implemented. Consent, security, logging, provider, and medical-information boundaries are required first. |
 | Payments | Out of Scope for Now | No payment routes or payment provider integration are implemented. Provider, refund, reconciliation, privacy, and accounting policy are required first. |
 
+## Batch 11 Status
+
+Batch 11 adds:
+
+- staging gap analysis,
+- staging environment contract,
+- local validation scripts,
+- optional local PostgreSQL/Redis service harness,
+- safe `production_settings_report` command,
+- stricter production-like `deployment_smoke` blockers,
+- PostgreSQL readiness documentation and constraint tests,
+- Redis/shared-cache readiness documentation and cache-key privacy tests,
+- synthetic backup/restore drill plan,
+- monitoring/alerting readiness documentation,
+- dependency security readiness documentation,
+- bounded Dependabot config,
+- staff/admin governance documentation,
+- legal/privacy operations documentation,
+- CI gate strengthening.
+
+Batch 11 does not add real staging infrastructure, secrets, DNS, hosting,
+external monitoring, backups, restore evidence, legal approval, or production
+launch.
+
 ## Conservative Completion Estimate
 
-Estimated whole-project completion after successful Batch 10:
+Estimated whole-project completion after successful Batch 11:
 
-- Approximately 68-70%.
+- Approximately 76-77%.
 
 Rationale:
 
 - The public site, booking, staff appointment operations, and bounded patient
   portal foundations are implemented and locally tested.
-- Batch 10 improves reviewability, route inventory, data exposure documentation,
+- Batch 10 improved reviewability, route inventory, data exposure documentation,
   staging readiness, smoke safety, and regression coverage.
+- Batch 11 improves restricted staging validation operations, local safety
+  harnesses, production-like reporting, CI gates, PostgreSQL/Redis readiness,
+  backup/restore planning, monitoring readiness, dependency governance,
+  staff/admin governance, and legal/privacy operations documentation.
 - The estimate remains below launch-ready because real staging/prod
   infrastructure, legal/privacy approval, monitoring, backup/restore drill,
   security scanning, load testing, and Figma-approved future design governance
@@ -69,6 +103,10 @@ Safe demo scope with synthetic data only:
 - Staff appointment list/detail and bounded status operations using synthetic
   appointments and staff accounts.
 - `deployment_smoke` human and JSON output.
+- `production_settings_report` human and JSON output.
+- Local validation scripts in a trusted local shell.
+- Optional local PostgreSQL/Redis Docker service harness with synthetic data
+  only.
 - Route/access, data exposure, staging, and release documentation.
 
 Demo rules:
@@ -98,6 +136,7 @@ Not safe to demo as real or production functionality:
 - Provider-specific staging/production behavior not yet validated.
 - Real backup/restore recovery.
 - Monitoring and incident response in a live environment.
+- Real dependency vulnerability response without owner review.
 
 ## Do Not Launch Publicly Until
 
@@ -114,6 +153,7 @@ Not safe to demo as real or production functionality:
 - Load/concurrency tests are completed against staging.
 - Public booking duplicate/concurrency behavior is validated on PostgreSQL.
 - Redis/shared-cache rate limiting is validated across app processes.
+- Redis outage behavior is decided and tested.
 - Legal/privacy review is complete.
 - Patient identity verification policy is approved.
 - Secure account recovery policy is approved.
@@ -135,27 +175,31 @@ Not safe to demo as real or production functionality:
 - No production rate-limit tuning has been completed.
 - No load/concurrency test results exist.
 - No dependency vulnerability scanning workflow is configured.
+- Dependabot exists, but vulnerability scan evidence and response ownership are
+  not complete.
 - No staff access review process is defined.
 - No audit retention/access review policy is defined.
 - No Figma handoff exists for future visual changes.
 
 ## Recommended Next 5 Batches
 
-1. Restricted staging validation with PostgreSQL, Redis/shared cache, HTTPS,
-   reverse proxy review, `check --deploy`, `deployment_smoke --strict`, seed
-   commands, and synthetic backup/restore drill.
-2. Legal/privacy and account recovery policy batch: verified email/phone
-   ownership, patient identity verification, retention/deletion process, privacy
-   copy review workflow, and no new patient data surfaces.
-3. Monitoring and abuse operations batch: uptime checks, structured safe log
-   review, alert routing, portal/booking abuse monitoring, dependency scanning,
-   and incident exercise using synthetic data.
-4. Figma-approved design implementation batch: implement only approved Figma
-   tokens/components/responsive behavior, with no independent Codex visual
-   design decisions.
-5. Staff operations hardening batch: least-privilege staff/admin review,
-   operational audit retention policy, appointment correction workflow design,
-   and staff runbook refinement without adding medical records or uploads.
+1. Execute restricted staging validation with real staging PostgreSQL,
+   Redis/shared cache, HTTPS, reverse proxy review, `check --deploy`,
+   `deployment_smoke --strict`, seed commands, and safe status/settings
+   reports.
+2. Run a synthetic PostgreSQL backup/restore drill and record evidence outside
+   Git, including RPO/RTO owner decisions and failure checklist rehearsal.
+3. Monitoring and abuse operations batch: uptime checks, alert routing, safe
+   error reporting with scrubbing, portal/booking abuse monitoring, backup
+   failure alerts, and dependency scan alerts.
+4. Legal/privacy and account recovery policy batch: verified email/phone
+   ownership, patient identity verification, retention/deletion process,
+   privacy copy review workflow, and no new patient data surfaces.
+5. Figma-approved design implementation batch or staff operations hardening
+   batch, depending on owner priority. Design work must come from Figma;
+   staff hardening should focus on least privilege, audit retention, correction
+   workflow design, and staff runbook refinement without adding records or
+   uploads.
 
 ## Design Status
 
@@ -163,4 +207,4 @@ Not safe to demo as real or production functionality:
 - Codex must not invent colors, spacing, typography, visual hierarchy,
   animations, decorative elements, brand style, shadows, borders, or hover
   effects.
-- Batch 10 status: No visual design work performed by Codex.
+- Batch 11 status: No visual design work performed by Codex.
