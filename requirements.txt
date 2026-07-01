@@ -2,4 +2,4 @@ Django>=5.2,<6.0
 dj-database-url>=2.3,<3.0
 python-dotenv>=1.0,<2.0
 psycopg[binary]>=3.2,<4.0
-redis>=5.0,<6.0
+redis>=8.0.1,<9.0
