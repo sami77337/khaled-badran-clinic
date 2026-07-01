@@ -1,7 +1,7 @@
 # Next Batch: Final Product Completion Track
 
 This document replaces the stale foundation-stage next-batch note. The project
-is past the initial foundation stage. After Batch 13, the current track is
+is past the initial foundation stage. After Batch 14, the current track is
 final product completion and professional delivery readiness.
 
 ## Current Direction
@@ -25,37 +25,71 @@ final product completion and professional delivery readiness.
   requirements. Batch 13 did not create Figma work, visual design, application
   code, templates, CSS, JavaScript, models, migrations, settings, deployment,
   or external infrastructure.
+- Batch 14 performed local/provisional restricted-staging validation evidence
+  only. Local checks and tests passed, but real restricted staging
+  infrastructure, PostgreSQL, Redis/shared cache, HTTPS, and reverse proxy
+  validation were not provided or validated. Batch 14 did not create
+  application code, deployment, secrets, external infrastructure, real patient
+  data, or launch readiness.
 
-## Batch 14 Recommendation
+## Batch 14 Result
+
+Batch 14 result:
+
+```text
+Local/provisional validation completed; real restricted staging validation
+blocked.
+```
+
+Evidence added:
+
+- `docs/BATCH_14_STATUS.md`
+- `docs/RESTRICTED_STAGING_VALIDATION_EVIDENCE.md`
+- `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
+- `docs/HTTPS_PROXY_CSRF_VALIDATION_EVIDENCE.md`
+- `docs/STAGING_VALIDATION_BLOCKERS.md`
+
+Key conclusion:
+
+- local Django checks, smoke commands, settings reports, route/status reports,
+  and 246 tests passed in the local development environment;
+- the strict staging script failed the environment contract because real
+  staging variables were missing;
+- Docker, `docker compose`, `psql`, `redis-cli`, and Bash were unavailable in
+  the local shell;
+- production settings correctly rejected SQLite and LocMemCache when tested
+  with synthetic local-only production variables;
+- real PostgreSQL, Redis/shared cache, HTTPS, reverse proxy, host, and CSRF
+  behavior remains unproven.
+
+## Batch 14B Recommendation
 
 Recommended next batch:
 
 ```text
-Batch 14: restricted staging validation with PostgreSQL/Redis/HTTPS/proxy
+Batch 14B: provision and re-run real restricted staging validation
 ```
 
 Goal:
 
-- validate the current bounded public site, booking, staff operations, patient
-  portal, rate limits, and operational commands against restricted
-  production-like staging infrastructure;
+- provision or provide a restricted, synthetic-data-only staging environment;
+- use `config.settings.prod` or a reviewed production-safe staging wrapper;
 - use PostgreSQL, Redis/shared cache, HTTPS, exact host/CSRF settings, and
   reviewed proxy behavior;
-- preserve the no-real-patient-data rule and use synthetic data only;
-- avoid feature expansion while staging and production-like behavior remain
-  unproven.
+- re-run the existing validation plan and archive safe evidence without secret
+  values or patient data;
+- keep dashboard implementation deferred until the current bounded system is
+  proven under production-like infrastructure.
 
-Why this is safer than starting dashboard implementation planning/authorization
-immediately:
+Why this remains safer than starting dashboard implementation planning or code:
 
 - the current booking and portal flows already create and protect operational
-  patient/appointment data, so PostgreSQL/Redis/HTTPS/proxy validation is the
-  most urgent launch-safety evidence gap;
+  patient/appointment data;
+- Batch 14 showed local validation is healthy, but real infrastructure remains
+  the largest safety gap;
 - dashboard implementation would expand the staff/admin surface before the
-  current bounded system has been proven under production-like infrastructure;
-- Batch 13 already provides dashboard and flow specifications that can feed a
-  later dashboard planning/authorization batch after staging evidence is
-  gathered.
+  current bounded system has been proven under PostgreSQL, Redis/shared cache,
+  HTTPS, and proxy assumptions.
 
 Batch 14A remains a valid later planning-only option:
 
@@ -67,7 +101,7 @@ Use Batch 14A only if the owner explicitly pauses staging validation to plan
 dashboard implementation scope. Do not start dashboard code in Batch 14A unless
 a separate implementation batch authorizes it.
 
-Must read before Batch 14:
+Must read before Batch 14B:
 
 - `README.md`
 - `docs/UX_PRODUCT_FLOW_AUDIT.md`
@@ -94,10 +128,15 @@ Must read before Batch 14:
 - `docs/POSTGRESQL_READINESS.md`
 - `docs/REDIS_RATE_LIMIT_READINESS.md`
 - `docs/SECURITY_REGRESSION_CHECKLIST.md`
+- `docs/BATCH_14_STATUS.md`
+- `docs/RESTRICTED_STAGING_VALIDATION_EVIDENCE.md`
+- `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
+- `docs/HTTPS_PROXY_CSRF_VALIDATION_EVIDENCE.md`
+- `docs/STAGING_VALIDATION_BLOCKERS.md`
 
 ## Ordered Recommended Batches
 
-1. Batch 14: restricted staging validation with PostgreSQL/Redis/HTTPS/proxy.
+1. Batch 14B: provision and re-run real restricted staging validation.
 2. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
 3. Batch 15: backup/restore synthetic drill evidence and
