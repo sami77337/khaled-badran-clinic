@@ -16,6 +16,15 @@ Batch 13 did not create Figma work, visual design, application code, or launch
 evidence. This planning update does not increase whole-project completion or
 change the factual readiness claims below.
 
+Batch 14 validation update: local/provisional restricted-staging validation
+evidence was recorded for the current bounded system. Local checks, smoke
+commands, safe reports, and 246 tests passed under development settings, and
+synthetic production-settings checks correctly rejected SQLite/LocMemCache.
+Real restricted staging infrastructure was not provided, so PostgreSQL,
+Redis/shared cache, HTTPS, reverse proxy, host, and CSRF behavior remain
+unvalidated. This validation update does not increase whole-project completion
+or change the launch blockers below.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -38,9 +47,9 @@ Status labels:
 | Account security | Partial | Password hashing/validation, CSRF, POST-only logout, no-cache portal pages, generic linking errors, and rate limits exist. Email/phone ownership, recovery operations, production tuning, and abuse monitoring remain. |
 | Production settings | Partial | Split settings, production checks, secure-cookie defaults, PostgreSQL/Redis support, strict smoke blockers, environment contract, and safe production settings report exist. Real hosting, TLS, proxy, database, cache, backups, monitoring, and scanning remain. |
 | Deployment smoke | Done | Safe smoke command exists with human/JSON/strict modes, route/security summaries, prohibited-feature checks, redaction rules, and stronger production-like blockers. It does not deploy or prove infrastructure readiness by itself. |
-| Staging readiness | Partial | Staging validation plan, gap analysis, environment contract, local validation scripts, and local PostgreSQL/Redis harness exist. Actual restricted staging infrastructure has not been provisioned or validated. |
-| PostgreSQL readiness | Partial | PostgreSQL expectations, migration/concurrency plans, local constraint tests, and optional local Docker PostgreSQL harness exist. Actual PostgreSQL staging validation has not run. |
-| Redis/shared cache readiness | Partial | Redis expectations and cache-key privacy tests exist. Actual Redis/shared-cache multi-process and outage validation has not run. |
+| Staging readiness | Partial | Staging validation plan, gap analysis, environment contract, local validation scripts, and local PostgreSQL/Redis harness exist. Batch 14 local/provisional validation passed, but actual restricted staging infrastructure was not provided or validated. |
+| PostgreSQL readiness | Partial | PostgreSQL expectations, migration/concurrency plans, local constraint tests, and optional local Docker PostgreSQL harness exist. Batch 14 could not run PostgreSQL because Docker/`psql` and real staging were unavailable. Actual PostgreSQL staging validation has not run. |
+| Redis/shared cache readiness | Partial | Redis expectations and cache-key privacy tests exist. Batch 14 could not run Redis because Docker/`redis-cli` and real staging were unavailable. Actual Redis/shared-cache multi-process and outage validation has not run. |
 | Backup/restore | Planned | Synthetic-only drill plan and runbooks exist. No actual PostgreSQL restore drill evidence exists. |
 | Privacy/legal | Blocked | Draft pages and privacy matrices exist. Formal legal/privacy review, retention/deletion policy, recovery policy, and patient identity verification are required before launch. |
 | Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. No real uptime checks, alert routing, error reporting, or abuse alerts are configured. |
@@ -78,7 +87,7 @@ launch.
 
 ## Conservative Completion Estimate
 
-Estimated whole-project completion after successful Batch 11:
+Estimated whole-project completion after Batch 14 local/provisional validation:
 
 - Approximately 76-77%.
 
@@ -92,6 +101,9 @@ Rationale:
   harnesses, production-like reporting, CI gates, PostgreSQL/Redis readiness,
   backup/restore planning, monitoring readiness, dependency governance,
   staff/admin governance, and legal/privacy operations documentation.
+- Batch 14 confirms local/provisional validation is healthy but does not
+  resolve real staging, PostgreSQL, Redis, HTTPS/proxy, backup/restore,
+  monitoring, legal/privacy, dependency scan, or load-test blockers.
 - The estimate remains below launch-ready because real staging/prod
   infrastructure, legal/privacy approval, monitoring, backup/restore drill,
   security scanning, load testing, and Figma-approved future design governance
@@ -195,7 +207,7 @@ Not safe to demo as real or production functionality:
 
 ## Recommended Next Batches
 
-1. Batch 14: restricted staging validation with PostgreSQL/Redis/HTTPS/proxy.
+1. Batch 14B: provision and re-run real restricted staging validation.
 2. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
 3. Batch 15: backup/restore synthetic drill evidence and
@@ -218,6 +230,11 @@ Batch 13 adds final UX/product-flow audit and specifications plus design
 handoff requirements. It does not create Figma work, visual design, product
 code, deployment, external infrastructure, real patient data, or launch
 readiness.
+
+Batch 14 adds local/provisional restricted staging validation evidence and
+blocker documentation. It does not create product code, deployment, external
+infrastructure, secrets, real patient data, real staging infrastructure, or
+launch readiness.
 
 ## Design Status
 
