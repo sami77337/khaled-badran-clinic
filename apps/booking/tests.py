@@ -820,6 +820,71 @@ class BookingModelAndAdminBehaviorTests(BookingTestDataMixin, TestCase):
         self.assertEqual(settings.slot_interval_minutes, 15)
         self.assertEqual(settings.reminder_offset_minutes, 180)
 
+    def test_appointment_model_declares_expected_slot_constraints(self):
+        constraint_names = {constraint.name for constraint in Appointment._meta.constraints}
+
+        self.assertIn("appointment_ends_after_start", constraint_names)
+        self.assertIn("unique_appointment_doctor_start_status", constraint_names)
+        self.assertIn("unique_active_appointment_doctor_start", constraint_names)
+
+    def test_slot_collision_logic_treats_active_statuses_as_blocking(self):
+        doctor = self.create_doctor()
+        visit_type = self.create_visit_type(doctor=doctor)
+        starts_at = self.future_aware(days=3, hour=9)
+        active_statuses = [
+            Appointment.Status.CONFIRMED,
+            Appointment.Status.ARRIVED,
+            Appointment.Status.RESCHEDULED,
+        ]
+
+        for index, status in enumerate(active_statuses):
+            with self.subTest(status=status):
+                Appointment.objects.all().delete()
+                appointment_start = starts_at + timedelta(days=index)
+                self.create_appointment(
+                    doctor=doctor,
+                    visit_type=visit_type,
+                    starts_at=appointment_start,
+                    status=status,
+                )
+
+                self.assertTrue(
+                    services.overlaps_existing_appointment(
+                        doctor,
+                        appointment_start,
+                        appointment_start + timedelta(minutes=visit_type.duration_minutes),
+                    )
+                )
+
+    def test_slot_collision_logic_ignores_terminal_statuses(self):
+        doctor = self.create_doctor()
+        visit_type = self.create_visit_type(doctor=doctor)
+        starts_at = self.future_aware(days=3, hour=10)
+        terminal_statuses = [
+            Appointment.Status.COMPLETED,
+            Appointment.Status.CANCELLED,
+            Appointment.Status.NO_SHOW,
+        ]
+
+        for index, status in enumerate(terminal_statuses):
+            with self.subTest(status=status):
+                Appointment.objects.all().delete()
+                appointment_start = starts_at + timedelta(days=index)
+                self.create_appointment(
+                    doctor=doctor,
+                    visit_type=visit_type,
+                    starts_at=appointment_start,
+                    status=status,
+                )
+
+                self.assertFalse(
+                    services.overlaps_existing_appointment(
+                        doctor,
+                        appointment_start,
+                        appointment_start + timedelta(minutes=visit_type.duration_minutes),
+                    )
+                )
+
 
 class StaffAuthorizationTests(BookingTestDataMixin, TestCase):
     def setUp(self):
@@ -1436,6 +1501,27 @@ class PublicBookingRateLimitTests(BookingTestDataMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         appointment.refresh_from_db()
         self.assertEqual(appointment.status, Appointment.Status.CANCELLED)
+
+    def test_booking_rate_limit_cache_keys_hash_sensitive_identities(self):
+        observed_keys = []
+        original_add = rate_limits.cache.add
+        request = RequestFactory().post("/", REMOTE_ADDR="203.0.113.99")
+
+        def capture_key(key, *args, **kwargs):
+            observed_keys.append(key)
+            return original_add(key, *args, **kwargs)
+
+        with patch("apps.booking.rate_limits.cache.add", side_effect=capture_key):
+            rate_limits.check_public_booking_ip_rate_limit(request)
+            rate_limits.check_public_booking_phone_rate_limit("+962791234567")
+
+        self.assertTrue(observed_keys)
+        for key in observed_keys:
+            with self.subTest(key=key):
+                self.assertIn("booking-rate:", key)
+                self.assertNotIn("203.0.113.99", key)
+                self.assertNotIn("0791234567", key)
+                self.assertNotIn("+962791234567", key)
 
 
 class StaffQueryBehaviorTests(BookingTestDataMixin, TestCase):

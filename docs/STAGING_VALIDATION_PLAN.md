@@ -96,6 +96,8 @@ python manage.py deployment_smoke --strict
 python manage.py deployment_smoke --json
 python manage.py project_status_report
 python manage.py project_status_report --json
+python manage.py production_settings_report
+python manage.py production_settings_report --json
 python manage.py seed_public_content
 python manage.py seed_booking_demo
 python manage.py test
@@ -112,6 +114,19 @@ Notes:
   environment or patient data.
 - `project_status_report` is read-only and may be used for a safe counts-only
   route/security snapshot.
+- `production_settings_report` is read-only and may be used for a safe
+  booleans/counts/backend-category settings snapshot.
+
+Optional Batch 11 operator scripts:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/validate_staging_env.ps1 -Strict -Json
+bash scripts/validate_staging_env.sh --strict --json
+```
+
+Run these only from a trusted operator shell with staging environment variables
+already set outside Git. The scripts do not deploy, commit, push, merge,
+provision resources, or print secret values.
 
 ## Synthetic Data Policy
 

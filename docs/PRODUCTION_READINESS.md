@@ -67,6 +67,43 @@ Batch 10 adds consolidation and staging-readiness documents:
 These Batch 10 documents also do not prove staging or production readiness by
 themselves. They are review aids and validation checklists.
 
+Batch 11 adds restricted staging validation operations and readiness documents:
+
+- `docs/STAGING_GAP_ANALYSIS.md` - comparison against the staging validation
+  plan and severity table.
+- `docs/STAGING_ENVIRONMENT_CONTRACT.md` - required staging environment
+  variable contract without secret values.
+- `docs/LOCAL_STAGING_SIMULATION.md` - optional local-only PostgreSQL/Redis
+  service harness.
+- `docs/POSTGRESQL_READINESS.md` - PostgreSQL migration, constraint, backup,
+  and concurrency validation plan.
+- `docs/REDIS_RATE_LIMIT_READINESS.md` - Redis/shared-cache rate-limit
+  readiness and cache-key privacy plan.
+- `docs/BACKUP_RESTORE_DRILL.md` - synthetic-only PostgreSQL restore drill
+  procedure.
+- `docs/MONITORING_ALERTING_READINESS.md` - monitoring, alerting, log
+  scrubbing, and abuse signal plan.
+- `docs/DEPENDENCY_SECURITY_READINESS.md` - dependency scanning and update
+  governance.
+- `docs/STAFF_ACCESS_GOVERNANCE.md` - staff/admin least-privilege operations.
+- `docs/LEGAL_PRIVACY_OPERATIONS.md` - legal/privacy review blockers and
+  operational placeholders.
+
+Batch 11 also adds:
+
+- `python manage.py production_settings_report`
+- `python manage.py production_settings_report --json`
+- local validation scripts under `scripts/`
+- `docker-compose.staging-validation.yml` for local-only PostgreSQL/Redis
+  service rehearsal
+- stricter production-like blockers in `deployment_smoke`
+- CI gates for `check --deploy`, smoke JSON, project status reports, and
+  production settings reports
+
+These additions improve validation readiness. They still do not prove real
+staging or production readiness until run against restricted production-like
+infrastructure.
+
 ## Settings Behavior
 
 Local development uses `config.settings.dev` by default through `manage.py`.
@@ -113,6 +150,20 @@ Batch 10 staging prerequisites before claiming staging readiness:
   patient data are printed.
 - Run seed commands only with synthetic/public demo data.
 - Complete a backup/restore drill with synthetic data before launch.
+
+Batch 11 staging validation additions:
+
+- Use `docs/STAGING_ENVIRONMENT_CONTRACT.md` to verify required environment
+  variable presence without exposing values.
+- Use `python manage.py production_settings_report` and `--json` to confirm
+  safe booleans, counts, and backend categories.
+- Use `scripts/validate_staging_env.ps1` or
+  `scripts/validate_staging_env.sh` from a trusted operator shell when staging
+  values are already configured outside Git.
+- Use `docs/POSTGRESQL_READINESS.md` and
+  `docs/REDIS_RATE_LIMIT_READINESS.md` to plan database/cache validation.
+- Use `docs/BACKUP_RESTORE_DRILL.md` before launch for synthetic restore
+  evidence.
 
 ## Deployment Smoke Command
 

@@ -40,11 +40,29 @@ jobs:
       - name: Run Django checks
         run: python manage.py check
 
+      - name: Review local deploy checks
+        run: python manage.py check --deploy
+
       - name: Apply local CI migrations for smoke checks
         run: python manage.py migrate --noinput
 
       - name: Run deployment smoke
         run: python manage.py deployment_smoke
+
+      - name: Run deployment smoke JSON
+        run: python manage.py deployment_smoke --json
+
+      - name: Run project status report
+        run: python manage.py project_status_report
+
+      - name: Run project status report JSON
+        run: python manage.py project_status_report --json
+
+      - name: Run production settings report
+        run: python manage.py production_settings_report
+
+      - name: Run production settings report JSON
+        run: python manage.py production_settings_report --json
 
       - name: Run tests
         run: python manage.py test

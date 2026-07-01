@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from datetime import timedelta
 from io import StringIO
 from pathlib import Path
@@ -52,6 +53,32 @@ class HealthRouteTests(TestCase):
         self.assertEqual(response.json(), {"status": "unavailable"})
         self.assertNotContains(response, "password", status_code=503)
         self.assertNotContains(response, "secret", status_code=503)
+
+    def test_health_and_readiness_routes_do_not_expose_internal_details(self):
+        responses = [
+            self.client.get(reverse("health")),
+            self.client.get(reverse("health_ready")),
+        ]
+        blocked_fragments = [
+            "sqlite",
+            "postgres",
+            "redis",
+            "database",
+            "cache",
+            "settings",
+            "secret",
+            "password",
+            "traceback",
+            "version",
+            "hostname",
+        ]
+
+        for response in responses:
+            self.assertIn(response.status_code, {200, 503})
+            content = response.content.decode().lower()
+            for fragment in blocked_fragments:
+                with self.subTest(status=response.status_code, fragment=fragment):
+                    self.assertNotIn(fragment, content)
 
 
 class SettingsHelperTests(SimpleTestCase):
@@ -331,6 +358,45 @@ class DeploymentSmokeCommandTests(TestCase):
         self.assertIn("application secret", text)
         self.assertNotIn("SECRET_KEY", text)
 
+    @ignore_warnings(message="Overriding setting DATABASES can lead to unexpected behavior.")
+    @override_settings(
+        PRODUCTION=True,
+        DEBUG=True,
+        SECRET_KEY="test-only-long-production-secret-placeholder",
+        ALLOWED_HOSTS=["clinic.example.test"],
+        CSRF_TRUSTED_ORIGINS=["https://clinic.example.test"],
+        CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": "db.sqlite3"}},
+        SECURE_SSL_REDIRECT=False,
+        SESSION_COOKIE_SECURE=False,
+        CSRF_COOKIE_SECURE=False,
+        SECURE_HSTS_SECONDS=0,
+        BOOKING_TRUST_X_FORWARDED_FOR=True,
+        BOOKING_TRUSTED_PROXY_CONFIGURED=False,
+    )
+    def test_strict_flags_production_like_infrastructure_and_https_blockers(self):
+        output = StringIO()
+
+        with self.assertRaises(CommandError):
+            call_command("deployment_smoke", strict=True, stdout=output)
+
+        text = output.getvalue()
+        for expected in [
+            "production_debug_disabled",
+            "production_database_backend",
+            "production_cache_backend",
+            "production_https_redirect",
+            "production_session_cookie_secure",
+            "production_csrf_cookie_secure",
+            "production_hsts",
+            "production_booking_proxy_attestation",
+        ]:
+            with self.subTest(expected=expected):
+                self.assertIn(expected, text)
+        self.assertNotIn("DATABASE_URL", text)
+        self.assertNotIn("CACHE_URL", text)
+        self.assertNotIn("SECRET_KEY", text)
+
     def test_output_does_not_include_raw_secret_or_connection_values(self):
         output = StringIO()
         secret_value = "super-secret-smoke-value"
@@ -514,11 +580,118 @@ class ProjectStatusReportCommandTests(TestCase):
         self.assert_private_values_absent(text, appointment)
 
 
+class ProductionSettingsReportCommandTests(SimpleTestCase):
+    def call_report(self, **options):
+        output = StringIO()
+        call_command("production_settings_report", stdout=output, **options)
+        return output.getvalue()
+
+    def assert_sensitive_values_absent(self, text):
+        blocked_values = [
+            "report-secret-value",
+            "postgres://report-user:report-password@example.test:5432/clinic",
+            "redis://:report-cache-password@example.test:6379/1",
+            "report-password",
+            "report-cache-password",
+            "DJANGO_SECRET_KEY",
+            "SECRET_KEY",
+            "DATABASE_URL",
+            "CACHE_URL",
+        ]
+        for value in blocked_values:
+            with self.subTest(value=value):
+                self.assertNotIn(value, text)
+
+    @ignore_warnings(message="Overriding setting DATABASES can lead to unexpected behavior.")
+    @override_settings(
+        SECRET_KEY="report-secret-value",
+        PRODUCTION=True,
+        DEBUG=False,
+        ALLOWED_HOSTS=["clinic.example.test"],
+        CSRF_TRUSTED_ORIGINS=["https://clinic.example.test"],
+        DATABASES={"default": {"ENGINE": "django.db.backends.postgresql", "NAME": "clinic"}},
+        CACHES={
+            "default": {
+                "BACKEND": "django.core.cache.backends.redis.RedisCache",
+                "LOCATION": "redis://:report-cache-password@example.test:6379/1",
+            }
+        },
+        SECURE_SSL_REDIRECT=True,
+        SESSION_COOKIE_SECURE=True,
+        CSRF_COOKIE_SECURE=True,
+        SECURE_HSTS_SECONDS=3600,
+        SECURE_PROXY_SSL_HEADER=("HTTP_X_FORWARDED_PROTO", "https"),
+    )
+    def test_text_output_reports_categories_without_sensitive_values(self):
+        with patch.dict(
+            os.environ,
+            {
+                "DJANGO_SECRET_KEY": "report-secret-value",
+                "DATABASE_URL": "postgres://report-user:report-password@example.test:5432/clinic",
+                "CACHE_URL": "redis://:report-cache-password@example.test:6379/1",
+            },
+        ):
+            text = self.call_report()
+
+        self.assertIn("Production settings report", text)
+        self.assertIn("database=postgresql", text)
+        self.assertIn("cache=redis", text)
+        self.assertIn("allowed_hosts_count=1", text)
+        self.assertIn("csrf_trusted_origins_count=1", text)
+        self.assertIn("session_cookie_secure=True", text)
+        self.assert_sensitive_values_absent(text)
+
+    @ignore_warnings(message="Overriding setting DATABASES can lead to unexpected behavior.")
+    @override_settings(
+        SECRET_KEY="report-secret-value",
+        PRODUCTION=True,
+        DEBUG=False,
+        ALLOWED_HOSTS=["clinic.example.test"],
+        CSRF_TRUSTED_ORIGINS=["https://clinic.example.test"],
+        DATABASES={"default": {"ENGINE": "django.db.backends.postgresql", "NAME": "clinic"}},
+        CACHES={
+            "default": {
+                "BACKEND": "django.core.cache.backends.redis.RedisCache",
+                "LOCATION": "redis://:report-cache-password@example.test:6379/1",
+            }
+        },
+        SECURE_SSL_REDIRECT=True,
+        SESSION_COOKIE_SECURE=True,
+        CSRF_COOKIE_SECURE=True,
+        SECURE_HSTS_SECONDS=3600,
+    )
+    def test_json_output_reports_categories_without_sensitive_values(self):
+        with patch.dict(
+            os.environ,
+            {
+                "DJANGO_SECRET_KEY": "report-secret-value",
+                "DATABASE_URL": "postgres://report-user:report-password@example.test:5432/clinic",
+                "CACHE_URL": "redis://:report-cache-password@example.test:6379/1",
+            },
+        ):
+            text = self.call_report(json_output=True)
+
+        payload = json.loads(text)
+        self.assertEqual(payload["command"], "production_settings_report")
+        self.assertTrue(payload["production_like"])
+        self.assertFalse(payload["debug"])
+        self.assertEqual(payload["database_backend"], "postgresql")
+        self.assertEqual(payload["cache_backend"], "redis")
+        self.assertEqual(payload["allowed_hosts_count"], 1)
+        self.assertEqual(payload["csrf_trusted_origins_count"], 1)
+        self.assertTrue(payload["session_cookie_secure"])
+        self.assert_sensitive_values_absent(text)
+
+
 class OperationalDocumentationTests(SimpleTestCase):
     docs_dir = Path(settings.BASE_DIR) / "docs"
+    scripts_dir = Path(settings.BASE_DIR) / "scripts"
 
     def read_doc(self, name):
         return (self.docs_dir / name).read_text(encoding="utf-8")
+
+    def read_script(self, name):
+        return (self.scripts_dir / name).read_text(encoding="utf-8")
 
     def test_batch_7_runbook_documents_exist(self):
         expected_docs = [
@@ -574,7 +747,15 @@ class OperationalDocumentationTests(SimpleTestCase):
     def test_ci_workflow_runs_deployment_smoke(self):
         workflow = Path(settings.BASE_DIR, ".github", "workflows", "django.yml").read_text(encoding="utf-8")
 
+        self.assertIn("python manage.py makemigrations --check --dry-run", workflow)
+        self.assertIn("python manage.py check --deploy", workflow)
         self.assertIn("python manage.py deployment_smoke", workflow)
+        self.assertIn("python manage.py deployment_smoke --json", workflow)
+        self.assertIn("python manage.py project_status_report", workflow)
+        self.assertIn("python manage.py project_status_report --json", workflow)
+        self.assertIn("python manage.py production_settings_report", workflow)
+        self.assertIn("python manage.py production_settings_report --json", workflow)
+        self.assertIn("python manage.py test", workflow)
 
     def test_batch_10_consolidation_documents_exist_and_are_linked(self):
         expected_docs = [
@@ -654,6 +835,138 @@ class OperationalDocumentationTests(SimpleTestCase):
         self.assertIn("python manage.py project_status_report", readme)
         self.assertIn("project_status_report", project_map)
         self.assertIn("do not print patient names", security_checklist)
+
+    def test_batch_11_validation_scripts_exist_and_are_linked_from_readme(self):
+        readme = Path(settings.BASE_DIR, "README.md").read_text(encoding="utf-8")
+        expected_scripts = [
+            "validate_local_release.ps1",
+            "validate_local_release.sh",
+            "validate_staging_env.ps1",
+            "validate_staging_env.sh",
+        ]
+
+        for script_name in expected_scripts:
+            with self.subTest(script_name=script_name):
+                self.assertTrue((self.scripts_dir / script_name).exists())
+                self.assertIn(f"scripts/{script_name}", readme)
+
+    def test_batch_11_operational_documents_exist_and_are_linked(self):
+        readme = Path(settings.BASE_DIR, "README.md").read_text(encoding="utf-8")
+        project_map = self.read_doc("PROJECT_MAP.md")
+        expected_docs = [
+            "STAGING_GAP_ANALYSIS.md",
+            "STAGING_ENVIRONMENT_CONTRACT.md",
+            "LOCAL_STAGING_SIMULATION.md",
+            "POSTGRESQL_READINESS.md",
+            "REDIS_RATE_LIMIT_READINESS.md",
+            "BACKUP_RESTORE_DRILL.md",
+            "MONITORING_ALERTING_READINESS.md",
+            "DEPENDENCY_SECURITY_READINESS.md",
+            "STAFF_ACCESS_GOVERNANCE.md",
+            "LEGAL_PRIVACY_OPERATIONS.md",
+            "BATCH_11_PROGRESS.md",
+            "BATCH_11_STATUS.md",
+        ]
+
+        for doc_name in expected_docs:
+            with self.subTest(doc_name=doc_name):
+                self.assertTrue((self.docs_dir / doc_name).exists())
+                self.assertIn(doc_name, project_map)
+                if doc_name not in {"BATCH_11_PROGRESS.md"}:
+                    self.assertIn(doc_name, readme)
+
+    def test_batch_11_validation_scripts_do_not_contain_real_looking_secrets(self):
+        secret_patterns = [
+            r"sk-[A-Za-z0-9_-]{20,}",
+            r"ghp_[A-Za-z0-9_]{20,}",
+            r"xox[baprs]-[A-Za-z0-9-]{20,}",
+            r"AKIA[0-9A-Z]{16}",
+            r"-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----",
+            r"postgres://[^:\s]+:[^@\s]+@",
+            r"redis://:[^@\s]+@",
+        ]
+
+        for script_path in self.scripts_dir.glob("validate_*"):
+            content = script_path.read_text(encoding="utf-8")
+            for pattern in secret_patterns:
+                with self.subTest(script=script_path.name, pattern=pattern):
+                    self.assertIsNone(re.search(pattern, content))
+
+    def test_batch_11_validation_scripts_do_not_run_source_control_or_publish_actions(self):
+        forbidden_command_patterns = [
+            r"\bgit\s+push\b",
+            r"\bgit\s+commit\b",
+            r"\bgit\s+merge\b",
+            r"\bgit\s+reset\b",
+            r"\bgit\s+checkout\b",
+            r"\bdocker\s+push\b",
+            r"\bterraform\s+apply\b",
+            r"\bkubectl\s+apply\b",
+            r"\bgcloud\s+app\s+deploy\b",
+            r"\bfly\s+deploy\b",
+            r"\bvercel\b",
+            r"\bnetlify\s+deploy\b",
+            r"\bheroku\b",
+        ]
+
+        for script_path in self.scripts_dir.glob("validate_*"):
+            content = script_path.read_text(encoding="utf-8").lower()
+            for pattern in forbidden_command_patterns:
+                with self.subTest(script=script_path.name, pattern=pattern):
+                    self.assertIsNone(re.search(pattern, content))
+
+    def test_local_staging_simulation_compose_is_local_only_and_documented(self):
+        compose_path = Path(settings.BASE_DIR, "docker-compose.staging-validation.yml")
+        local_simulation_doc = self.read_doc("LOCAL_STAGING_SIMULATION.md")
+        readme = Path(settings.BASE_DIR, "README.md").read_text(encoding="utf-8")
+
+        self.assertTrue(compose_path.exists())
+        self.assertIn("docker-compose.staging-validation.yml", local_simulation_doc)
+        self.assertIn("LOCAL_STAGING_SIMULATION.md", readme)
+
+    def test_local_staging_simulation_compose_has_no_real_looking_secrets(self):
+        compose = Path(settings.BASE_DIR, "docker-compose.staging-validation.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("local_validation_password", compose)
+        self.assertNotIn("replace-with-db-password", compose)
+
+        secret_patterns = [
+            r"sk-[A-Za-z0-9_-]{20,}",
+            r"ghp_[A-Za-z0-9_]{20,}",
+            r"AKIA[0-9A-Z]{16}",
+            r"-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----",
+        ]
+        for pattern in secret_patterns:
+            with self.subTest(pattern=pattern):
+                self.assertIsNone(re.search(pattern, compose))
+
+    def test_local_staging_simulation_compose_does_not_bind_public_interfaces(self):
+        compose = Path(settings.BASE_DIR, "docker-compose.staging-validation.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertNotIn("0.0.0.0:", compose)
+        self.assertNotIn('"5432:5432"', compose)
+        self.assertNotIn('"6379:6379"', compose)
+        self.assertIn("127.0.0.1:54329:5432", compose)
+        self.assertIn("127.0.0.1:63790:6379", compose)
+
+    def test_dependabot_config_is_bounded_and_secret_free(self):
+        dependabot_path = Path(settings.BASE_DIR, ".github", "dependabot.yml")
+        content = dependabot_path.read_text(encoding="utf-8")
+        readme = Path(settings.BASE_DIR, "README.md").read_text(encoding="utf-8")
+        dependency_doc = self.read_doc("DEPENDENCY_SECURITY_READINESS.md")
+
+        self.assertTrue(dependabot_path.exists())
+        self.assertIn('package-ecosystem: "pip"', content)
+        self.assertIn('package-ecosystem: "github-actions"', content)
+        self.assertNotIn("auto-merge", content.lower())
+        self.assertNotIn("token", content.lower())
+        self.assertNotIn("password", content.lower())
+        self.assertNotIn("secret", content.lower())
+        self.assertIn("DEPENDENCY_SECURITY_READINESS.md", readme)
+        self.assertIn("Do not auto-merge", dependency_doc)
 
 
 class PortalFoundationRouteTests(TestCase):

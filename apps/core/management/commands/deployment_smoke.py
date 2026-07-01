@@ -276,6 +276,45 @@ def _add_https_checks(result):
     if not _production_like():
         return
 
+    if settings.DEBUG:
+        result.add(
+            "production_debug_disabled",
+            CHECK_FAIL,
+            "DEBUG is enabled in a production-like settings module.",
+        )
+
+    if _database_engine_label() == "sqlite":
+        result.add(
+            "production_database_backend",
+            CHECK_FAIL,
+            "SQLite is active in a production-like settings module.",
+        )
+
+    if _cache_backend_label() == "locmem":
+        result.add(
+            "production_cache_backend",
+            CHECK_FAIL,
+            "LocMemCache is active in a production-like settings module.",
+        )
+
+    allowed_hosts = list(getattr(settings, "ALLOWED_HOSTS", []) or [])
+    if not allowed_hosts or "*" in allowed_hosts:
+        result.add(
+            "production_allowed_hosts",
+            CHECK_FAIL,
+            "ALLOWED_HOSTS is empty or wildcarded in a production-like settings module.",
+            details={"allowed_hosts_count": len(allowed_hosts), "wildcard": "*" in allowed_hosts},
+        )
+
+    csrf_trusted_origins = list(getattr(settings, "CSRF_TRUSTED_ORIGINS", []) or [])
+    if not csrf_trusted_origins:
+        result.add(
+            "production_csrf_trusted_origins",
+            CHECK_FAIL,
+            "CSRF trusted origins are empty in a production-like settings module.",
+            details={"csrf_trusted_origins_count": 0},
+        )
+
     if not getattr(settings, "SECURE_SSL_REDIRECT", False):
         result.add(
             "production_https_redirect",
@@ -294,6 +333,44 @@ def _add_https_checks(result):
             CHECK_FAIL,
             "CSRF_COOKIE_SECURE is disabled in a production-like settings module.",
         )
+
+    if int(getattr(settings, "SECURE_HSTS_SECONDS", 0) or 0) <= 0:
+        result.add(
+            "production_hsts",
+            CHECK_FAIL,
+            "HSTS is disabled in a production-like settings module.",
+        )
+
+    if getattr(settings, "BOOKING_TRUST_X_FORWARDED_FOR", False):
+        if getattr(settings, "BOOKING_TRUSTED_PROXY_CONFIGURED", False):
+            result.add(
+                "production_booking_proxy_attestation",
+                CHECK_PASS,
+                "Booking forwarded IP trust is enabled with proxy attestation.",
+            )
+        else:
+            result.add(
+                "production_booking_proxy_attestation",
+                CHECK_FAIL,
+                "Booking forwarded IP trust is enabled without proxy attestation.",
+            )
+    else:
+        result.add(
+            "production_booking_proxy_attestation",
+            CHECK_PASS,
+            "Booking forwarded IP trust is disabled; REMOTE_ADDR remains the rate-limit identity.",
+        )
+
+    result.add(
+        "production_proxy_ssl_header",
+        CHECK_PASS,
+        "Proxy SSL header trust is summarized as a boolean only.",
+        details={
+            "secure_proxy_ssl_header_enabled": bool(
+                getattr(settings, "SECURE_PROXY_SSL_HEADER", None)
+            )
+        },
+    )
 
 
 def _add_database_checks(result):
