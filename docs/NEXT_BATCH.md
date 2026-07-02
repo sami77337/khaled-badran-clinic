@@ -51,6 +51,11 @@ final product completion and professional delivery readiness.
   remains local Docker validation only and does not claim real restricted
   staging, HTTPS/proxy/CSRF-origin, production, backup/restore, monitoring,
   legal/privacy, Redis multi-process/outage, or load/concurrency readiness.
+- Batch 14C-PREP-01 prepared manual Render restricted staging prerequisites by
+  adding a production WSGI server dependency, WhiteNoise static serving support,
+  and Render staging setup documentation. It did not deploy, create Render
+  services, add `render.yaml`, add product features, use secrets, or validate
+  real staging.
 
 ## Batch 14 Result
 
@@ -147,14 +152,47 @@ Why dashboard implementation still remains deferred:
 The next recommended validation batch is:
 
 ```text
-Batch 14C: real restricted HTTPS/proxy/staging-host validation
+Batch 14C-VALIDATE-01: real restricted Render HTTPS/proxy/staging-host validation
 ```
 
-Batch 14C should provision or provide a restricted, synthetic-data-only staging
-environment; use `config.settings.prod` or a reviewed production-safe staging
-wrapper; use PostgreSQL, Redis/shared cache, HTTPS, exact host/CSRF settings,
-and reviewed proxy behavior; and archive safe evidence without secret values or
-patient data.
+Batch 14C-VALIDATE-01 should use a restricted, synthetic-data-only Render
+staging environment that has already been created by an operator; use
+`config.settings.prod` or a reviewed production-safe staging wrapper; use
+Render PostgreSQL, Render Key Value/Redis-compatible shared cache, HTTPS,
+exact host/CSRF settings, and reviewed proxy behavior; and archive safe
+evidence without secret values or patient data.
+
+## Batch 14C-PREP-01 Result
+
+Batch 14C-PREP-01 result:
+
+```text
+Render restricted staging prerequisites prepared; real staging remains unvalidated.
+```
+
+What changed:
+
+- `gunicorn` is declared for the Render Python web service WSGI process.
+- `whitenoise` is declared and configured immediately after
+  `SecurityMiddleware`.
+- Static files use WhiteNoise compressed storage through Django's `STORAGES`
+  setting.
+- `docs/RENDER_STAGING_SETUP.md` documents manual Render setup commands,
+  environment variables, region/internal-URL expectations, migration handling,
+  and validation commands.
+- `docs/STAGING_ENVIRONMENT_CONTRACT.md` now includes the exact Render staging
+  environment variable shape.
+
+What did not happen:
+
+- no Render deployment;
+- no Render service creation;
+- no `render.yaml`;
+- no secrets, committed env files, production credentials, or real patient
+  data;
+- no models, migrations, templates, CSS, JavaScript, dashboard code, booking
+  behavior changes, patient portal behavior changes, Docker changes, or CI
+  changes.
 
 Batch 14A remains a valid later planning-only option:
 
@@ -190,12 +228,14 @@ Must read before Batch 14C:
 - `docs/STAGING_VALIDATION_PLAN.md`
 - `docs/STAGING_GAP_ANALYSIS.md`
 - `docs/STAGING_ENVIRONMENT_CONTRACT.md`
+- `docs/RENDER_STAGING_SETUP.md`
 - `docs/POSTGRESQL_READINESS.md`
 - `docs/REDIS_RATE_LIMIT_READINESS.md`
 - `docs/SECURITY_REGRESSION_CHECKLIST.md`
 - `docs/BATCH_14_STATUS.md`
 - `docs/BATCH_14B_STATUS.md`
 - `docs/BATCH_14B_FIX_01_STATUS.md`
+- `docs/BATCH_14C_PREP_01_STATUS.md`
 - `docs/RESTRICTED_STAGING_VALIDATION_EVIDENCE.md`
 - `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
 - `docs/LOCAL_DOCKER_POSTGRES_REDIS_VALIDATION_EVIDENCE.md`
@@ -204,8 +244,9 @@ Must read before Batch 14C:
 
 ## Ordered Recommended Batches
 
-1. Batch 14C: real restricted HTTPS/proxy/staging-host validation after local
-   Docker PostgreSQL/Redis validation passed in Batch 14B-FIX-01.
+1. Batch 14C-VALIDATE-01: real restricted Render
+   HTTPS/proxy/staging-host validation after manual Render staging services are
+   created outside this repo and Batch 14C-PREP-01 is merged.
 2. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
 3. Batch 15: backup/restore synthetic drill evidence and

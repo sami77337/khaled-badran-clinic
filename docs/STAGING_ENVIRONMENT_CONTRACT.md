@@ -16,6 +16,47 @@ must not silently weaken security.
 Staging is not production and is not public launch approval. It is a validation
 environment for synthetic data only.
 
+## Render Restricted Staging Contract
+
+Batch 14C-PREP-01 adds the manual Render setup reference:
+
+- `docs/RENDER_STAGING_SETUP.md`
+
+For a Render restricted staging web service, set these variables outside Git:
+
+| Variable | Render staging value shape |
+| --- | --- |
+| `DJANGO_SETTINGS_MODULE` | `config.settings.prod` |
+| `DJANGO_SECRET_KEY` | Generated staging-only secret stored in Render, never in Git. |
+| `DJANGO_DEBUG` | `false` |
+| `DJANGO_ALLOWED_HOSTS` | Exact Render service hostname, for example `<service>.onrender.com`. |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | Exact HTTPS Render service origin, for example `https://<service>.onrender.com`. |
+| `DATABASE_URL` | Render PostgreSQL internal database URL where possible. |
+| `CACHE_URL` | Render Key Value internal `redis://` or `rediss://` URL where possible. |
+| `DJANGO_CACHE_KEY_PREFIX` | Staging-specific prefix, for example `kbc-render-staging`. |
+| `DJANGO_SECURE_PROXY_SSL_HEADER_ENABLED` | `true` for Render HTTPS proxy validation. |
+| `DJANGO_SECURE_SSL_REDIRECT` | `true` |
+| `DJANGO_SECURE_HSTS_SECONDS` | `0` for staging unless a custom domain and HSTS policy are intentionally approved. |
+| `DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS` | `false` for staging unless intentionally approved. |
+| `DJANGO_SECURE_HSTS_PRELOAD` | `false` for staging unless intentionally approved. |
+| `BOOKING_TRUST_X_FORWARDED_FOR` | `false` until trusted proxy stripping is separately verified. |
+| `BOOKING_TRUSTED_PROXY_CONFIGURED` | `false` until trusted proxy stripping is separately verified. |
+
+The code also accepts `CSRF_TRUSTED_ORIGINS` as a fallback for CSRF trusted
+origins. Prefer `DJANGO_CSRF_TRUSTED_ORIGINS`; use only one name unless a
+future operator has a reviewed reason to set both.
+
+After creating the Render web service, replace the placeholder service hostname
+with the exact generated hostname:
+
+```text
+DJANGO_ALLOWED_HOSTS=<service>.onrender.com
+DJANGO_CSRF_TRUSTED_ORIGINS=https://<service>.onrender.com
+```
+
+The Render web service, PostgreSQL database, and Key Value/Redis-compatible
+service should be in the same Render region. Use internal URLs where possible.
+
 ## Required Core Variables
 
 Set these outside Git:
