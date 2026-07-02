@@ -31,6 +31,16 @@ final product completion and professional delivery readiness.
   validation were not provided or validated. Batch 14 did not create
   application code, deployment, secrets, external infrastructure, real patient
   data, or launch readiness.
+- Batch 14B ran the repository-approved local Docker PostgreSQL/Redis service
+  harness with synthetic local-only data. Docker Desktop and WSL2 were
+  available, local PostgreSQL/Redis services started, migrations and smoke
+  checks reached PostgreSQL and Redis, and Redis-backed booking/patient portal
+  app tests passed. PostgreSQL-backed booking/patient portal/full-suite tests
+  failed on a nullable outer-join `select_for_update()` PostgreSQL blocker, so
+  local Docker PostgreSQL/Redis validation did not pass overall. Batch 14B did
+  not create application code, settings changes, dependency-file changes,
+  deployment, secrets, external infrastructure, real patient data, or launch
+  readiness.
 
 ## Batch 14 Result
 
@@ -62,34 +72,80 @@ Key conclusion:
 - real PostgreSQL, Redis/shared cache, HTTPS, reverse proxy, host, and CSRF
   behavior remains unproven.
 
-## Batch 14B Recommendation
+## Batch 14B Result
+
+Batch 14B result:
+
+```text
+Local Docker PostgreSQL/Redis validation ran; PostgreSQL validation failed.
+```
+
+Evidence added:
+
+- `docs/BATCH_14B_STATUS.md`
+- `docs/LOCAL_DOCKER_POSTGRES_REDIS_VALIDATION_EVIDENCE.md`
+
+Evidence updated:
+
+- `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
+- `docs/STAGING_VALIDATION_BLOCKERS.md`
+
+Key conclusion:
+
+- Docker Desktop and WSL2 are available locally;
+- the existing local-only Docker service harness starts PostgreSQL and Redis;
+- PostgreSQL migrations applied successfully in the local Docker database;
+- combined PostgreSQL+Redis smoke/report commands can reach both services
+  under `config.settings.dev`;
+- Redis-backed booking and patient portal app tests passed on SQLite;
+- PostgreSQL-backed booking, patient portal, and full-suite tests failed with
+  `FOR UPDATE cannot be applied to the nullable side of an outer join`;
+- full Redis-enabled suite has one expected environment-default failure because
+  a core test asserts local default cache is LocMem;
+- no real restricted staging, HTTPS/proxy/CSRF-origin, backup/restore,
+  monitoring, legal/privacy, or load/concurrency validation is complete.
+
+## Batch 14B-Fix Recommendation
 
 Recommended next batch:
 
 ```text
-Batch 14B: provision and re-run real restricted staging validation
+Batch 14B-fix/evidence: fix the PostgreSQL local Docker blocker and rerun local PostgreSQL/Redis validation
 ```
 
 Goal:
 
-- provision or provide a restricted, synthetic-data-only staging environment;
-- use `config.settings.prod` or a reviewed production-safe staging wrapper;
-- use PostgreSQL, Redis/shared cache, HTTPS, exact host/CSRF settings, and
-  reviewed proxy behavior;
-- re-run the existing validation plan and archive safe evidence without secret
-  values or patient data;
+- fix the PostgreSQL nullable outer-join `select_for_update()` issue in staff
+  appointment operations and patient portal appointment linking;
+- rerun the repository-approved local Docker PostgreSQL/Redis validation path;
+- verify PostgreSQL-backed `apps.booking`, `apps.patients`, and full-suite
+  tests;
+- verify combined PostgreSQL+Redis smoke/report/full-suite status;
+- keep evidence local-only and synthetic-data-only;
 - keep dashboard implementation deferred until the current bounded system is
-  proven under production-like infrastructure.
+  proven under PostgreSQL/Redis and the remaining staging blockers are
+  honestly tracked.
 
 Why this remains safer than starting dashboard implementation planning or code:
 
 - the current booking and portal flows already create and protect operational
   patient/appointment data;
-- Batch 14 showed local validation is healthy, but real infrastructure remains
-  the largest safety gap;
+- Batch 14B found a real PostgreSQL blocker in existing staff/portal operation
+  paths;
 - dashboard implementation would expand the staff/admin surface before the
-  current bounded system has been proven under PostgreSQL, Redis/shared cache,
-  HTTPS, and proxy assumptions.
+  current bounded system has passed PostgreSQL-backed validation.
+
+After Batch 14B-fix/evidence passes, the next recommended validation batch is:
+
+```text
+Batch 14C: real restricted HTTPS/proxy/staging-host validation
+```
+
+Batch 14C should provision or provide a restricted, synthetic-data-only staging
+environment; use `config.settings.prod` or a reviewed production-safe staging
+wrapper; use PostgreSQL, Redis/shared cache, HTTPS, exact host/CSRF settings,
+and reviewed proxy behavior; and archive safe evidence without secret values or
+patient data.
 
 Batch 14A remains a valid later planning-only option:
 
@@ -101,7 +157,7 @@ Use Batch 14A only if the owner explicitly pauses staging validation to plan
 dashboard implementation scope. Do not start dashboard code in Batch 14A unless
 a separate implementation batch authorizes it.
 
-Must read before Batch 14B:
+Must read before Batch 14B-fix/evidence:
 
 - `README.md`
 - `docs/UX_PRODUCT_FLOW_AUDIT.md`
@@ -129,27 +185,32 @@ Must read before Batch 14B:
 - `docs/REDIS_RATE_LIMIT_READINESS.md`
 - `docs/SECURITY_REGRESSION_CHECKLIST.md`
 - `docs/BATCH_14_STATUS.md`
+- `docs/BATCH_14B_STATUS.md`
 - `docs/RESTRICTED_STAGING_VALIDATION_EVIDENCE.md`
 - `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
+- `docs/LOCAL_DOCKER_POSTGRES_REDIS_VALIDATION_EVIDENCE.md`
 - `docs/HTTPS_PROXY_CSRF_VALIDATION_EVIDENCE.md`
 - `docs/STAGING_VALIDATION_BLOCKERS.md`
 
 ## Ordered Recommended Batches
 
-1. Batch 14B: provision and re-run real restricted staging validation.
-2. Batch 14A: dashboard implementation planning/authorization, only if the
+1. Batch 14B-fix/evidence: fix the PostgreSQL local Docker blocker and rerun
+   local PostgreSQL/Redis validation.
+2. Batch 14C: real restricted HTTPS/proxy/staging-host validation after local
+   Docker PostgreSQL/Redis validation passes.
+3. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
-3. Batch 15: backup/restore synthetic drill evidence and
+4. Batch 15: backup/restore synthetic drill evidence and
    monitoring/alerting setup plan.
-4. Batch 16: legal/privacy/account recovery and patient identity verification
+5. Batch 16: legal/privacy/account recovery and patient identity verification
    policy.
-5. Batch 17: doctor dashboard workflow completion/polish.
-6. Batch 18: patient portal completion/hardening.
-7. Batch 19: WhatsApp limited integration design/implementation only after
+6. Batch 17: doctor dashboard workflow completion/polish.
+7. Batch 18: patient portal completion/hardening.
+8. Batch 19: WhatsApp limited integration design/implementation only after
    privacy gates.
-8. Batch 20: approved cases/reviews/media showcase plus private publication
+9. Batch 20: approved cases/reviews/media showcase plus private publication
    rules.
-9. Batch 21: release candidate hardening.
+10. Batch 21: release candidate hardening.
 
 ## Final Quality Goals
 
