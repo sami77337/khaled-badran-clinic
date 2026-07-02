@@ -15,7 +15,9 @@ final product completion and professional delivery readiness.
 - Batch 11 completed repository-local restricted staging validation operations.
 - Batch 11 reported 246 tests passing.
 - The project is not production launched.
-- Real staging infrastructure is not yet validated.
+- Real Render restricted staging is now functionally reachable for bounded
+  public GET evidence, but full production-like staging validation remains
+  incomplete.
 - Legal/privacy approval remains blocked.
 - WhatsApp, uploads, medical records, and payments remain outside the current
   implemented scope.
@@ -56,6 +58,13 @@ final product completion and professional delivery readiness.
   and Render staging setup documentation. It did not deploy, create Render
   services, add `render.yaml`, add product features, use secrets, or validate
   real staging.
+- Batch 14C-VALIDATE-01 recorded sanitized evidence that the real Render
+  restricted staging service is externally reachable: `/health/`, `/`,
+  `/book/`, and `/en/book/` returned HTTP 200. This validates functional
+  restricted staging for public GET reachability only. It does not approve
+  production launch, legal/privacy readiness, backup/restore readiness,
+  monitoring readiness, load/concurrency readiness, shared-cache
+  multi-process/outage readiness, or future product areas.
 
 ## Batch 14 Result
 
@@ -135,7 +144,7 @@ What changed:
 - patient appointment linking lock query now locks appointment and patient rows
   with `select_for_update(of=("self", "patient"))`;
 - the local default-cache test was clarified so default LocMem behavior is
-  asserted when `CACHE_URL` is absent, while documented Redis override
+  asserted when no cache override is configured, while documented Redis override
   validation can run the full suite.
 
 Why dashboard implementation still remains deferred:
@@ -149,25 +158,23 @@ Why dashboard implementation still remains deferred:
 - dashboard implementation would expand the staff/admin surface before the
   current bounded system has passed real restricted staging validation.
 
-The next recommended validation batch is:
+The next recommended validation batch at that time was:
 
 ```text
 Batch 14C-VALIDATE-01: real restricted Render HTTPS/proxy/staging-host validation
 ```
 
-Batch 14C-VALIDATE-01 should use a restricted, synthetic-data-only Render
-staging environment that has already been created by an operator; use
-`config.settings.prod` or a reviewed production-safe staging wrapper; use
-Render PostgreSQL, Render Key Value/Redis-compatible shared cache, HTTPS,
-exact host/CSRF settings, and reviewed proxy behavior; and archive safe
-evidence without secret values or patient data.
+Batch 14C-VALIDATE-01 has now recorded bounded public GET evidence from the
+real Render staging host. Deeper staging runtime, browser security, managed
+database/cache, backup/restore, monitoring, legal/privacy, load/concurrency,
+and shared-cache outage/multi-process validation remain future work.
 
 ## Batch 14C-PREP-01 Result
 
 Batch 14C-PREP-01 result:
 
 ```text
-Render restricted staging prerequisites prepared; real staging remains unvalidated.
+Render restricted staging prerequisites prepared; real staging remained unvalidated at that point.
 ```
 
 What changed:
@@ -194,6 +201,41 @@ What did not happen:
   behavior changes, patient portal behavior changes, Docker changes, or CI
   changes.
 
+## Batch 14C-VALIDATE-01 Result
+
+Batch 14C-VALIDATE-01 result:
+
+```text
+Functional restricted Render staging public GET evidence recorded; production launch remains blocked.
+```
+
+Evidence added:
+
+- `docs/BATCH_14C_VALIDATE_01_STATUS.md`
+
+Evidence updated:
+
+- `docs/RENDER_STAGING_SETUP.md`
+- `docs/PROJECT_RELEASE_SCORECARD.md`
+- `docs/NEXT_BATCH.md`
+- `docs/STAGING_VALIDATION_BLOCKERS.md`
+
+Key conclusion:
+
+- local baseline commands passed without staging secrets;
+- the full local test suite passed: 246 tests, OK;
+- the real Render staging web service returned HTTP 200 for `/health/` and
+  `/`;
+- public booking entry pages returned HTTP 200 for `/book/` and `/en/book/`
+  by GET only;
+- no booking POST was submitted and no patient or appointment data was
+  created;
+- no Render logs, environment dumps, credentials, connection strings, or
+  patient-identifying data were documented;
+- full browser security, managed database/cache command evidence,
+  backup/restore, monitoring, legal/privacy, load/concurrency, and
+  shared-cache outage/multi-process readiness remain incomplete.
+
 Batch 14A remains a valid later planning-only option:
 
 ```text
@@ -204,7 +246,7 @@ Use Batch 14A only if the owner explicitly pauses staging validation to plan
 dashboard implementation scope. Do not start dashboard code in Batch 14A unless
 a separate implementation batch authorizes it.
 
-Must read before Batch 14C:
+Must read before the next staging or operations batch:
 
 - `README.md`
 - `docs/UX_PRODUCT_FLOW_AUDIT.md`
@@ -236,6 +278,7 @@ Must read before Batch 14C:
 - `docs/BATCH_14B_STATUS.md`
 - `docs/BATCH_14B_FIX_01_STATUS.md`
 - `docs/BATCH_14C_PREP_01_STATUS.md`
+- `docs/BATCH_14C_VALIDATE_01_STATUS.md`
 - `docs/RESTRICTED_STAGING_VALIDATION_EVIDENCE.md`
 - `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
 - `docs/LOCAL_DOCKER_POSTGRES_REDIS_VALIDATION_EVIDENCE.md`
@@ -244,13 +287,14 @@ Must read before Batch 14C:
 
 ## Ordered Recommended Batches
 
-1. Batch 14C-VALIDATE-01: real restricted Render
-   HTTPS/proxy/staging-host validation after manual Render staging services are
-   created outside this repo and Batch 14C-PREP-01 is merged.
-2. Batch 14A: dashboard implementation planning/authorization, only if the
-   owner explicitly chooses planning before dashboard code.
-3. Batch 15: backup/restore synthetic drill evidence and
+1. Batch 14C-VALIDATE-02: complete deeper Render staging validation if
+   operator access is available, including safe staging shell checks,
+   browser-level HTTPS/proxy/CSRF/cookie behavior, static asset validation, and
+   sanitized log review.
+2. Batch 15: backup/restore synthetic drill evidence and
    monitoring/alerting setup plan.
+3. Batch 14A: dashboard implementation planning/authorization, only if the
+   owner explicitly chooses planning before dashboard code.
 4. Batch 16: legal/privacy/account recovery and patient identity verification
    policy.
 5. Batch 17: doctor dashboard workflow completion/polish.

@@ -7,6 +7,30 @@ DNS records, create secrets, or validate real staging.
 Use this document only after an operator intentionally creates staging services
 in Render with synthetic data only.
 
+## Current Sanitized Staging Snapshot
+
+Batch 14C-VALIDATE-01 recorded bounded real Render restricted staging evidence
+after an operator created the staging services outside this repository:
+
+- Staging URL:
+  `https://khaled-badran-clinic-staging.onrender.com`
+- Render Web Service ID:
+  `srv-d937nq67r5hc73bnebi0`
+- Region:
+  Frankfurt
+- Branch:
+  `main`
+- Validation timestamp:
+  `2026-07-02 22:51:58 +03:00` Asia/Amman
+- Public GET checks:
+  `/health/`, `/`, `/book/`, and `/en/book/` returned HTTP 200.
+
+This confirms functional restricted staging reachability for public GET checks
+only. It does not approve production launch and does not replace full
+production-like validation for browser security behavior, managed database and
+cache behavior, backup/restore, monitoring, load/concurrency, or legal/privacy
+approval.
+
 ## Scope
 
 This setup targets a manual Render Python web service using:
