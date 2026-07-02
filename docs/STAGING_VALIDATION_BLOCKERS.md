@@ -34,52 +34,67 @@ Batch 14B-FIX-01 fixed the local Docker PostgreSQL nullable outer-join
   monitoring, legal/privacy, Redis multi-process/outage, and
   load/concurrency validation remain blocked.
 
-Do not claim production readiness from Batch 14 or Batch 14B.
+Batch 14C-VALIDATE-01 confirmed that the real Render restricted staging web
+service is functionally reachable for bounded public GET checks:
+
+- `/health/` returned HTTP 200;
+- `/` returned HTTP 200;
+- `/book/` returned HTTP 200 by GET only;
+- `/en/book/` returned HTTP 200 by GET only.
+
+This resolves the earlier "no staging host was provided" blocker for bounded
+public reachability only. It does not resolve full production-like staging,
+browser security behavior, managed database/cache command evidence,
+backup/restore, monitoring, legal/privacy, shared-cache multi-process/outage,
+or load/concurrency blockers.
+
+Do not claim production readiness from Batch 14, Batch 14B, or
+Batch 14C-VALIDATE-01.
 
 ## Real Infrastructure Blockers
 
-- Real restricted staging infrastructure was not provided.
-- No staging application host was provided.
-- No DNS or private staging hostname was provided.
-- No TLS certificate was provided.
-- No reverse proxy or load balancer was provided.
-- No process manager or hosting environment was provided.
-- No static asset serving strategy was validated.
-- No readiness/liveness monitoring path through a proxy was validated.
+Partially resolved by Batch 14C-VALIDATE-01:
 
-## Missing Environment Contract
+- a real Render staging web service exists;
+- the staging application host is reachable over HTTPS;
+- public liveness, home, and booking entry GET checks returned HTTP 200;
+- the staging service uses the `main` branch in the Frankfurt region by known
+  operator context.
 
-The strict staging validation script failed because these required variables
-were missing:
+Still blocked or not fully validated:
 
-- `DJANGO_SETTINGS_MODULE`
-- `DJANGO_SECRET_KEY`
-- `DJANGO_DEBUG`
-- `DJANGO_ALLOWED_HOSTS`
-- `DJANGO_CSRF_TRUSTED_ORIGINS`
-- `DATABASE_URL`
-- `CACHE_URL`
-- `DJANGO_CACHE_KEY_PREFIX`
+- no custom DNS or private staging hostname has been validated;
+- no browser-level secure-cookie, CSRF trusted-origin, or HSTS behavior has
+  been validated;
+- no HTTP-to-HTTPS redirect behavior has been validated;
+- no reverse proxy header overwrite or client IP stripping behavior has been
+  validated;
+- no safe staging shell command output has been archived from the Render
+  runtime;
+- no static asset strategy has been separately validated beyond public pages
+  returning HTTP 200;
+- no readiness/liveness monitoring path has been connected to alerting.
 
-No values were printed, and no secret values were requested or added.
+## Staging Environment Contract Status
 
-Additional staging variables from the contract still need operator review and
-configuration outside Git, including:
+Batch 14 local validation proved that staging-only environment values were not
+available in the local workspace. Batch 14C-VALIDATE-01 did not import those
+values locally and did not print or document any secret values.
 
-- `DATABASE_SSL_REQUIRE`
-- `DATABASE_CONN_MAX_AGE`
-- `DATABASE_CONN_HEALTH_CHECKS`
-- `DJANGO_SECURE_SSL_REDIRECT`
-- `DJANGO_SESSION_COOKIE_SECURE`
-- `DJANGO_CSRF_COOKIE_SECURE`
-- `DJANGO_SECURE_HSTS_SECONDS`
-- `DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS`
-- `DJANGO_SECURE_HSTS_PRELOAD`
-- `DJANGO_SECURE_PROXY_SSL_HEADER_ENABLED`
-- `BOOKING_TRUST_X_FORWARDED_FOR`
-- `BOOKING_TRUSTED_PROXY_CONFIGURED`
-- `DJANGO_LOG_LEVEL`
-- `MEDIA_PRIVATE_ROOT`
+Operator context says the Render staging environment was configured manually
+outside Git after the old exposed database connection was invalidated. The
+public GET evidence proves the web service can start and answer traffic, but it
+does not prove the complete environment contract.
+
+Still required:
+
+- safe staging runtime checks from a trusted operator shell or equivalent;
+- exact host and HTTPS origin behavior validation;
+- production-mode debug/security posture review;
+- provider database and shared-cache behavior validation without recording
+  connection strings;
+- reviewed proxy, HSTS, secure-cookie, and client IP trust behavior;
+- staging log review after sanitization.
 
 ## Local Tooling Status
 
@@ -105,7 +120,7 @@ Remaining local-tooling limitations:
 ## PostgreSQL Blockers
 
 PostgreSQL readiness remains incomplete for real staging after
-Batch 14B-FIX-01.
+Batch 14C-VALIDATE-01.
 
 Batch 14B and Batch 14B-FIX-01 locally validated:
 
@@ -137,8 +152,7 @@ Batch 14B-FIX-01 fixed that local blocker:
 
 Still not validated or still blocked:
 
-- real staging PostgreSQL connection;
-- staging database creation;
+- direct safe staging database command evidence from the real Render runtime;
 - least-privilege database user;
 - provider SSL requirement;
 - active appointment uniqueness behavior under real PostgreSQL load;
@@ -175,8 +189,9 @@ Remaining Redis limitations:
 
 Still not validated or still blocked:
 
-- real Redis/shared-cache staging connection;
-- Redis authentication or TLS;
+- direct safe staging shared-cache command evidence from the real Render
+  runtime;
+- shared-cache authentication or TLS behavior;
 - unique staging cache prefix against a real shared backend;
 - public booking IP quota across processes;
 - public booking phone quota across processes;
@@ -188,9 +203,10 @@ Still not validated or still blocked:
 
 ## HTTPS, Proxy, and CSRF Blockers
 
-HTTPS/proxy readiness remains incomplete because Batch 14 did not validate:
+Batch 14C-VALIDATE-01 confirmed basic HTTPS GET reachability to the Render
+staging host. HTTPS/proxy readiness remains incomplete because the batch did
+not validate:
 
-- TLS certificate validity;
 - HTTP-to-HTTPS redirect through the real proxy;
 - secure cookies in a browser over HTTPS;
 - HSTS headers through the real staging path;
@@ -202,8 +218,9 @@ HTTPS/proxy readiness remains incomplete because Batch 14 did not validate:
 - reverse proxy stripping of client-supplied `X-Forwarded-For`;
 - whether `BOOKING_TRUST_X_FORWARDED_FOR=true` is safe.
 
-Batch 14B did not provision HTTPS or a reverse proxy. Local Docker
-PostgreSQL/Redis validation does not reduce these blockers.
+Local Docker PostgreSQL/Redis validation does not reduce these browser,
+proxy, and CSRF blockers. Batch 14C-VALIDATE-01 reduces them only to the
+extent that public HTTPS GET requests returned HTTP 200.
 
 ## Legal and Privacy Blockers
 
@@ -232,7 +249,8 @@ Operational launch blockers remain:
 - No dependency vulnerability scan evidence or response owner.
 - No staging load test.
 - No staging concurrency test.
-- No production static serving validation.
+- No complete production static serving validation beyond public staging pages
+  returning HTTP 200.
 
 ## Product Scope Blockers and Exclusions
 
@@ -253,17 +271,18 @@ The following remain absent and future-gated:
 
 ## Required Next Action
 
-Proceed to real restricted staging and HTTPS/proxy/CSRF-origin validation with
-synthetic data only. The local Docker PostgreSQL validation blocker has been
-fixed and rerun successfully, but local Docker validation is not a substitute
-for real restricted staging.
+Proceed to deeper real restricted staging validation with synthetic data only.
+The Render staging host is now functionally reachable for public GET checks,
+but local Docker validation and public GET evidence are not substitutes for
+full production-like staging validation.
 
 Recommended next batch:
 
 ```text
-Batch 14C: real restricted HTTPS/proxy/staging-host validation
+Batch 14C-VALIDATE-02: deeper Render staging security/runtime validation
 ```
 
-Dashboard implementation should remain deferred until the database/cache and
-staging blockers are resolved or explicitly accepted as a documented risk by
-the owner.
+Dashboard implementation should remain deferred until the staging runtime,
+database/cache, browser security, backup/restore, monitoring, and
+load/concurrency blockers are resolved or explicitly accepted as a documented
+risk by the owner.
