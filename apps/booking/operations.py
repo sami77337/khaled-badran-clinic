@@ -41,7 +41,7 @@ def staff_appointment_queryset():
 def get_staff_appointment(appointment_id, *, for_update=False):
     queryset = staff_appointment_queryset()
     if for_update:
-        queryset = queryset.select_for_update()
+        queryset = queryset.select_for_update(of=("self",))
     return queryset.get(id=appointment_id)
 
 

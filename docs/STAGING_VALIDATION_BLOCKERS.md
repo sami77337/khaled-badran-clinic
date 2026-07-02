@@ -19,6 +19,21 @@ validation:
 - real restricted staging, HTTPS/proxy/CSRF-origin, backup/restore,
   monitoring, legal/privacy, and load/concurrency validation remain blocked.
 
+Batch 14B-FIX-01 fixed the local Docker PostgreSQL nullable outer-join
+`select_for_update()` blocker and reran the local Docker service-backed path:
+
+- local Docker PostgreSQL-backed booking, patient portal, and full-suite tests
+  now pass;
+- local Docker Redis-backed booking, patient portal, and full-suite tests now
+  pass;
+- combined local Docker PostgreSQL+Redis booking, patient portal, and
+  full-suite tests now pass;
+- combined smoke/report commands reach PostgreSQL and Redis under
+  `config.settings.dev`;
+- real restricted staging, HTTPS/proxy/CSRF-origin, backup/restore,
+  monitoring, legal/privacy, Redis multi-process/outage, and
+  load/concurrency validation remain blocked.
+
 Do not claim production readiness from Batch 14 or Batch 14B.
 
 ## Real Infrastructure Blockers
@@ -89,16 +104,17 @@ Remaining local-tooling limitations:
 
 ## PostgreSQL Blockers
 
-PostgreSQL readiness remains incomplete after Batch 14B.
+PostgreSQL readiness remains incomplete for real staging after
+Batch 14B-FIX-01.
 
-Batch 14B locally validated:
+Batch 14B and Batch 14B-FIX-01 locally validated:
 
 - local Docker PostgreSQL connection;
 - local Docker PostgreSQL migration application;
 - local Docker PostgreSQL migration check;
 - local Docker PostgreSQL smoke/report commands.
 
-Batch 14B also discovered a PostgreSQL blocker:
+Batch 14B discovered a PostgreSQL blocker:
 
 - `python manage.py test apps.booking` failed with 24 errors.
 - `python manage.py test apps.patients` failed with 7 errors.
@@ -110,9 +126,17 @@ The affected behavior involves staff appointment operations and patient portal
 appointment linking paths that use `select_for_update()` with related nullable
 appointment data.
 
+Batch 14B-FIX-01 fixed that local blocker:
+
+- staff operation locking now uses `select_for_update(of=("self",))`;
+- patient appointment linking now uses
+  `select_for_update(of=("self", "patient"))`;
+- local Docker PostgreSQL-backed `apps.booking` passed: 130 tests, OK;
+- local Docker PostgreSQL-backed `apps.patients` passed: 46 tests, OK;
+- local Docker PostgreSQL-backed full suite passed: 246 tests, OK.
+
 Still not validated or still blocked:
 
-- passing booking/staff/patient portal tests on PostgreSQL;
 - real staging PostgreSQL connection;
 - staging database creation;
 - least-privilege database user;
@@ -137,10 +161,15 @@ Batch 14B locally validated:
 - `python manage.py test apps.patients` with Redis and SQLite:
   46 tests ran, OK.
 
-Batch 14B limitations:
+Batch 14B-FIX-01 additionally validated:
 
-- `python manage.py test` with Redis and SQLite failed one core test that
-  intentionally asserts local default settings use LocMemCache.
+- `python manage.py test` with Redis and SQLite:
+  246 tests ran, OK.
+- combined local Docker PostgreSQL+Redis `python manage.py test`:
+  246 tests ran, OK.
+
+Remaining Redis limitations:
+
 - Multi-process quota behavior was not tested.
 - Redis outage behavior was not tested.
 
@@ -224,17 +253,12 @@ The following remain absent and future-gated:
 
 ## Required Next Action
 
-Fix the local Docker PostgreSQL validation blocker, then rerun the documented
-local PostgreSQL/Redis validation plan with synthetic data only.
+Proceed to real restricted staging and HTTPS/proxy/CSRF-origin validation with
+synthetic data only. The local Docker PostgreSQL validation blocker has been
+fixed and rerun successfully, but local Docker validation is not a substitute
+for real restricted staging.
 
 Recommended next batch:
-
-```text
-Batch 14B-fix/evidence: fix the PostgreSQL local Docker blocker and rerun local PostgreSQL/Redis validation
-```
-
-After local Docker PostgreSQL/Redis validation passes, proceed to real
-restricted staging and HTTPS/proxy/CSRF-origin validation:
 
 ```text
 Batch 14C: real restricted HTTPS/proxy/staging-host validation
