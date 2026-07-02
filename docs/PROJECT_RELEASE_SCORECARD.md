@@ -47,6 +47,14 @@ improves local service-backed evidence but does not claim real restricted
 staging, HTTPS/proxy, production, backup/restore, monitoring, legal/privacy,
 Redis multi-process/outage, load/concurrency readiness, or launch readiness.
 
+Batch 14C-PREP-01 readiness update: manual Render restricted staging
+prerequisites were added. The repository now declares `gunicorn` for a Render
+Python web service, declares and configures WhiteNoise compressed static asset
+serving, and documents exact manual Render build/start commands plus
+environment variable expectations. This is deployment-readiness prep only; it
+does not deploy, create Render services, validate real HTTPS/proxy/CSRF
+behavior, create secrets, or prove real staging readiness.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -67,9 +75,9 @@ Status labels:
 | Staff operations | Partial | Staff-only appointment list/detail and bounded status operations exist with authorization and tests. Broader dashboard, staff access review, audit retention, and operational policies remain. |
 | Patient portal | Partial | Optional account, login, logout, password change, account summary, static recovery policy, appointment linking, and linked appointment viewing exist. Identity verification, secure recovery process, abuse monitoring, legal review, and staging validation remain. |
 | Account security | Partial | Password hashing/validation, CSRF, POST-only logout, no-cache portal pages, generic linking errors, and rate limits exist. Email/phone ownership, recovery operations, production tuning, and abuse monitoring remain. |
-| Production settings | Partial | Split settings, production checks, secure-cookie defaults, PostgreSQL/Redis support, strict smoke blockers, environment contract, and safe production settings report exist. Real hosting, TLS, proxy, database, cache, backups, monitoring, and scanning remain. |
+| Production settings | Partial | Split settings, production checks, secure-cookie defaults, PostgreSQL/Redis support, strict smoke blockers, environment contract, safe production settings report, and Render-ready Gunicorn/WhiteNoise prerequisites exist. Real hosting, TLS, proxy, database, cache, backups, monitoring, and scanning remain. |
 | Deployment smoke | Done | Safe smoke command exists with human/JSON/strict modes, route/security summaries, prohibited-feature checks, redaction rules, and stronger production-like blockers. It does not deploy or prove infrastructure readiness by itself. |
-| Staging readiness | Partial | Staging validation plan, gap analysis, environment contract, local validation scripts, and local PostgreSQL/Redis harness exist. Batch 14B-FIX-01 passed the local Docker PostgreSQL/Redis test/smoke/report path, but actual restricted staging infrastructure was not provided or validated. |
+| Staging readiness | Partial | Staging validation plan, gap analysis, environment contract, local validation scripts, local PostgreSQL/Redis harness, and manual Render setup documentation exist. Batch 14B-FIX-01 passed the local Docker PostgreSQL/Redis test/smoke/report path, and Batch 14C-PREP-01 prepared Render runtime/static prerequisites, but actual restricted staging infrastructure was not provided or validated. |
 | PostgreSQL readiness | Partial | PostgreSQL expectations, migration/concurrency plans, local constraint tests, and local Docker PostgreSQL harness exist. Batch 14B-FIX-01 fixed the local PostgreSQL locking blocker and PostgreSQL-backed booking/patient portal/full-suite tests now pass locally. Actual PostgreSQL staging, load, backup/restore, and provider validation have not run. |
 | Redis/shared cache readiness | Partial | Redis expectations and cache-key privacy tests exist. Batch 14B-FIX-01 proved local Docker Redis cache reachability and Redis-backed booking/patient portal/full-suite tests now pass locally, but real multi-process quota, outage, tuning, monitoring, and staging validation have not run. |
 | Backup/restore | Planned | Synthetic-only drill plan and runbooks exist. No actual PostgreSQL restore drill evidence exists. |
@@ -109,8 +117,8 @@ launch.
 
 ## Conservative Completion Estimate
 
-Estimated whole-project completion after Batch 14B-FIX-01 local Docker
-validation:
+Estimated whole-project completion after Batch 14C-PREP-01 Render staging
+prerequisite prep:
 
 - Approximately 76-77%.
 
@@ -131,6 +139,9 @@ Rationale:
 - Batch 14B-FIX-01 fixes that local PostgreSQL blocker and proves the current
   bounded suite under local Docker PostgreSQL, local Docker Redis, and combined
   PostgreSQL+Redis.
+- Batch 14C-PREP-01 prepares the app to run as a manual Render Python web
+  service with Gunicorn and WhiteNoise and documents the staging environment
+  contract, but does not validate a real Render host or managed services.
 - Batch 14B-FIX-01 does not resolve real staging, HTTPS/proxy, backup/restore,
   monitoring, legal/privacy, dependency scan, Redis multi-process/outage, or
   load-test blockers.
@@ -240,8 +251,9 @@ Not safe to demo as real or production functionality:
 
 ## Recommended Next Batches
 
-1. Batch 14C: real restricted HTTPS/proxy/staging-host validation after local
-   Docker PostgreSQL/Redis validation passed in Batch 14B-FIX-01.
+1. Batch 14C-VALIDATE-01: real restricted Render
+   HTTPS/proxy/staging-host validation after manual Render staging services are
+   created outside this repo and Batch 14C-PREP-01 is merged.
 2. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
 3. Batch 15: backup/restore synthetic drill evidence and
@@ -280,6 +292,12 @@ Docker PostgreSQL/Redis validation evidence. It does not add product features,
 models, migrations, templates, visual design, deployment, external
 infrastructure, secrets, real patient data, real staging infrastructure, legal
 approval, backup/restore evidence, monitoring evidence, or launch readiness.
+
+Batch 14C-PREP-01 adds Render runtime/static serving prerequisites and manual
+Render staging documentation. It does not deploy, create Render services,
+create `render.yaml`, add product features, change models or migrations, use
+secrets, use real patient data, validate real staging, or claim launch
+readiness.
 
 ## Design Status
 
