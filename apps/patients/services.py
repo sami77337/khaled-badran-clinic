@@ -112,7 +112,7 @@ def _patient_normalized_phone(patient):
 def link_appointment_to_user(*, user, public_token, normalized_phone):
     try:
         appointment = (
-            Appointment.objects.select_for_update()
+            Appointment.objects.select_for_update(of=("self", "patient"))
             .select_related("patient", "doctor", "visit_type")
             .get(public_token=public_token)
         )

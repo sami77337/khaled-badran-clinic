@@ -2,7 +2,8 @@
 
 ## Evidence Classification
 
-This document records Batch 14B local Docker PostgreSQL/Redis validation.
+This document records Batch 14B local Docker PostgreSQL/Redis validation and
+the Batch 14B-FIX-01 local Docker PostgreSQL/Redis rerun.
 
 Correct label:
 
@@ -48,6 +49,49 @@ Local-only bindings:
 
 The harness is service-only. It does not define a Django app container, reverse
 proxy, TLS certificate, DNS, public hosting, or production deployment.
+
+## Batch 14B-FIX-01 Corrected Rerun
+
+Batch 14B-FIX-01 fixed the PostgreSQL nullable outer-join
+`select_for_update()` blocker and reran the local Docker service-backed
+validation path on 2026-07-02.
+
+Root cause fixed:
+
+- `apps.booking.operations.get_staff_appointment` used
+  `select_for_update()` after `select_related("doctor", "patient", "visit_type")`.
+- `apps.patients.services.link_appointment_to_user` used
+  `select_for_update()` with `select_related("patient", "doctor", "visit_type")`.
+- `Appointment.visit_type` is nullable, so PostgreSQL rejected the plain
+  `FOR UPDATE` query shape because it included the nullable side of an outer
+  join.
+
+Corrected lock behavior:
+
+- staff appointment operations now lock only the base appointment row with
+  `select_for_update(of=("self",))`;
+- patient portal appointment linking now locks the appointment and non-null
+  patient rows with `select_for_update(of=("self", "patient"))`;
+- nullable `visit_type` data can still be selected, but it is not included in
+  the PostgreSQL lock target.
+
+Batch 14B-FIX-01 local Docker results:
+
+| Validation shape | Result |
+| --- | --- |
+| Default local SQLite/LocMem | Passed: `apps.booking`, `apps.patients`, full 246-test suite, and smoke commands. |
+| Local Docker PostgreSQL + LocMem | Passed: check, migration checks, migration command, `apps.booking`, `apps.patients`, full 246-test suite, smoke commands, settings report, and project status report. |
+| SQLite + local Docker Redis | Passed: Redis import `5.3.1`, check, `apps.booking`, `apps.patients`, full 246-test suite, and smoke commands. |
+| Local Docker PostgreSQL + Redis | Passed: check, `apps.booking`, `apps.patients`, full 246-test suite, smoke commands, settings report, and project status report. |
+
+Corrected conclusion:
+
+- local Docker PostgreSQL-backed tests now pass;
+- local Docker Redis-backed tests now pass;
+- combined local Docker PostgreSQL+Redis full-suite validation now passes;
+- the Batch 14B historical failure below remains preserved as prior evidence;
+- this remains local Docker validation only, not real restricted staging,
+  HTTPS/proxy/CSRF-origin validation, production readiness, or launch evidence.
 
 ## Environment Shape Used
 
@@ -267,8 +311,49 @@ Fail:
 - PostgreSQL-backed full suite fails.
 - Combined PostgreSQL+Redis full suite fails.
 
+Batch 14B historical blocker:
+
+- PostgreSQL rejected the Batch 14B `select_for_update()` query shape involving
+  nullable outer joins. This prior blocker was fixed and rerun in
+  Batch 14B-FIX-01.
+
+## Batch 14B-FIX-01 Evidence Summary
+
+Pass:
+
+- The local Docker PostgreSQL nullable outer-join locking blocker is fixed.
+- PostgreSQL-backed `apps.booking` passed: 130 tests, OK.
+- PostgreSQL-backed `apps.patients` passed: 46 tests, OK.
+- PostgreSQL-backed full suite passed: 246 tests, OK.
+- Redis-backed `apps.booking` passed: 130 tests, OK.
+- Redis-backed `apps.patients` passed: 46 tests, OK.
+- Redis-backed full suite passed: 246 tests, OK.
+- Combined PostgreSQL+Redis `apps.booking` passed: 130 tests, OK.
+- Combined PostgreSQL+Redis `apps.patients` passed: 46 tests, OK.
+- Combined PostgreSQL+Redis full suite passed: 246 tests, OK.
+- Combined PostgreSQL+Redis smoke/report commands passed under dev settings
+  with expected local-development warnings only.
+- Cleanup stopped and removed the local validation containers and compose
+  network; no services remained listed afterward.
+
+Warning:
+
+- All service-backed validation still used `config.settings.dev`, not real
+  staging or production settings.
+- Local smoke under combined PostgreSQL+Redis still reports expected local
+  warnings for `DEBUG=True` and HTTPS redirect disabled.
+- Redis multi-process shared quota behavior remains unproven.
+- Redis outage behavior remains untested.
+- Real restricted staging, HTTPS/proxy/CSRF-origin, backup/restore,
+  monitoring, legal/privacy, and load/concurrency validation remain blocked.
+
+Fail:
+
+- No Batch 14B-FIX-01 local Docker PostgreSQL, Redis, or combined full-suite
+  failures remain for the current bounded test/smoke/report scope.
+
 Blocker:
 
-- PostgreSQL rejects the current `select_for_update()` query shape involving
-  nullable outer joins. A future code-fix batch is required before local Docker
-  PostgreSQL/Redis validation can pass.
+- Real restricted staging validation remains blocked because no real restricted
+  staging host, HTTPS/proxy path, production-like environment, staging
+  PostgreSQL service, or staging Redis/shared-cache service has been provided.

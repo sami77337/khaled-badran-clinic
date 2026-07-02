@@ -137,7 +137,11 @@ class LocalSettingsDefaultTests(SimpleTestCase):
     def test_local_settings_remain_development_oriented(self):
         self.assertFalse(settings.PRODUCTION)
         self.assertFalse(settings.BOOKING_TRUST_X_FORWARDED_FOR)
-        self.assertEqual(settings.CACHES["default"]["BACKEND"], "django.core.cache.backends.locmem.LocMemCache")
+        if not os.environ.get("CACHE_URL"):
+            self.assertEqual(
+                settings.CACHES["default"]["BACKEND"],
+                "django.core.cache.backends.locmem.LocMemCache",
+            )
 
 
 class ProductionReadinessCheckTests(SimpleTestCase):
