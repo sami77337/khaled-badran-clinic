@@ -25,6 +25,17 @@ Redis/shared cache, HTTPS, reverse proxy, host, and CSRF behavior remain
 unvalidated. This validation update does not increase whole-project completion
 or change the launch blockers below.
 
+Batch 14B validation update: the repository-approved local Docker
+PostgreSQL/Redis service harness ran locally with Docker Desktop and WSL2.
+PostgreSQL and Redis services started, PostgreSQL migrations applied, and
+combined smoke/report commands reached both services under development
+settings. Redis-backed booking and patient portal app tests passed on SQLite.
+PostgreSQL-backed booking, patient portal, and full-suite tests failed on a
+PostgreSQL `select_for_update()` nullable outer-join blocker. This validation
+update does not increase whole-project completion and does not claim real
+restricted staging, HTTPS/proxy, production, backup, monitoring, legal/privacy,
+or load readiness.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -47,9 +58,9 @@ Status labels:
 | Account security | Partial | Password hashing/validation, CSRF, POST-only logout, no-cache portal pages, generic linking errors, and rate limits exist. Email/phone ownership, recovery operations, production tuning, and abuse monitoring remain. |
 | Production settings | Partial | Split settings, production checks, secure-cookie defaults, PostgreSQL/Redis support, strict smoke blockers, environment contract, and safe production settings report exist. Real hosting, TLS, proxy, database, cache, backups, monitoring, and scanning remain. |
 | Deployment smoke | Done | Safe smoke command exists with human/JSON/strict modes, route/security summaries, prohibited-feature checks, redaction rules, and stronger production-like blockers. It does not deploy or prove infrastructure readiness by itself. |
-| Staging readiness | Partial | Staging validation plan, gap analysis, environment contract, local validation scripts, and local PostgreSQL/Redis harness exist. Batch 14 local/provisional validation passed, but actual restricted staging infrastructure was not provided or validated. |
-| PostgreSQL readiness | Partial | PostgreSQL expectations, migration/concurrency plans, local constraint tests, and optional local Docker PostgreSQL harness exist. Batch 14 could not run PostgreSQL because Docker/`psql` and real staging were unavailable. Actual PostgreSQL staging validation has not run. |
-| Redis/shared cache readiness | Partial | Redis expectations and cache-key privacy tests exist. Batch 14 could not run Redis because Docker/`redis-cli` and real staging were unavailable. Actual Redis/shared-cache multi-process and outage validation has not run. |
+| Staging readiness | Partial | Staging validation plan, gap analysis, environment contract, local validation scripts, and local PostgreSQL/Redis harness exist. Batch 14B ran the local Docker service harness, but actual restricted staging infrastructure was not provided or validated. |
+| PostgreSQL readiness | Partial | PostgreSQL expectations, migration/concurrency plans, local constraint tests, and local Docker PostgreSQL harness exist. Batch 14B proved local Docker PostgreSQL connectivity and migrations, but PostgreSQL-backed booking/patient portal/full-suite tests failed on a nullable outer-join `select_for_update()` blocker. Actual PostgreSQL staging validation has not run. |
+| Redis/shared cache readiness | Partial | Redis expectations and cache-key privacy tests exist. Batch 14B proved local Docker Redis cache reachability and Redis-backed booking/patient portal app tests on SQLite, but full-suite Redis validation has a local-default assertion failure and real multi-process/outage/staging validation has not run. |
 | Backup/restore | Planned | Synthetic-only drill plan and runbooks exist. No actual PostgreSQL restore drill evidence exists. |
 | Privacy/legal | Blocked | Draft pages and privacy matrices exist. Formal legal/privacy review, retention/deletion policy, recovery policy, and patient identity verification are required before launch. |
 | Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. No real uptime checks, alert routing, error reporting, or abuse alerts are configured. |
@@ -87,7 +98,7 @@ launch.
 
 ## Conservative Completion Estimate
 
-Estimated whole-project completion after Batch 14 local/provisional validation:
+Estimated whole-project completion after Batch 14B local Docker validation:
 
 - Approximately 76-77%.
 
@@ -101,8 +112,12 @@ Rationale:
   harnesses, production-like reporting, CI gates, PostgreSQL/Redis readiness,
   backup/restore planning, monitoring readiness, dependency governance,
   staff/admin governance, and legal/privacy operations documentation.
-- Batch 14 confirms local/provisional validation is healthy but does not
-  resolve real staging, PostgreSQL, Redis, HTTPS/proxy, backup/restore,
+- Batch 14 confirms local/provisional validation is healthy under default
+  SQLite/LocMem development settings.
+- Batch 14B improves local service evidence but discovers that
+  PostgreSQL-backed booking/staff/patient portal tests fail. This does not
+  increase readiness.
+- Batch 14B does not resolve real staging, HTTPS/proxy, backup/restore,
   monitoring, legal/privacy, dependency scan, or load-test blockers.
 - The estimate remains below launch-ready because real staging/prod
   infrastructure, legal/privacy approval, monitoring, backup/restore drill,
@@ -130,7 +145,7 @@ Safe demo scope with synthetic data only:
 - `production_settings_report` human and JSON output.
 - Local validation scripts in a trusted local shell.
 - Optional local PostgreSQL/Redis Docker service harness with synthetic data
-  only.
+  only, with the Batch 14B PostgreSQL failure clearly disclosed.
 - Route/access, data exposure, staging, and release documentation.
 
 Demo rules:
@@ -164,7 +179,8 @@ Not safe to demo as real or production functionality:
 
 ## Do Not Launch Publicly Until
 
-- Restricted staging with PostgreSQL and Redis/shared cache passes validation.
+- The local Docker PostgreSQL blocker is fixed and rerun successfully, then
+  restricted staging with PostgreSQL and Redis/shared cache passes validation.
 - `DEBUG=False` and production settings are active in staging/production.
 - HTTPS, reverse proxy headers, secure cookies, CSRF origins, and HSTS behavior
   are verified.
@@ -190,7 +206,8 @@ Not safe to demo as real or production functionality:
 
 - No real staging infrastructure has been validated.
 - No production hosting, DNS, TLS, or reverse proxy exists in this repo.
-- No PostgreSQL/Redis staging validation has been completed.
+- Local Docker PostgreSQL validation currently fails; no PostgreSQL/Redis
+  staging validation has been completed.
 - No backup/restore drill has been completed.
 - No monitoring/error reporting is configured.
 - No legal/privacy approval is recorded.
@@ -207,20 +224,23 @@ Not safe to demo as real or production functionality:
 
 ## Recommended Next Batches
 
-1. Batch 14B: provision and re-run real restricted staging validation.
-2. Batch 14A: dashboard implementation planning/authorization, only if the
+1. Batch 14B-fix/evidence: fix the PostgreSQL local Docker blocker and rerun
+   local PostgreSQL/Redis validation.
+2. Batch 14C: real restricted HTTPS/proxy/staging-host validation after local
+   Docker PostgreSQL/Redis validation passes.
+3. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
-3. Batch 15: backup/restore synthetic drill evidence and
+4. Batch 15: backup/restore synthetic drill evidence and
    monitoring/alerting setup plan.
-4. Batch 16: legal/privacy/account recovery and patient identity verification
+5. Batch 16: legal/privacy/account recovery and patient identity verification
    policy.
-5. Batch 17: doctor dashboard workflow completion/polish.
-6. Batch 18: patient portal completion/hardening.
-7. Batch 19: WhatsApp limited integration design/implementation only after
+6. Batch 17: doctor dashboard workflow completion/polish.
+7. Batch 18: patient portal completion/hardening.
+8. Batch 19: WhatsApp limited integration design/implementation only after
    privacy gates.
-8. Batch 20: approved cases/reviews/media showcase plus private publication
+9. Batch 20: approved cases/reviews/media showcase plus private publication
    rules.
-9. Batch 21: release candidate hardening.
+10. Batch 21: release candidate hardening.
 
 Batch 12 adds planning documents for final product completion, doctor-managed
 configuration, and authorized showcase publication-consent requirements. It
@@ -235,6 +255,11 @@ Batch 14 adds local/provisional restricted staging validation evidence and
 blocker documentation. It does not create product code, deployment, external
 infrastructure, secrets, real patient data, real staging infrastructure, or
 launch readiness.
+
+Batch 14B adds local Docker PostgreSQL/Redis validation evidence. It does not
+create product code, settings changes, dependency-file changes, deployment,
+external infrastructure, secrets, real patient data, real staging
+infrastructure, or launch readiness.
 
 ## Design Status
 

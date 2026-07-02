@@ -2,18 +2,179 @@
 
 ## Summary
 
-Batch 14 could not complete real PostgreSQL or Redis/shared-cache validation.
-The repository contains a documented local-only Docker harness, but Docker was
-not available in this environment. No real restricted staging database or cache
-service was provided.
+Batch 14 could not complete real PostgreSQL or Redis/shared-cache validation
+because Docker and real restricted staging services were unavailable.
 
-This document records the exact local evidence gathered and the remaining
-blockers.
+Batch 14B used the repository-approved local-only Docker service harness after
+Docker Desktop and WSL2 became available locally. This improved the evidence,
+but it did not prove real restricted staging readiness.
 
-## PostgreSQL Result
+Batch 14B result:
+
+- local Docker PostgreSQL service started and accepted migrations;
+- local Docker Redis service started and passed Django cache set/get/delete
+  after installing the already-declared Redis dependency locally;
+- Redis-backed booking and patient portal app tests passed on SQLite;
+- PostgreSQL-backed booking, patient portal, and full-suite tests failed;
+- combined PostgreSQL+Redis smoke/report commands passed under dev settings;
+- combined PostgreSQL+Redis full-suite tests failed.
+
+Correct Batch 14B classification:
+
+```text
+local Docker PostgreSQL/Redis validation
+```
+
+Do not classify Batch 14B as real restricted staging validation.
+
+## Batch 14B Local Docker PostgreSQL Result
+
+Status: failed for local Docker PostgreSQL validation.
+
+Harness:
+
+- `docker-compose.staging-validation.yml`
+- `docs/LOCAL_STAGING_SIMULATION.md`
+- PostgreSQL `postgres:16-alpine`
+- localhost-only service binding on port `54329`
+
+Passed:
+
+- `python manage.py check`
+- `python manage.py makemigrations --check --dry-run`
+- `python manage.py migrate`
+- `python manage.py migrate --check`
+- `python manage.py seed_public_content`
+- `python manage.py seed_booking_demo`
+- `python manage.py deployment_smoke`
+- `python manage.py production_settings_report`
+- `python manage.py project_status_report`
+
+The PostgreSQL local validation database reported 0 patients and 0
+appointments after the documented synthetic seed commands.
+
+Failed:
+
+- `python manage.py test apps.booking`: 130 tests ran, 24 errors.
+- `python manage.py test apps.patients`: 46 tests ran, 7 errors.
+- `python manage.py test`: 246 tests ran, 31 errors.
+
+Failure signature:
+
+```text
+FOR UPDATE cannot be applied to the nullable side of an outer join
+```
+
+Observed affected areas:
+
+- Staff appointment operations using `select_for_update()` on a queryset that
+  also selects related nullable appointment data.
+- Patient portal appointment linking using `select_for_update()` with related
+  appointment data.
+
+Conclusion:
+
+- PostgreSQL connectivity and migrations are locally proven.
+- Booking/staff/patient portal behavior is not PostgreSQL-ready.
+- PostgreSQL readiness remains blocked until a code-fix batch addresses the
+  nullable outer-join `select_for_update()` issue and reruns local Docker
+  PostgreSQL validation.
+
+## Batch 14B Local Docker Redis Result
+
+Status: partial pass for Redis/shared-cache rehearsal.
+
+Harness:
+
+- `docker-compose.staging-validation.yml`
+- `docs/LOCAL_STAGING_SIMULATION.md`
+- Redis `redis:7-alpine`
+- localhost-only service binding on port `63790`
+
+Initial blocker and resolution:
+
+- The active local Python environment was missing the repository-declared
+  `redis` package.
+- `python manage.py deployment_smoke` with Redis initially failed with
+  `ModuleNotFoundError`.
+- `python -c "import redis; print(redis.__version__)"` initially failed with
+  `ModuleNotFoundError`.
+- `requirements.txt` already declared `redis>=5.0,<6.0`.
+- `python -m pip install -r requirements.txt` installed the existing declared
+  dependency locally.
+- The import check then reported `5.3.1`.
+- No dependency files were changed.
+
+Passed after installing existing requirements locally:
+
+- `python manage.py deployment_smoke`: cache set/get/delete passed with
+  `cache=redis`.
+- `python manage.py deployment_smoke --json`: safe JSON showed
+  `cache_backend=redis`.
+- `python manage.py production_settings_report` and `--json`: safe reports
+  showed `cache=redis`.
+- `python manage.py test apps.booking`: 130 tests ran, OK.
+- `python manage.py test apps.patients`: 46 tests ran, OK.
+
+Full-suite limitation:
+
+- `python manage.py test` with Redis and SQLite ran 246 tests and failed with 1
+  failure.
+- The failing test was an environment-default assertion that local settings use
+  LocMemCache. That assertion is expected to fail when `CACHE_URL` is
+  intentionally set for Redis validation.
+
+Conclusion:
+
+- Django can reach local Docker Redis for cache operations.
+- Booking and patient portal Redis-backed app tests pass.
+- Existing tests cover hashed cache-key behavior for booking and portal
+  rate-limit identities where implemented.
+- Multi-process shared quota behavior remains unproven.
+- Redis outage behavior remains untested because no existing documented safe
+  outage test was provided.
+
+## Batch 14B Combined PostgreSQL and Redis Result
+
+Status: failed.
+
+Passed with local Docker PostgreSQL and Redis together:
+
+- `python manage.py check`
+- `python manage.py makemigrations --check --dry-run`
+- `python manage.py migrate --check`
+- `python manage.py deployment_smoke`
+- `python manage.py deployment_smoke --json`
+- `python manage.py deployment_smoke --strict`
+- `python manage.py production_settings_report`
+- `python manage.py production_settings_report --json`
+- `python manage.py project_status_report --json`
+- `python manage.py check --deploy`
+
+Combined smoke/report result:
+
+- safe reports showed `database=postgresql` and `cache=redis`;
+- `deployment_smoke` reported 16 pass, 2 expected local-development warnings,
+  0 failures, and 0 strict blockers;
+- `check --deploy` still reported 6 expected local HTTPS/security-cookie/HSTS
+  and debug warnings.
+
+Failed:
+
+- `python manage.py test`: 246 tests ran, 31 PostgreSQL errors and 1 Redis
+  environment-default failure.
+
+Conclusion:
+
+- Combined local Docker service connectivity is proven.
+- Combined full-suite validation failed.
+- The PostgreSQL blocker must be fixed before combined local Docker
+  PostgreSQL/Redis validation can pass.
+
+## Batch 14 PostgreSQL Result
 
 Status: blocked for real staging and blocked for local service-backed
-validation.
+validation at the time Batch 14 ran.
 
 Validated locally without PostgreSQL:
 
@@ -42,10 +203,10 @@ Not validated:
 - PostgreSQL backup/restore.
 - Provider connection pooling or health checks.
 
-## Redis Result
+## Batch 14 Redis Result
 
 Status: blocked for real staging and blocked for local service-backed
-validation.
+validation at the time Batch 14 ran.
 
 Validated locally without Redis:
 
@@ -67,7 +228,7 @@ Not validated:
 - Production rate-limit tuning.
 - Cache monitoring and alerting.
 
-## Service Availability Checks
+## Batch 14 Service Availability Checks
 
 | Command | Result |
 | --- | --- |
@@ -96,9 +257,10 @@ The compose harness is service-only and binds to localhost:
 - PostgreSQL expected local port: `127.0.0.1:54329`
 - Redis expected local port: `127.0.0.1:63790`
 
-Because Docker was unavailable, these services were not started.
+Because Docker was unavailable in Batch 14, these services were not started in
+that batch. Batch 14B later started the same harness successfully.
 
-## Commands Run
+## Batch 14 Commands Run
 
 PostgreSQL-adjacent local validation:
 
@@ -135,7 +297,7 @@ Strict staging environment validation:
 
 ## Test Results Relevant to PostgreSQL and Redis
 
-The local test suite passed:
+Batch 14 local SQLite/LocMem test suite passed:
 
 - `apps.booking`: 130 tests.
 - `apps.patients`: 46 tests.
@@ -153,26 +315,45 @@ Relevant coverage includes:
 - hashed booking and portal rate-limit identities;
 - prohibited upload, records, WhatsApp, payment, and automation routes absent.
 
-Limit: these tests ran on SQLite/LocMem, not PostgreSQL/Redis. They are useful
-regression evidence but not production-like database/cache proof.
+Limit: those Batch 14 tests ran on SQLite/LocMem, not PostgreSQL/Redis. They
+remain useful regression evidence but not production-like database/cache proof.
+
+Batch 14B updated the service-backed status:
+
+- PostgreSQL service-backed tests do not pass.
+- Redis-backed booking and patient portal app tests pass.
+- Combined PostgreSQL+Redis full suite does not pass.
 
 ## Blockers
 
-Current blockers:
+Current blockers after Batch 14B:
 
 - Real restricted staging infrastructure not provided/validated.
-- Docker unavailable, so local PostgreSQL/Redis harness could not run.
-- `psql` unavailable.
-- `redis-cli` unavailable.
-- Required staging environment variables absent.
-- No staging PostgreSQL credentials or service endpoint provided.
-- No staging Redis/shared-cache credentials or service endpoint provided.
+- Local Docker PostgreSQL-backed booking, staff operation, and patient portal
+  tests fail on the nullable outer-join `select_for_update()` issue.
+- Combined local Docker PostgreSQL+Redis full suite fails.
+- Full Redis-enabled suite has one environment-default assertion failure when
+  `CACHE_URL` intentionally overrides local LocMem defaults.
+- Required real staging environment variables remain absent.
+- No real staging PostgreSQL credentials or service endpoint provided.
+- No real staging Redis/shared-cache credentials or service endpoint provided.
+- Real PostgreSQL concurrency behavior remains unproven until the PostgreSQL
+  blocker is fixed and a reviewed concurrency validation runs.
+- Redis multi-process shared quota behavior remains unproven.
+- Redis outage behavior remains untested.
 
 ## Required Future Evidence
 
-Before PostgreSQL and Redis readiness can be claimed, a future Batch 14B or
-equivalent must run against real restricted staging or an approved local service
-harness:
+Before PostgreSQL and Redis readiness can be claimed, a future fix/evidence
+batch must first pass the approved local service harness:
+
+- fix the PostgreSQL nullable outer-join `select_for_update()` blocker;
+- rerun PostgreSQL-backed booking, patient portal, and full-suite tests;
+- rerun combined PostgreSQL+Redis smoke/report/full-suite checks;
+- document whether the full Redis-enabled suite should exclude local-default
+  setting assertions or use a dedicated service-backed test profile.
+
+After local Docker validation passes, real restricted staging must still run:
 
 - `python manage.py makemigrations --check --dry-run`
 - `python manage.py migrate --check`
