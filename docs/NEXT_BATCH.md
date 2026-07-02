@@ -16,7 +16,8 @@ final product completion and professional delivery readiness.
 - Batch 11 reported 246 tests passing.
 - The project is not production launched.
 - Real Render restricted staging is now functionally reachable for bounded
-  public GET evidence, but full production-like staging validation remains
+  public GET evidence, HTTP-to-HTTPS HEAD redirects, and basic home-page static
+  asset delivery, but full production-like staging validation remains
   incomplete.
 - Legal/privacy approval remains blocked.
 - WhatsApp, uploads, medical records, and payments remain outside the current
@@ -65,6 +66,14 @@ final product completion and professional delivery readiness.
   production launch, legal/privacy readiness, backup/restore readiness,
   monitoring readiness, load/concurrency readiness, shared-cache
   multi-process/outage readiness, or future product areas.
+- Batch 14C-VALIDATE-02 recorded deeper sanitized public staging evidence:
+  `/health/`, `/`, `/book/`, and `/en/book/` still returned HTTP 200 over
+  HTTPS; HTTP HEAD checks redirected those paths to HTTPS; home-page static
+  assets returned HTTP 200; public security headers were recorded; anonymous
+  portal login/register forms rendered CSRF inputs and set a secure CSRF cookie
+  over HTTPS. It did not submit booking POSTs, create patient data, run Render
+  shell commands, fetch full Render logs, prove managed PostgreSQL/Redis
+  runtime behavior, or approve launch readiness.
 
 ## Batch 14 Result
 
@@ -236,6 +245,46 @@ Key conclusion:
   backup/restore, monitoring, legal/privacy, load/concurrency, and
   shared-cache outage/multi-process readiness remain incomplete.
 
+## Batch 14C-VALIDATE-02 Result
+
+Batch 14C-VALIDATE-02 result:
+
+```text
+Deeper restricted Render staging public evidence recorded; production launch remains blocked.
+```
+
+Evidence added:
+
+- `docs/BATCH_14C_VALIDATE_02_STATUS.md`
+
+Evidence updated:
+
+- `docs/PROJECT_RELEASE_SCORECARD.md`
+- `docs/NEXT_BATCH.md`
+- `docs/STAGING_VALIDATION_BLOCKERS.md`
+
+Key conclusion:
+
+- local baseline commands passed without staging secrets;
+- the full local test suite passed: 246 tests, OK;
+- required public staging GET checks returned HTTP 200 for `/health/`, `/`,
+  `/book/`, and `/en/book/`;
+- HTTP HEAD checks redirected the same public HTTP paths to HTTPS;
+- four same-origin home-page static assets returned HTTP 200;
+- public responses showed `X-Content-Type-Options=nosniff`,
+  `Referrer-Policy=same-origin`, and
+  `Cross-Origin-Opener-Policy=same-origin`;
+- HSTS and CSP were absent on checked public responses;
+- anonymous portal login/register forms rendered CSRF inputs and set a secure
+  CSRF cookie with SameSite present over HTTPS;
+- booking confirmation form and booking success no-cache behavior remain
+  incomplete because no safe public slot/success path was available without
+  creating data;
+- in-app browser automation was unavailable in this session;
+- managed PostgreSQL/Redis runtime commands, backup/restore, monitoring,
+  legal/privacy, load/concurrency, sanitized log review, and production launch
+  readiness remain incomplete or blocked.
+
 Batch 14A remains a valid later planning-only option:
 
 ```text
@@ -279,6 +328,7 @@ Must read before the next staging or operations batch:
 - `docs/BATCH_14B_FIX_01_STATUS.md`
 - `docs/BATCH_14C_PREP_01_STATUS.md`
 - `docs/BATCH_14C_VALIDATE_01_STATUS.md`
+- `docs/BATCH_14C_VALIDATE_02_STATUS.md`
 - `docs/RESTRICTED_STAGING_VALIDATION_EVIDENCE.md`
 - `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
 - `docs/LOCAL_DOCKER_POSTGRES_REDIS_VALIDATION_EVIDENCE.md`
@@ -287,10 +337,10 @@ Must read before the next staging or operations batch:
 
 ## Ordered Recommended Batches
 
-1. Batch 14C-VALIDATE-02: complete deeper Render staging validation if
-   operator access is available, including safe staging shell checks,
-   browser-level HTTPS/proxy/CSRF/cookie behavior, static asset validation, and
-   sanitized log review.
+1. Batch 14C-VALIDATE-03: complete operator-assisted Render runtime validation
+   if safe access is available, including staging shell management commands,
+   managed PostgreSQL/Redis command evidence, booking confirmation/browser
+   checks with synthetic data only, and sanitized targeted log review.
 2. Batch 15: backup/restore synthetic drill evidence and
    monitoring/alerting setup plan.
 3. Batch 14A: dashboard implementation planning/authorization, only if the

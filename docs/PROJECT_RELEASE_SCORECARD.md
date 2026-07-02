@@ -64,6 +64,17 @@ legal/privacy readiness, backup/restore readiness, monitoring readiness,
 load/concurrency readiness, shared-cache multi-process/outage readiness, or
 future product areas.
 
+Batch 14C-VALIDATE-02 validation update: the real Render restricted staging
+host now has deeper safe public evidence. HTTPS GET checks still return HTTP
+200 for `/health/`, `/`, `/book/`, and `/en/book/`; HTTP HEAD checks redirect
+the same public paths to HTTPS; home-page static assets return HTTP 200; public
+responses expose `X-Content-Type-Options`, `Referrer-Policy`, and
+`Cross-Origin-Opener-Policy`; anonymous portal login/register forms render CSRF
+inputs and set a secure CSRF cookie over HTTPS. Booking confirmation and success
+browser behavior, direct Render runtime commands, managed PostgreSQL/Redis
+runtime evidence, logs, backup/restore, monitoring, load/concurrency, and
+legal/privacy approval remain incomplete.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -79,14 +90,14 @@ Status labels:
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Public site | Partial | Bilingual public pages, legal drafts, SEO basics, PWA foundation, and safe placeholder content exist. Batch 14C-VALIDATE-01 confirmed the Render staging home page returns HTTP 200. Final visual approval, legal review, real content verification, monitoring, and production validation remain. |
-| Public booking | Partial | Login-free booking, slot generation, UUID success URLs, rate limits, no-cache confirmation/success, and regression tests exist. Batch 14C-VALIDATE-01 confirmed the public booking entry pages return HTTP 200 by GET only. Booking POST, provider database/cache behavior, and load/concurrency tests remain. |
+| Public site | Partial | Bilingual public pages, legal drafts, SEO basics, PWA foundation, and safe placeholder content exist. Batch 14C-VALIDATE-02 confirmed the Render staging home page returns HTTP 200 and its four same-origin static assets return HTTP 200. Final visual approval, legal review, real content verification, monitoring, and production validation remain. |
+| Public booking | Partial | Login-free booking, slot generation, UUID success URLs, rate limits, no-cache confirmation/success, and regression tests exist. Batch 14C-VALIDATE-02 confirmed the public booking entry pages return HTTP 200 by GET, but staging rendered a placeholder state with no safe slot links, so booking confirmation CSRF/cookie behavior and success-page no-cache evidence remain incomplete. Booking POST, provider database/cache behavior, and load/concurrency tests remain. |
 | Staff operations | Partial | Staff-only appointment list/detail and bounded status operations exist with authorization and tests. Broader dashboard, staff access review, audit retention, and operational policies remain. |
 | Patient portal | Partial | Optional account, login, logout, password change, account summary, static recovery policy, appointment linking, and linked appointment viewing exist. Identity verification, secure recovery process, abuse monitoring, legal review, and staging validation remain. |
-| Account security | Partial | Password hashing/validation, CSRF, POST-only logout, no-cache portal pages, generic linking errors, and rate limits exist. Email/phone ownership, recovery operations, production tuning, and abuse monitoring remain. |
-| Production settings | Partial | Split settings, production checks, secure-cookie defaults, PostgreSQL/Redis support, strict smoke blockers, environment contract, safe production settings report, and Render-ready Gunicorn/WhiteNoise prerequisites exist. Render staging public GET reachability is now validated, but strict staging runtime checks, proxy/security behavior, database/cache evidence, backups, monitoring, and scanning remain. |
+| Account security | Partial | Password hashing/validation, CSRF, POST-only logout, no-cache portal pages, generic linking errors, and rate limits exist. Batch 14C-VALIDATE-02 confirmed anonymous portal login/register forms include CSRF inputs and set a secure CSRF cookie over HTTPS. Email/phone ownership, recovery operations, production tuning, and abuse monitoring remain. |
+| Production settings | Partial | Split settings, production checks, secure-cookie defaults, PostgreSQL/Redis support, strict smoke blockers, environment contract, safe production settings report, and Render-ready Gunicorn/WhiteNoise prerequisites exist. Render staging public GET/static/header evidence is now deeper, but strict staging runtime checks, full browser/proxy/security behavior, database/cache evidence, backups, monitoring, and scanning remain. |
 | Deployment smoke | Done | Safe smoke command exists with human/JSON/strict modes, route/security summaries, prohibited-feature checks, redaction rules, and stronger production-like blockers. It does not deploy or prove infrastructure readiness by itself. |
-| Staging readiness | Partial | Staging validation plan, gap analysis, environment contract, local validation scripts, local PostgreSQL/Redis harness, manual Render setup documentation, and sanitized Batch 14C-VALIDATE-01 evidence exist. The real Render staging service returns HTTP 200 for `/health/`, `/`, `/book/`, and `/en/book/`, so functional restricted staging is yes for bounded public GET evidence. Full production-like staging validation remains incomplete. |
+| Staging readiness | Partial | Staging validation plan, gap analysis, environment contract, local validation scripts, local PostgreSQL/Redis harness, manual Render setup documentation, and sanitized Batch 14C-VALIDATE-02 evidence exist. The real Render staging service returns HTTP 200 for `/health/`, `/`, `/book/`, and `/en/book/`; HTTP redirects to HTTPS; home-page static assets return HTTP 200; and safe portal form CSRF/cookie evidence exists. Full production-like staging validation remains incomplete. |
 | PostgreSQL readiness | Partial | PostgreSQL expectations, migration/concurrency plans, local constraint tests, and local Docker PostgreSQL harness exist. Batch 14B-FIX-01 fixed the local PostgreSQL locking blocker and PostgreSQL-backed booking/patient portal/full-suite tests now pass locally. Render staging is reachable after operator-managed migration work, but direct safe staging database command evidence, load/concurrency, backup/restore, and provider validation have not run in this batch. |
 | Redis/shared cache readiness | Partial | Redis expectations and cache-key privacy tests exist. Batch 14B-FIX-01 proved local Docker Redis cache reachability and Redis-backed booking/patient portal/full-suite tests now pass locally. Render staging cache service exists by operator context, but real multi-process quota, outage, tuning, monitoring, and safe staging command evidence have not run in this batch. |
 | Backup/restore | Planned | Synthetic-only drill plan and runbooks exist. No actual PostgreSQL restore drill evidence exists. |
@@ -126,8 +137,8 @@ launch.
 
 ## Conservative Completion Estimate
 
-Estimated whole-project completion after Batch 14C-VALIDATE-01 Render staging
-reachability validation:
+Estimated whole-project completion after Batch 14C-VALIDATE-02 deeper Render
+staging public validation:
 
 - Approximately 77-78%.
 
@@ -154,10 +165,13 @@ Rationale:
 - Batch 14C-VALIDATE-01 confirms the real Render staging host is externally
   reachable and public GET checks for liveness, home, and booking entry pages
   return HTTP 200.
-- Batch 14C-VALIDATE-01 does not resolve full HTTPS/proxy/browser security,
-  managed database/cache command evidence, backup/restore, monitoring,
-  legal/privacy, dependency scan, shared-cache multi-process/outage, or
-  load-test blockers.
+- Batch 14C-VALIDATE-02 deepens public staging evidence with HTTP-to-HTTPS
+  redirect checks, static asset HTTP 200 checks, visible security header
+  observations, and safe portal CSRF/cookie/no-cache checks.
+- Batch 14C-VALIDATE-02 does not resolve booking confirmation and success
+  browser behavior, direct Render runtime commands, managed database/cache
+  command evidence, backup/restore, monitoring, legal/privacy, dependency
+  scan, shared-cache multi-process/outage, or load-test blockers.
 - The estimate remains below launch-ready because real staging/prod
   validation depth, production infrastructure, legal/privacy approval,
   monitoring, backup/restore drill, security scanning, load testing, and
@@ -239,13 +253,17 @@ Not safe to demo as real or production functionality:
 - Secure account recovery policy is approved.
 - Staff/admin access review and offboarding policy are defined.
 - Audit retention policy is defined.
-- Static serving strategy is chosen and tested.
+- Static serving strategy is chosen and tested beyond the basic home-page
+  static asset checks.
 - Figma-approved visual changes, if any, are implemented and verified.
 
 ## Remaining Launch Blockers
 
 - Real Render restricted staging is functionally reachable for public GET
-  checks only; full production-like staging validation remains incomplete.
+  checks, HTTP-to-HTTPS HEAD redirects, and basic home-page static asset GETs;
+  full production-like staging validation remains incomplete.
+- Safe portal form CSRF/cookie/no-cache evidence exists, but booking
+  confirmation form and success-page browser behavior remain incomplete.
 - No production hosting, DNS, custom TLS/domain, or production reverse proxy
   exists in this repo.
 - Local Docker PostgreSQL/Redis validation now passes for the current bounded
@@ -269,10 +287,10 @@ Not safe to demo as real or production functionality:
 
 ## Recommended Next Batches
 
-1. Batch 14C-VALIDATE-02: complete deeper Render staging validation if
-   operator access is available, including safe staging shell checks,
-   browser-level HTTPS/proxy/CSRF/cookie behavior, static asset validation, and
-   sanitized log review.
+1. Batch 14C-VALIDATE-03: operator-assisted Render runtime validation if safe
+   access is available, including staging shell management commands, managed
+   PostgreSQL/Redis evidence, booking confirmation/browser checks with
+   synthetic data only, and sanitized targeted log review.
 2. Batch 15: backup/restore synthetic drill evidence and
    monitoring/alerting setup plan.
 3. Batch 14A: dashboard implementation planning/authorization, only if the
@@ -322,6 +340,13 @@ Batch 14C-VALIDATE-01 adds sanitized real Render restricted staging evidence.
 It does not add product features, change code, create patient data, use
 secrets, document connection strings, run full staging shell validation, or
 claim production launch readiness.
+
+Batch 14C-VALIDATE-02 adds deeper sanitized Render staging evidence for public
+HTTPS reachability, HTTP-to-HTTPS redirects, basic static assets, public
+security headers, and safe portal CSRF/cookie/no-cache behavior. It does not
+add product features, change code, create patient data, submit booking POSTs,
+use secrets, document connection strings, run Render shell commands, fetch full
+logs, or claim production launch readiness.
 
 ## Design Status
 
