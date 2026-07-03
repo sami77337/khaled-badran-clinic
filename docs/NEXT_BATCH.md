@@ -86,6 +86,16 @@ final product completion and professional delivery readiness.
   incident response, and post-incident review. It did not execute a restore
   drill, configure monitoring, configure alert routing, add credentials, add
   dependencies, change Render settings, or approve launch readiness.
+- Batch 15-OPS-02 executed a synthetic-only local PostgreSQL logical
+  backup/restore drill using the repository-approved local Docker service
+  harness. It applied migrations, seeded only public/demo setup data, dumped a
+  local synthetic source database, restored it into a separate local
+  restore-test database, verified migration state, smoke checks, safe reports,
+  safe row counts, and the 246-test suite, then removed the generated artifact
+  and local drill databases. This is local restore-procedure evidence only. It
+  does not prove real Render managed PostgreSQL restore behavior, backup
+  retention, RPO, RTO, monitoring, alert routing, legal/privacy approval, or
+  production readiness.
 
 ## Batch 14 Result
 
@@ -340,6 +350,51 @@ Key conclusion:
   PostgreSQL/Redis runtime evidence, Redis outage/multi-process evidence, and
   production launch readiness remain incomplete or blocked.
 
+## Batch 15-OPS-02 Result
+
+Batch 15-OPS-02 result:
+
+```text
+Local synthetic PostgreSQL restore drill passed; production launch remains blocked.
+```
+
+Evidence added:
+
+- `docs/BATCH_15_OPS_02_STATUS.md`
+- `docs/SYNTHETIC_RESTORE_DRILL_EVIDENCE.md`
+
+Evidence updated:
+
+- `docs/OPERATIONS_BACKUP_RESTORE_PLAN.md`
+- `docs/PROJECT_RELEASE_SCORECARD.md`
+- `docs/NEXT_BATCH.md`
+- `docs/STAGING_VALIDATION_BLOCKERS.md`
+
+Key conclusion:
+
+- local baseline commands passed without staging secrets;
+- the full local default suite passed: 246 tests, OK;
+- Docker Desktop was started locally after the daemon was initially unavailable;
+- local Docker PostgreSQL and Redis services became healthy;
+- one local synthetic source database and one separate local restore-test
+  database were used;
+- migrations applied to the source database;
+- `seed_public_content` and `seed_booking_demo` created public/demo setup data
+  only;
+- safe source and restored counts matched: 1 clinic profile, 1 doctor, 9 visit
+  types, 5 doctor schedules, 7 system settings, 0 patients, and 0 appointments;
+- a local custom-format PostgreSQL logical dump was created inside the local
+  PostgreSQL container and restored into the restore-test database;
+- restored migration checks, Django checks, smoke checks, safe reports, safe
+  counts, and the 246-test suite passed;
+- the generated dump artifact and local drill databases were removed;
+- no active Render staging resource was modified;
+- no real patient data was used;
+- no generated backup artifact or credential was committed;
+- real Render managed PostgreSQL restore, monitoring provider setup, alert
+  routing, backup retention/RPO/RTO approval, legal/privacy approval, load
+  validation, and production launch readiness remain incomplete or blocked.
+
 Batch 14A remains a valid later planning-only option:
 
 ```text
@@ -385,8 +440,10 @@ Must read before the next staging or operations batch:
 - `docs/BATCH_14C_VALIDATE_01_STATUS.md`
 - `docs/BATCH_14C_VALIDATE_02_STATUS.md`
 - `docs/BATCH_15_OPS_01_STATUS.md`
+- `docs/BATCH_15_OPS_02_STATUS.md`
 - `docs/OPERATIONS_BACKUP_RESTORE_PLAN.md`
 - `docs/OPERATIONS_MONITORING_ALERTING_PLAN.md`
+- `docs/SYNTHETIC_RESTORE_DRILL_EVIDENCE.md`
 - `docs/RESTRICTED_STAGING_VALIDATION_EVIDENCE.md`
 - `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
 - `docs/LOCAL_DOCKER_POSTGRES_REDIS_VALIDATION_EVIDENCE.md`
@@ -399,9 +456,9 @@ Must read before the next staging or operations batch:
    if safe access is available, including staging shell management commands,
    managed PostgreSQL/Redis command evidence, booking confirmation/browser
    checks with synthetic data only, and sanitized targeted log review.
-2. Batch 15-OPS-02: execute a synthetic-only PostgreSQL restore drill in an
-   isolated restore-test database and configure or validate an approved
-   monitoring/alerting provider without committing credentials.
+2. Batch 15-OPS-03: operator-approved Render managed PostgreSQL restore drill
+   with synthetic data only, plus approved monitoring/alerting provider
+   configuration or validation without committing credentials.
 3. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
 4. Batch 16: legal/privacy/account recovery and patient identity verification

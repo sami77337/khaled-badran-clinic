@@ -236,6 +236,33 @@ Stop criteria:
 If real patient data is discovered during a drill, stop and follow the incident
 response runbook and legal/privacy escalation path.
 
+## Batch 15 OPS 02 Local Synthetic Drill Evidence
+
+BATCH-15-OPS-02 completed a local synthetic PostgreSQL logical backup/restore
+drill using the repository-approved local Docker service harness.
+
+Recorded evidence:
+
+- `docs/BATCH_15_OPS_02_STATUS.md`
+- `docs/SYNTHETIC_RESTORE_DRILL_EVIDENCE.md`
+
+Result:
+
+```text
+local synthetic restore drill passed
+```
+
+The drill created a local synthetic source database, applied migrations, seeded
+only public/demo setup data, created a logical dump inside the local PostgreSQL
+container, restored it into a separate local restore-test database, verified
+migration state, smoke checks, safe reports, safe row counts, and the 246-test
+suite, then removed the generated artifact and local drill databases.
+
+This evidence proves only the local logical restore procedure concept. It does
+not prove provider-managed backup behavior, Render managed PostgreSQL restore
+behavior, production-like settings, backup retention, RPO, RTO, legal/privacy
+approval, monitoring, alert routing, or production readiness.
+
 ## Rollback Boundaries
 
 Rollback and restore are separate decisions.
@@ -341,7 +368,7 @@ review is complete.
 Backup/restore readiness:
 
 ```text
-planned, not proven
+partial, local synthetic drill passed
 ```
 
 Reasons:
@@ -349,7 +376,8 @@ Reasons:
 - runbooks and this operations plan exist;
 - local validation commands pass under development settings;
 - local Docker PostgreSQL/Redis evidence exists from earlier batches;
-- real PostgreSQL restore drill evidence does not exist;
+- local synthetic PostgreSQL logical backup/restore drill evidence exists;
+- real Render managed PostgreSQL restore drill evidence does not exist;
 - backup retention, RPO, and RTO are not approved;
 - backup job monitoring is not configured;
 - provider-specific backup and restore evidence is not recorded.
