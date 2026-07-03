@@ -108,8 +108,28 @@ provider, did not configure uptime monitoring, did not configure alert routing,
 did not add error reporting, did not use real patient data, and did not validate
 production readiness.
 
+Batch 15-OPS-03 added lightweight repository-native staging uptime and latency
+evidence:
+
+- `.github/workflows/staging-uptime.yml` checks public staging `/health/` and
+  `/` by safe GET only;
+- it can run manually and is scheduled twice daily;
+- it uses `curl` only and follows redirects;
+- it records HTTP status, total response time, and final URL only;
+- it warns on response time over 10 seconds;
+- it fails on non-200 status, timeout, transport failure, or response time
+  over 60 seconds;
+- manual PowerShell curl commands and recent latency observations are
+  documented.
+
+Batch 15-OPS-03 did not configure a full monitoring provider, did not configure
+alert routing, did not add privacy-safe error reporting, did not change Render
+settings, did not submit booking POSTs, did not call private endpoints, did not
+use real patient data, and did not validate production readiness.
+
 Do not claim production readiness from Batch 14, Batch 14B,
-Batch 14C-VALIDATE-01/02, Batch 15-OPS-01, or Batch 15-OPS-02.
+Batch 14C-VALIDATE-01/02, Batch 15-OPS-01, Batch 15-OPS-02, or
+Batch 15-OPS-03.
 
 ## Real Infrastructure Blockers
 
@@ -143,7 +163,8 @@ Still blocked or not fully validated:
   runtime;
 - no full static asset strategy has been validated beyond basic home-page
   static assets returning HTTP 200;
-- no readiness/liveness monitoring path has been connected to alerting.
+- a repository-native public liveness/home-page workflow exists, but no
+  readiness/liveness monitoring path has been connected to alerting.
 
 ## Staging Environment Contract Status
 
@@ -319,7 +340,9 @@ Operational launch blockers remain:
   backup/restore drill passed, but no real Render managed PostgreSQL restore
   drill evidence exists.
 - No backup retention/RPO/RTO approval.
-- Monitoring/alerting planning exists, but no uptime monitoring is configured.
+- Monitoring/alerting planning exists, and a low-frequency GitHub Actions
+  staging uptime workflow exists for public `/health/` and `/` GET checks, but
+  no full monitoring provider is configured.
 - No alert routing is configured.
 - No privacy-safe error-reporting integration is configured.
 - No abuse monitoring configured for booking or portal flows.
@@ -358,7 +381,7 @@ Recommended next batches:
 
 ```text
 Batch 14C-VALIDATE-03: operator-assisted Render runtime validation
-Batch 15-OPS-02: synthetic restore drill and approved monitoring/alerting setup
+Batch 15-OPS-04: Render managed restore drill and approved monitoring/alerting setup
 ```
 
 Dashboard implementation should remain deferred until the staging runtime,

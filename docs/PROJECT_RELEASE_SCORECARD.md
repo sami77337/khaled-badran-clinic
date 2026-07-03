@@ -100,6 +100,17 @@ It does not prove real Render managed PostgreSQL restore behavior, backup
 retention, RPO, RTO, monitoring, alert routing, legal/privacy approval, or
 production readiness.
 
+Batch 15-OPS-03 operations update: a lightweight GitHub Actions workflow now
+checks the public Render restricted staging `/health/` and `/` endpoints by
+safe GET only. The workflow is manually runnable, scheduled at low frequency,
+uses `curl`, follows redirects, records HTTP status, total response time, and
+final URL, warns on slow responses, and fails on non-200 status, timeout, or a
+hard staging latency threshold. Manual PowerShell verification commands and
+recent staging latency observations are documented. This is repository-native
+staging evidence only. It does not configure a full monitoring provider, alert
+routing, privacy-safe error reporting, Render settings, or production launch
+readiness.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -127,7 +138,7 @@ Status labels:
 | Redis/shared cache readiness | Partial | Redis expectations and cache-key privacy tests exist. Batch 14B-FIX-01 proved local Docker Redis cache reachability and Redis-backed booking/patient portal/full-suite tests now pass locally. Render staging cache service exists by operator context, but real multi-process quota, outage, tuning, monitoring, and safe staging command evidence have not run in this batch. |
 | Backup/restore | Partial | Synthetic-only drill runbooks and the Batch 15 operations plan exist. Batch 15-OPS-02 passed a local synthetic PostgreSQL logical dump/restore drill with public/demo setup data only, zero patients, zero appointments, safe post-restore reports, and 246 tests passing. Real Render managed PostgreSQL restore evidence, backup retention, RPO, RTO, backup monitoring, and provider-specific restore evidence remain incomplete. |
 | Privacy/legal | Blocked | Draft pages and privacy matrices exist. Formal legal/privacy review, retention/deletion policy, recovery policy, and patient identity verification are required before launch. |
-| Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. Batch 15 adds uptime, latency, error-rate, deploy, database, cache, privacy-safe error reporting, alert routing, severity, incident response, and post-incident review planning. No real uptime checks, alert routing, error reporting, or abuse alerts are configured. |
+| Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. Batch 15 adds uptime, latency, error-rate, deploy, database, cache, privacy-safe error reporting, alert routing, severity, incident response, and post-incident review planning. Batch 15-OPS-03 adds a low-frequency GitHub Actions staging uptime workflow for public `/health/` and `/` checks only. No full monitoring provider, alert routing, privacy-safe error reporting, or abuse alerts are configured. |
 | Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. No vulnerability scan evidence or approved response owner exists yet. |
 | Staff/admin governance | Partial | Staff access governance is documented and staff route tests exist. Real staff roster, superuser minimization, and access review remain manual/pre-launch. |
 | Design/Figma | Blocked | Current code has existing visual foundation from earlier batches. Batch 13 defines UX/product-flow and design handoff requirements only. Future visual changes still require human/Figma handoff and approval before Codex implementation. |
@@ -162,8 +173,8 @@ launch.
 
 ## Conservative Completion Estimate
 
-Estimated whole-project completion after Batch 15-OPS-02 local synthetic
-restore drill evidence:
+Estimated whole-project completion after Batch 15-OPS-03 staging uptime and
+latency evidence:
 
 - Approximately 78%.
 
@@ -205,10 +216,15 @@ Rationale:
   procedure with public/demo setup data only, but it does not prove Render
   managed backup/restore, backup policy approval, monitoring provider setup,
   alert routing, legal/privacy approval, or production readiness.
+- Batch 15-OPS-03 adds repository-native public staging uptime and latency
+  evidence for `/health/` and `/`, but it does not configure a full monitoring
+  provider, alert routing, privacy-safe error reporting, or production
+  readiness.
 - The estimate remains below launch-ready because real staging/prod
   validation depth, production infrastructure, legal/privacy approval,
-  monitoring, backup/restore drill, security scanning, load testing, and
-  Figma-approved future design governance are still unresolved.
+  full monitoring and alert routing, backup/restore drill, security scanning,
+  load testing, and Figma-approved future design governance are still
+  unresolved.
 - Large future feature areas remain intentionally absent: uploads, medical
   records, WhatsApp API/webhooks, payments, and medical automation.
 
@@ -307,8 +323,10 @@ Not safe to demo as real or production functionality:
 - Backup/restore planning is more precise, and a local synthetic PostgreSQL
   restore drill passed, but no real Render managed PostgreSQL restore drill
   has been completed.
-- Monitoring/alerting planning is more precise, but no uptime monitor, alert
-  routing, privacy-safe error reporting, or abuse alert is configured.
+- Monitoring/alerting planning is more precise, and a low-frequency
+  repository-native staging uptime workflow exists for public GET checks, but
+  no full monitoring provider, alert routing, privacy-safe error reporting, or
+  abuse alert is configured.
 - No legal/privacy approval is recorded.
 - No verified email/phone ownership policy is approved.
 - No secure account recovery operation is approved.
@@ -327,7 +345,7 @@ Not safe to demo as real or production functionality:
    access is available, including staging shell management commands, managed
    PostgreSQL/Redis evidence, booking confirmation/browser checks with
    synthetic data only, and sanitized targeted log review.
-2. Batch 15-OPS-03: operator-approved Render managed PostgreSQL restore drill
+2. Batch 15-OPS-04: operator-approved Render managed PostgreSQL restore drill
    with synthetic data only, plus approved monitoring/alerting provider
    configuration or validation without committing credentials.
 3. Batch 14A: dashboard implementation planning/authorization, only if the
@@ -389,6 +407,12 @@ Batch 15-OPS-02 adds local synthetic restore evidence. It does not add product
 features, change code, create patient data, use active Render staging data,
 change Render settings, configure monitoring, approve retention/RPO/RTO, approve
 legal/privacy, or claim production launch readiness.
+
+Batch 15-OPS-03 adds lightweight repository-native staging uptime and latency
+evidence. It does not add product features, create patient data, submit booking
+POSTs, use secrets, check private routes, change Render settings, configure a
+full monitoring provider, configure alert routing, add privacy-safe error
+reporting, or claim production launch readiness.
 
 ## Design Status
 
