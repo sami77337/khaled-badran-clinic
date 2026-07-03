@@ -75,6 +75,20 @@ browser behavior, direct Render runtime commands, managed PostgreSQL/Redis
 runtime evidence, logs, backup/restore, monitoring, load/concurrency, and
 legal/privacy approval remain incomplete.
 
+Batch 15-OPS-01 planning update: production-oriented operations plans now exist
+for backup/restore and monitoring/alerting. The backup plan defines
+PostgreSQL backup expectations, Redis non-authoritative recovery boundaries,
+synthetic-only restore drill procedure, verification criteria, rollback
+boundaries, owner checklist, frequency recommendations, and retention/deletion
+considerations. The monitoring plan defines uptime checks for `/health/` and
+`/`, private readiness monitoring, latency thresholds including the observed
+about 32.5 second `/health/` response, error-rate monitoring,
+deploy/database/cache alert expectations, privacy-safe error reporting, alert
+routing, severity levels, incident response, and post-incident review. This
+planning update does not execute a restore drill, configure a monitoring
+provider, configure alert routing, add error reporting, or approve production
+launch.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -100,9 +114,9 @@ Status labels:
 | Staging readiness | Partial | Staging validation plan, gap analysis, environment contract, local validation scripts, local PostgreSQL/Redis harness, manual Render setup documentation, and sanitized Batch 14C-VALIDATE-02 evidence exist. The real Render staging service returns HTTP 200 for `/health/`, `/`, `/book/`, and `/en/book/`; HTTP redirects to HTTPS; home-page static assets return HTTP 200; and safe portal form CSRF/cookie evidence exists. Full production-like staging validation remains incomplete. |
 | PostgreSQL readiness | Partial | PostgreSQL expectations, migration/concurrency plans, local constraint tests, and local Docker PostgreSQL harness exist. Batch 14B-FIX-01 fixed the local PostgreSQL locking blocker and PostgreSQL-backed booking/patient portal/full-suite tests now pass locally. Render staging is reachable after operator-managed migration work, but direct safe staging database command evidence, load/concurrency, backup/restore, and provider validation have not run in this batch. |
 | Redis/shared cache readiness | Partial | Redis expectations and cache-key privacy tests exist. Batch 14B-FIX-01 proved local Docker Redis cache reachability and Redis-backed booking/patient portal/full-suite tests now pass locally. Render staging cache service exists by operator context, but real multi-process quota, outage, tuning, monitoring, and safe staging command evidence have not run in this batch. |
-| Backup/restore | Planned | Synthetic-only drill plan and runbooks exist. No actual PostgreSQL restore drill evidence exists. |
+| Backup/restore | Planned | Synthetic-only drill runbooks and the Batch 15 operations plan exist. PostgreSQL backup expectations, Redis non-authoritative recovery boundaries, restore drill procedure, verification criteria, owner checklist, and retention considerations are documented. No actual PostgreSQL restore drill evidence exists. |
 | Privacy/legal | Blocked | Draft pages and privacy matrices exist. Formal legal/privacy review, retention/deletion policy, recovery policy, and patient identity verification are required before launch. |
-| Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. No real uptime checks, alert routing, error reporting, or abuse alerts are configured. |
+| Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. Batch 15 adds uptime, latency, error-rate, deploy, database, cache, privacy-safe error reporting, alert routing, severity, incident response, and post-incident review planning. No real uptime checks, alert routing, error reporting, or abuse alerts are configured. |
 | Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. No vulnerability scan evidence or approved response owner exists yet. |
 | Staff/admin governance | Partial | Staff access governance is documented and staff route tests exist. Real staff roster, superuser minimization, and access review remain manual/pre-launch. |
 | Design/Figma | Blocked | Current code has existing visual foundation from earlier batches. Batch 13 defines UX/product-flow and design handoff requirements only. Future visual changes still require human/Figma handoff and approval before Codex implementation. |
@@ -137,8 +151,8 @@ launch.
 
 ## Conservative Completion Estimate
 
-Estimated whole-project completion after Batch 14C-VALIDATE-02 deeper Render
-staging public validation:
+Estimated whole-project completion after Batch 15-OPS-01 backup/restore and
+monitoring readiness planning:
 
 - Approximately 77-78%.
 
@@ -172,6 +186,10 @@ Rationale:
   browser behavior, direct Render runtime commands, managed database/cache
   command evidence, backup/restore, monitoring, legal/privacy, dependency
   scan, shared-cache multi-process/outage, or load-test blockers.
+- Batch 15-OPS-01 makes backup/restore and monitoring execution requirements
+  more precise but does not create restore evidence, configure uptime checks,
+  configure alert routing, configure privacy-safe error reporting, or change
+  production readiness.
 - The estimate remains below launch-ready because real staging/prod
   validation depth, production infrastructure, legal/privacy approval,
   monitoring, backup/restore drill, security scanning, load testing, and
@@ -271,8 +289,10 @@ Not safe to demo as real or production functionality:
   direct safe staging command evidence, provider load/concurrency validation,
   backup/restore, and shared-cache multi-process/outage evidence remain
   incomplete.
-- No backup/restore drill has been completed.
-- No monitoring/error reporting is configured.
+- Backup/restore planning is more precise, but no real synthetic PostgreSQL
+  restore drill has been completed.
+- Monitoring/alerting planning is more precise, but no uptime monitor, alert
+  routing, privacy-safe error reporting, or abuse alert is configured.
 - No legal/privacy approval is recorded.
 - No verified email/phone ownership policy is approved.
 - No secure account recovery operation is approved.
@@ -291,8 +311,9 @@ Not safe to demo as real or production functionality:
    access is available, including staging shell management commands, managed
    PostgreSQL/Redis evidence, booking confirmation/browser checks with
    synthetic data only, and sanitized targeted log review.
-2. Batch 15: backup/restore synthetic drill evidence and
-   monitoring/alerting setup plan.
+2. Batch 15-OPS-02: execute a synthetic-only PostgreSQL restore drill in an
+   isolated restore-test database and configure or validate an approved
+   monitoring/alerting provider without committing credentials.
 3. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
 4. Batch 16: legal/privacy/account recovery and patient identity verification

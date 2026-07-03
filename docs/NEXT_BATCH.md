@@ -74,6 +74,18 @@ final product completion and professional delivery readiness.
   over HTTPS. It did not submit booking POSTs, create patient data, run Render
   shell commands, fetch full Render logs, prove managed PostgreSQL/Redis
   runtime behavior, or approve launch readiness.
+- Batch 15-OPS-01 created production-oriented backup/restore and
+  monitoring/alerting readiness plans. It documented PostgreSQL backup
+  expectations, Redis non-authoritative recovery boundaries, current media and
+  upload backup boundaries, synthetic-only restore drill procedure,
+  post-restore verification, rollback boundaries, owner checklist, frequency
+  recommendations, retention/deletion considerations, uptime checks for
+  `/health/` and `/`, latency thresholds including an observed about 32.5
+  second `/health/` response, error-rate monitoring, deploy/database/cache
+  alerts, privacy-safe error reporting, alert routing, severity levels,
+  incident response, and post-incident review. It did not execute a restore
+  drill, configure monitoring, configure alert routing, add credentials, add
+  dependencies, change Render settings, or approve launch readiness.
 
 ## Batch 14 Result
 
@@ -285,6 +297,49 @@ Key conclusion:
   legal/privacy, load/concurrency, sanitized log review, and production launch
   readiness remain incomplete or blocked.
 
+## Batch 15-OPS-01 Result
+
+Batch 15-OPS-01 result:
+
+```text
+Backup/restore and monitoring/alerting readiness plans documented; production launch remains blocked.
+```
+
+Evidence added:
+
+- `docs/BATCH_15_OPS_01_STATUS.md`
+- `docs/OPERATIONS_BACKUP_RESTORE_PLAN.md`
+- `docs/OPERATIONS_MONITORING_ALERTING_PLAN.md`
+
+Evidence updated:
+
+- `docs/PROJECT_RELEASE_SCORECARD.md`
+- `docs/NEXT_BATCH.md`
+- `docs/STAGING_VALIDATION_BLOCKERS.md`
+
+Key conclusion:
+
+- local baseline commands passed without staging secrets;
+- the full local test suite passed: 246 tests, OK;
+- backup/restore plan now defines PostgreSQL backup expectations, Redis
+  non-authoritative recovery boundaries, current media/private upload status,
+  synthetic-only restore drill procedure, post-restore verification, rollback
+  boundaries, owner checklist, frequency recommendations, and retention/
+  deletion considerations;
+- monitoring/alerting plan now defines uptime checks for `/health/` and `/`,
+  private readiness monitoring, latency thresholds including an observed about
+  32.5 second `/health/` response, error-rate monitoring, deploy failure
+  monitoring, database/cache monitoring, privacy-safe error reporting, alert
+  routing, escalation, severity levels, incident response, and post-incident
+  review;
+- no backup was created;
+- no restore was executed;
+- no monitoring provider or account was configured;
+- no alert routing or privacy-safe error reporting was configured;
+- legal/privacy approval, load/concurrency validation, direct managed
+  PostgreSQL/Redis runtime evidence, Redis outage/multi-process evidence, and
+  production launch readiness remain incomplete or blocked.
+
 Batch 14A remains a valid later planning-only option:
 
 ```text
@@ -329,6 +384,9 @@ Must read before the next staging or operations batch:
 - `docs/BATCH_14C_PREP_01_STATUS.md`
 - `docs/BATCH_14C_VALIDATE_01_STATUS.md`
 - `docs/BATCH_14C_VALIDATE_02_STATUS.md`
+- `docs/BATCH_15_OPS_01_STATUS.md`
+- `docs/OPERATIONS_BACKUP_RESTORE_PLAN.md`
+- `docs/OPERATIONS_MONITORING_ALERTING_PLAN.md`
 - `docs/RESTRICTED_STAGING_VALIDATION_EVIDENCE.md`
 - `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
 - `docs/LOCAL_DOCKER_POSTGRES_REDIS_VALIDATION_EVIDENCE.md`
@@ -341,8 +399,9 @@ Must read before the next staging or operations batch:
    if safe access is available, including staging shell management commands,
    managed PostgreSQL/Redis command evidence, booking confirmation/browser
    checks with synthetic data only, and sanitized targeted log review.
-2. Batch 15: backup/restore synthetic drill evidence and
-   monitoring/alerting setup plan.
+2. Batch 15-OPS-02: execute a synthetic-only PostgreSQL restore drill in an
+   isolated restore-test database and configure or validate an approved
+   monitoring/alerting provider without committing credentials.
 3. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
 4. Batch 16: legal/privacy/account recovery and patient identity verification
