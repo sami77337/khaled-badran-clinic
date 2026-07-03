@@ -5,9 +5,10 @@
 This plan defines production-oriented monitoring, alerting, uptime checks,
 error reporting, and incident response readiness for Dr. Khaled Badran Clinic.
 
-This is a planning document. It does not configure a monitoring provider, add
-third-party dependencies, create accounts, store credentials, change Render
-settings, or approve production launch.
+This is primarily a planning document. BATCH-15-OPS-03 adds interim
+repository-native staging checks, but this document does not configure a full
+monitoring provider, add third-party dependencies, create accounts, store
+credentials, change Render settings, or approve production launch.
 
 Production-ready status:
 
@@ -48,10 +49,30 @@ Existing logging:
   application logs;
 - no structured logging dependency;
 - no third-party error reporting SDK;
-- no external uptime monitoring configured;
+- repository-native GitHub Actions staging uptime workflow exists for public
+  `/health/` and `/` evidence only;
+- no external uptime monitoring provider configured;
 - no alert routing configured.
 
 ## Uptime Checks
+
+Interim repository-native staging checks:
+
+- BATCH-15-OPS-03 adds `.github/workflows/staging-uptime.yml`;
+- the workflow can be run manually and also runs twice daily;
+- it checks only public GET `/health/` and `/` on the Render restricted
+  staging URL;
+- it uses `curl` only, follows redirects, records HTTP status, total response
+  time, and final URL, and does not print response bodies;
+- it fails on non-200 status, timeout, transport failure, or response time
+  over 60 seconds;
+- it warns on response time over 10 seconds;
+- it does not use secrets, private routes, booking POSTs, third-party Actions,
+  external monitoring providers, or alert routes;
+- it is low-frequency evidence collection, not keep-alive polling.
+
+This workflow is not a substitute for a production monitoring provider or
+tested alert routing.
 
 Before launch, configure external uptime monitoring for safe GET requests only:
 
@@ -81,15 +102,21 @@ Private/internal readiness monitoring:
 
 Latest supplied staging context says:
 
-- `GET /health/` returned HTTP 200, but one observed response time was about
-  32.5 seconds.
-- `GET /` returned HTTP 200, about 0.65 seconds.
+- `GET /health/` returned HTTP 200, but observed response times included about
+  32.5 seconds, 22.4 seconds, and 42.5 seconds.
+- `GET /` returned HTTP 200, with observed response times around 0.65 to 0.80
+  seconds.
 
-The about 32.5 second `/health/` response is not acceptable as a normal
-production latency target. Because `/health/` does not check the database, a
-slow liveness response may indicate cold start, worker startup delay, platform
-queuing, network latency, process saturation, or runtime stalls. It must be
-tracked before launch.
+The slow `/health/` responses are not acceptable as a normal production
+latency target. Because `/health/` does not check the database, a slow liveness
+response may indicate cold start, worker startup delay, platform queuing,
+network latency, process saturation, or runtime stalls. It must be tracked
+before launch.
+
+The interim GitHub Actions staging workflow warns on any single response over
+10 seconds and fails on any single response over 60 seconds. Manual evidence
+should treat any response over 30 seconds as severe staging latency requiring
+review, even if the HTTP status is 200.
 
 Initial threshold recommendations, subject to owner/operator approval:
 
@@ -239,6 +266,8 @@ No provider is selected or configured in this batch.
 
 Possible future options, without installing anything now:
 
+- GitHub Actions staging uptime workflow for interim repository-native
+  evidence only;
 - Render native service events and health checks;
 - a third-party uptime monitor for `/health/` and `/`;
 - Sentry or another error-reporting provider after privacy scrubbing review;
@@ -372,7 +401,7 @@ Do not close SEV-1 or SEV-2 incidents without owner approval.
 Monitoring/alerting readiness:
 
 ```text
-planned, not configured
+partial interim evidence, full monitoring not configured
 ```
 
 Reasons:
@@ -381,7 +410,9 @@ Reasons:
 - privacy-safe smoke/status/settings commands exist;
 - logging foundation exists;
 - Dependabot exists for dependency update visibility;
-- uptime monitors are not configured;
+- a low-frequency GitHub Actions staging uptime workflow exists for public
+  `/health/` and `/` checks;
+- external uptime monitoring provider is not configured;
 - alert routing is not configured;
 - privacy-safe error reporting is not configured;
 - deploy/database/cache alerts are not configured;

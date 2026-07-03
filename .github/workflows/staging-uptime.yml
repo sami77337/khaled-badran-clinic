@@ -1,0 +1,76 @@
+name: Staging uptime checks
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Low-frequency evidence only. This is not keep-alive polling.
+    - cron: "17 5,17 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  public-get-checks:
+    name: Public staging GET checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check public staging endpoints
+        shell: bash
+        run: |
+          set -u
+
+          warn_seconds="10.0"
+          hard_seconds="60.0"
+          max_time_seconds="75"
+          failures=0
+
+          check_endpoint() {
+            local label="$1"
+            local url="$2"
+            local result
+            local curl_exit
+            local status
+            local total_time
+            local final_url
+
+            set +e
+            result="$(curl \
+              --location \
+              --silent \
+              --show-error \
+              --output /dev/null \
+              --max-time "${max_time_seconds}" \
+              --write-out "%{http_code}|%{time_total}|%{url_effective}" \
+              "${url}")"
+            curl_exit=$?
+            set -e
+
+            if [ "${curl_exit}" -ne 0 ]; then
+              echo "::error title=${label} curl failed::curl exited ${curl_exit}; no response body was printed"
+              failures=1
+              return
+            fi
+
+            IFS='|' read -r status total_time final_url <<< "${result}"
+            printf '%s status=%s time_total=%ss final_url=%s\n' "${label}" "${status}" "${total_time}" "${final_url}"
+
+            if [ "${status}" != "200" ]; then
+              echo "::error title=${label} bad status::expected HTTP 200 but observed ${status}"
+              failures=1
+            fi
+
+            if awk "BEGIN { exit !(${total_time} > ${hard_seconds}) }"; then
+              echo "::error title=${label} hard latency threshold exceeded::observed ${total_time}s; threshold is ${hard_seconds}s"
+              failures=1
+            elif awk "BEGIN { exit !(${total_time} > ${warn_seconds}) }"; then
+              echo "::warning title=${label} slow response::observed ${total_time}s; warning threshold is ${warn_seconds}s"
+            fi
+          }
+
+          check_endpoint "GET /health/" "https://khaled-badran-clinic-staging.onrender.com/health/"
+          check_endpoint "GET /" "https://khaled-badran-clinic-staging.onrender.com/"
+
+          if [ "${failures}" -ne 0 ]; then
+            exit 1
+          fi

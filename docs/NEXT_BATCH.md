@@ -96,6 +96,15 @@ final product completion and professional delivery readiness.
   does not prove real Render managed PostgreSQL restore behavior, backup
   retention, RPO, RTO, monitoring, alert routing, legal/privacy approval, or
   production readiness.
+- Batch 15-OPS-03 added lightweight repository-native staging uptime and
+  latency evidence. A GitHub Actions workflow now checks the public Render
+  restricted staging `/health/` and `/` endpoints by safe GET only, with manual
+  dispatch, low-frequency scheduling, `curl` status/time/final-URL capture,
+  slow-response warnings, and a hard staging latency threshold. Manual
+  PowerShell verification commands and recent latency observations are
+  documented. This does not configure a full monitoring provider, alert
+  routing, privacy-safe error reporting, Render settings, or production
+  readiness.
 
 ## Batch 14 Result
 
@@ -395,6 +404,53 @@ Key conclusion:
   routing, backup retention/RPO/RTO approval, legal/privacy approval, load
   validation, and production launch readiness remain incomplete or blocked.
 
+## Batch 15-OPS-03 Result
+
+Batch 15-OPS-03 result:
+
+```text
+Lightweight repository-native staging uptime and latency evidence added;
+production launch remains blocked.
+```
+
+Evidence added:
+
+- `.github/workflows/staging-uptime.yml`
+- `docs/BATCH_15_OPS_03_STATUS.md`
+- `docs/STAGING_UPTIME_LATENCY_MONITORING_EVIDENCE.md`
+
+Evidence updated:
+
+- `docs/OPERATIONS_MONITORING_ALERTING_PLAN.md`
+- `docs/PROJECT_RELEASE_SCORECARD.md`
+- `docs/NEXT_BATCH.md`
+- `docs/STAGING_VALIDATION_BLOCKERS.md`
+
+Key conclusion:
+
+- local baseline commands passed without staging secrets;
+- the full local default suite passed: 246 tests, OK;
+- the existing Django CI workflow was left intact;
+- a new low-frequency GitHub Actions workflow checks public staging
+  `/health/` and `/` with `curl` only;
+- the workflow records HTTP status, total response time, and final URL only;
+- response bodies are not printed;
+- non-200 status, timeout, transport failure, or response time over 60 seconds
+  fails the workflow;
+- response time over 10 seconds produces a warning;
+- manual PowerShell verification commands are documented for `/health/` and
+  `/`;
+- recent staging examples are documented: `/health/` around 32.5 seconds,
+  22.4 seconds, and 42.5 seconds; `/` around 0.65 to 0.80 seconds;
+- no booking POSTs were submitted;
+- no private, staff, admin, patient, or readiness endpoints were called;
+- no active Render staging setting was modified;
+- no real patient data was used;
+- full monitoring provider setup, alert routing, privacy-safe error reporting,
+  Render managed PostgreSQL restore, backup retention/RPO/RTO approval,
+  legal/privacy approval, load validation, and production launch readiness
+  remain incomplete or blocked.
+
 Batch 14A remains a valid later planning-only option:
 
 ```text
@@ -441,9 +497,11 @@ Must read before the next staging or operations batch:
 - `docs/BATCH_14C_VALIDATE_02_STATUS.md`
 - `docs/BATCH_15_OPS_01_STATUS.md`
 - `docs/BATCH_15_OPS_02_STATUS.md`
+- `docs/BATCH_15_OPS_03_STATUS.md`
 - `docs/OPERATIONS_BACKUP_RESTORE_PLAN.md`
 - `docs/OPERATIONS_MONITORING_ALERTING_PLAN.md`
 - `docs/SYNTHETIC_RESTORE_DRILL_EVIDENCE.md`
+- `docs/STAGING_UPTIME_LATENCY_MONITORING_EVIDENCE.md`
 - `docs/RESTRICTED_STAGING_VALIDATION_EVIDENCE.md`
 - `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
 - `docs/LOCAL_DOCKER_POSTGRES_REDIS_VALIDATION_EVIDENCE.md`
@@ -456,7 +514,7 @@ Must read before the next staging or operations batch:
    if safe access is available, including staging shell management commands,
    managed PostgreSQL/Redis command evidence, booking confirmation/browser
    checks with synthetic data only, and sanitized targeted log review.
-2. Batch 15-OPS-03: operator-approved Render managed PostgreSQL restore drill
+2. Batch 15-OPS-04: operator-approved Render managed PostgreSQL restore drill
    with synthetic data only, plus approved monitoring/alerting provider
    configuration or validation without committing credentials.
 3. Batch 14A: dashboard implementation planning/authorization, only if the
