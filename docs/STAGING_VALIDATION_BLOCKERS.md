@@ -69,8 +69,28 @@ Render runtime command evidence, managed database/cache command evidence,
 backup/restore, monitoring, legal/privacy, shared-cache multi-process/outage,
 or load/concurrency blockers.
 
-Do not claim production readiness from Batch 14, Batch 14B, or
-Batch 14C-VALIDATE-01/02.
+Batch 15-OPS-01 documented more precise backup/restore and monitoring/
+alerting readiness plans:
+
+- PostgreSQL backup expectations and synthetic-only restore drill procedure are
+  documented;
+- Redis/shared-cache is documented as non-authoritative cache/rate-limit state,
+  with outage behavior still requiring a decision and validation;
+- current media/private upload backup scope is documented as not applicable
+  because uploads remain absent;
+- post-restore verification, rollback boundaries, owner checklist, frequency
+  recommendations, and retention/deletion considerations are documented;
+- uptime checks for `/health/` and `/`, private readiness monitoring, latency
+  thresholds, error-rate monitoring, deploy/database/cache alerts,
+  privacy-safe error reporting, alert routing, severity levels, incident
+  response, and post-incident review are documented.
+
+Batch 15-OPS-01 did not execute a restore drill, configure a backup provider,
+configure uptime monitoring, configure alert routing, add error reporting,
+change Render settings, or validate production readiness.
+
+Do not claim production readiness from Batch 14, Batch 14B,
+Batch 14C-VALIDATE-01/02, or Batch 15-OPS-01.
 
 ## Real Infrastructure Blockers
 
@@ -276,11 +296,12 @@ Legal/privacy launch blockers remain:
 
 Operational launch blockers remain:
 
-- No synthetic PostgreSQL backup/restore drill evidence.
+- Backup/restore planning exists, but no synthetic PostgreSQL backup/restore
+  drill evidence exists.
 - No backup retention/RPO/RTO approval.
-- No uptime monitoring configured.
-- No alert routing configured.
-- No error-reporting privacy scrubbing configured.
+- Monitoring/alerting planning exists, but no uptime monitoring is configured.
+- No alert routing is configured.
+- No privacy-safe error-reporting integration is configured.
 - No abuse monitoring configured for booking or portal flows.
 - No dependency vulnerability scan evidence or response owner.
 - No staging load test.
@@ -313,10 +334,11 @@ GET checks, redirects checked HTTP paths to HTTPS, and serves basic home-page
 static assets, but local Docker validation and public HTTP-client evidence are
 not substitutes for full production-like staging validation.
 
-Recommended next batch:
+Recommended next batches:
 
 ```text
 Batch 14C-VALIDATE-03: operator-assisted Render runtime validation
+Batch 15-OPS-02: synthetic restore drill and approved monitoring/alerting setup
 ```
 
 Dashboard implementation should remain deferred until the staging runtime,
