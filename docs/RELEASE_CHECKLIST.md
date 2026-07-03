@@ -63,6 +63,12 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - `python manage.py makemigrations --check --dry-run` passes.
 - `python manage.py check` passes.
 - `python manage.py test` passes.
+- Dependency/security batches document either an advisory-backed scan result or
+  the exact scanner/tooling blocker.
+- Dependency/security batches identify the response owner role, severity
+  handling, and remaining owner-approval blocker.
+- Dependency upgrades, lockfiles, or scanner workflow additions are absent
+  unless the batch explicitly approves them.
 
 ## Pre-Deploy Checklist
 
@@ -78,6 +84,10 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - `BOOKING_TRUST_X_FORWARDED_FOR` remains false unless trusted proxy stripping is verified.
 - Backup and rollback plan exists.
 - Monitoring owner is assigned.
+- Dependency vulnerability scan source is enabled and reviewed, or a launch
+  blocker is explicitly recorded.
+- Critical/high dependency advisories have an accountable owner decision,
+  patch or mitigation plan, and validation evidence.
 - Legal/privacy review status is known.
 
 ## Migration Checklist

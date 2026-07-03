@@ -451,6 +451,49 @@ Key conclusion:
   legal/privacy approval, load validation, and production launch readiness
   remain incomplete or blocked.
 
+## Batch 15-OPS-04 Result
+
+Batch 15-OPS-04 result:
+
+```text
+Dependency vulnerability scan attempt and response ownership documented;
+complete advisory-backed scan remains blocked.
+```
+
+Evidence added:
+
+- `docs/BATCH_15_OPS_04_STATUS.md`
+- `docs/DEPENDENCY_VULNERABILITY_SCAN_EVIDENCE.md`
+
+Evidence updated:
+
+- `docs/DEPENDENCY_SECURITY_READINESS.md`
+- `docs/PROJECT_RELEASE_SCORECARD.md`
+- `docs/NEXT_BATCH.md`
+- `docs/STAGING_VALIDATION_BLOCKERS.md`
+- `docs/RELEASE_CHECKLIST.md`
+
+Key conclusion:
+
+- local baseline commands passed without staging secrets;
+- the full local default suite passed: 246 tests, OK;
+- `python -m pip check` passed with no broken requirements;
+- `requirements.txt` is the only dependency manifest found in the repository;
+- no Python lockfile is currently committed;
+- Dependabot is already configured weekly for Python `pip` and GitHub Actions;
+- no dependency package was upgraded;
+- no scanner was installed;
+- `pip-audit`, `safety`, `osv-scanner`, `trivy`, and `grype` were not
+  available locally;
+- GitHub vulnerability alerts were disabled for the repository;
+- GitHub Dependabot alerts were disabled for the repository;
+- no GitHub repository security settings were changed;
+- role-based response ownership, severity handling, and update cadence are
+  now documented;
+- no named human dependency response owner or backup owner is recorded yet;
+- no real patient data, secrets, Render settings, dependency files, lockfiles,
+  application code, or CI workflows were changed.
+
 Batch 14A remains a valid later planning-only option:
 
 ```text
@@ -498,10 +541,13 @@ Must read before the next staging or operations batch:
 - `docs/BATCH_15_OPS_01_STATUS.md`
 - `docs/BATCH_15_OPS_02_STATUS.md`
 - `docs/BATCH_15_OPS_03_STATUS.md`
+- `docs/BATCH_15_OPS_04_STATUS.md`
 - `docs/OPERATIONS_BACKUP_RESTORE_PLAN.md`
 - `docs/OPERATIONS_MONITORING_ALERTING_PLAN.md`
+- `docs/DEPENDENCY_SECURITY_READINESS.md`
 - `docs/SYNTHETIC_RESTORE_DRILL_EVIDENCE.md`
 - `docs/STAGING_UPTIME_LATENCY_MONITORING_EVIDENCE.md`
+- `docs/DEPENDENCY_VULNERABILITY_SCAN_EVIDENCE.md`
 - `docs/RESTRICTED_STAGING_VALIDATION_EVIDENCE.md`
 - `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
 - `docs/LOCAL_DOCKER_POSTGRES_REDIS_VALIDATION_EVIDENCE.md`
@@ -514,20 +560,23 @@ Must read before the next staging or operations batch:
    if safe access is available, including staging shell management commands,
    managed PostgreSQL/Redis command evidence, booking confirmation/browser
    checks with synthetic data only, and sanitized targeted log review.
-2. Batch 15-OPS-04: operator-approved Render managed PostgreSQL restore drill
+2. Batch 15-OPS-05: enable an approved dependency vulnerability scan source
+   such as GitHub alerts, `pip-audit`, or OSV, rerun the scan, and record a
+   named response owner without committing credentials.
+3. Batch 15-OPS-06: operator-approved Render managed PostgreSQL restore drill
    with synthetic data only, plus approved monitoring/alerting provider
    configuration or validation without committing credentials.
-3. Batch 14A: dashboard implementation planning/authorization, only if the
+4. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
-4. Batch 16: legal/privacy/account recovery and patient identity verification
+5. Batch 16: legal/privacy/account recovery and patient identity verification
    policy.
-5. Batch 17: doctor dashboard workflow completion/polish.
-6. Batch 18: patient portal completion/hardening.
-7. Batch 19: WhatsApp limited integration design/implementation only after
+6. Batch 17: doctor dashboard workflow completion/polish.
+7. Batch 18: patient portal completion/hardening.
+8. Batch 19: WhatsApp limited integration design/implementation only after
    privacy gates.
-8. Batch 20: approved cases/reviews/media showcase plus private publication
+9. Batch 20: approved cases/reviews/media showcase plus private publication
    rules.
-9. Batch 21: release candidate hardening.
+10. Batch 21: release candidate hardening.
 
 ## Final Quality Goals
 

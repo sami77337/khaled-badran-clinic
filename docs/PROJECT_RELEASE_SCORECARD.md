@@ -111,6 +111,18 @@ staging evidence only. It does not configure a full monitoring provider, alert
 routing, privacy-safe error reporting, Render settings, or production launch
 readiness.
 
+Batch 15-OPS-04 operations update: dependency vulnerability scan evidence and
+response ownership were documented using available safe local and GitHub
+tooling only. Local Django baseline checks, the full 246-test suite, and
+`python -m pip check` passed. The repository has only `requirements.txt` as a
+dependency manifest, and Dependabot is already configured weekly for Python
+and GitHub Actions. A complete advisory-backed vulnerability scan did not run
+because `pip-audit`, `safety`, `osv-scanner`, `trivy`, and `grype` were not
+available locally, and GitHub vulnerability/Dependabot alerts were disabled.
+This is blocker evidence, not a clean vulnerability scan. It does not change
+dependencies, install scanners, enable GitHub security settings, configure CI
+scanning, change Render settings, or approve production launch readiness.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -139,7 +151,7 @@ Status labels:
 | Backup/restore | Partial | Synthetic-only drill runbooks and the Batch 15 operations plan exist. Batch 15-OPS-02 passed a local synthetic PostgreSQL logical dump/restore drill with public/demo setup data only, zero patients, zero appointments, safe post-restore reports, and 246 tests passing. Real Render managed PostgreSQL restore evidence, backup retention, RPO, RTO, backup monitoring, and provider-specific restore evidence remain incomplete. |
 | Privacy/legal | Blocked | Draft pages and privacy matrices exist. Formal legal/privacy review, retention/deletion policy, recovery policy, and patient identity verification are required before launch. |
 | Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. Batch 15 adds uptime, latency, error-rate, deploy, database, cache, privacy-safe error reporting, alert routing, severity, incident response, and post-incident review planning. Batch 15-OPS-03 adds a low-frequency GitHub Actions staging uptime workflow for public `/health/` and `/` checks only. No full monitoring provider, alert routing, privacy-safe error reporting, or abuse alerts are configured. |
-| Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. No vulnerability scan evidence or approved response owner exists yet. |
+| Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. Batch 15-OPS-04 documents dependency inventory, safe local baseline, unavailable local scanners, disabled GitHub vulnerability/Dependabot alerts, role-based response ownership, severity handling, and update cadence. A complete advisory-backed vulnerability scan, enabled scan workflow, and named approved response owner remain incomplete. |
 | Staff/admin governance | Partial | Staff access governance is documented and staff route tests exist. Real staff roster, superuser minimization, and access review remain manual/pre-launch. |
 | Design/Figma | Blocked | Current code has existing visual foundation from earlier batches. Batch 13 defines UX/product-flow and design handoff requirements only. Future visual changes still require human/Figma handoff and approval before Codex implementation. |
 | Uploads | Out of Scope for Now | No upload routes or private media handling are implemented. Private storage, malware scanning, retention, access control, and legal design are required first. |
@@ -173,8 +185,8 @@ launch.
 
 ## Conservative Completion Estimate
 
-Estimated whole-project completion after Batch 15-OPS-03 staging uptime and
-latency evidence:
+Estimated whole-project completion after Batch 15-OPS-04 dependency scan
+attempt and response ownership documentation:
 
 - Approximately 78%.
 
@@ -220,10 +232,14 @@ Rationale:
   evidence for `/health/` and `/`, but it does not configure a full monitoring
   provider, alert routing, privacy-safe error reporting, or production
   readiness.
+- Batch 15-OPS-04 documents dependency inventory, local dependency consistency,
+  scanner/tooling blockers, response ownership roles, severity handling, and
+  update cadence, but it does not produce a complete advisory-backed
+  vulnerability scan or approve a named human response owner.
 - The estimate remains below launch-ready because real staging/prod
   validation depth, production infrastructure, legal/privacy approval,
-  full monitoring and alert routing, backup/restore drill, security scanning,
-  load testing, and Figma-approved future design governance are still
+  full monitoring and alert routing, backup/restore drill, complete security
+  scanning, load testing, and Figma-approved future design governance are still
   unresolved.
 - Large future feature areas remain intentionally absent: uploads, medical
   records, WhatsApp API/webhooks, payments, and medical automation.
@@ -278,7 +294,8 @@ Not safe to demo as real or production functionality:
 - Provider-specific staging/production behavior not yet validated.
 - Real backup/restore recovery.
 - Monitoring and incident response in a live environment.
-- Real dependency vulnerability response without owner review.
+- Real dependency vulnerability response without an enabled scanner and
+  approved owner review.
 
 ## Do Not Launch Publicly Until
 
@@ -292,7 +309,8 @@ Not safe to demo as real or production functionality:
 - Full tests pass in CI/local release validation.
 - Real Render managed PostgreSQL restore drill with synthetic data is complete.
 - Monitoring, uptime checks, log collection, and alert routing are configured.
-- Dependency/security scanning is configured and reviewed.
+- Dependency/security scanning is enabled, produces an advisory-backed result,
+  and is reviewed by the accountable owner.
 - Load/concurrency tests are completed against staging.
 - Public booking duplicate/concurrency behavior is validated on PostgreSQL.
 - Redis/shared-cache rate limiting is validated across app processes.
@@ -332,9 +350,10 @@ Not safe to demo as real or production functionality:
 - No secure account recovery operation is approved.
 - No production rate-limit tuning has been completed.
 - No load/concurrency test results exist.
-- No dependency vulnerability scanning workflow is configured.
-- Dependabot exists, but vulnerability scan evidence and response ownership are
-  not complete.
+- Dependency vulnerability scan evidence is attempted and documented, but not
+  complete: no local advisory scanner was available, GitHub vulnerability and
+  Dependabot alerts were disabled, no CI scanner exists, and response
+  ownership still needs named owner approval.
 - No staff access review process is defined.
 - No audit retention/access review policy is defined.
 - No Figma handoff exists for future visual changes.
@@ -345,20 +364,23 @@ Not safe to demo as real or production functionality:
    access is available, including staging shell management commands, managed
    PostgreSQL/Redis evidence, booking confirmation/browser checks with
    synthetic data only, and sanitized targeted log review.
-2. Batch 15-OPS-04: operator-approved Render managed PostgreSQL restore drill
+2. Batch 15-OPS-05: enable an approved dependency vulnerability scan source
+   such as GitHub alerts, `pip-audit`, or OSV, rerun the scan, and record a
+   named response owner without committing credentials.
+3. Batch 15-OPS-06: operator-approved Render managed PostgreSQL restore drill
    with synthetic data only, plus approved monitoring/alerting provider
    configuration or validation without committing credentials.
-3. Batch 14A: dashboard implementation planning/authorization, only if the
+4. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
-4. Batch 16: legal/privacy/account recovery and patient identity verification
+5. Batch 16: legal/privacy/account recovery and patient identity verification
    policy.
-5. Batch 17: doctor dashboard workflow completion/polish.
-6. Batch 18: patient portal completion/hardening.
-7. Batch 19: WhatsApp limited integration design/implementation only after
+6. Batch 17: doctor dashboard workflow completion/polish.
+7. Batch 18: patient portal completion/hardening.
+8. Batch 19: WhatsApp limited integration design/implementation only after
    privacy gates.
-8. Batch 20: approved cases/reviews/media showcase plus private publication
+9. Batch 20: approved cases/reviews/media showcase plus private publication
    rules.
-9. Batch 21: release candidate hardening.
+10. Batch 21: release candidate hardening.
 
 Batch 12 adds planning documents for final product completion, doctor-managed
 configuration, and authorized showcase publication-consent requirements. It
@@ -413,6 +435,12 @@ evidence. It does not add product features, create patient data, submit booking
 POSTs, use secrets, check private routes, change Render settings, configure a
 full monitoring provider, configure alert routing, add privacy-safe error
 reporting, or claim production launch readiness.
+
+Batch 15-OPS-04 adds dependency vulnerability scan attempt evidence and
+response ownership documentation. It does not add product features, create
+patient data, change dependencies, install scanners, enable GitHub security
+settings, change Render settings, configure CI scanning, or claim production
+launch readiness.
 
 ## Design Status
 
