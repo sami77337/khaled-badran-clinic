@@ -48,38 +48,70 @@ browser security behavior, managed database/cache command evidence,
 backup/restore, monitoring, legal/privacy, shared-cache multi-process/outage,
 or load/concurrency blockers.
 
+Batch 14C-VALIDATE-02 deepened the safe public staging evidence:
+
+- `/health/`, `/`, `/book/`, and `/en/book/` still returned HTTP 200 over
+  HTTPS;
+- safe HTTP HEAD checks redirected those public HTTP paths to HTTPS;
+- four same-origin static assets referenced from the home page returned HTTP
+  200;
+- checked public responses exposed `X-Content-Type-Options=nosniff`,
+  `Referrer-Policy=same-origin`, and
+  `Cross-Origin-Opener-Policy=same-origin`;
+- HSTS and CSP were absent on checked public responses;
+- anonymous portal login/register pages rendered CSRF inputs and set a secure
+  CSRF cookie over HTTPS;
+- portal login, register, and account recovery pages returned no-cache headers.
+
+This improves public HTTPS, static-asset, and HTTP-client CSRF/cookie evidence.
+It does not resolve booking confirmation/success browser behavior, direct
+Render runtime command evidence, managed database/cache command evidence,
+backup/restore, monitoring, legal/privacy, shared-cache multi-process/outage,
+or load/concurrency blockers.
+
 Do not claim production readiness from Batch 14, Batch 14B, or
-Batch 14C-VALIDATE-01.
+Batch 14C-VALIDATE-01/02.
 
 ## Real Infrastructure Blockers
 
-Partially resolved by Batch 14C-VALIDATE-01:
+Partially resolved by Batch 14C-VALIDATE-02:
 
 - a real Render staging web service exists;
 - the staging application host is reachable over HTTPS;
 - public liveness, home, and booking entry GET checks returned HTTP 200;
+- public HTTP paths checked by HEAD redirect to HTTPS;
+- basic same-origin static assets referenced from the home page return HTTP
+  200;
+- anonymous portal form pages expose CSRF inputs and secure CSRF cookies over
+  HTTPS;
 - the staging service uses the `main` branch in the Frankfurt region by known
   operator context.
 
 Still blocked or not fully validated:
 
 - no custom DNS or private staging hostname has been validated;
-- no browser-level secure-cookie, CSRF trusted-origin, or HSTS behavior has
-  been validated;
-- no HTTP-to-HTTPS redirect behavior has been validated;
+- no real browser automation was available to validate rendered browser
+  behavior;
+- no booking confirmation form CSRF/cookie behavior has been validated because
+  the public staging booking page exposed no safe slot links during the batch;
+- no booking success no-cache behavior has been validated because no existing
+  synthetic booking UUID was available and no booking POST was submitted;
+- no HSTS header was observed on checked public responses;
+- no CSP header was observed on checked public responses;
 - no reverse proxy header overwrite or client IP stripping behavior has been
   validated;
 - no safe staging shell command output has been archived from the Render
   runtime;
-- no static asset strategy has been separately validated beyond public pages
-  returning HTTP 200;
+- no full static asset strategy has been validated beyond basic home-page
+  static assets returning HTTP 200;
 - no readiness/liveness monitoring path has been connected to alerting.
 
 ## Staging Environment Contract Status
 
 Batch 14 local validation proved that staging-only environment values were not
-available in the local workspace. Batch 14C-VALIDATE-01 did not import those
-values locally and did not print or document any secret values.
+available in the local workspace. Batch 14C-VALIDATE-01 and
+Batch 14C-VALIDATE-02 did not import those values locally and did not print or
+document any secret values.
 
 Operator context says the Render staging environment was configured manually
 outside Git after the old exposed database connection was invalidated. The
@@ -120,7 +152,7 @@ Remaining local-tooling limitations:
 ## PostgreSQL Blockers
 
 PostgreSQL readiness remains incomplete for real staging after
-Batch 14C-VALIDATE-01.
+Batch 14C-VALIDATE-02.
 
 Batch 14B and Batch 14B-FIX-01 locally validated:
 
@@ -163,7 +195,7 @@ Still not validated or still blocked:
 
 ## Redis / Shared Cache Blockers
 
-Redis/shared-cache readiness remains incomplete after Batch 14B.
+Redis/shared-cache readiness remains incomplete after Batch 14C-VALIDATE-02.
 
 Batch 14B locally validated:
 
@@ -203,13 +235,17 @@ Still not validated or still blocked:
 
 ## HTTPS, Proxy, and CSRF Blockers
 
-Batch 14C-VALIDATE-01 confirmed basic HTTPS GET reachability to the Render
-staging host. HTTPS/proxy readiness remains incomplete because the batch did
-not validate:
+Batch 14C-VALIDATE-02 confirmed basic HTTPS GET reachability, HTTP-to-HTTPS
+HEAD redirects, public security header observations, and safe HTTP-client
+CSRF/cookie evidence on anonymous portal forms. HTTPS/proxy readiness remains
+incomplete because the batch did not validate:
 
-- HTTP-to-HTTPS redirect through the real proxy;
-- secure cookies in a browser over HTTPS;
-- HSTS headers through the real staging path;
+- secure cookies in a real browser over HTTPS;
+- booking confirmation form CSRF behavior over the real staging origin;
+- booking success page no-cache behavior through a valid synthetic success URL;
+- HSTS headers through the real staging path, because checked responses showed
+  HSTS absent;
+- CSP behavior, because checked responses showed CSP absent;
 - exact staging `ALLOWED_HOSTS`;
 - exact HTTPS `CSRF_TRUSTED_ORIGINS`;
 - CSRF POST behavior from the real staging origin;
@@ -219,8 +255,8 @@ not validate:
 - whether `BOOKING_TRUST_X_FORWARDED_FOR=true` is safe.
 
 Local Docker PostgreSQL/Redis validation does not reduce these browser,
-proxy, and CSRF blockers. Batch 14C-VALIDATE-01 reduces them only to the
-extent that public HTTPS GET requests returned HTTP 200.
+proxy, and CSRF blockers. Batch 14C-VALIDATE-02 reduces them only to the extent
+that safe public GET/HEAD and anonymous portal form checks passed.
 
 ## Legal and Privacy Blockers
 
@@ -249,8 +285,8 @@ Operational launch blockers remain:
 - No dependency vulnerability scan evidence or response owner.
 - No staging load test.
 - No staging concurrency test.
-- No complete production static serving validation beyond public staging pages
-  returning HTTP 200.
+- No complete production static serving validation beyond basic home-page
+  static assets returning HTTP 200.
 
 ## Product Scope Blockers and Exclusions
 
@@ -271,15 +307,16 @@ The following remain absent and future-gated:
 
 ## Required Next Action
 
-Proceed to deeper real restricted staging validation with synthetic data only.
-The Render staging host is now functionally reachable for public GET checks,
-but local Docker validation and public GET evidence are not substitutes for
-full production-like staging validation.
+Proceed to operator-assisted real restricted staging validation with synthetic
+data only. The Render staging host is now functionally reachable for public
+GET checks, redirects checked HTTP paths to HTTPS, and serves basic home-page
+static assets, but local Docker validation and public HTTP-client evidence are
+not substitutes for full production-like staging validation.
 
 Recommended next batch:
 
 ```text
-Batch 14C-VALIDATE-02: deeper Render staging security/runtime validation
+Batch 14C-VALIDATE-03: operator-assisted Render runtime validation
 ```
 
 Dashboard implementation should remain deferred until the staging runtime,
