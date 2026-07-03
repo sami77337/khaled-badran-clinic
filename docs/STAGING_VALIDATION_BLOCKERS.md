@@ -89,8 +89,27 @@ Batch 15-OPS-01 did not execute a restore drill, configure a backup provider,
 configure uptime monitoring, configure alert routing, add error reporting,
 change Render settings, or validate production readiness.
 
+Batch 15-OPS-02 executed a synthetic-only local PostgreSQL logical
+backup/restore drill:
+
+- local Docker PostgreSQL and Redis services started and became healthy;
+- migrations applied to a local synthetic source database;
+- repository-approved public/demo seed commands ran;
+- source counts contained 0 patients and 0 appointments;
+- a local logical dump was restored into a separate local restore-test
+  database;
+- restored migration checks, Django checks, smoke checks, safe reports, safe
+  row counts, and the 246-test suite passed;
+- the generated dump artifact and local drill databases were removed.
+
+Batch 15-OPS-02 did not touch active Render staging, did not inspect staging
+database contents, did not change Render settings, did not configure a backup
+provider, did not configure uptime monitoring, did not configure alert routing,
+did not add error reporting, did not use real patient data, and did not validate
+production readiness.
+
 Do not claim production readiness from Batch 14, Batch 14B,
-Batch 14C-VALIDATE-01/02, or Batch 15-OPS-01.
+Batch 14C-VALIDATE-01/02, Batch 15-OPS-01, or Batch 15-OPS-02.
 
 ## Real Infrastructure Blockers
 
@@ -296,7 +315,8 @@ Legal/privacy launch blockers remain:
 
 Operational launch blockers remain:
 
-- Backup/restore planning exists, but no synthetic PostgreSQL backup/restore
+- Backup/restore planning exists, and a local synthetic PostgreSQL
+  backup/restore drill passed, but no real Render managed PostgreSQL restore
   drill evidence exists.
 - No backup retention/RPO/RTO approval.
 - Monitoring/alerting planning exists, but no uptime monitoring is configured.

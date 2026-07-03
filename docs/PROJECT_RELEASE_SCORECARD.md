@@ -89,6 +89,17 @@ planning update does not execute a restore drill, configure a monitoring
 provider, configure alert routing, add error reporting, or approve production
 launch.
 
+Batch 15-OPS-02 operations update: a synthetic-only local PostgreSQL logical
+backup/restore drill passed using the repository-approved local Docker service
+harness. The drill applied migrations, seeded only public/demo setup data,
+dumped a local synthetic source database, restored it into a separate local
+restore-test database, verified migration state, smoke checks, safe reports,
+safe row counts, and the 246-test suite, then removed the generated artifact
+and local drill databases. This improves local restore-procedure evidence only.
+It does not prove real Render managed PostgreSQL restore behavior, backup
+retention, RPO, RTO, monitoring, alert routing, legal/privacy approval, or
+production readiness.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -114,7 +125,7 @@ Status labels:
 | Staging readiness | Partial | Staging validation plan, gap analysis, environment contract, local validation scripts, local PostgreSQL/Redis harness, manual Render setup documentation, and sanitized Batch 14C-VALIDATE-02 evidence exist. The real Render staging service returns HTTP 200 for `/health/`, `/`, `/book/`, and `/en/book/`; HTTP redirects to HTTPS; home-page static assets return HTTP 200; and safe portal form CSRF/cookie evidence exists. Full production-like staging validation remains incomplete. |
 | PostgreSQL readiness | Partial | PostgreSQL expectations, migration/concurrency plans, local constraint tests, and local Docker PostgreSQL harness exist. Batch 14B-FIX-01 fixed the local PostgreSQL locking blocker and PostgreSQL-backed booking/patient portal/full-suite tests now pass locally. Render staging is reachable after operator-managed migration work, but direct safe staging database command evidence, load/concurrency, backup/restore, and provider validation have not run in this batch. |
 | Redis/shared cache readiness | Partial | Redis expectations and cache-key privacy tests exist. Batch 14B-FIX-01 proved local Docker Redis cache reachability and Redis-backed booking/patient portal/full-suite tests now pass locally. Render staging cache service exists by operator context, but real multi-process quota, outage, tuning, monitoring, and safe staging command evidence have not run in this batch. |
-| Backup/restore | Planned | Synthetic-only drill runbooks and the Batch 15 operations plan exist. PostgreSQL backup expectations, Redis non-authoritative recovery boundaries, restore drill procedure, verification criteria, owner checklist, and retention considerations are documented. No actual PostgreSQL restore drill evidence exists. |
+| Backup/restore | Partial | Synthetic-only drill runbooks and the Batch 15 operations plan exist. Batch 15-OPS-02 passed a local synthetic PostgreSQL logical dump/restore drill with public/demo setup data only, zero patients, zero appointments, safe post-restore reports, and 246 tests passing. Real Render managed PostgreSQL restore evidence, backup retention, RPO, RTO, backup monitoring, and provider-specific restore evidence remain incomplete. |
 | Privacy/legal | Blocked | Draft pages and privacy matrices exist. Formal legal/privacy review, retention/deletion policy, recovery policy, and patient identity verification are required before launch. |
 | Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. Batch 15 adds uptime, latency, error-rate, deploy, database, cache, privacy-safe error reporting, alert routing, severity, incident response, and post-incident review planning. No real uptime checks, alert routing, error reporting, or abuse alerts are configured. |
 | Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. No vulnerability scan evidence or approved response owner exists yet. |
@@ -151,10 +162,10 @@ launch.
 
 ## Conservative Completion Estimate
 
-Estimated whole-project completion after Batch 15-OPS-01 backup/restore and
-monitoring readiness planning:
+Estimated whole-project completion after Batch 15-OPS-02 local synthetic
+restore drill evidence:
 
-- Approximately 77-78%.
+- Approximately 78%.
 
 Rationale:
 
@@ -190,6 +201,10 @@ Rationale:
   more precise but does not create restore evidence, configure uptime checks,
   configure alert routing, configure privacy-safe error reporting, or change
   production readiness.
+- Batch 15-OPS-02 proves the local synthetic PostgreSQL logical restore
+  procedure with public/demo setup data only, but it does not prove Render
+  managed backup/restore, backup policy approval, monitoring provider setup,
+  alert routing, legal/privacy approval, or production readiness.
 - The estimate remains below launch-ready because real staging/prod
   validation depth, production infrastructure, legal/privacy approval,
   monitoring, backup/restore drill, security scanning, load testing, and
@@ -259,7 +274,7 @@ Not safe to demo as real or production functionality:
 - `python manage.py check --deploy` is reviewed in production-like settings.
 - `python manage.py deployment_smoke --strict` passes in staging.
 - Full tests pass in CI/local release validation.
-- Backup and restore drill with synthetic data is complete.
+- Real Render managed PostgreSQL restore drill with synthetic data is complete.
 - Monitoring, uptime checks, log collection, and alert routing are configured.
 - Dependency/security scanning is configured and reviewed.
 - Load/concurrency tests are completed against staging.
@@ -289,8 +304,9 @@ Not safe to demo as real or production functionality:
   direct safe staging command evidence, provider load/concurrency validation,
   backup/restore, and shared-cache multi-process/outage evidence remain
   incomplete.
-- Backup/restore planning is more precise, but no real synthetic PostgreSQL
-  restore drill has been completed.
+- Backup/restore planning is more precise, and a local synthetic PostgreSQL
+  restore drill passed, but no real Render managed PostgreSQL restore drill
+  has been completed.
 - Monitoring/alerting planning is more precise, but no uptime monitor, alert
   routing, privacy-safe error reporting, or abuse alert is configured.
 - No legal/privacy approval is recorded.
@@ -311,9 +327,9 @@ Not safe to demo as real or production functionality:
    access is available, including staging shell management commands, managed
    PostgreSQL/Redis evidence, booking confirmation/browser checks with
    synthetic data only, and sanitized targeted log review.
-2. Batch 15-OPS-02: execute a synthetic-only PostgreSQL restore drill in an
-   isolated restore-test database and configure or validate an approved
-   monitoring/alerting provider without committing credentials.
+2. Batch 15-OPS-03: operator-approved Render managed PostgreSQL restore drill
+   with synthetic data only, plus approved monitoring/alerting provider
+   configuration or validation without committing credentials.
 3. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
 4. Batch 16: legal/privacy/account recovery and patient identity verification
@@ -368,6 +384,11 @@ security headers, and safe portal CSRF/cookie/no-cache behavior. It does not
 add product features, change code, create patient data, submit booking POSTs,
 use secrets, document connection strings, run Render shell commands, fetch full
 logs, or claim production launch readiness.
+
+Batch 15-OPS-02 adds local synthetic restore evidence. It does not add product
+features, change code, create patient data, use active Render staging data,
+change Render settings, configure monitoring, approve retention/RPO/RTO, approve
+legal/privacy, or claim production launch readiness.
 
 ## Design Status
 
