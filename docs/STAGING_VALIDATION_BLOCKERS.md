@@ -127,9 +127,32 @@ alert routing, did not add privacy-safe error reporting, did not change Render
 settings, did not submit booking POSTs, did not call private endpoints, did not
 use real patient data, and did not validate production readiness.
 
+Batch 15-OPS-04 attempted dependency vulnerability scan evidence and documented
+response ownership:
+
+- local baseline commands passed without staging secrets;
+- the full local default suite passed: 246 tests, OK;
+- `python -m pip check` passed with no broken requirements;
+- `requirements.txt` is the only dependency manifest found in the repository;
+- Dependabot is already configured weekly for Python `pip` and GitHub Actions;
+- role-based dependency response ownership, severity handling, and update
+  cadence are documented;
+- no dependency package was upgraded;
+- no scanner was installed;
+- `pip-audit`, `safety`, `osv-scanner`, `trivy`, and `grype` were not
+  available locally;
+- GitHub vulnerability alerts and GitHub Dependabot alerts were disabled for
+  the repository.
+
+Batch 15-OPS-04 did not complete an advisory-backed vulnerability scan, did
+not enable GitHub security settings, did not configure CI scanning, did not
+record a named human response owner, did not change dependencies or lockfiles,
+did not change Render settings, did not use real patient data, and did not
+validate production readiness.
+
 Do not claim production readiness from Batch 14, Batch 14B,
 Batch 14C-VALIDATE-01/02, Batch 15-OPS-01, Batch 15-OPS-02, or
-Batch 15-OPS-03.
+Batch 15-OPS-03/04.
 
 ## Real Infrastructure Blockers
 
@@ -346,7 +369,10 @@ Operational launch blockers remain:
 - No alert routing is configured.
 - No privacy-safe error-reporting integration is configured.
 - No abuse monitoring configured for booking or portal flows.
-- No dependency vulnerability scan evidence or response owner.
+- Dependency vulnerability scan attempt evidence and role ownership are
+  documented, but a complete advisory-backed scan is still blocked because no
+  local scanner was available and GitHub vulnerability/Dependabot alerts were
+  disabled; no named human response owner is recorded.
 - No staging load test.
 - No staging concurrency test.
 - No complete production static serving validation beyond basic home-page
@@ -381,7 +407,8 @@ Recommended next batches:
 
 ```text
 Batch 14C-VALIDATE-03: operator-assisted Render runtime validation
-Batch 15-OPS-04: Render managed restore drill and approved monitoring/alerting setup
+Batch 15-OPS-05: enable approved dependency vulnerability scanning and rerun
+Batch 15-OPS-06: Render managed restore drill and approved monitoring/alerting setup
 ```
 
 Dashboard implementation should remain deferred until the staging runtime,
