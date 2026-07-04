@@ -105,6 +105,19 @@ final product completion and professional delivery readiness.
   documented. This does not configure a full monitoring provider, alert
   routing, privacy-safe error reporting, Render settings, or production
   readiness.
+- Batch 15-OPS-04 documented dependency inventory, safe local baseline,
+  unavailable advisory scanners, unavailable GitHub vulnerability/Dependabot
+  alerts, response ownership roles, severity handling, and update cadence. It
+  did not produce a complete advisory-backed scan.
+- Batch 15-OPS-05 added repository-supported `pip-audit` dependency scanning.
+  Local baseline commands, the full 246-test suite, and `python -m pip check`
+  passed under local development settings. `pip-audit 2.10.1` scanned
+  `requirements.txt` and returned no known vulnerabilities at scan time. A
+  dedicated `Dependency audit` GitHub Actions workflow now runs on pull
+  requests, manual dispatch, and a low-frequency weekly schedule. This does
+  not guarantee security, upgrade dependencies, generate a lockfile, enable
+  GitHub security settings, change Render settings, approve a named response
+  owner, or approve production launch readiness.
 
 ## Batch 14 Result
 
@@ -497,6 +510,55 @@ Key conclusion:
 - no real patient data, secrets, Render settings, dependency files, lockfiles,
   application code, or CI workflows were changed.
 
+## Batch 15-OPS-05 Result
+
+Batch 15-OPS-05 result:
+
+```text
+Advisory-backed dependency scanning added; production launch remains blocked.
+```
+
+Evidence added:
+
+- `.github/workflows/dependency-audit.yml`
+- `docs/BATCH_15_OPS_05_STATUS.md`
+- `docs/DEPENDENCY_AUDIT_WORKFLOW_EVIDENCE.md`
+
+Evidence updated:
+
+- `docs/DEPENDENCY_SECURITY_READINESS.md`
+- `docs/DEPENDENCY_VULNERABILITY_SCAN_EVIDENCE.md`
+- `docs/PROJECT_RELEASE_SCORECARD.md`
+- `docs/NEXT_BATCH.md`
+- `docs/STAGING_VALIDATION_BLOCKERS.md`
+- `docs/RELEASE_CHECKLIST.md`
+
+Key conclusion:
+
+- local baseline commands passed without staging secrets under
+  `config.settings.dev`;
+- the full local default suite passed: 246 tests, OK;
+- `python -m pip check` passed with no broken requirements;
+- `pip-audit 2.10.1` is available in the local workstation environment;
+- `pip-audit -r requirements.txt --progress-spinner off` completed
+  successfully;
+- the scan result was `No known vulnerabilities found`;
+- this means no known advisories were returned by `pip-audit` at scan time,
+  not a guarantee of security;
+- the `Dependency audit` workflow installs `pip-audit` as CI tooling only and
+  scans `requirements.txt`;
+- no dependency package was upgraded;
+- no lockfile was generated;
+- no Render setting was changed;
+- no GitHub repository security setting was changed;
+- no real patient data, secrets, response bodies, logs, application code,
+  models, migrations, templates, or product behavior were changed;
+- named dependency response owner approval, GitHub alert settings decision,
+  lockfile/hash workflow decision, full monitoring, alert routing,
+  privacy-safe error reporting, Render managed PostgreSQL restore drill,
+  legal/privacy approval, load/concurrency validation, and production hosting
+  remain incomplete.
+
 Batch 14A remains a valid later planning-only option:
 
 ```text
@@ -548,8 +610,10 @@ Must read before the next staging or operations batch:
 - `docs/OPERATIONS_BACKUP_RESTORE_PLAN.md`
 - `docs/OPERATIONS_MONITORING_ALERTING_PLAN.md`
 - `docs/DEPENDENCY_SECURITY_READINESS.md`
+- `docs/BATCH_15_OPS_05_STATUS.md`
 - `docs/SYNTHETIC_RESTORE_DRILL_EVIDENCE.md`
 - `docs/STAGING_UPTIME_LATENCY_MONITORING_EVIDENCE.md`
+- `docs/DEPENDENCY_AUDIT_WORKFLOW_EVIDENCE.md`
 - `docs/DEPENDENCY_VULNERABILITY_SCAN_EVIDENCE.md`
 - `docs/RESTRICTED_STAGING_VALIDATION_EVIDENCE.md`
 - `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
@@ -563,12 +627,11 @@ Must read before the next staging or operations batch:
    if safe access is available, including staging shell management commands,
    managed PostgreSQL/Redis command evidence, booking confirmation/browser
    checks with synthetic data only, and sanitized targeted log review.
-2. Batch 15-OPS-05: enable an approved dependency vulnerability scan source
-   such as GitHub alerts, `pip-audit`, or OSV, rerun the scan, and record a
-   named response owner without committing credentials.
-3. Batch 15-OPS-06: operator-approved Render managed PostgreSQL restore drill
+2. Batch 15-OPS-06: operator-approved Render managed PostgreSQL restore drill
    with synthetic data only, plus approved monitoring/alerting provider
    configuration or validation without committing credentials.
+3. Batch 15-OPS-07: dependency response owner approval, GitHub alert settings
+   decision, and bounded-ranges versus lockfile/hash workflow decision.
 4. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
 5. Batch 16: legal/privacy/account recovery and patient identity verification

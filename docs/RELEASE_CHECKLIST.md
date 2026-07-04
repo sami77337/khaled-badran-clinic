@@ -65,10 +65,36 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - `python manage.py test` passes.
 - Dependency/security batches document either an advisory-backed scan result or
   the exact scanner/tooling blocker.
+- Dependency/security batches using the repository-supported scanner run and
+  document `pip-audit -r requirements.txt --progress-spinner off`.
 - Dependency/security batches identify the response owner role, severity
   handling, and remaining owner-approval blocker.
 - Dependency upgrades, lockfiles, or scanner workflow additions are absent
   unless the batch explicitly approves them.
+
+## Dependency Audit Checklist
+
+- `.github/workflows/dependency-audit.yml` remains manually runnable.
+- The dependency audit workflow runs on pull requests.
+- The dependency audit workflow uses a low-frequency schedule only.
+- The workflow installs `pip-audit` as CI tooling only.
+- The workflow does not upgrade project dependencies.
+- The workflow does not modify `requirements.txt`.
+- The workflow does not generate a lockfile.
+- The workflow uses no secrets, Render access, external application endpoints,
+  response bodies, logs, or patient data.
+- `pip-audit -r requirements.txt --progress-spinner off` passes before a
+  release candidate and before production promotion.
+- A result of `No known vulnerabilities found` means no known advisories were
+  returned by the scanner at scan time, not a guarantee of security.
+- Critical/high dependency advisories block release until owner triage,
+  patch/mitigation, and validation are complete.
+- A named dependency response owner and backup owner must be approved before
+  production launch.
+- GitHub vulnerability and Dependabot alert settings still need an owner
+  decision if not enabled.
+- The bounded-ranges versus lockfile/hash workflow decision remains open until
+  explicitly approved.
 
 ## Pre-Deploy Checklist
 
