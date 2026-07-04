@@ -153,9 +153,34 @@ record a named human response owner, did not change dependencies or lockfiles,
 did not change Render settings, did not use real patient data, and did not
 validate production readiness.
 
+Batch 15-OPS-05 added repository-supported advisory-backed dependency
+scanning:
+
+- local baseline commands passed without staging secrets under
+  `config.settings.dev`;
+- the full local default suite passed: 246 tests, OK;
+- `python -m pip check` passed with no broken requirements;
+- `pip-audit 2.10.1` scanned `requirements.txt`;
+- the scan returned no known vulnerabilities at scan time;
+- `.github/workflows/dependency-audit.yml` now runs `pip-audit` on pull
+  requests, manual dispatch, and a low-frequency weekly schedule;
+- no dependency package was upgraded;
+- no lockfile was generated;
+- no GitHub repository security setting was changed;
+- no Render setting was changed;
+- no real patient data, secrets, response bodies, logs, application code,
+  models, migrations, templates, or product behavior were changed.
+
+Batch 15-OPS-05 did not guarantee security, approve a named human dependency
+response owner, decide GitHub vulnerability/Dependabot alert settings, decide
+bounded ranges versus lockfile/hash workflow, configure full monitoring, route
+alerts, add privacy-safe error reporting, complete a Render managed PostgreSQL
+restore drill, approve legal/privacy, validate load/concurrency, or validate
+production readiness.
+
 Do not claim production readiness from Batch 14, Batch 14B,
 Batch 14C-VALIDATE-01/02, Batch 15-OPS-01, Batch 15-OPS-02, or
-Batch 15-OPS-03/04.
+Batch 15-OPS-03/04/05.
 
 ## Real Infrastructure Blockers
 
@@ -372,10 +397,11 @@ Operational launch blockers remain:
 - No alert routing is configured.
 - No privacy-safe error-reporting integration is configured.
 - No abuse monitoring configured for booking or portal flows.
-- Dependency vulnerability scan attempt evidence and role ownership are
-  documented, but a complete advisory-backed scan is still blocked because no
-  local scanner was available and GitHub vulnerability/Dependabot alerts were
-  disabled; no named human response owner is recorded.
+- Dependency vulnerability scanning is now supported by `pip-audit` locally and
+  in CI, but a named human response owner and backup owner are not recorded,
+  GitHub vulnerability and Dependabot alert settings still need an owner
+  decision if not enabled, and the lockfile/hash workflow decision remains
+  open.
 - No staging load test.
 - No staging concurrency test.
 - No complete production static serving validation beyond basic home-page
@@ -410,8 +436,8 @@ Recommended next batches:
 
 ```text
 Batch 14C-VALIDATE-03: operator-assisted Render runtime validation
-Batch 15-OPS-05: enable approved dependency vulnerability scanning and rerun
 Batch 15-OPS-06: Render managed restore drill and approved monitoring/alerting setup
+Batch 15-OPS-07: dependency owner, GitHub alert, and lockfile/hash decisions
 ```
 
 Dashboard implementation should remain deferred until the staging runtime,

@@ -32,14 +32,16 @@ GitHub Actions used by CI:
 ## Current Risk Profile
 
 Current dependency management is simple and reviewable, but launch readiness
-requires vulnerability scanning and an update review process.
+requires recurring vulnerability scan review and an approved update response
+process.
 
 Risks:
 
 - version ranges can admit newer minor/patch versions with regressions,
 - unreviewed dependency updates may affect security behavior,
-- no recurring vulnerability scan result is currently required before launch,
-- no owner is assigned for high/critical dependency response.
+- recurring scan evidence still needs accountable owner review before launch,
+- GitHub vulnerability/Dependabot alert settings still need an owner decision,
+- no named owner is assigned for high/critical dependency response.
 
 ## Batch 15-OPS-04 Scan Baseline
 
@@ -100,6 +102,61 @@ vulnerability result.
 
 Detailed evidence is recorded in
 `docs/DEPENDENCY_VULNERABILITY_SCAN_EVIDENCE.md`.
+
+## Batch 15-OPS-05 Advisory Scan Workflow
+
+BATCH-15-OPS-05 adds repository-supported advisory-backed dependency scanning
+with `pip-audit`.
+
+Scanner:
+
+```text
+pip-audit
+```
+
+Manifest scanned:
+
+```text
+requirements.txt
+```
+
+Local scan command:
+
+```bash
+pip-audit -r requirements.txt --progress-spinner off
+```
+
+Local scan result:
+
+```text
+No known vulnerabilities found
+```
+
+Interpretation:
+
+- `pip-audit 2.10.1` completed successfully in the active local environment.
+- No known advisories were returned for `requirements.txt` at scan time.
+- This is not a guarantee that the application or dependency set is
+  vulnerability-free.
+- No dependency packages were upgraded.
+- No lockfile was generated.
+- No Render settings were changed.
+- No patient data was used.
+
+CI workflow:
+
+- `.github/workflows/dependency-audit.yml`
+- workflow name: `Dependency audit`
+- runs on pull requests, manual dispatch, and a low-frequency weekly schedule
+- installs `pip-audit` as CI tooling only
+- runs `pip-audit -r requirements.txt --progress-spinner off`
+- fails on scanner failure or real vulnerability findings
+- does not modify dependencies or lockfiles
+- does not use secrets, Render access, external app endpoints, response
+  bodies, or patient data
+
+Detailed workflow evidence is recorded in
+`docs/DEPENDENCY_AUDIT_WORKFLOW_EVIDENCE.md`.
 
 ## Dependency Response Ownership
 
@@ -175,28 +232,31 @@ Required operational cadence before launch:
 
 ## Current Blockers
 
-- No complete advisory-backed vulnerability scan result exists yet.
-- GitHub vulnerability alerts are disabled for the repository.
-- GitHub Dependabot alerts are disabled for the repository.
-- No local scanner is installed or approved in CI.
-- No named human dependency response owner is recorded in the repository.
+- A named human dependency response owner and backup owner are not recorded in
+  the repository.
+- GitHub vulnerability alerts still need an owner decision if they are not
+  enabled.
+- GitHub Dependabot alerts still need an owner decision if they are not
+  enabled.
 - Requirements use bounded ranges rather than exact pins or a committed
   lockfile.
+- The lockfile/hash workflow decision remains open.
 
-## pip-audit Option
+## Repository pip-audit Scanner
 
-`pip-audit` is an open-source option for Python dependency vulnerability
-scanning.
+`pip-audit` is the repository-supported Python dependency vulnerability scanner
+added by BATCH-15-OPS-05.
 
-Possible future local/CI command:
+Local and CI command:
 
 ```bash
-python -m pip install pip-audit
-python -m pip_audit -r requirements.txt
+pip-audit -r requirements.txt --progress-spinner off
 ```
 
-Do not add scanning credentials. If a scanner is added to CI later, keep it
-bounded and ensure failures are reviewed by a maintainer.
+CI installs `pip-audit` as tooling only. Do not add scanner credentials. Do not
+upgrade dependencies or generate a lockfile inside the scan workflow. Ensure
+failures are reviewed by a maintainer and the accountable dependency response
+owner.
 
 ## Safety Option
 
@@ -293,8 +353,12 @@ BATCH-15-OPS-04 documents dependency inventory, safe local dependency baseline,
 scanner/tooling blockers, response ownership roles, severity handling, and
 update cadence.
 
-Dependency security readiness remains partial until an advisory-backed
-vulnerability scan runs successfully and a named response owner/process is
-approved.
+BATCH-15-OPS-05 adds a `pip-audit` workflow and records a successful local
+advisory-backed scan of `requirements.txt` with no known advisories returned at
+scan time.
+
+Dependency security readiness remains partial until a named response owner and
+backup owner are approved, GitHub alert settings receive an owner decision, and
+the bounded-ranges versus lockfile/hash workflow decision is closed.
 
 Design status: No design work performed by Codex.

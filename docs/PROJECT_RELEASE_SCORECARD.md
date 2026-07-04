@@ -125,6 +125,17 @@ evidence, not a clean vulnerability scan. It does not change dependencies,
 install scanners, enable GitHub security settings, configure CI scanning,
 change Render settings, or approve production launch readiness.
 
+Batch 15-OPS-05 operations update: advisory-backed dependency scanning is now
+repository-supported with `pip-audit`. Local baseline checks, the full
+246-test suite, and `python -m pip check` passed under local development
+settings. `pip-audit 2.10.1` ran against `requirements.txt` and returned no
+known vulnerabilities at scan time. A dedicated `Dependency audit` GitHub
+Actions workflow now runs `pip-audit` on pull requests, manual dispatch, and a
+low-frequency weekly schedule. This does not guarantee security, upgrade
+dependencies, generate a lockfile, enable GitHub security settings, change
+Render settings, approve a named response owner, or approve production launch
+readiness.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -145,7 +156,7 @@ Status labels:
 | Staff operations | Partial | Staff-only appointment list/detail and bounded status operations exist with authorization and tests. Broader dashboard, staff access review, audit retention, and operational policies remain. |
 | Patient portal | Partial | Optional account, login, logout, password change, account summary, static recovery policy, appointment linking, and linked appointment viewing exist. Identity verification, secure recovery process, abuse monitoring, legal review, and staging validation remain. |
 | Account security | Partial | Password hashing/validation, CSRF, POST-only logout, no-cache portal pages, generic linking errors, and rate limits exist. Batch 14C-VALIDATE-02 confirmed anonymous portal login/register forms include CSRF inputs and set a secure CSRF cookie over HTTPS. Email/phone ownership, recovery operations, production tuning, and abuse monitoring remain. |
-| Production settings | Partial | Split settings, production checks, secure-cookie defaults, PostgreSQL/Redis support, strict smoke blockers, environment contract, safe production settings report, and Render-ready Gunicorn/WhiteNoise prerequisites exist. Render staging public GET/static/header evidence is now deeper, but strict staging runtime checks, full browser/proxy/security behavior, database/cache evidence, backups, monitoring, and scanning remain. |
+| Production settings | Partial | Split settings, production checks, secure-cookie defaults, PostgreSQL/Redis support, strict smoke blockers, environment contract, safe production settings report, and Render-ready Gunicorn/WhiteNoise prerequisites exist. Render staging public GET/static/header evidence is now deeper, but strict staging runtime checks, full browser/proxy/security behavior, database/cache evidence, backups, monitoring, and owner-reviewed security response remain. |
 | Deployment smoke | Done | Safe smoke command exists with human/JSON/strict modes, route/security summaries, prohibited-feature checks, redaction rules, and stronger production-like blockers. It does not deploy or prove infrastructure readiness by itself. |
 | Staging readiness | Partial | Staging validation plan, gap analysis, environment contract, local validation scripts, local PostgreSQL/Redis harness, manual Render setup documentation, and sanitized Batch 14C-VALIDATE-02 evidence exist. The real Render staging service returns HTTP 200 for `/health/`, `/`, `/book/`, and `/en/book/`; HTTP redirects to HTTPS; home-page static assets return HTTP 200; and safe portal form CSRF/cookie evidence exists. Full production-like staging validation remains incomplete. |
 | PostgreSQL readiness | Partial | PostgreSQL expectations, migration/concurrency plans, local constraint tests, and local Docker PostgreSQL harness exist. Batch 14B-FIX-01 fixed the local PostgreSQL locking blocker and PostgreSQL-backed booking/patient portal/full-suite tests now pass locally. Render staging is reachable after operator-managed migration work, but direct safe staging database command evidence, load/concurrency, backup/restore, and provider validation have not run in this batch. |
@@ -153,7 +164,7 @@ Status labels:
 | Backup/restore | Partial | Synthetic-only drill runbooks and the Batch 15 operations plan exist. Batch 15-OPS-02 passed a local synthetic PostgreSQL logical dump/restore drill with public/demo setup data only, zero patients, zero appointments, safe post-restore reports, and 246 tests passing. Real Render managed PostgreSQL restore evidence, backup retention, RPO, RTO, backup monitoring, and provider-specific restore evidence remain incomplete. |
 | Privacy/legal | Blocked | Draft pages and privacy matrices exist. Formal legal/privacy review, retention/deletion policy, recovery policy, and patient identity verification are required before launch. |
 | Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. Batch 15 adds uptime, latency, error-rate, deploy, database, cache, privacy-safe error reporting, alert routing, severity, incident response, and post-incident review planning. Batch 15-OPS-03 adds a low-frequency GitHub Actions staging uptime workflow for public `/health/` and `/` checks only. No full monitoring provider, alert routing, privacy-safe error reporting, or abuse alerts are configured. |
-| Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. Batch 15-OPS-04 documents dependency inventory, safe local baseline, unavailable local scanners, disabled GitHub vulnerability/Dependabot alerts, role-based response ownership, severity handling, and update cadence. A complete advisory-backed vulnerability scan, enabled scan workflow, and named approved response owner remain incomplete. |
+| Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. Batch 15-OPS-05 adds a `pip-audit` workflow and records a successful local advisory-backed scan of `requirements.txt` with no known advisories returned at scan time. Named response owner approval, GitHub alert settings decision, and lockfile/hash workflow decision remain incomplete. |
 | Staff/admin governance | Partial | Staff access governance is documented and staff route tests exist. Real staff roster, superuser minimization, and access review remain manual/pre-launch. |
 | Design/Figma | Blocked | Current code has existing visual foundation from earlier batches. Batch 13 defines UX/product-flow and design handoff requirements only. Future visual changes still require human/Figma handoff and approval before Codex implementation. |
 | Uploads | Out of Scope for Now | No upload routes or private media handling are implemented. Private storage, malware scanning, retention, access control, and legal design are required first. |
@@ -187,10 +198,10 @@ launch.
 
 ## Conservative Completion Estimate
 
-Estimated whole-project completion after Batch 15-OPS-04 dependency scan
-attempt and response ownership documentation:
+Estimated whole-project completion after Batch 15-OPS-05 advisory-backed
+dependency scan workflow evidence:
 
-- Approximately 78%.
+- Approximately 79%.
 
 Rationale:
 
@@ -236,13 +247,16 @@ Rationale:
   readiness.
 - Batch 15-OPS-04 documents dependency inventory, local dependency consistency,
   scanner/tooling blockers, response ownership roles, severity handling, and
-  update cadence, but it does not produce a complete advisory-backed
-  vulnerability scan or approve a named human response owner.
+  update cadence.
+- Batch 15-OPS-05 adds a repository-supported `pip-audit` workflow and records
+  a successful local advisory-backed scan of `requirements.txt`, but it does
+  not approve a named human response owner, enable GitHub security settings, or
+  close the lockfile/hash workflow decision.
 - The estimate remains below launch-ready because real staging/prod
   validation depth, production infrastructure, legal/privacy approval,
-  full monitoring and alert routing, backup/restore drill, complete security
-  scanning, load testing, and Figma-approved future design governance are still
-  unresolved.
+  full monitoring and alert routing, backup/restore drill, owner-reviewed
+  security response, load testing, and Figma-approved future design governance
+  are still unresolved.
 - Large future feature areas remain intentionally absent: uploads, medical
   records, WhatsApp API/webhooks, payments, and medical automation.
 
@@ -296,8 +310,7 @@ Not safe to demo as real or production functionality:
 - Provider-specific staging/production behavior not yet validated.
 - Real backup/restore recovery.
 - Monitoring and incident response in a live environment.
-- Real dependency vulnerability response without an enabled scanner and
-  approved owner review.
+- Real dependency vulnerability response without approved owner review.
 
 ## Do Not Launch Publicly Until
 
@@ -352,10 +365,10 @@ Not safe to demo as real or production functionality:
 - No secure account recovery operation is approved.
 - No production rate-limit tuning has been completed.
 - No load/concurrency test results exist.
-- Dependency vulnerability scan evidence is attempted and documented, but not
-  complete: no local advisory scanner was available, GitHub vulnerability and
-  Dependabot alerts were disabled, no CI scanner exists, and response
-  ownership still needs named owner approval.
+- Dependency vulnerability scanning is now supported by `pip-audit` locally and
+  in CI, but GitHub vulnerability and Dependabot alert settings still need an
+  owner decision, the lockfile/hash workflow decision remains open, and
+  response ownership still needs named owner approval.
 - No staff access review process is defined.
 - No audit retention/access review policy is defined.
 - No Figma handoff exists for future visual changes.
@@ -366,12 +379,11 @@ Not safe to demo as real or production functionality:
    access is available, including staging shell management commands, managed
    PostgreSQL/Redis evidence, booking confirmation/browser checks with
    synthetic data only, and sanitized targeted log review.
-2. Batch 15-OPS-05: enable an approved dependency vulnerability scan source
-   such as GitHub alerts, `pip-audit`, or OSV, rerun the scan, and record a
-   named response owner without committing credentials.
-3. Batch 15-OPS-06: operator-approved Render managed PostgreSQL restore drill
+2. Batch 15-OPS-06: operator-approved Render managed PostgreSQL restore drill
    with synthetic data only, plus approved monitoring/alerting provider
    configuration or validation without committing credentials.
+3. Batch 15-OPS-07: dependency response owner approval, GitHub alert settings
+   decision, and bounded-ranges versus lockfile/hash workflow decision.
 4. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
 5. Batch 16: legal/privacy/account recovery and patient identity verification
@@ -443,6 +455,12 @@ response ownership documentation. It does not add product features, create
 patient data, change dependencies, install scanners, enable GitHub security
 settings, change Render settings, configure CI scanning, or claim production
 launch readiness.
+
+Batch 15-OPS-05 adds advisory-backed dependency scanning with `pip-audit`, a
+dedicated dependency audit workflow, and updated evidence. It does not add
+product features, create patient data, change dependencies, generate a
+lockfile, enable GitHub security settings, change Render settings, or claim
+production launch readiness.
 
 ## Design Status
 
