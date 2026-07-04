@@ -114,14 +114,16 @@ readiness.
 Batch 15-OPS-04 operations update: dependency vulnerability scan evidence and
 response ownership were documented using available safe local and GitHub
 tooling only. Local Django baseline checks, the full 246-test suite, and
-`python -m pip check` passed. The repository has only `requirements.txt` as a
-dependency manifest, and Dependabot is already configured weekly for Python
-and GitHub Actions. A complete advisory-backed vulnerability scan did not run
-because `pip-audit`, `safety`, `osv-scanner`, `trivy`, and `grype` were not
-available locally, and GitHub vulnerability/Dependabot alerts were disabled.
-This is blocker evidence, not a clean vulnerability scan. It does not change
-dependencies, install scanners, enable GitHub security settings, configure CI
-scanning, change Render settings, or approve production launch readiness.
+`python -m pip check` passed. Local `check --deploy` and strict smoke were
+also run under development settings and produced only the expected local
+warnings. The repository has only `requirements.txt` as a dependency manifest,
+and Dependabot is already configured weekly for Python and GitHub Actions. A
+complete advisory-backed vulnerability scan did not run because `pip-audit`,
+`safety`, `osv-scanner`, `trivy`, and `grype` were not available locally, and
+GitHub vulnerability/Dependabot alerts were disabled. This is blocker
+evidence, not a clean vulnerability scan. It does not change dependencies,
+install scanners, enable GitHub security settings, configure CI scanning,
+change Render settings, or approve production launch readiness.
 
 Status labels:
 

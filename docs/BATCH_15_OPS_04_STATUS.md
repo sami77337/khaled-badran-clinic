@@ -62,9 +62,13 @@ no
 
 | Command | Result |
 | --- | --- |
+| `python --version` | Exit 0; Python 3.14.2 in the active local environment. |
+| `python -m pip --version` | Exit 0; pip 26.1 in the active local environment. |
 | `python manage.py check` | Exit 0; no system check issues. |
 | `python manage.py makemigrations --check --dry-run` | Exit 0; no changes detected. |
 | `python manage.py deployment_smoke` | Exit 0; 16 pass, 4 expected local warnings, 0 failures, 0 strict blockers. |
+| `python manage.py check --deploy` | Exit 0; 6 expected local-development Django security warnings under `config.settings.dev`. |
+| `python manage.py deployment_smoke --strict` | Exit 0 under local dev settings; 16 pass, 4 expected local warnings, 0 failures, 0 strict blockers. |
 | `python manage.py production_settings_report` | Exit 0; safe local report only. |
 | `python manage.py project_status_report` | Exit 0; safe counts only; 0 patients and 0 appointments. |
 | `python manage.py test` | Exit 0; 246 tests ran, OK. |
@@ -76,6 +80,15 @@ Expected local warnings remain:
 - SQLite instead of PostgreSQL
 - LocMemCache instead of Redis/shared cache
 - HTTPS redirect disabled locally
+
+Expected local `check --deploy` warnings remain:
+
+- HSTS disabled locally
+- HTTPS redirect disabled locally
+- local placeholder/short development secret
+- secure session cookie disabled locally
+- secure CSRF cookie disabled locally
+- `DEBUG=True`
 
 ## Dependency Scan Status
 

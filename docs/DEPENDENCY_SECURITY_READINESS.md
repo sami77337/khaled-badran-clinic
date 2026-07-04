@@ -63,7 +63,14 @@ Observed manifest scope:
 
 Safe local baseline:
 
+- `python --version` reported Python 3.14.2 in the active local environment.
+- `python -m pip --version` reported pip 26.1 in the active local environment.
 - `python -m pip check` exited successfully with no broken requirements.
+- `python manage.py check --deploy` exited 0 with 6 expected
+  local-development Django security warnings under `config.settings.dev`.
+- `python manage.py deployment_smoke --strict` exited 0 under local dev
+  settings with 16 pass, 4 expected local warnings, 0 failures, and 0 strict
+  blockers.
 - The currently installed declared runtime packages were:
   - `Django 5.2.15`
   - `dj-database-url 2.3.0`
