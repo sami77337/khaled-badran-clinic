@@ -478,6 +478,9 @@ Key conclusion:
 - local baseline commands passed without staging secrets;
 - the full local default suite passed: 246 tests, OK;
 - `python -m pip check` passed with no broken requirements;
+- local `python manage.py check --deploy` and
+  `python manage.py deployment_smoke --strict` ran under development settings
+  and produced only expected local-development warnings;
 - `requirements.txt` is the only dependency manifest found in the repository;
 - no Python lockfile is currently committed;
 - Dependabot is already configured weekly for Python `pip` and GitHub Actions;
