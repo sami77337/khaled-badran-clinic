@@ -118,6 +118,13 @@ final product completion and professional delivery readiness.
   not guarantee security, upgrade dependencies, generate a lockfile, enable
   GitHub security settings, change Render settings, approve a named response
   owner, or approve production launch readiness.
+- Batch 15-OPS-06 documented monitoring provider readiness, alert-routing
+  readiness, privacy-safe error-reporting readiness, and the operations signal
+  matrix. Safe public staging GET spot checks returned HTTP 200 for
+  `/health/` and `/`, but both responses exceeded 30 seconds and remain severe
+  staging latency evidence. This does not configure a monitoring provider,
+  route alerts, add error reporting, change Render settings, run a Render
+  managed PostgreSQL restore drill, or approve production launch readiness.
 
 ## Batch 14 Result
 
@@ -559,6 +566,57 @@ Key conclusion:
   legal/privacy approval, load/concurrency validation, and production hosting
   remain incomplete.
 
+## Batch 15-OPS-06 Result
+
+Batch 15-OPS-06 result:
+
+```text
+Monitoring provider, alert-routing, privacy-safe error-reporting, and signal
+matrix readiness documented; production launch remains blocked.
+```
+
+Evidence added:
+
+- `docs/BATCH_15_OPS_06_STATUS.md`
+- `docs/OPERATIONS_SIGNAL_MATRIX.md`
+
+Evidence updated:
+
+- `docs/OPERATIONS_MONITORING_ALERTING_PLAN.md`
+- `docs/STAGING_UPTIME_LATENCY_MONITORING_EVIDENCE.md`
+- `docs/MONITORING_ALERTING_READINESS.md`
+- `docs/PROJECT_RELEASE_SCORECARD.md`
+- `docs/NEXT_BATCH.md`
+- `docs/STAGING_VALIDATION_BLOCKERS.md`
+- `docs/RELEASE_CHECKLIST.md`
+- `docs/SECURITY_REGRESSION_CHECKLIST.md`
+
+Key conclusion:
+
+- pre-change local baseline evidence was supplied under
+  `config.settings.dev`;
+- pre-change full local default suite passed: 246 tests, OK;
+- pre-change `python -m pip check` passed;
+- pre-change `pip-audit 2.10.1` scanned `requirements.txt` and returned no
+  known vulnerabilities at scan time;
+- safe public staging GET checks discarded response bodies and printed only
+  HTTP status, total response time, and final URL;
+- `GET /health/` returned HTTP 200 in `32.828721` seconds;
+- `GET /` returned HTTP 200 in `31.897716` seconds;
+- both public staging spot checks are availability-positive but severe latency
+  evidence;
+- the operations signal matrix now maps liveness, latency, private readiness,
+  HTTP errors, deploy failures, PostgreSQL, Redis, backups, booking/portal
+  abuse, dependency security, privacy-safe error reporting, and incident
+  response signals to current evidence and blockers;
+- monitoring provider readiness remains incomplete;
+- alert routing readiness remains incomplete;
+- privacy-safe error reporting remains incomplete;
+- no app code, migrations, dependencies, workflows, Render settings, external
+  provider configuration, secrets, patient data, logs, or response bodies were
+  changed or committed;
+- production launch remains blocked.
+
 Batch 14A remains a valid later planning-only option:
 
 ```text
@@ -615,6 +673,8 @@ Must read before the next staging or operations batch:
 - `docs/STAGING_UPTIME_LATENCY_MONITORING_EVIDENCE.md`
 - `docs/DEPENDENCY_AUDIT_WORKFLOW_EVIDENCE.md`
 - `docs/DEPENDENCY_VULNERABILITY_SCAN_EVIDENCE.md`
+- `docs/BATCH_15_OPS_06_STATUS.md`
+- `docs/OPERATIONS_SIGNAL_MATRIX.md`
 - `docs/RESTRICTED_STAGING_VALIDATION_EVIDENCE.md`
 - `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
 - `docs/LOCAL_DOCKER_POSTGRES_REDIS_VALIDATION_EVIDENCE.md`
@@ -627,9 +687,9 @@ Must read before the next staging or operations batch:
    if safe access is available, including staging shell management commands,
    managed PostgreSQL/Redis command evidence, booking confirmation/browser
    checks with synthetic data only, and sanitized targeted log review.
-2. Batch 15-OPS-06: operator-approved Render managed PostgreSQL restore drill
-   with synthetic data only, plus approved monitoring/alerting provider
-   configuration or validation without committing credentials.
+2. Next operations follow-up: operator-approved Render managed PostgreSQL
+   restore drill with synthetic data only, plus approved monitoring/alerting
+   provider configuration or validation without committing credentials.
 3. Batch 15-OPS-07: dependency response owner approval, GitHub alert settings
    decision, and bounded-ranges versus lockfile/hash workflow decision.
 4. Batch 14A: dashboard implementation planning/authorization, only if the

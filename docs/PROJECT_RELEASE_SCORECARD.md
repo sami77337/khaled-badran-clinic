@@ -136,6 +136,15 @@ dependencies, generate a lockfile, enable GitHub security settings, change
 Render settings, approve a named response owner, or approve production launch
 readiness.
 
+Batch 15-OPS-06 operations update: monitoring provider readiness, alert
+routing readiness, privacy-safe error-reporting readiness, and the operations
+signal matrix are now documented. Safe public staging GET spot checks returned
+HTTP 200 for `/health/` and `/`, but both responses exceeded 30 seconds and
+remain severe staging latency evidence. This is docs/evidence-only. It does
+not configure a monitoring provider, route alerts, add an error-reporting SDK,
+change Render settings, create credentials, run a Render managed PostgreSQL
+restore drill, or approve production launch readiness.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -163,7 +172,7 @@ Status labels:
 | Redis/shared cache readiness | Partial | Redis expectations and cache-key privacy tests exist. Batch 14B-FIX-01 proved local Docker Redis cache reachability and Redis-backed booking/patient portal/full-suite tests now pass locally. Render staging cache service exists by operator context, but real multi-process quota, outage, tuning, monitoring, and safe staging command evidence have not run in this batch. |
 | Backup/restore | Partial | Synthetic-only drill runbooks and the Batch 15 operations plan exist. Batch 15-OPS-02 passed a local synthetic PostgreSQL logical dump/restore drill with public/demo setup data only, zero patients, zero appointments, safe post-restore reports, and 246 tests passing. Real Render managed PostgreSQL restore evidence, backup retention, RPO, RTO, backup monitoring, and provider-specific restore evidence remain incomplete. |
 | Privacy/legal | Blocked | Draft pages and privacy matrices exist. Formal legal/privacy review, retention/deletion policy, recovery policy, and patient identity verification are required before launch. |
-| Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. Batch 15 adds uptime, latency, error-rate, deploy, database, cache, privacy-safe error reporting, alert routing, severity, incident response, and post-incident review planning. Batch 15-OPS-03 adds a low-frequency GitHub Actions staging uptime workflow for public `/health/` and `/` checks only. No full monitoring provider, alert routing, privacy-safe error reporting, or abuse alerts are configured. |
+| Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. Batch 15 adds uptime, latency, error-rate, deploy, database, cache, privacy-safe error reporting, alert routing, severity, incident response, and post-incident review planning. Batch 15-OPS-03 adds a low-frequency GitHub Actions staging uptime workflow for public `/health/` and `/` checks only. Batch 15-OPS-06 documents the operations signal matrix and records public GET spot checks with HTTP 200 but severe latency over 30 seconds. No full monitoring provider, alert routing, privacy-safe error reporting, or abuse alerts are configured. |
 | Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. Batch 15-OPS-05 adds a `pip-audit` workflow and records a successful local advisory-backed scan of `requirements.txt` with no known advisories returned at scan time. Named response owner approval, GitHub alert settings decision, and lockfile/hash workflow decision remain incomplete. |
 | Staff/admin governance | Partial | Staff access governance is documented and staff route tests exist. Real staff roster, superuser minimization, and access review remain manual/pre-launch. |
 | Design/Figma | Blocked | Current code has existing visual foundation from earlier batches. Batch 13 defines UX/product-flow and design handoff requirements only. Future visual changes still require human/Figma handoff and approval before Codex implementation. |
@@ -198,8 +207,8 @@ launch.
 
 ## Conservative Completion Estimate
 
-Estimated whole-project completion after Batch 15-OPS-05 advisory-backed
-dependency scan workflow evidence:
+Estimated whole-project completion after Batch 15-OPS-06 monitoring,
+alert-routing, and error-readiness evidence:
 
 - Approximately 79%.
 
@@ -252,6 +261,10 @@ Rationale:
   a successful local advisory-backed scan of `requirements.txt`, but it does
   not approve a named human response owner, enable GitHub security settings, or
   close the lockfile/hash workflow decision.
+- Batch 15-OPS-06 documents monitoring provider readiness, alert routing,
+  privacy-safe error-reporting readiness, and the operations signal matrix, but
+  it does not configure an external provider, route alerts, add error
+  reporting, or resolve the severe staging latency evidence.
 - The estimate remains below launch-ready because real staging/prod
   validation depth, production infrastructure, legal/privacy approval,
   full monitoring and alert routing, backup/restore drill, owner-reviewed
@@ -356,10 +369,12 @@ Not safe to demo as real or production functionality:
 - Backup/restore planning is more precise, and a local synthetic PostgreSQL
   restore drill passed, but no real Render managed PostgreSQL restore drill
   has been completed.
-- Monitoring/alerting planning is more precise, and a low-frequency
-  repository-native staging uptime workflow exists for public GET checks, but
-  no full monitoring provider, alert routing, privacy-safe error reporting, or
-  abuse alert is configured.
+- Monitoring/alerting planning is more precise, a low-frequency
+  repository-native staging uptime workflow exists for public GET checks, and
+  the operations signal matrix is documented, but no full monitoring provider,
+  alert routing, privacy-safe error reporting, or abuse alert is configured.
+  Latest public staging GET spot checks returned HTTP 200 but exceeded 30
+  seconds for both `/health/` and `/`.
 - No legal/privacy approval is recorded.
 - No verified email/phone ownership policy is approved.
 - No secure account recovery operation is approved.
@@ -379,9 +394,9 @@ Not safe to demo as real or production functionality:
    access is available, including staging shell management commands, managed
    PostgreSQL/Redis evidence, booking confirmation/browser checks with
    synthetic data only, and sanitized targeted log review.
-2. Batch 15-OPS-06: operator-approved Render managed PostgreSQL restore drill
-   with synthetic data only, plus approved monitoring/alerting provider
-   configuration or validation without committing credentials.
+2. Next operations follow-up: operator-approved Render managed PostgreSQL
+   restore drill with synthetic data only, plus approved monitoring/alerting
+   provider configuration or validation without committing credentials.
 3. Batch 15-OPS-07: dependency response owner approval, GitHub alert settings
    decision, and bounded-ranges versus lockfile/hash workflow decision.
 4. Batch 14A: dashboard implementation planning/authorization, only if the
@@ -461,6 +476,13 @@ dedicated dependency audit workflow, and updated evidence. It does not add
 product features, create patient data, change dependencies, generate a
 lockfile, enable GitHub security settings, change Render settings, or claim
 production launch readiness.
+
+Batch 15-OPS-06 adds monitoring provider readiness, alert-routing readiness,
+privacy-safe error-reporting readiness, and operations signal matrix evidence.
+It does not add product features, create patient data, submit booking POSTs,
+change dependencies, configure external providers, route alerts, add
+error-reporting SDKs, change Render settings, run a Render managed restore
+drill, or claim production launch readiness.
 
 ## Design Status
 

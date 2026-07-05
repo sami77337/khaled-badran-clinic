@@ -26,6 +26,9 @@ Run this checklist before any staging launch, production launch, or feature batc
 - Review `docs/BACKUP_RESTORE_DRILL.md` before claiming restore readiness.
 - Review `docs/MONITORING_ALERTING_READINESS.md` before claiming monitoring
   readiness.
+- Review `docs/OPERATIONS_MONITORING_ALERTING_PLAN.md` and
+  `docs/OPERATIONS_SIGNAL_MATRIX.md` before claiming monitoring provider,
+  alert-routing, or privacy-safe error-reporting readiness.
 - Review `docs/STAFF_ACCESS_GOVERNANCE.md` before creating production
   staff/admin accounts.
 - Review `docs/LEGAL_PRIVACY_OPERATIONS.md` before public launch.
@@ -155,6 +158,10 @@ Run this checklist before any staging launch, production launch, or feature batc
 - Smoke output does not print database connection strings.
 - Smoke output does not print cache connection strings.
 - Logs do not print passwords, tokens, cookies, authorization headers, CSRF tokens, raw request bodies, or environment dumps.
+- Monitoring, alerting, and error-reporting payloads do not print passwords,
+  tokens, cookies, authorization headers, CSRF tokens, raw request bodies,
+  environment dumps, database URLs, cache URLs, private keys, provider keys, or
+  patient-identifying data.
 - `.env`, database dumps, logs, private media, and credentials are not committed.
 
 ## CI and Smoke

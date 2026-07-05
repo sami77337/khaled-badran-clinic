@@ -6,9 +6,12 @@ This plan defines production-oriented monitoring, alerting, uptime checks,
 error reporting, and incident response readiness for Dr. Khaled Badran Clinic.
 
 This is primarily a planning document. BATCH-15-OPS-03 adds interim
-repository-native staging checks, but this document does not configure a full
-monitoring provider, add third-party dependencies, create accounts, store
-credentials, change Render settings, or approve production launch.
+repository-native staging checks, and BATCH-15-OPS-06 adds a docs-only
+operations signal matrix for provider readiness, alert routing, and
+privacy-safe error-reporting readiness. This document does not configure a
+full monitoring provider, add third-party dependencies, create accounts, store
+credentials, route alerts, change Render settings, or approve production
+launch.
 
 Production-ready status:
 
@@ -51,8 +54,40 @@ Existing logging:
 - no third-party error reporting SDK;
 - repository-native GitHub Actions staging uptime workflow exists for public
   `/health/` and `/` evidence only;
+- docs-only operations signal matrix exists in
+  `docs/OPERATIONS_SIGNAL_MATRIX.md`;
 - no external uptime monitoring provider configured;
 - no alert routing configured.
+
+## Batch 15-OPS-06 Signal Matrix and Readiness Evidence
+
+BATCH-15-OPS-06 documents the operational signal matrix without configuring
+external providers or storing credentials.
+
+New evidence:
+
+- `docs/BATCH_15_OPS_06_STATUS.md`
+- `docs/OPERATIONS_SIGNAL_MATRIX.md`
+
+Readiness status:
+
+| Area | Status | Reason |
+| --- | --- | --- |
+| Monitoring provider readiness | Not configured; incomplete | No external provider is selected, configured, validated, or connected to escalation. |
+| Alert routing readiness | Not configured; incomplete | No primary or backup alert route is configured or tested. |
+| Privacy-safe error reporting | Not configured; incomplete | No provider integration, privacy-scrubbing configuration evidence, or scrubbed synthetic event review exists. |
+| Operations signal matrix | Documented | Liveness, latency, readiness, HTTP errors, deploy, database, cache, backup, abuse, dependency, error-reporting, and incident-response signals are mapped to current evidence and blockers. |
+
+Latest BATCH-15-OPS-06 safe public staging spot checks:
+
+| Endpoint | HTTP status | Total time | Interpretation |
+| --- | ---: | ---: | --- |
+| `GET /health/` | 200 | `32.828721` seconds | Available, but severe staging latency. |
+| `GET /` | 200 | `31.897716` seconds | Available, but severe staging latency. |
+
+Response bodies were discarded. These checks do not prove private readiness,
+database health, cache health, provider alerting, production uptime, or launch
+readiness.
 
 ## Uptime Checks
 
@@ -412,6 +447,11 @@ Reasons:
 - Dependabot exists for dependency update visibility;
 - a low-frequency GitHub Actions staging uptime workflow exists for public
   `/health/` and `/` checks;
+- the operations signal matrix now documents required signal groups and
+  readiness gaps;
+- BATCH-15-OPS-06 public staging spot checks returned HTTP 200 for `/health/`
+  and `/`, but both exceeded 30 seconds and remain severe staging latency
+  evidence;
 - external uptime monitoring provider is not configured;
 - alert routing is not configured;
 - privacy-safe error reporting is not configured;

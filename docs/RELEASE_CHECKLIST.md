@@ -71,6 +71,12 @@ Production migration must happen only with a backup and rollback plan. Do not ru
   handling, and remaining owner-approval blocker.
 - Dependency upgrades, lockfiles, or scanner workflow additions are absent
   unless the batch explicitly approves them.
+- Monitoring/alerting batches review
+  `docs/OPERATIONS_MONITORING_ALERTING_PLAN.md` and
+  `docs/OPERATIONS_SIGNAL_MATRIX.md`.
+- Monitoring/alerting batches do not claim provider readiness, alert-routing
+  readiness, or privacy-safe error-reporting readiness unless a provider and
+  alert route were configured and tested outside Git with secret-safe evidence.
 
 ## Dependency Audit Checklist
 
@@ -96,6 +102,28 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - The bounded-ranges versus lockfile/hash workflow decision remains open until
   explicitly approved.
 
+## Operations Monitoring and Error Reporting Checklist
+
+- `docs/OPERATIONS_SIGNAL_MATRIX.md` is reviewed before claiming operations
+  monitoring readiness.
+- Public `/health/` and `/` checks record status, latency, and final URL only.
+- Public monitoring checks do not print response bodies.
+- Private `/health/ready/` monitoring is configured only through a private or
+  trusted internal path where possible.
+- Severe staging latency over 30 seconds is treated as a blocker requiring
+  review, even when HTTP status is 200.
+- External monitoring provider selection is owner-approved before
+  configuration.
+- Alert recipients and escalation paths are approved outside Git.
+- Alert routes are tested before launch.
+- Alert payloads do not include secrets, patient data, request bodies, cookies,
+  raw tokens, database URLs, cache URLs, private keys, or provider keys.
+- Privacy-safe error reporting is not enabled until request-body capture is
+  disabled, required scrubbers are configured, retention is approved, and a
+  synthetic event is reviewed.
+- No monitoring DSNs, webhook URLs, API keys, tokens, private contacts, or
+  provider environment dumps are committed.
+
 ## Pre-Deploy Checklist
 
 - Release revision is identified.
@@ -110,6 +138,9 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - `BOOKING_TRUST_X_FORWARDED_FOR` remains false unless trusted proxy stripping is verified.
 - Backup and rollback plan exists.
 - Monitoring owner is assigned.
+- Operations signal matrix has been reviewed and any incomplete provider,
+  alert-routing, or privacy-safe error-reporting item is recorded as a launch
+  blocker.
 - Dependency vulnerability scan source is enabled and reviewed, or a launch
   blocker is explicitly recorded.
 - Critical/high dependency advisories have an accountable owner decision,
@@ -203,6 +234,12 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - `/health/ready/` private readiness monitoring is configured.
 - Error reporting, if added later, has privacy scrubbing before activation.
 - Alert routing is tested.
+- Monitoring provider readiness is not claimed from repository-native staging
+  GET evidence alone.
+- Alert routing readiness is not claimed until primary and backup routes are
+  tested.
+- Privacy-safe error reporting readiness is not claimed until a scrubbed
+  synthetic event is reviewed.
 
 ## Post-Deploy Checklist
 

@@ -178,9 +178,34 @@ alerts, add privacy-safe error reporting, complete a Render managed PostgreSQL
 restore drill, approve legal/privacy, validate load/concurrency, or validate
 production readiness.
 
+Batch 15-OPS-06 documented monitoring provider readiness, alert-routing
+readiness, privacy-safe error-reporting readiness, and the operations signal
+matrix:
+
+- safe public staging GET checks returned HTTP 200 for `/health/` and `/`;
+- `/health/` returned in `32.828721` seconds;
+- `/` returned in `31.897716` seconds;
+- both spot checks discarded response bodies and recorded only status, total
+  time, and final URL;
+- both spot checks are severe staging latency evidence because they exceeded
+  30 seconds;
+- the operations signal matrix maps liveness, latency, private readiness, HTTP
+  errors, deploy failures, PostgreSQL, Redis, backup, booking/portal abuse,
+  dependency security, privacy-safe error reporting, and incident response
+  signals to current evidence and blockers;
+- monitoring provider readiness remains incomplete;
+- alert routing readiness remains incomplete;
+- privacy-safe error reporting readiness remains incomplete.
+
+Batch 15-OPS-06 did not configure a monitoring provider, route alerts, add
+error reporting, change Render settings, change dependencies, change app code,
+add migrations, use secrets, record logs or response bodies, complete a Render
+managed PostgreSQL restore drill, approve legal/privacy, validate
+load/concurrency, or validate production readiness.
+
 Do not claim production readiness from Batch 14, Batch 14B,
 Batch 14C-VALIDATE-01/02, Batch 15-OPS-01, Batch 15-OPS-02, or
-Batch 15-OPS-03/04/05.
+Batch 15-OPS-03/04/05/06.
 
 ## Real Infrastructure Blockers
 
@@ -215,7 +240,9 @@ Still blocked or not fully validated:
 - no full static asset strategy has been validated beyond basic home-page
   static assets returning HTTP 200;
 - a repository-native public liveness/home-page workflow exists, but no
-  readiness/liveness monitoring path has been connected to alerting.
+  readiness/liveness monitoring path has been connected to alerting;
+- BATCH-15-OPS-06 public GET spot checks returned HTTP 200 but severe staging
+  latency over 30 seconds was observed for both `/health/` and `/`.
 
 ## Staging Environment Contract Status
 
@@ -393,7 +420,9 @@ Operational launch blockers remain:
 - No backup retention/RPO/RTO approval.
 - Monitoring/alerting planning exists, and a low-frequency GitHub Actions
   staging uptime workflow exists for public `/health/` and `/` GET checks, but
-  no full monitoring provider is configured.
+  no full monitoring provider is configured. BATCH-15-OPS-06 documents the
+  operations signal matrix and readiness gaps, but it does not configure a
+  provider.
 - No alert routing is configured.
 - No privacy-safe error-reporting integration is configured.
 - No abuse monitoring configured for booking or portal flows.
@@ -436,7 +465,7 @@ Recommended next batches:
 
 ```text
 Batch 14C-VALIDATE-03: operator-assisted Render runtime validation
-Batch 15-OPS-06: Render managed restore drill and approved monitoring/alerting setup
+Next operations follow-up: Render managed restore drill and approved monitoring/alerting setup
 Batch 15-OPS-07: dependency owner, GitHub alert, and lockfile/hash decisions
 ```
 
