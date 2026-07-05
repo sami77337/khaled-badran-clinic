@@ -125,6 +125,14 @@ final product completion and professional delivery readiness.
   staging latency evidence. This does not configure a monitoring provider,
   route alerts, add error reporting, change Render settings, run a Render
   managed PostgreSQL restore drill, or approve production launch readiness.
+- Batch 15-OPS-07 documented staging latency evidence and mitigation decision
+  gates. It reviewed OPS-03 and OPS-06 latency evidence, inspected the staging
+  uptime workflow, and ran four bounded rounds of safe public GET checks for
+  `/health/` and `/` only. All eight checks returned HTTP 200 in under `0.25`
+  seconds with response bodies discarded. This reduces evidence of persistent
+  latency during that window, but it does not prove root cause, configure
+  monitoring, route alerts, change Render settings, or approve production
+  launch readiness.
 
 ## Batch 14 Result
 
@@ -617,6 +625,51 @@ Key conclusion:
   changed or committed;
 - production launch remains blocked.
 
+## Batch 15-OPS-07 Result
+
+Batch 15-OPS-07 result:
+
+```text
+Staging latency evidence and mitigation decision gates documented; production
+launch remains blocked.
+```
+
+Evidence added:
+
+- `docs/BATCH_15_OPS_07_STATUS.md`
+
+Evidence updated:
+
+- `docs/STAGING_UPTIME_LATENCY_MONITORING_EVIDENCE.md`
+- `docs/OPERATIONS_MONITORING_ALERTING_PLAN.md`
+- `docs/OPERATIONS_SIGNAL_MATRIX.md`
+- `docs/MONITORING_ALERTING_READINESS.md`
+- `docs/PROJECT_RELEASE_SCORECARD.md`
+- `docs/NEXT_BATCH.md`
+- `docs/STAGING_VALIDATION_BLOCKERS.md`
+- `docs/RELEASE_CHECKLIST.md`
+
+Key conclusion:
+
+- OPS-03 and OPS-06 severe staging latency evidence remains valid historical
+  evidence;
+- the existing staging uptime workflow remains safe, low frequency, and limited
+  to public GET `/health/` and `/` checks;
+- safe public GET checks in BATCH-15-OPS-07 discarded response bodies and
+  printed only HTTP status, total response time, and final URL;
+- four bounded rounds were run with 20-second pauses;
+- `GET /health/` returned HTTP 200 in `0.243988`, `0.103777`, `0.111525`, and
+  `0.108991` seconds;
+- `GET /` returned HTTP 200 in `0.123764`, `0.116320`, `0.106962`, and
+  `0.169094` seconds;
+- the BATCH-15-OPS-07 check window did not show persistent latency;
+- likely causes remain unproven, with cold start, platform/runtime delay,
+  deploy/restart behavior, queueing, or network path delay still plausible;
+- production launch remains blocked until owner/operator latency mitigation,
+  monitoring provider, alert routing, private readiness, backup/restore,
+  legal/privacy, load/concurrency, and production infrastructure decisions are
+  completed.
+
 Batch 14A remains a valid later planning-only option:
 
 ```text
@@ -674,6 +727,7 @@ Must read before the next staging or operations batch:
 - `docs/DEPENDENCY_AUDIT_WORKFLOW_EVIDENCE.md`
 - `docs/DEPENDENCY_VULNERABILITY_SCAN_EVIDENCE.md`
 - `docs/BATCH_15_OPS_06_STATUS.md`
+- `docs/BATCH_15_OPS_07_STATUS.md`
 - `docs/OPERATIONS_SIGNAL_MATRIX.md`
 - `docs/RESTRICTED_STAGING_VALIDATION_EVIDENCE.md`
 - `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
@@ -687,10 +741,10 @@ Must read before the next staging or operations batch:
    if safe access is available, including staging shell management commands,
    managed PostgreSQL/Redis command evidence, booking confirmation/browser
    checks with synthetic data only, and sanitized targeted log review.
-2. Next operations follow-up: operator-approved Render managed PostgreSQL
-   restore drill with synthetic data only, plus approved monitoring/alerting
-   provider configuration or validation without committing credentials.
-3. Batch 15-OPS-07: dependency response owner approval, GitHub alert settings
+2. Next operations follow-up: owner/operator decision on Render latency
+   mitigation and monitoring/alerting provider setup, plus operator-approved
+   Render managed PostgreSQL restore drill with synthetic data only.
+3. Batch 15-OPS-08: dependency response owner approval, GitHub alert settings
    decision, and bounded-ranges versus lockfile/hash workflow decision.
 4. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.

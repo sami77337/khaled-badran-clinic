@@ -5,16 +5,22 @@ Batch 11 monitoring and alerting readiness plan for Dr. Khaled Badran Clinic.
 This document does not configure external monitoring, create accounts, add
 credentials, or send alerts. It defines what must be ready before launch.
 
-Batch 15-OPS-06 companion evidence:
+Batch 15-OPS-06/07 companion evidence:
 
 - `docs/OPERATIONS_MONITORING_ALERTING_PLAN.md`
 - `docs/OPERATIONS_SIGNAL_MATRIX.md`
 - `docs/BATCH_15_OPS_06_STATUS.md`
+- `docs/BATCH_15_OPS_07_STATUS.md`
 
 BATCH-15-OPS-06 keeps the readiness status incomplete: no external monitoring
 provider is configured, no alert route is configured or tested, and no
 privacy-safe error-reporting provider is configured. It documents the required
 signal matrix and records safe public staging GET spot checks only.
+
+BATCH-15-OPS-07 keeps the same readiness status incomplete. Its bounded
+repeated public GET checks were fast, but earlier OPS-03 and OPS-06 severe
+staging latency remains unresolved until an owner/operator mitigation decision,
+provider monitoring, and tested alert routing exist.
 
 ## Current Health and Readiness Endpoints
 
@@ -214,6 +220,7 @@ Monitoring readiness is planned/partial:
 - Monitoring requirements are documented.
 - BATCH-15-OPS-06 documents the operations signal matrix and current provider,
   alert-routing, and privacy-safe error-reporting readiness gaps.
+- BATCH-15-OPS-07 documents the staging latency mitigation decision gates.
 - No external uptime checks, alert routing, error reporting, or abuse dashboards
   are configured.
 
