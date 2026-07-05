@@ -49,10 +49,19 @@ documented, but not fully wired to providers or alerts
 On `2026-07-05`, safe public GET checks were run against the existing Render
 restricted staging host. Response bodies were discarded.
 
+OPS-06 spot checks:
+
 | Endpoint | HTTP status | Total time | Interpretation |
 | --- | ---: | ---: | --- |
 | `GET /health/` | 200 | `32.828721` seconds | Available, but severe staging latency. |
 | `GET /` | 200 | `31.897716` seconds | Available, but severe staging latency. |
+
+OPS-07 bounded repeated checks:
+
+| Endpoint | HTTP status | Total time range | Interpretation |
+| --- | ---: | ---: | --- |
+| `GET /health/` | 200 | `0.103777` to `0.243988` seconds | Available and fast during the bounded repeated check window. |
+| `GET /` | 200 | `0.106962` to `0.169094` seconds | Available and fast during the bounded repeated check window. |
 
 These checks are public staging availability and latency observations only.
 They do not prove private readiness, database health, cache health, provider
@@ -65,7 +74,7 @@ alerting, production uptime, or launch readiness.
 | Public liveness | `GET /health/` status, final URL, latency | Endpoint exists; low-frequency GitHub Actions staging uptime workflow exists; manual GET evidence recorded. | External provider not configured. | No route configured. | No response bodies required. | Partial interim evidence. |
 | Public home page | `GET /` status, final URL, latency | Public home page exists; workflow and manual GET evidence record safe metadata only. | External provider not configured. | No route configured. | No response bodies required. | Partial interim evidence. |
 | Private readiness | `GET /health/ready/` through private/internal path | Endpoint exists and returns only safe status values; direct private provider path not validated. | Private monitoring path not configured. | No route configured. | No diagnostics or connection details should be emitted. | Incomplete. |
-| Public latency | p95 and severe single-response latency | Thresholds documented; latest spot checks exceeded 30 seconds. | Provider latency tracking not configured. | No slow-response alert route configured. | Store timing/status only. | Partial evidence; latency blocker remains. |
+| Public latency | p95 and severe single-response latency | Thresholds documented; OPS-03/OPS-06 exceeded 30 seconds; OPS-07 repeated checks were fast. | Provider latency tracking not configured. | No slow-response alert route configured. | Store timing/status only. | Partial evidence; intermittent latency blocker remains. |
 | HTTP 5xx rate | 5xx rate by environment and route group | Requirements documented; local tests pass by supplied evidence. | Provider dashboard not configured. | No 5xx alert route configured. | Do not include request bodies or patient identifiers. | Incomplete. |
 | Request errors | Django request errors and exception classes | Console logging foundation exists. | Error aggregation not configured. | No error alert route configured. | Exception metadata must be scrubbed. | Incomplete. |
 | Security warnings | Django security warnings, CSRF spikes, suspicious auth patterns | Requirements documented; regression checklist exists. | Provider/security dashboard not configured. | No security alert route configured. | Aggregate counts only; no raw tokens, cookies, or request bodies. | Incomplete. |
@@ -150,7 +159,7 @@ not ready
 | Area | Status | Reason |
 | --- | --- | --- |
 | Public staging availability | Partial | Latest safe GET checks returned HTTP 200 for `/health/` and `/`. |
-| Public staging latency | Blocked | Latest safe GET checks were over 30 seconds. |
+| Public staging latency | Blocked | Latest repeated checks were fast, but OPS-03 and OPS-06 documented intermittent severe responses over 30 seconds with no proven root cause or mitigation decision. |
 | Full monitoring provider | Incomplete | No external provider is selected, configured, or validated. |
 | Alert routing | Incomplete | No primary or backup route is configured or tested. |
 | Privacy-safe error reporting | Incomplete | No provider integration or scrubbed synthetic event exists. |
@@ -161,6 +170,8 @@ not ready
 
 - Select and approve the monitoring provider.
 - Approve public uptime and latency thresholds.
+- Decide whether Render staging/production must use a non-sleeping or otherwise
+  mitigated runtime class before launch.
 - Approve private readiness monitoring path.
 - Name primary and backup monitoring operators.
 - Approve project-owner and legal/privacy escalation routes.

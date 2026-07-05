@@ -203,9 +203,34 @@ add migrations, use secrets, record logs or response bodies, complete a Render
 managed PostgreSQL restore drill, approve legal/privacy, validate
 load/concurrency, or validate production readiness.
 
+Batch 15-OPS-07 documented staging latency evidence and mitigation decision
+gates:
+
+- OPS-03 and OPS-06 severe latency evidence was reviewed and remains valid
+  historical staging evidence;
+- the existing staging uptime workflow was inspected and left unchanged;
+- four bounded rounds of safe public GET checks were run for `/health/` and
+  `/` only, with response bodies discarded;
+- all eight BATCH-15-OPS-07 checks returned HTTP 200;
+- BATCH-15-OPS-07 `/health/` checks completed between `0.103777` and
+  `0.243988` seconds;
+- BATCH-15-OPS-07 `/` checks completed between `0.106962` and `0.169094`
+  seconds;
+- the check window did not show persistent latency;
+- likely cause remains unproven, with cold start, platform/runtime delay,
+  deploy/restart behavior, queueing, and network path delay still plausible;
+- production impact, mitigation options, and owner/operator decision gates are
+  documented.
+
+BATCH-15-OPS-07 did not change Render settings, configure a monitoring
+provider, route alerts, add error reporting, change dependencies, change app
+code, add migrations, use secrets, record logs or response bodies, complete a
+Render managed PostgreSQL restore drill, approve legal/privacy, validate
+load/concurrency, or validate production readiness.
+
 Do not claim production readiness from Batch 14, Batch 14B,
 Batch 14C-VALIDATE-01/02, Batch 15-OPS-01, Batch 15-OPS-02, or
-Batch 15-OPS-03/04/05/06.
+Batch 15-OPS-03/04/05/06/07.
 
 ## Real Infrastructure Blockers
 
@@ -243,6 +268,9 @@ Still blocked or not fully validated:
   readiness/liveness monitoring path has been connected to alerting;
 - BATCH-15-OPS-06 public GET spot checks returned HTTP 200 but severe staging
   latency over 30 seconds was observed for both `/health/` and `/`.
+- BATCH-15-OPS-07 bounded repeated public GET checks returned HTTP 200 in
+  under `0.25` seconds, but this does not prove root cause or remove the
+  historical intermittent severe-latency blocker.
 
 ## Staging Environment Contract Status
 
@@ -422,7 +450,11 @@ Operational launch blockers remain:
   staging uptime workflow exists for public `/health/` and `/` GET checks, but
   no full monitoring provider is configured. BATCH-15-OPS-06 documents the
   operations signal matrix and readiness gaps, but it does not configure a
-  provider.
+  provider. BATCH-15-OPS-07 documents fast bounded repeated public GET checks
+  and latency mitigation gates, but it does not prove root cause or configure
+  mitigation.
+- No owner/operator decision is recorded for Render cold-start or runtime-class
+  mitigation before production promotion.
 - No alert routing is configured.
 - No privacy-safe error-reporting integration is configured.
 - No abuse monitoring configured for booking or portal flows.
@@ -465,8 +497,8 @@ Recommended next batches:
 
 ```text
 Batch 14C-VALIDATE-03: operator-assisted Render runtime validation
-Next operations follow-up: Render managed restore drill and approved monitoring/alerting setup
-Batch 15-OPS-07: dependency owner, GitHub alert, and lockfile/hash decisions
+Next operations follow-up: Render latency mitigation decision, approved monitoring/alerting setup, and Render managed restore drill
+Batch 15-OPS-08: dependency owner, GitHub alert, and lockfile/hash decisions
 ```
 
 Dashboard implementation should remain deferred until the staging runtime,

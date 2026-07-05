@@ -77,6 +77,9 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - Monitoring/alerting batches do not claim provider readiness, alert-routing
   readiness, or privacy-safe error-reporting readiness unless a provider and
   alert route were configured and tested outside Git with secret-safe evidence.
+- Staging latency evidence batches compare new public GET timings against
+  OPS-03/OPS-06 severe latency evidence and document likely causes, production
+  impact, mitigation options, and owner/operator decision gates.
 
 ## Dependency Audit Checklist
 
@@ -112,6 +115,9 @@ Production migration must happen only with a backup and rollback plan. Do not ru
   trusted internal path where possible.
 - Severe staging latency over 30 seconds is treated as a blocker requiring
   review, even when HTTP status is 200.
+- Fast bounded repeated public GET checks do not remove earlier severe latency
+  blockers unless root cause is proven or an owner-approved mitigation/risk
+  acceptance is documented.
 - External monitoring provider selection is owner-approved before
   configuration.
 - Alert recipients and escalation paths are approved outside Git.
@@ -141,6 +147,9 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - Operations signal matrix has been reviewed and any incomplete provider,
   alert-routing, or privacy-safe error-reporting item is recorded as a launch
   blocker.
+- Historical severe staging latency has a documented owner/operator decision:
+  mitigated by hosting/runtime/provider changes, proven not applicable to
+  production, or explicitly risk-accepted before launch.
 - Dependency vulnerability scan source is enabled and reviewed, or a launch
   blocker is explicitly recorded.
 - Critical/high dependency advisories have an accountable owner decision,
@@ -240,6 +249,9 @@ Production migration must happen only with a backup and rollback plan. Do not ru
   tested.
 - Privacy-safe error reporting readiness is not claimed until a scrubbed
   synthetic event is reviewed.
+- Production latency readiness is not claimed from one fast manual check
+  window. Historical severe public latency must be measured through approved
+  monitoring and addressed by an owner/operator decision.
 
 ## Post-Deploy Checklist
 

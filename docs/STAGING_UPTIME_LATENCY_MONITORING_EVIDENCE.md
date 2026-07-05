@@ -31,6 +31,11 @@ It records HTTP status, total response time, and final URL only. It does not
 print response bodies, use secrets, submit forms, check private routes, or
 change Render settings.
 
+BATCH-15-OPS-07 adds a docs/evidence-only latency decision pack. It reviews
+OPS-03 and OPS-06 severe latency evidence, repeats bounded safe public GET
+checks without response bodies, and documents likely causes, production
+impact, mitigation options, and decision gates.
+
 Production-ready status:
 
 ```text
@@ -151,6 +156,8 @@ Current documented staging examples:
 | `GET /` | 200 | about `0.65` to `0.80` seconds | Recent fast public home-page response range. |
 | `GET /health/` | 200 | `32.828721` seconds during BATCH-15-OPS-06 spot check | Severe staging latency evidence. |
 | `GET /` | 200 | `31.897716` seconds during BATCH-15-OPS-06 spot check | Severe staging latency evidence for the public home page. |
+| `GET /health/` | 200 | `0.243988`, `0.103777`, `0.111525`, and `0.108991` seconds during BATCH-15-OPS-07 bounded repeated checks | Fast public liveness responses in the observed check window. |
+| `GET /` | 200 | `0.123764`, `0.116320`, `0.106962`, and `0.169094` seconds during BATCH-15-OPS-07 bounded repeated checks | Fast public home-page responses in the observed check window. |
 
 These are staging observations only. They are not a production SLA and do not
 prove root cause.
@@ -161,6 +168,13 @@ liveness responses may indicate cold start, worker startup delay, platform
 queuing, network latency, process saturation, runtime stalls, or other
 staging/runtime conditions. The new workflow records those cases without
 hiding them as long as they stay under the hard staging threshold.
+
+BATCH-15-OPS-07 did not reproduce severe latency in four bounded rounds with
+20-second pauses. All eight approved public GET checks returned HTTP 200 in
+under `0.25` seconds. This distinguishes the observed check window from
+persistent latency while the service is available or warm. It does not disprove
+intermittent cold starts, platform queuing, deploy/restart effects, regional
+network delay, runtime stalls, or future severe responses.
 
 ## What This Evidence Proves
 
@@ -227,6 +241,19 @@ BATCH-15-OPS-06 spot-check conclusion:
 
 ```text
 public GET availability observed, but severe staging latency remains
+```
+
+BATCH-15-OPS-07 spot-check conclusion:
+
+```text
+public GET availability observed; current bounded repeated checks were fast,
+but historical intermittent severe staging latency remains unresolved
+```
+
+Mitigation decision status:
+
+```text
+operator/owner decision required before production promotion
 ```
 
 Production-ready:
