@@ -149,6 +149,8 @@ Current documented staging examples:
 | `GET /health/` | 200 | about `42.5` seconds | Severe staging latency evidence. |
 | `GET /` | 200 | `0.776475` seconds during BATCH-15-OPS-03 spot check | Fast public home-page response in the observed check. |
 | `GET /` | 200 | about `0.65` to `0.80` seconds | Recent fast public home-page response range. |
+| `GET /health/` | 200 | `32.828721` seconds during BATCH-15-OPS-06 spot check | Severe staging latency evidence. |
+| `GET /` | 200 | `31.897716` seconds during BATCH-15-OPS-06 spot check | Severe staging latency evidence for the public home page. |
 
 These are staging observations only. They are not a production SLA and do not
 prove root cause.
@@ -219,6 +221,12 @@ Render cold-start/latency:
 
 ```text
 observed and tracked
+```
+
+BATCH-15-OPS-06 spot-check conclusion:
+
+```text
+public GET availability observed, but severe staging latency remains
 ```
 
 Production-ready:
