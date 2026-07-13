@@ -11,6 +11,9 @@ Batch 15-OPS-06/07 companion evidence:
 - `docs/OPERATIONS_SIGNAL_MATRIX.md`
 - `docs/BATCH_15_OPS_06_STATUS.md`
 - `docs/BATCH_15_OPS_07_STATUS.md`
+- `docs/MONITORING_PROVIDER_SELECTION_DECISION_PACK.md`
+- `docs/ALERT_ROUTING_APPROVAL_AND_SYNTHETIC_TEST_PLAN.md`
+- `docs/OPS_GOVERNANCE_CLOSURE_MATRIX.md`
 
 BATCH-15-OPS-06 keeps the readiness status incomplete: no external monitoring
 provider is configured, no alert route is configured or tested, and no
@@ -21,6 +24,12 @@ BATCH-15-OPS-07 keeps the same readiness status incomplete. Its bounded
 repeated public GET checks were fast, but earlier OPS-03 and OPS-06 severe
 staging latency remains unresolved until an owner/operator mitigation decision,
 provider monitoring, and tested alert routing exist.
+
+BATCH-15-OPS-09 adds monitoring provider selection and alert-routing approval
+decision packs. These packs improve governance clarity, but readiness remains
+incomplete because no provider is selected, no alert route is configured or
+tested, no private contact destinations are recorded, and no privacy-safe
+error-reporting provider is configured.
 
 ## Current Health and Readiness Endpoints
 
@@ -221,6 +230,8 @@ Monitoring readiness is planned/partial:
 - BATCH-15-OPS-06 documents the operations signal matrix and current provider,
   alert-routing, and privacy-safe error-reporting readiness gaps.
 - BATCH-15-OPS-07 documents the staging latency mitigation decision gates.
+- BATCH-15-OPS-09 documents monitoring provider selection, alert-routing
+  approval, synthetic alert testing, and owner-assignment governance packs.
 - No external uptime checks, alert routing, error reporting, or abuse dashboards
   are configured.
 

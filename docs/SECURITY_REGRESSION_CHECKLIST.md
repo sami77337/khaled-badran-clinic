@@ -35,6 +35,16 @@ Run this checklist before any staging launch, production launch, or feature batc
   planning or claiming a Render managed PostgreSQL restore drill.
 - Review `docs/BACKUP_RPO_RTO_APPROVAL_DECISION_PACK.md` before claiming backup
   retention, RPO, or RTO approval.
+- Review `docs/OPERATIONS_OWNER_ASSIGNMENT_DECISION_PACK.md` before claiming
+  owner assignment readiness.
+- Review `docs/MONITORING_PROVIDER_SELECTION_DECISION_PACK.md` before claiming
+  monitoring provider readiness.
+- Review `docs/ALERT_ROUTING_APPROVAL_AND_SYNTHETIC_TEST_PLAN.md` before
+  claiming alert-routing readiness.
+- Review `docs/DEPENDENCY_SECURITY_GOVERNANCE_DECISION_PACK.md` before
+  claiming dependency security governance readiness.
+- Review `docs/OPS_GOVERNANCE_CLOSURE_MATRIX.md` before claiming operations
+  governance closure.
 - Review `docs/PRODUCTION_BLOCKER_CLOSURE_ROADMAP.md` before claiming a
   production blocker is closed.
 - Review `docs/STAFF_ACCESS_GOVERNANCE.md` before creating production
@@ -165,11 +175,22 @@ Run this checklist before any staging launch, production launch, or feature batc
 - Smoke output does not print application secrets.
 - Smoke output does not print database connection strings.
 - Smoke output does not print cache connection strings.
+- Repository docs do not commit private owner contact details.
+- Repository docs do not commit webhook URLs.
+- Repository docs do not commit monitoring provider credentials.
+- Repository docs do not commit GitHub token values or private GitHub settings
+  dumps.
 - Logs do not print passwords, tokens, cookies, authorization headers, CSRF tokens, raw request bodies, or environment dumps.
 - Monitoring, alerting, and error-reporting payloads do not print passwords,
   tokens, cookies, authorization headers, CSRF tokens, raw request bodies,
   environment dumps, database URLs, cache URLs, private keys, provider keys, or
   patient-identifying data.
+- Synthetic alert payloads do not include patient data, appointment details,
+  medical data, response bodies, cookies, session identifiers, CSRF token
+  values, connection values, private contacts, or secret values.
+- Decision packs do not create a false production-ready claim; production-ready
+  remains `no` until owner/operator, legal/privacy, provider, alert-routing,
+  backup/restore, dependency, and go/no-go blockers are actually closed.
 - `.env`, database dumps, logs, private media, and credentials are not committed.
 
 ## CI and Smoke

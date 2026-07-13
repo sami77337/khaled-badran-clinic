@@ -8,10 +8,13 @@ error reporting, and incident response readiness for Dr. Khaled Badran Clinic.
 This is primarily a planning document. BATCH-15-OPS-03 adds interim
 repository-native staging checks, BATCH-15-OPS-06 adds a docs-only operations
 signal matrix for provider readiness, alert routing, and privacy-safe
-error-reporting readiness, and BATCH-15-OPS-07 adds a staging latency
-mitigation decision pack. This document does not configure a full monitoring
-provider, add third-party dependencies, create accounts, store credentials,
-route alerts, change Render settings, or approve production launch.
+error-reporting readiness, BATCH-15-OPS-07 adds a staging latency mitigation
+decision pack, BATCH-15-OPS-08 adds extended public staging observation and
+blocker-roadmap evidence, and BATCH-15-OPS-09 adds monitoring provider and
+alert-routing decision packs. This document does not configure a full
+monitoring provider, add third-party dependencies, create accounts, store
+credentials, route alerts, change Render settings, or approve production
+launch.
 
 Production-ready status:
 
@@ -56,6 +59,10 @@ Existing logging:
   `/health/` and `/` evidence only;
 - docs-only operations signal matrix exists in
   `docs/OPERATIONS_SIGNAL_MATRIX.md`;
+- monitoring provider selection decision pack exists in
+  `docs/MONITORING_PROVIDER_SELECTION_DECISION_PACK.md`;
+- alert-routing approval and synthetic test plan exists in
+  `docs/ALERT_ROUTING_APPROVAL_AND_SYNTHETIC_TEST_PLAN.md`;
 - no external uptime monitoring provider configured;
 - no alert routing configured.
 
@@ -103,6 +110,28 @@ It records status, total time, final URL, local timestamp, and curl exit code
 only. It does not print response bodies, use credentials, access private
 routes, submit booking POSTs, configure monitoring providers, route alerts, or
 change Render settings.
+
+## Batch 15-OPS-09 Provider And Routing Decision Packs
+
+BATCH-15-OPS-09 adds decision packs for the next owner/operator approvals:
+
+- `docs/MONITORING_PROVIDER_SELECTION_DECISION_PACK.md`
+- `docs/ALERT_ROUTING_APPROVAL_AND_SYNTHETIC_TEST_PLAN.md`
+- `docs/OPERATIONS_OWNER_ASSIGNMENT_DECISION_PACK.md`
+- `docs/OPS_GOVERNANCE_CLOSURE_MATRIX.md`
+
+Current status remains:
+
+| Area | Status | Reason |
+| --- | --- | --- |
+| Monitoring provider | Not configured | Requirements and options are documented, but no provider is selected, configured, or validated. |
+| Alert routing | Not configured or tested | Primary and backup route requirements are documented, but no destination is approved or tested. |
+| Slow HTTP 200 alerting | Not configured | Synthetic test expectations are documented, but no provider route exists. |
+| Privacy-safe error reporting | Not configured | Scrubbing and privacy requirements are documented, but no provider, SDK, DSN, or synthetic event review exists. |
+
+The new packs are governance evidence only. They do not record private contact
+details, webhook URLs, provider credentials, DSNs, patient data, response
+bodies, or secret values.
 
 ## Uptime Checks
 

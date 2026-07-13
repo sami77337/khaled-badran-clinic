@@ -158,6 +158,29 @@ CI workflow:
 Detailed workflow evidence is recorded in
 `docs/DEPENDENCY_AUDIT_WORKFLOW_EVIDENCE.md`.
 
+## Batch 15-OPS-09 Governance Decision Pack
+
+BATCH-15-OPS-09 adds:
+
+- `docs/DEPENDENCY_SECURITY_GOVERNANCE_DECISION_PACK.md`
+- `docs/OPS_GOVERNANCE_CLOSURE_MATRIX.md`
+
+The governance decision pack records that the `pip-audit` workflow exists and
+that current scan evidence returned no known vulnerabilities at scan time, but
+it explicitly keeps dependency security governance incomplete until these owner
+decisions are made:
+
+- dependency response owner;
+- dependency response backup;
+- GitHub vulnerability alerts setting;
+- Dependabot alerts setting;
+- Dependabot update strategy;
+- bounded-ranges versus lockfile/hash workflow;
+- advisory severity response SLA.
+
+No GitHub repository security setting was changed by OPS-09. No dependency
+package was upgraded and no lockfile was generated.
+
 ## Dependency Response Ownership
 
 Until a named person is formally approved outside this repository, the
@@ -357,8 +380,11 @@ BATCH-15-OPS-05 adds a `pip-audit` workflow and records a successful local
 advisory-backed scan of `requirements.txt` with no known advisories returned at
 scan time.
 
-Dependency security readiness remains partial until a named response owner and
-backup owner are approved, GitHub alert settings receive an owner decision, and
-the bounded-ranges versus lockfile/hash workflow decision is closed.
+BATCH-15-OPS-09 adds the dependency security governance decision pack and
+closure matrix. Dependency security readiness remains partial until a named
+response owner and backup owner are approved, GitHub vulnerability and
+Dependabot alert settings receive owner decisions, the update strategy is
+approved, the severity response SLA is approved, and the bounded-ranges versus
+lockfile/hash workflow decision is closed.
 
 Design status: No design work performed by Codex.

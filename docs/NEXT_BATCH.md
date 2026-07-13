@@ -141,6 +141,34 @@ final product completion and professional delivery readiness.
   restore, configure monitoring, route alerts, approve retention/RPO/RTO,
   change Render settings, change app code, submit POSTs, record response
   bodies, use secrets, or use patient data.
+- Batch 15-OPS-09 documented owner assignment, monitoring provider selection,
+  alert-routing approval/synthetic test, dependency security governance, and
+  operations governance closure matrix decision packs. It did not assign
+  private contacts, configure monitoring, configure or test alert routing,
+  enable privacy-safe error reporting, change GitHub security settings, change
+  dependencies, generate lockfiles, change Render settings, change app code,
+  submit POSTs, record response bodies, use secrets, or use patient data.
+
+## Next Recommended Batch
+
+```text
+BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution readiness
+checklist and operator-assisted dry-run package
+```
+
+Rationale:
+
+- OPS-09 confirms governance blockers remain decision-only.
+- The Render managed PostgreSQL restore-drill operator pack exists, but no
+  real managed restore drill has been executed.
+- Backup retention, RPO, RTO, owner assignments, monitoring, alert routing,
+  legal/privacy, and production go/no-go remain blocked.
+- The next safest operations batch is a dry-run package that prepares the
+  owner/operator execution checklist without using Render credentials,
+  changing Render settings, restoring data, or exposing secrets.
+
+OPS-10 should stay docs/evidence-only unless the owner separately authorizes a
+real operator-assisted execution window outside Git.
 
 ## Batch 14 Result
 
@@ -731,6 +759,58 @@ Key conclusion:
   legal/privacy, load/concurrency, dependency ownership, and production
   infrastructure decisions are completed.
 
+## Batch 15-OPS-09 Result
+
+Batch 15-OPS-09 result:
+
+```text
+Operations governance decision packs documented; production launch remains
+blocked.
+```
+
+Evidence added:
+
+- `docs/BATCH_15_OPS_09_STATUS.md`
+- `docs/OPERATIONS_OWNER_ASSIGNMENT_DECISION_PACK.md`
+- `docs/MONITORING_PROVIDER_SELECTION_DECISION_PACK.md`
+- `docs/ALERT_ROUTING_APPROVAL_AND_SYNTHETIC_TEST_PLAN.md`
+- `docs/DEPENDENCY_SECURITY_GOVERNANCE_DECISION_PACK.md`
+- `docs/OPS_GOVERNANCE_CLOSURE_MATRIX.md`
+
+Evidence updated:
+
+- `docs/PRODUCTION_BLOCKER_CLOSURE_ROADMAP.md`
+- `docs/OPERATIONS_MONITORING_ALERTING_PLAN.md`
+- `docs/OPERATIONS_SIGNAL_MATRIX.md`
+- `docs/MONITORING_ALERTING_READINESS.md`
+- `docs/DEPENDENCY_SECURITY_READINESS.md`
+- `docs/DEPENDENCY_AUDIT_WORKFLOW_EVIDENCE.md`
+- `docs/INCIDENT_RESPONSE_RUNBOOK.md`
+- `docs/SECURITY_REGRESSION_CHECKLIST.md`
+- `docs/PROJECT_RELEASE_SCORECARD.md`
+- `docs/NEXT_BATCH.md`
+- `docs/STAGING_VALIDATION_BLOCKERS.md`
+- `docs/RELEASE_CHECKLIST.md`
+
+Key conclusion:
+
+- owner assignment requirements are documented without private contact details;
+- monitoring provider selection criteria are documented, but no provider is
+  selected, configured, or validated;
+- alert-routing approval and synthetic alert tests are documented, but no
+  primary or backup route is configured or tested;
+- dependency security governance decisions are documented, but no GitHub
+  security setting is changed, no owner is approved, and no lockfile/hash
+  decision is made;
+- the operations governance closure matrix documents owner roles, safe
+  evidence, forbidden evidence, dependency ordering, Codex closure limits, and
+  remaining blockers;
+- production launch remains blocked until owner assignments, monitoring
+  provider, alert routing, privacy-safe error reporting, dependency owners and
+  GitHub alert decisions, legal/privacy, restore drill, load/concurrency,
+  production infrastructure, and final go/no-go are actually approved or
+  completed.
+
 Batch 14A remains a valid later planning-only option:
 
 ```text
@@ -795,6 +875,12 @@ Must read before the next staging or operations batch:
 - `docs/RENDER_MANAGED_POSTGRES_RESTORE_DRILL_OPERATOR_PACK.md`
 - `docs/BACKUP_RPO_RTO_APPROVAL_DECISION_PACK.md`
 - `docs/PRODUCTION_BLOCKER_CLOSURE_ROADMAP.md`
+- `docs/BATCH_15_OPS_09_STATUS.md`
+- `docs/OPERATIONS_OWNER_ASSIGNMENT_DECISION_PACK.md`
+- `docs/MONITORING_PROVIDER_SELECTION_DECISION_PACK.md`
+- `docs/ALERT_ROUTING_APPROVAL_AND_SYNTHETIC_TEST_PLAN.md`
+- `docs/DEPENDENCY_SECURITY_GOVERNANCE_DECISION_PACK.md`
+- `docs/OPS_GOVERNANCE_CLOSURE_MATRIX.md`
 - `docs/RESTRICTED_STAGING_VALIDATION_EVIDENCE.md`
 - `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
 - `docs/LOCAL_DOCKER_POSTGRES_REDIS_VALIDATION_EVIDENCE.md`
@@ -803,16 +889,18 @@ Must read before the next staging or operations batch:
 
 ## Ordered Recommended Batches
 
-1. Batch 14C-VALIDATE-03: complete operator-assisted Render runtime validation
+1. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
+   readiness checklist and operator-assisted dry-run package, using synthetic
+   data only, no Render credentials in Git, no real restore execution, and no
+   patient data.
+2. Batch 14C-VALIDATE-03: complete operator-assisted Render runtime validation
    if safe access is available, including staging shell management commands,
    managed PostgreSQL/Redis command evidence, booking confirmation/browser
    checks with synthetic data only, and sanitized targeted log review.
-2. Next operations follow-up: owner/operator Render latency mitigation and
+3. Next operations follow-up: owner/operator Render latency mitigation and
    external monitoring/alert-routing setup for intermittent slow/severe
    `/health/` latency; then operator-approved Render managed PostgreSQL
    restore drill execution planning with synthetic data only.
-3. Batch 15-OPS-09: dependency response owner approval, GitHub alert settings
-   decision, and bounded-ranges versus lockfile/hash workflow decision.
 4. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
 5. Batch 16: legal/privacy/account recovery and patient identity verification

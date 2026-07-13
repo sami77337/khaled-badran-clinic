@@ -85,6 +85,12 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - Restore-readiness batches do not claim Render managed restore readiness
   unless an owner-approved isolated restore drill was actually executed and
   sanitized evidence was reviewed.
+- Operations governance batches do not claim blocker closure from decision
+  packs alone; owner assignments, provider setup, alert route tests, GitHub
+  alert setting decisions, legal/privacy approval, and production go/no-go must
+  be actual decisions.
+- No private owner contact details, webhook URLs, provider credentials, or
+  private GitHub settings dumps are committed.
 
 ## Dependency Audit Checklist
 
@@ -107,6 +113,8 @@ Production migration must happen only with a backup and rollback plan. Do not ru
   production launch.
 - GitHub vulnerability and Dependabot alert settings still need an owner
   decision if not enabled.
+- The GitHub vulnerability/Dependabot settings decision must be recorded
+  safely without private settings dumps or tokens.
 - The bounded-ranges versus lockfile/hash workflow decision remains open until
   explicitly approved.
 
@@ -127,8 +135,12 @@ Production migration must happen only with a backup and rollback plan. Do not ru
   and not proof of database/cache readiness.
 - External monitoring provider selection is owner-approved before
   configuration.
+- Monitoring provider must be approved, configured, and tested before
+  monitoring provider readiness is claimed.
 - Alert recipients and escalation paths are approved outside Git.
 - Alert routes are tested before launch.
+- Primary and backup alert routes must be tested with safe synthetic payloads
+  before alert-routing readiness is claimed.
 - Alert payloads do not include secrets, patient data, request bodies, cookies,
   raw tokens, database URLs, cache URLs, private keys, or provider keys.
 - Privacy-safe error reporting is not enabled until request-body capture is
@@ -150,6 +162,12 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - HTTPS and proxy behavior are reviewed.
 - `BOOKING_TRUST_X_FORWARDED_FOR` remains false unless trusted proxy stripping is verified.
 - Backup and rollback plan exists.
+- Named roles are approved outside Git, including project owner, technical
+  operator, backup technical operator, monitoring owner, alert-routing owner,
+  incident commander, backup owner, backup owner backup, restore drill owner,
+  dependency response owner, dependency response backup, legal/privacy
+  reviewer, release/go-no-go approver, and doctor/admin business reviewer.
+- Repository docs contain no private contact details for those roles.
 - Backup retention, RPO, and RTO have owner approval, or the missing approval
   is recorded as a launch blocker.
 - A Render managed PostgreSQL restore drill has completed in an isolated target
@@ -159,6 +177,13 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - Operations signal matrix has been reviewed and any incomplete provider,
   alert-routing, or privacy-safe error-reporting item is recorded as a launch
   blocker.
+- Monitoring provider selection is approved, configured, tested, and recorded
+  with sanitized evidence.
+- Alert routes are approved and tested, with no webhook URLs or private contact
+  details in repository docs.
+- Dependency owner and backup owner are assigned outside Git.
+- GitHub vulnerability alert, Dependabot alert, dependency update strategy,
+  and bounded-ranges versus lockfile/hash decisions are recorded safely.
 - Historical severe staging latency has a documented owner/operator decision:
   mitigated by hosting/runtime/provider changes, proven not applicable to
   production, or explicitly risk-accepted before launch.
