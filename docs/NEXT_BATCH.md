@@ -133,6 +133,14 @@ final product completion and professional delivery readiness.
   latency during that window, but it does not prove root cause, configure
   monitoring, route alerts, change Render settings, or approve production
   launch readiness.
+- Batch 15-OPS-08 documented extended low-frequency public staging observation
+  evidence, a Render managed PostgreSQL restore-drill operator approval pack, a
+  backup retention/RPO/RTO approval decision pack, and a production blocker
+  closure roadmap. The observation recorded intermittent slow/severe
+  `/health/` latency while `/` stayed fast. It did not execute a managed
+  restore, configure monitoring, route alerts, approve retention/RPO/RTO,
+  change Render settings, change app code, submit POSTs, record response
+  bodies, use secrets, or use patient data.
 
 ## Batch 14 Result
 
@@ -670,6 +678,59 @@ Key conclusion:
   legal/privacy, load/concurrency, and production infrastructure decisions are
   completed.
 
+## Batch 15-OPS-08 Result
+
+Batch 15-OPS-08 result:
+
+```text
+Extended staging observation, restore-drill operator pack, backup/RPO/RTO
+decision pack, and production blocker closure roadmap documented; production
+launch remains blocked.
+```
+
+Evidence added:
+
+- `docs/BATCH_15_OPS_08_STATUS.md`
+- `docs/EXTENDED_STAGING_OBSERVATION_EVIDENCE.md`
+- `docs/RENDER_MANAGED_POSTGRES_RESTORE_DRILL_OPERATOR_PACK.md`
+- `docs/BACKUP_RPO_RTO_APPROVAL_DECISION_PACK.md`
+- `docs/PRODUCTION_BLOCKER_CLOSURE_ROADMAP.md`
+
+Evidence updated:
+
+- `docs/OPERATIONS_BACKUP_RESTORE_PLAN.md`
+- `docs/OPERATIONS_MONITORING_ALERTING_PLAN.md`
+- `docs/OPERATIONS_SIGNAL_MATRIX.md`
+- `docs/STAGING_UPTIME_LATENCY_MONITORING_EVIDENCE.md`
+- `docs/PROJECT_RELEASE_SCORECARD.md`
+- `docs/NEXT_BATCH.md`
+- `docs/STAGING_VALIDATION_BLOCKERS.md`
+- `docs/RELEASE_CHECKLIST.md`
+- `docs/SECURITY_REGRESSION_CHECKLIST.md`
+- `docs/INCIDENT_RESPONSE_RUNBOOK.md`
+
+Key conclusion:
+
+- extended public staging observation evidence is now recorded for `/health/`
+  and `/` using 8 low-frequency rounds;
+- the evidence records status, total time, final URL, local timestamp, and curl
+  exit code only;
+- response bodies were discarded;
+- all checks returned HTTP 200 with curl exit code 0, but `/health/` recorded
+  severe latency in rounds 1 and 3 and slow latency in rounds 5 and 7 while
+  `/` stayed fast in every round;
+- Render managed PostgreSQL restore readiness is improved by an operator pack,
+  but no real managed restore drill was executed;
+- backup retention, RPO, and RTO are framed for owner approval, but no
+  commitment is approved;
+- the production blocker closure roadmap identifies owner roles, safe
+  evidence, forbidden evidence, dependency ordering, and whether Codex can
+  close each item without external credentials;
+- production launch remains blocked until owner/operator latency, monitoring,
+  alert routing, privacy-safe error reporting, restore drill, backup/RPO/RTO,
+  legal/privacy, load/concurrency, dependency ownership, and production
+  infrastructure decisions are completed.
+
 Batch 14A remains a valid later planning-only option:
 
 ```text
@@ -728,7 +789,12 @@ Must read before the next staging or operations batch:
 - `docs/DEPENDENCY_VULNERABILITY_SCAN_EVIDENCE.md`
 - `docs/BATCH_15_OPS_06_STATUS.md`
 - `docs/BATCH_15_OPS_07_STATUS.md`
+- `docs/BATCH_15_OPS_08_STATUS.md`
 - `docs/OPERATIONS_SIGNAL_MATRIX.md`
+- `docs/EXTENDED_STAGING_OBSERVATION_EVIDENCE.md`
+- `docs/RENDER_MANAGED_POSTGRES_RESTORE_DRILL_OPERATOR_PACK.md`
+- `docs/BACKUP_RPO_RTO_APPROVAL_DECISION_PACK.md`
+- `docs/PRODUCTION_BLOCKER_CLOSURE_ROADMAP.md`
 - `docs/RESTRICTED_STAGING_VALIDATION_EVIDENCE.md`
 - `docs/POSTGRESQL_REDIS_VALIDATION_EVIDENCE.md`
 - `docs/LOCAL_DOCKER_POSTGRES_REDIS_VALIDATION_EVIDENCE.md`
@@ -741,10 +807,11 @@ Must read before the next staging or operations batch:
    if safe access is available, including staging shell management commands,
    managed PostgreSQL/Redis command evidence, booking confirmation/browser
    checks with synthetic data only, and sanitized targeted log review.
-2. Next operations follow-up: owner/operator decision on Render latency
-   mitigation and monitoring/alerting provider setup, plus operator-approved
-   Render managed PostgreSQL restore drill with synthetic data only.
-3. Batch 15-OPS-08: dependency response owner approval, GitHub alert settings
+2. Next operations follow-up: owner/operator Render latency mitigation and
+   external monitoring/alert-routing setup for intermittent slow/severe
+   `/health/` latency; then operator-approved Render managed PostgreSQL
+   restore drill execution planning with synthetic data only.
+3. Batch 15-OPS-09: dependency response owner approval, GitHub alert settings
    decision, and bounded-ranges versus lockfile/hash workflow decision.
 4. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.

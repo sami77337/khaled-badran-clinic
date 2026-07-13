@@ -80,6 +80,11 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - Staging latency evidence batches compare new public GET timings against
   OPS-03/OPS-06 severe latency evidence and document likely causes, production
   impact, mitigation options, and owner/operator decision gates.
+- Extended staging observation batches remain low frequency, use public GET
+  only, discard response bodies, and do not become keep-alive polling.
+- Restore-readiness batches do not claim Render managed restore readiness
+  unless an owner-approved isolated restore drill was actually executed and
+  sanitized evidence was reviewed.
 
 ## Dependency Audit Checklist
 
@@ -118,6 +123,8 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - Fast bounded repeated public GET checks do not remove earlier severe latency
   blockers unless root cause is proven or an owner-approved mitigation/risk
   acceptance is documented.
+- Extended observation evidence is still not a production SLA, not a load test,
+  and not proof of database/cache readiness.
 - External monitoring provider selection is owner-approved before
   configuration.
 - Alert recipients and escalation paths are approved outside Git.
@@ -143,6 +150,11 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - HTTPS and proxy behavior are reviewed.
 - `BOOKING_TRUST_X_FORWARDED_FOR` remains false unless trusted proxy stripping is verified.
 - Backup and rollback plan exists.
+- Backup retention, RPO, and RTO have owner approval, or the missing approval
+  is recorded as a launch blocker.
+- A Render managed PostgreSQL restore drill has completed in an isolated target
+  with sanitized evidence, or the missing drill is recorded as a launch
+  blocker.
 - Monitoring owner is assigned.
 - Operations signal matrix has been reviewed and any incomplete provider,
   alert-routing, or privacy-safe error-reporting item is recorded as a launch
@@ -243,6 +255,8 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - `/health/ready/` private readiness monitoring is configured.
 - Error reporting, if added later, has privacy scrubbing before activation.
 - Alert routing is tested.
+- Slow public HTTP 200 responses trigger warning/critical policy through the
+  approved provider; HTTP 200 alone is not treated as readiness.
 - Monitoring provider readiness is not claimed from repository-native staging
   GET evidence alone.
 - Alert routing readiness is not claimed until primary and backup routes are
