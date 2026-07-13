@@ -20,8 +20,8 @@ final product completion and professional delivery readiness.
   asset delivery, but full production-like staging validation remains
   incomplete.
 - Legal/privacy approval remains blocked.
-- WhatsApp, uploads, medical records, and payments remain outside the current
-  implemented scope.
+- WhatsApp API/webhooks, actual uploads, patient-facing medical-record routes,
+  and payments remain outside the current implemented scope.
 - Batch 12 recorded the final product completion track, dashboard-managed
   configuration principle, and authorized showcase requirements.
 - Batch 13 produced final UX/product-flow specifications and design handoff
@@ -148,21 +148,31 @@ final product completion and professional delivery readiness.
   enable privacy-safe error reporting, change GitHub security settings, change
   dependencies, generate lockfiles, change Render settings, change app code,
   submit POSTs, record response bodies, use secrets, or use patient data.
+- BATCH-16-DELIVERY-01 is now owner-directed to patient medical record
+  foundation instead of Figma implementation. Figma implementation is
+  temporarily deferred by owner decision. This batch adds private-by-default
+  model/admin/test groundwork only; it does not add patient portal medical
+  record routes, public medical file links, actual private file upload
+  delivery, external storage, Render settings, WhatsApp API behavior,
+  production readiness, or real patient data.
 
 ## Next Recommended Batch
 
 ```text
-BATCH-16-DELIVERY-01: Figma implementation audit and UI foundation plan
+BATCH-16-DELIVERY-02: private media storage and access-control foundation
 ```
 
 Rationale:
 
 - `docs/CLINIC_DELIVERY_V1_SCOPE_LOCK.md` now locks the approved commercial
   delivery v1 product scope for implementation planning.
-- The immediate product-planning need is to audit the final Figma
-  implementation path and establish the UI foundation before public pages,
-  booking UI, dashboard records, private media, patient portal visibility, and
-  public cases work proceeds.
+- Figma implementation is temporarily deferred by owner decision while the
+  backend patient medical record foundation proceeds first.
+- BATCH-16-DELIVERY-01 establishes patient record models, private-by-default
+  visibility rules, media metadata states, admin registration, and tests
+  without implementing actual medical file uploads.
+- The next delivery need is private media storage and access control for
+  patient/visit media, including type/size validation and non-public delivery.
 - This is not a production-readiness batch and does not close operations,
   legal/privacy, backup/restore, monitoring, alert-routing, staging, DNS/TLS,
   load/concurrency, or production go/no-go blockers.
@@ -891,32 +901,39 @@ Must read before the next staging or operations batch:
 
 ## Ordered Recommended Batches
 
-1. BATCH-16-DELIVERY-01: Figma implementation audit and UI foundation plan,
+1. BATCH-16-DELIVERY-02: private media storage and access-control foundation,
    using `docs/CLINIC_DELIVERY_V1_SCOPE_LOCK.md` as the commercial v1 source
-   of truth and without changing production-readiness status.
-2. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
+   of truth, with no public medical file links and no production-readiness
+   claim.
+2. BATCH-16-DELIVERY-03: patient portal read-only approved record visibility,
+   only after private media access control is designed and tested.
+3. BATCH-16-DELIVERY-04: approved public cases/achievements media section,
+   only with separate explicit publication approval and consent state.
+4. Figma implementation audit and UI foundation plan, temporarily deferred by
+   owner decision and still required before final visual implementation.
+5. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
    readiness checklist and operator-assisted dry-run package, using synthetic
    data only, no Render credentials in Git, no real restore execution, and no
    patient data.
-3. Batch 14C-VALIDATE-03: complete operator-assisted Render runtime validation
+6. Batch 14C-VALIDATE-03: complete operator-assisted Render runtime validation
    if safe access is available, including staging shell management commands,
    managed PostgreSQL/Redis command evidence, booking confirmation/browser
    checks with synthetic data only, and sanitized targeted log review.
-4. Next operations follow-up: owner/operator Render latency mitigation and
+7. Next operations follow-up: owner/operator Render latency mitigation and
    external monitoring/alert-routing setup for intermittent slow/severe
    `/health/` latency; then operator-approved Render managed PostgreSQL
    restore drill execution planning with synthetic data only.
-5. Batch 14A: dashboard implementation planning/authorization, only if the
+8. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
-6. Batch 16: legal/privacy/account recovery and patient identity verification
+9. Batch 16: legal/privacy/account recovery and patient identity verification
    policy.
-7. Batch 17: doctor dashboard workflow completion/polish.
-8. Batch 18: patient portal completion/hardening.
-9. Batch 19: WhatsApp limited integration design/implementation only after
+10. Batch 17: doctor dashboard workflow completion/polish.
+11. Batch 18: patient portal completion/hardening.
+12. Batch 19: WhatsApp limited integration design/implementation only after
    privacy gates.
-10. Batch 20: approved cases/reviews/media showcase plus private publication
+13. Batch 20: approved cases/reviews/media showcase plus private publication
    rules.
-11. Batch 21: release candidate hardening.
+14. Batch 21: release candidate hardening.
 
 ## Final Quality Goals
 
@@ -941,8 +958,10 @@ Stop and report instead of continuing if:
 - real patient data is requested or provided;
 - patient media is requested for publication without explicit publication
   consent;
-- WhatsApp, uploads, medical records, payments, deployment, secrets, external
-  infrastructure, or dependency changes appear necessary in the same batch.
+- WhatsApp API/webhooks, actual uploads, patient-facing record routes,
+  payments, deployment, secrets, external infrastructure, or dependency changes
+  appear necessary in the same batch unless a later scope-locked delivery batch
+  explicitly approves that exact work.
 - Codex is asked to create Figma work, visual design, mockups, colors, spacing,
   typography, animations, shadows, borders, hover effects, or layout density
   without a human/owner-approved design handoff.

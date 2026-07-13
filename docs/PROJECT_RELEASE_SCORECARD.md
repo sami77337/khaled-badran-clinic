@@ -187,6 +187,15 @@ public cases/achievements media. This commercial scope note does not approve
 production launch and does not close production blockers. Production-ready
 remains `no`.
 
+BATCH-16-DELIVERY-01 delivery update: the owner temporarily deferred Figma
+implementation and directed the current delivery focus to the patient medical
+record foundation. The foundation adds private-by-default patient visit,
+clinical note, and media metadata groundwork with consent-gated public case
+state. It does not add actual upload files, public medical file links, patient
+portal record routes, external storage, Render settings, WhatsApp API behavior,
+production launch evidence, or real patient data. The next delivery batch is
+`BATCH-16-DELIVERY-02: private media storage and access-control foundation`.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -218,8 +227,8 @@ Status labels:
 | Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. Batch 15-OPS-05 adds a `pip-audit` workflow and records a successful local advisory-backed scan of `requirements.txt` with no known advisories returned at scan time. Batch 15-OPS-09 adds a dependency security governance decision pack. Named response owner approval, backup owner approval, GitHub vulnerability/Dependabot alert settings decisions, severity response SLA, and lockfile/hash workflow decision remain incomplete. |
 | Staff/admin governance | Partial | Staff access governance is documented and staff route tests exist. Real staff roster, superuser minimization, and access review remain manual/pre-launch. |
 | Design/Figma | Blocked | Current code has existing visual foundation from earlier batches. Batch 13 defines UX/product-flow and design handoff requirements only. Future visual changes still require human/Figma handoff and approval before Codex implementation. |
-| Uploads | Out of Scope for Now | No upload routes or private media handling are implemented. Private storage, malware scanning, retention, access control, and legal design are required first. |
-| Medical records | Out of Scope for Now | No medical-record routes or models are implemented. Authorization, audit, retention, patient visibility, legal, and clinical workflows are required first. |
+| Uploads | Out of Scope for Now | No upload routes or private file delivery are implemented. BATCH-16-DELIVERY-01 adds media metadata/status only. Private storage, malware scanning, retention, access control, type/size validation, and legal design are required first. |
+| Medical records | Partial | BATCH-16-DELIVERY-01 adds backend model/admin/test foundation for patients, visits, clinical notes, and media metadata with private-by-default visibility and consent-gated public case state. No patient-facing medical-record routes, actual uploads, public medical file links, automated diagnosis/treatment/triage, legal approval, audit workflow, or production readiness are implemented. |
 | WhatsApp | Out of Scope for Now | No WhatsApp API sending, webhook, message model, or credential use is implemented. Consent, security, logging, provider, and medical-information boundaries are required first. |
 | Payments | Out of Scope for Now | No payment routes or payment provider integration are implemented. Provider, refund, reconciliation, privacy, and accounting policy are required first. |
 
@@ -331,8 +340,9 @@ Rationale:
   full monitoring and alert routing, backup/restore drill, owner-reviewed
   security response, load testing, and Figma-approved future design governance
   are still unresolved.
-- Large future feature areas remain intentionally absent: uploads, medical
-  records, WhatsApp API/webhooks, payments, and medical automation.
+- Large future feature areas remain intentionally absent or incomplete:
+  actual uploads/private media delivery, patient-facing medical-record access,
+  WhatsApp API/webhooks, payments, and medical automation.
 
 ## Safe to Demo Now
 
@@ -364,8 +374,8 @@ Demo rules:
   histories.
 - Do not claim legal/privacy approval.
 - Do not claim production readiness.
-- Do not test uploads, medical records, WhatsApp API, payments, diagnosis,
-  triage, treatment automation, or medical AI.
+- Do not test uploads, patient-facing medical-record routes, WhatsApp API,
+  payments, diagnosis automation, triage, treatment automation, or medical AI.
 
 ## Not Safe to Demo Yet
 
@@ -377,7 +387,7 @@ Not safe to demo as real or production functionality:
 - Real email password reset.
 - Real WhatsApp sending or receiving.
 - Real uploads or medical reports.
-- Medical-record access.
+- Patient-facing medical-record access.
 - Payment collection.
 - Diagnosis, triage, treatment automation, or medical AI.
 - Production deployment.
