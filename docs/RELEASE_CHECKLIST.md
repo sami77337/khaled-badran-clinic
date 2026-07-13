@@ -51,7 +51,7 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - No real secrets, credentials, patient data, logs, private files, or database dumps are committed.
 - Route changes are reviewed against `docs/ROUTE_ACCESS_MATRIX.md`.
 - Patient/public/staff data exposure changes are reviewed against `docs/DATA_EXPOSURE_MATRIX.md`.
-- Future visual changes have an approved Figma handoff and do not bypass security/privacy requirements.
+- Future visual changes have an approved Figma handoff and do not bypass security/privacy requirements. Figma implementation is temporarily deferred by owner decision during the patient record foundation work.
 - Public booking success URLs still use UUID `public_token` values.
 - Numeric appointment success routes remain absent.
 - Staff appointment pages and operations remain staff-only.
@@ -113,6 +113,17 @@ Commercial handoff readiness requires:
   deletion/hiding;
 - patient portal shows only doctor/staff-approved record content and remains
   read-only for medical record content in v1.
+
+Current BATCH-16-DELIVERY-01 status:
+
+- patient medical record foundation is backend-only model/admin/test
+  groundwork governed by `docs/CLINIC_DELIVERY_V1_SCOPE_LOCK.md`;
+- production-ready remains `no`;
+- Figma implementation is temporarily deferred by owner decision;
+- media records are metadata/status only, with no actual file upload field and
+  no public medical file links;
+- next delivery batch: `BATCH-16-DELIVERY-02: private media storage and
+  access-control foundation`.
 
 Commercial handoff readiness does not mean production launch readiness.
 Production launch blockers, including legal/privacy approval, staging runtime
@@ -345,6 +356,9 @@ governance decisions, and final go/no-go approval remain separate.
 - no uploads until private media design exists
 - no WhatsApp until consent/logging/cost/security design exists
 - no medical records until authorization/audit/patient visibility rules are tested
+- BATCH-16-DELIVERY-01 adds only model/admin/test groundwork for patient
+  records; patient-facing record routes remain absent until a later approved
+  read-only visibility batch.
 - no payments until a payment provider, privacy, refund, and reconciliation policy is reviewed
 
 These gates are intentional blockers for future batches beyond the Batch 9 portal account-security polish.

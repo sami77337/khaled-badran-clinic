@@ -5,8 +5,15 @@ from .models import Patient
 
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):
-    list_display = ("full_name", "phone_raw", "phone_e164", "whatsapp_phone_e164", "created_at")
-    list_filter = ("created_at",)
+    list_display = (
+        "full_name",
+        "phone_raw",
+        "phone_e164",
+        "gender",
+        "whatsapp_phone_e164",
+        "created_at",
+    )
+    list_filter = ("gender", "created_at")
     search_fields = (
         "full_name",
         "phone_raw",
