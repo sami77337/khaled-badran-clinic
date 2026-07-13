@@ -178,6 +178,15 @@ change dependencies, generate lockfiles, change Render settings, change app
 code, submit POSTs, record response bodies, use secrets, or use patient data.
 Production-ready remains `no`.
 
+Commercial delivery scope note: `docs/CLINIC_DELIVERY_V1_SCOPE_LOCK.md` is the
+source of truth for Commercial Delivery v1 implementation planning. It locks
+the product handoff baseline as website, final Figma implementation, booking,
+WhatsApp quick link, doctor/staff dashboard, patient medical record v1, private
+images/videos, patient portal with doctor-approved visibility, and approved
+public cases/achievements media. This commercial scope note does not approve
+production launch and does not close production blockers. Production-ready
+remains `no`.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -459,27 +468,30 @@ Not safe to demo as real or production functionality:
 
 ## Recommended Next Batches
 
-1. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
+1. BATCH-16-DELIVERY-01: Figma implementation audit and UI foundation plan,
+   using `docs/CLINIC_DELIVERY_V1_SCOPE_LOCK.md` as the Commercial Delivery v1
+   source of truth.
+2. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
    readiness checklist and operator-assisted dry-run package, using synthetic
    data only and no Render credentials in Git.
-2. Batch 14C-VALIDATE-03: operator-assisted Render runtime validation if safe
+3. Batch 14C-VALIDATE-03: operator-assisted Render runtime validation if safe
    access is available, including staging shell management commands, managed
    PostgreSQL/Redis evidence, booking confirmation/browser checks with
    synthetic data only, and sanitized targeted log review.
-3. Next operations follow-up: owner/operator Render latency mitigation and
+4. Next operations follow-up: owner/operator Render latency mitigation and
    external monitoring/alert-routing setup for intermittent slow/severe
    `/health/` latency after owner/provider decisions.
-4. Batch 14A: dashboard implementation planning/authorization, only if the
+5. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
-5. Batch 16: legal/privacy/account recovery and patient identity verification
+6. Batch 16: legal/privacy/account recovery and patient identity verification
    policy.
-6. Batch 17: doctor dashboard workflow completion/polish.
-7. Batch 18: patient portal completion/hardening.
-8. Batch 19: WhatsApp limited integration design/implementation only after
+7. Batch 17: doctor dashboard workflow completion/polish.
+8. Batch 18: patient portal completion/hardening.
+9. Batch 19: WhatsApp limited integration design/implementation only after
    privacy gates.
-9. Batch 20: approved cases/reviews/media showcase plus private publication
+10. Batch 20: approved cases/reviews/media showcase plus private publication
    rules.
-10. Batch 21: release candidate hardening.
+11. Batch 21: release candidate hardening.
 
 Batch 12 adds planning documents for final product completion, doctor-managed
 configuration, and authorized showcase publication-consent requirements. It
