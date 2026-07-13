@@ -152,23 +152,25 @@ final product completion and professional delivery readiness.
 ## Next Recommended Batch
 
 ```text
-BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution readiness
-checklist and operator-assisted dry-run package
+BATCH-16-DELIVERY-01: Figma implementation audit and UI foundation plan
 ```
 
 Rationale:
 
-- OPS-09 confirms governance blockers remain decision-only.
-- The Render managed PostgreSQL restore-drill operator pack exists, but no
-  real managed restore drill has been executed.
-- Backup retention, RPO, RTO, owner assignments, monitoring, alert routing,
-  legal/privacy, and production go/no-go remain blocked.
-- The next safest operations batch is a dry-run package that prepares the
-  owner/operator execution checklist without using Render credentials,
-  changing Render settings, restoring data, or exposing secrets.
+- `docs/CLINIC_DELIVERY_V1_SCOPE_LOCK.md` now locks the approved commercial
+  delivery v1 product scope for implementation planning.
+- The immediate product-planning need is to audit the final Figma
+  implementation path and establish the UI foundation before public pages,
+  booking UI, dashboard records, private media, patient portal visibility, and
+  public cases work proceeds.
+- This is not a production-readiness batch and does not close operations,
+  legal/privacy, backup/restore, monitoring, alert-routing, staging, DNS/TLS,
+  load/concurrency, or production go/no-go blockers.
 
-OPS-10 should stay docs/evidence-only unless the owner separately authorizes a
-real operator-assisted execution window outside Git.
+BATCH-15-OPS-10 remains the next recommended production-operations follow-up
+when the owner resumes production-readiness blocker closure. That operations
+track remains separate from the Commercial Delivery v1 implementation-planning
+track.
 
 ## Batch 14 Result
 
@@ -889,29 +891,32 @@ Must read before the next staging or operations batch:
 
 ## Ordered Recommended Batches
 
-1. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
+1. BATCH-16-DELIVERY-01: Figma implementation audit and UI foundation plan,
+   using `docs/CLINIC_DELIVERY_V1_SCOPE_LOCK.md` as the commercial v1 source
+   of truth and without changing production-readiness status.
+2. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
    readiness checklist and operator-assisted dry-run package, using synthetic
    data only, no Render credentials in Git, no real restore execution, and no
    patient data.
-2. Batch 14C-VALIDATE-03: complete operator-assisted Render runtime validation
+3. Batch 14C-VALIDATE-03: complete operator-assisted Render runtime validation
    if safe access is available, including staging shell management commands,
    managed PostgreSQL/Redis command evidence, booking confirmation/browser
    checks with synthetic data only, and sanitized targeted log review.
-3. Next operations follow-up: owner/operator Render latency mitigation and
+4. Next operations follow-up: owner/operator Render latency mitigation and
    external monitoring/alert-routing setup for intermittent slow/severe
    `/health/` latency; then operator-approved Render managed PostgreSQL
    restore drill execution planning with synthetic data only.
-4. Batch 14A: dashboard implementation planning/authorization, only if the
+5. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
-5. Batch 16: legal/privacy/account recovery and patient identity verification
+6. Batch 16: legal/privacy/account recovery and patient identity verification
    policy.
-6. Batch 17: doctor dashboard workflow completion/polish.
-7. Batch 18: patient portal completion/hardening.
-8. Batch 19: WhatsApp limited integration design/implementation only after
+7. Batch 17: doctor dashboard workflow completion/polish.
+8. Batch 18: patient portal completion/hardening.
+9. Batch 19: WhatsApp limited integration design/implementation only after
    privacy gates.
-9. Batch 20: approved cases/reviews/media showcase plus private publication
+10. Batch 20: approved cases/reviews/media showcase plus private publication
    rules.
-10. Batch 21: release candidate hardening.
+11. Batch 21: release candidate hardening.
 
 ## Final Quality Goals
 

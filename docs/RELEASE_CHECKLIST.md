@@ -92,6 +92,34 @@ Production migration must happen only with a backup and rollback plan. Do not ru
 - No private owner contact details, webhook URLs, provider credentials, or
   private GitHub settings dumps are committed.
 
+## Commercial Handoff Checklist
+
+Use `docs/CLINIC_DELIVERY_V1_SCOPE_LOCK.md` as the source of truth for
+Commercial Delivery v1 scope unless a later approved scope-lock document
+supersedes it.
+
+Commercial handoff readiness requires:
+
+- final Figma implementation audited and implemented within approved design
+  governance;
+- public booking works from the website without required login, with
+  confirmation and patient-safe success/error states;
+- WhatsApp quick link exists without WhatsApp Business API automation unless
+  separately approved;
+- patient record v1 exists as a practical clinic record, not a full hospital
+  EMR;
+- private image and short-video media handling exists with type/size
+  validation, no public medical-file URLs, and dashboard-controlled
+  deletion/hiding;
+- patient portal shows only doctor/staff-approved record content and remains
+  read-only for medical record content in v1.
+
+Commercial handoff readiness does not mean production launch readiness.
+Production launch blockers, including legal/privacy approval, staging runtime
+validation, managed backup/restore, monitoring provider setup, alert routing,
+load/concurrency validation, production DNS/custom domain/TLS, dependency
+governance decisions, and final go/no-go approval remain separate.
+
 ## Dependency Audit Checklist
 
 - `.github/workflows/dependency-audit.yml` remains manually runnable.

@@ -16,6 +16,14 @@ they do not close blockers that require owner approval, provider setup, route
 testing, GitHub security setting decisions, legal/privacy review, or production
 go/no-go approval.
 
+Commercial demo/handoff scope is tracked separately in
+`docs/CLINIC_DELIVERY_V1_SCOPE_LOCK.md`. That document locks Commercial
+Delivery v1 product scope for implementation planning only. It does not close
+any production-readiness blocker in this roadmap, does not approve launch, and
+does not authorize provider setup, Render setting changes, DNS/custom
+domain/TLS work, monitoring setup, alert routing, real patient use, or
+production go/no-go.
+
 Production-ready status:
 
 ```text
