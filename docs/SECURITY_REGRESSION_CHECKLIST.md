@@ -29,6 +29,14 @@ Run this checklist before any staging launch, production launch, or feature batc
 - Review `docs/OPERATIONS_MONITORING_ALERTING_PLAN.md` and
   `docs/OPERATIONS_SIGNAL_MATRIX.md` before claiming monitoring provider,
   alert-routing, or privacy-safe error-reporting readiness.
+- Review `docs/EXTENDED_STAGING_OBSERVATION_EVIDENCE.md` before using public
+  staging latency evidence in a launch discussion.
+- Review `docs/RENDER_MANAGED_POSTGRES_RESTORE_DRILL_OPERATOR_PACK.md` before
+  planning or claiming a Render managed PostgreSQL restore drill.
+- Review `docs/BACKUP_RPO_RTO_APPROVAL_DECISION_PACK.md` before claiming backup
+  retention, RPO, or RTO approval.
+- Review `docs/PRODUCTION_BLOCKER_CLOSURE_ROADMAP.md` before claiming a
+  production blocker is closed.
 - Review `docs/STAFF_ACCESS_GOVERNANCE.md` before creating production
   staff/admin accounts.
 - Review `docs/LEGAL_PRIVACY_OPERATIONS.md` before public launch.

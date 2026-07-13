@@ -92,6 +92,18 @@ Response bodies were discarded. These checks do not prove private readiness,
 database health, cache health, provider alerting, production uptime, or launch
 readiness.
 
+BATCH-15-OPS-08 adds a longer low-frequency public staging observation window
+and a production blocker closure roadmap:
+
+- `docs/EXTENDED_STAGING_OBSERVATION_EVIDENCE.md`
+- `docs/PRODUCTION_BLOCKER_CLOSURE_ROADMAP.md`
+
+The extended observation remains limited to public `GET /health/` and `GET /`.
+It records status, total time, final URL, local timestamp, and curl exit code
+only. It does not print response bodies, use credentials, access private
+routes, submit booking POSTs, configure monitoring providers, route alerts, or
+change Render settings.
+
 ## Uptime Checks
 
 Interim repository-native staging checks:
@@ -333,13 +345,13 @@ patient data or secrets in alert payloads.
 
 ## Alert Routing and Escalation
 
-Alert recipients remain placeholders until owner approval:
+Alert recipients are not recorded in Git until owner approval:
 
-- Primary technical operator: `TBD`
-- Backup technical operator: `TBD`
-- Project owner: `TBD`
-- Legal/privacy escalation: `TBD`
-- Hosting/provider escalation path: `TBD`
+- Primary technical operator: not recorded in Git pending owner approval.
+- Backup technical operator: not recorded in Git pending owner approval.
+- Project owner: not recorded in Git pending owner approval.
+- Legal/privacy escalation: not recorded in Git pending owner approval.
+- Hosting/provider escalation path: not recorded in Git pending owner approval.
 
 Routing requirements:
 
@@ -474,6 +486,8 @@ Reasons:
 - BATCH-15-OPS-07 repeated checks returned HTTP 200 in under `0.25` seconds,
   which reduces evidence of persistent latency during that observed window but
   does not prove root cause or remove the historical severe-latency blocker;
+- BATCH-15-OPS-08 adds extended public staging observation evidence and a
+  blocker closure roadmap without configuring an external provider;
 - external uptime monitoring provider is not configured;
 - alert routing is not configured;
 - privacy-safe error reporting is not configured;

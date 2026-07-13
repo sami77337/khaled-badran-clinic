@@ -21,7 +21,8 @@ This runbook is an operational outline for future staging and production use. It
 
 `SEV-3 Medium`
 
-- Degraded public pages, intermittent errors, monitoring gaps, or suspicious traffic below abuse thresholds.
+- Degraded public pages, intermittent errors, severe slow public HTTP 200
+  responses, monitoring gaps, or suspicious traffic below abuse thresholds.
 - Staging-only failure that blocks release validation.
 
 `SEV-4 Low`
@@ -100,6 +101,8 @@ Containment:
 - Check application process, database, cache, reverse proxy, DNS, TLS, and static serving.
 - Use `/health/` for liveness and `/health/ready/` for private readiness.
 - Avoid exposing internal diagnostics publicly.
+- Treat severe slow HTTP 200 responses as degraded availability evidence, not
+  as a clean pass.
 
 Recovery:
 
@@ -135,6 +138,33 @@ Recovery:
 - Restore to a separate environment first when feasible.
 - Use a database specialist for partial migration recovery.
 - Run post-migration validation before returning traffic.
+
+### Backup Or Restore Failure
+
+Containment:
+
+- Assign the restore drill or incident owner.
+- Confirm the affected environment and recovery point without copying
+  credentials into Git.
+- Stop the restore if real patient data appears in an unapproved target.
+- Preserve sanitized status, timestamps, migration state, and smoke outcome
+  only.
+- Do not paste connection strings, database dumps, full provider logs, or
+  patient rows into the incident timeline.
+
+Recovery:
+
+- Prefer isolated restore validation before touching active production.
+- Confirm migrations are clean.
+- Run `python manage.py deployment_smoke --strict` from a trusted
+  production-like environment.
+- Confirm no appointment/private data exposure occurred.
+- Confirm cleanup of restore-test resources.
+
+Review trigger:
+
+- Legal/privacy review is required if real patient data, credentials, private
+  files, or regulated information may be involved.
 
 ### Redis or Cache Outage
 

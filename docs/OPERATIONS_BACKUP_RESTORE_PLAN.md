@@ -363,12 +363,34 @@ Policy must define:
 Do not promise deletion timing or legal retention behavior until qualified
 review is complete.
 
+## Batch 15 OPS-08 Operator Approval Pack
+
+BATCH-15-OPS-08 adds two docs/evidence-only planning artifacts:
+
+- `docs/RENDER_MANAGED_POSTGRES_RESTORE_DRILL_OPERATOR_PACK.md`
+- `docs/BACKUP_RPO_RTO_APPROVAL_DECISION_PACK.md`
+
+The Render managed PostgreSQL restore-drill operator pack does not execute a
+restore. It defines the required owner approvals, secret boundaries,
+patient-data boundaries, safe evidence, forbidden evidence, pre-drill
+checklist, drill roles, proposed isolated target shape, backup source
+requirements, restore target requirements, verification categories,
+rollback/cleanup checklist, incident criteria, and acceptance criteria.
+
+The backup retention/RPO/RTO decision pack does not approve policy. It frames
+owner decisions for backup retention, recovery point objective, recovery time
+objective, owner roles, staging-only versus small-clinic baseline versus
+stronger production posture, evidence requirements, and remaining blockers.
+
+No backup retention, RPO, or RTO commitment is approved until owner signs off.
+No Render managed PostgreSQL restore drill was executed in BATCH-15-OPS-08.
+
 ## Current Readiness Classification
 
 Backup/restore readiness:
 
 ```text
-partial, local synthetic drill passed
+partial, local synthetic drill passed, managed restore approval pack added
 ```
 
 Reasons:
@@ -377,6 +399,9 @@ Reasons:
 - local validation commands pass under development settings;
 - local Docker PostgreSQL/Redis evidence exists from earlier batches;
 - local synthetic PostgreSQL logical backup/restore drill evidence exists;
+- BATCH-15-OPS-08 now has an operator approval pack for a future Render
+  managed PostgreSQL restore drill;
+- BATCH-15-OPS-08 now has a backup retention/RPO/RTO owner decision pack;
 - real Render managed PostgreSQL restore drill evidence does not exist;
 - backup retention, RPO, and RTO are not approved;
 - backup job monitoring is not configured;

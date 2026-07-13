@@ -228,9 +228,30 @@ code, add migrations, use secrets, record logs or response bodies, complete a
 Render managed PostgreSQL restore drill, approve legal/privacy, validate
 load/concurrency, or validate production readiness.
 
+BATCH-15-OPS-08 documented extended staging observation and restore-readiness
+decision packs:
+
+- eight low-frequency rounds of public `GET /health/` and `GET /` observation
+  completed with 15 minutes between rounds;
+- all checks returned HTTP 200 with curl exit code 0;
+- `/health/` remained intermittently slow or severe while `/` stayed fast;
+- response bodies were discarded;
+- only local timestamp, endpoint label, HTTP status, total time, final URL, and
+  curl exit code were recorded;
+- a Render managed PostgreSQL restore-drill operator approval pack was added;
+- a backup retention/RPO/RTO owner decision pack was added;
+- a production blocker closure roadmap was added.
+
+BATCH-15-OPS-08 did not change Render settings, configure a monitoring
+provider, route alerts, add error reporting, change dependencies, change app
+code, add migrations, use secrets, record logs or response bodies, complete a
+Render managed PostgreSQL restore drill, approve backup retention/RPO/RTO,
+approve legal/privacy, validate load/concurrency, or validate production
+readiness.
+
 Do not claim production readiness from Batch 14, Batch 14B,
 Batch 14C-VALIDATE-01/02, Batch 15-OPS-01, Batch 15-OPS-02, or
-Batch 15-OPS-03/04/05/06/07.
+Batch 15-OPS-03/04/05/06/07/08.
 
 ## Real Infrastructure Blockers
 
@@ -444,15 +465,19 @@ Operational launch blockers remain:
 
 - Backup/restore planning exists, and a local synthetic PostgreSQL
   backup/restore drill passed, but no real Render managed PostgreSQL restore
-  drill evidence exists.
-- No backup retention/RPO/RTO approval.
+  drill evidence exists. BATCH-15-OPS-08 adds an operator approval pack, but it
+  does not execute the managed restore.
+- No backup retention/RPO/RTO approval. BATCH-15-OPS-08 adds an owner decision
+  pack, but no commitment is approved.
 - Monitoring/alerting planning exists, and a low-frequency GitHub Actions
   staging uptime workflow exists for public `/health/` and `/` GET checks, but
   no full monitoring provider is configured. BATCH-15-OPS-06 documents the
   operations signal matrix and readiness gaps, but it does not configure a
   provider. BATCH-15-OPS-07 documents fast bounded repeated public GET checks
   and latency mitigation gates, but it does not prove root cause or configure
-  mitigation.
+  mitigation. BATCH-15-OPS-08 adds a longer public observation window, but it
+  recorded intermittent slow/severe `/health/` latency and does not configure
+  provider monitoring or alerting.
 - No owner/operator decision is recorded for Render cold-start or runtime-class
   mitigation before production promotion.
 - No alert routing is configured.
@@ -497,8 +522,8 @@ Recommended next batches:
 
 ```text
 Batch 14C-VALIDATE-03: operator-assisted Render runtime validation
-Next operations follow-up: Render latency mitigation decision, approved monitoring/alerting setup, and Render managed restore drill
-Batch 15-OPS-08: dependency owner, GitHub alert, and lockfile/hash decisions
+Next operations follow-up: Render latency mitigation plus approved monitoring/alerting setup for intermittent slow/severe /health/ latency; then Render managed restore-drill execution planning
+Batch 15-OPS-09: dependency owner, GitHub alert, and lockfile/hash decisions
 ```
 
 Dashboard implementation should remain deferred until the staging runtime,

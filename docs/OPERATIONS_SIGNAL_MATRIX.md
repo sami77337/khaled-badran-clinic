@@ -63,6 +63,19 @@ OPS-07 bounded repeated checks:
 | `GET /health/` | 200 | `0.103777` to `0.243988` seconds | Available and fast during the bounded repeated check window. |
 | `GET /` | 200 | `0.106962` to `0.169094` seconds | Available and fast during the bounded repeated check window. |
 
+BATCH-15-OPS-08 extended observation:
+
+- evidence file: `docs/EXTENDED_STAGING_OBSERVATION_EVIDENCE.md`;
+- method: 8 rounds, 15 minutes between rounds, public `GET /health/` and
+  `GET /` only;
+- result: all checks returned HTTP 200 with curl exit code 0;
+- latency: `/health/` was severe in rounds 1 and 3, slow in rounds 5 and 7,
+  and fast in rounds 2, 4, 6, and 8; `/` was fast in all rounds;
+- recorded fields: round, local timestamp, endpoint label, HTTP status, total
+  time, final URL, and curl exit code;
+- no response bodies, private endpoints, booking POSTs, provider logs,
+  credentials, Render settings changes, or alert-provider configuration.
+
 These checks are public staging availability and latency observations only.
 They do not prove private readiness, database health, cache health, provider
 alerting, production uptime, or launch readiness.
@@ -159,7 +172,7 @@ not ready
 | Area | Status | Reason |
 | --- | --- | --- |
 | Public staging availability | Partial | Latest safe GET checks returned HTTP 200 for `/health/` and `/`. |
-| Public staging latency | Blocked | Latest repeated checks were fast, but OPS-03 and OPS-06 documented intermittent severe responses over 30 seconds with no proven root cause or mitigation decision. |
+| Public staging latency | Blocked | OPS-03 and OPS-06 documented intermittent severe responses over 30 seconds, post-PR operator evidence again showed severe `/health/` latency, and OPS-08 recorded severe `/health/` latency in rounds 1 and 3 plus slow `/health/` latency in rounds 5 and 7. Root cause and mitigation are still not approved. |
 | Full monitoring provider | Incomplete | No external provider is selected, configured, or validated. |
 | Alert routing | Incomplete | No primary or backup route is configured or tested. |
 | Privacy-safe error reporting | Incomplete | No provider integration or scrubbed synthetic event exists. |
@@ -182,6 +195,8 @@ not ready
 - Complete a synthetic alert test outside Git.
 - Complete a scrubbed synthetic error-reporting event review outside Git.
 - Complete a Render managed PostgreSQL restore drill with synthetic data only.
+- Decide backup retention, RPO, and RTO.
+- Close or owner-accept the production blocker roadmap before go/no-go.
 
 ## Safety Boundary
 

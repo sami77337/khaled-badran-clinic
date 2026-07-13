@@ -157,6 +157,17 @@ settings, monitoring providers, alert routes, dependencies, application code,
 migrations, secrets, POSTs, response bodies, or patient data were changed or
 recorded.
 
+Batch 15-OPS-08 operations update: extended low-frequency public staging
+observation evidence, a Render managed PostgreSQL restore-drill operator
+approval pack, a backup retention/RPO/RTO owner decision pack, and a production
+blocker closure roadmap are now documented. The observation recorded
+intermittent slow/severe `/health/` latency while `/` stayed fast. The batch
+remains docs/evidence only. It does not execute a Render managed PostgreSQL
+restore drill, approve backup retention/RPO/RTO, configure monitoring
+providers, route alerts, add privacy-safe error reporting, change Render
+settings, change app code, change workflows, change dependencies, submit
+POSTs, record response bodies, use secrets, or use patient data.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -182,9 +193,9 @@ Status labels:
 | Staging readiness | Partial | Staging validation plan, gap analysis, environment contract, local validation scripts, local PostgreSQL/Redis harness, manual Render setup documentation, and sanitized Batch 14C-VALIDATE-02 evidence exist. The real Render staging service returns HTTP 200 for `/health/`, `/`, `/book/`, and `/en/book/`; HTTP redirects to HTTPS; home-page static assets return HTTP 200; and safe portal form CSRF/cookie evidence exists. Full production-like staging validation remains incomplete. |
 | PostgreSQL readiness | Partial | PostgreSQL expectations, migration/concurrency plans, local constraint tests, and local Docker PostgreSQL harness exist. Batch 14B-FIX-01 fixed the local PostgreSQL locking blocker and PostgreSQL-backed booking/patient portal/full-suite tests now pass locally. Render staging is reachable after operator-managed migration work, but direct safe staging database command evidence, load/concurrency, backup/restore, and provider validation have not run in this batch. |
 | Redis/shared cache readiness | Partial | Redis expectations and cache-key privacy tests exist. Batch 14B-FIX-01 proved local Docker Redis cache reachability and Redis-backed booking/patient portal/full-suite tests now pass locally. Render staging cache service exists by operator context, but real multi-process quota, outage, tuning, monitoring, and safe staging command evidence have not run in this batch. |
-| Backup/restore | Partial | Synthetic-only drill runbooks and the Batch 15 operations plan exist. Batch 15-OPS-02 passed a local synthetic PostgreSQL logical dump/restore drill with public/demo setup data only, zero patients, zero appointments, safe post-restore reports, and 246 tests passing. Real Render managed PostgreSQL restore evidence, backup retention, RPO, RTO, backup monitoring, and provider-specific restore evidence remain incomplete. |
+| Backup/restore | Partial | Synthetic-only drill runbooks and the Batch 15 operations plan exist. Batch 15-OPS-02 passed a local synthetic PostgreSQL logical dump/restore drill with public/demo setup data only, zero patients, zero appointments, safe post-restore reports, and 246 tests passing. Batch 15-OPS-08 adds a Render managed PostgreSQL restore-drill operator pack and backup retention/RPO/RTO decision pack. Real Render managed PostgreSQL restore execution, approved backup retention, approved RPO/RTO, backup monitoring, and provider-specific restore evidence remain incomplete. |
 | Privacy/legal | Blocked | Draft pages and privacy matrices exist. Formal legal/privacy review, retention/deletion policy, recovery policy, and patient identity verification are required before launch. |
-| Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. Batch 15 adds uptime, latency, error-rate, deploy, database, cache, privacy-safe error reporting, alert routing, severity, incident response, and post-incident review planning. Batch 15-OPS-03 adds a low-frequency GitHub Actions staging uptime workflow for public `/health/` and `/` checks only. Batch 15-OPS-06 documents the operations signal matrix and records public GET spot checks with HTTP 200 but severe latency over 30 seconds. Batch 15-OPS-07 records bounded repeated public GET checks that were fast, plus mitigation decision gates for the historical intermittent severe-latency evidence. No full monitoring provider, alert routing, privacy-safe error reporting, or abuse alerts are configured. |
+| Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. Batch 15 adds uptime, latency, error-rate, deploy, database, cache, privacy-safe error reporting, alert routing, severity, incident response, and post-incident review planning. Batch 15-OPS-03 adds a low-frequency GitHub Actions staging uptime workflow for public `/health/` and `/` checks only. Batch 15-OPS-06 documents the operations signal matrix and records public GET spot checks with HTTP 200 but severe latency over 30 seconds. Batch 15-OPS-07 records bounded repeated public GET checks that were fast, plus mitigation decision gates for the historical intermittent severe-latency evidence. Batch 15-OPS-08 adds extended public staging observation evidence, records intermittent slow/severe `/health/` latency while `/` stayed fast, and adds a blocker closure roadmap. No full monitoring provider, alert routing, privacy-safe error reporting, or abuse alerts are configured. |
 | Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. Batch 15-OPS-05 adds a `pip-audit` workflow and records a successful local advisory-backed scan of `requirements.txt` with no known advisories returned at scan time. Named response owner approval, GitHub alert settings decision, and lockfile/hash workflow decision remain incomplete. |
 | Staff/admin governance | Partial | Staff access governance is documented and staff route tests exist. Real staff roster, superuser minimization, and access review remain manual/pre-launch. |
 | Design/Figma | Blocked | Current code has existing visual foundation from earlier batches. Batch 13 defines UX/product-flow and design handoff requirements only. Future visual changes still require human/Figma handoff and approval before Codex implementation. |
@@ -219,8 +230,8 @@ launch.
 
 ## Conservative Completion Estimate
 
-Estimated whole-project completion after Batch 15-OPS-07 staging latency
-evidence and mitigation decision gates:
+Estimated whole-project completion after Batch 15-OPS-08 extended observation
+and restore-readiness decision packs:
 
 - Approximately 79% unchanged.
 
@@ -282,6 +293,13 @@ Rationale:
   persistent latency during that observation window, but OPS-03/OPS-06 severe
   latency remains unresolved until root cause, monitoring, alert routing, and
   hosting/runtime decisions are made.
+- Batch 15-OPS-08 adds extended public staging observation evidence, a Render
+  managed PostgreSQL restore-drill operator pack, a backup retention/RPO/RTO
+  decision pack, and a production blocker closure roadmap. The observation
+  recorded intermittent slow/severe `/health/` latency while `/` stayed fast.
+  It improves readiness documentation and owner/operator decision clarity, but
+  it does not configure providers, route alerts, execute a managed restore,
+  approve retention/RPO/RTO, or close launch blockers.
 - The estimate remains below launch-ready because real staging/prod
   validation depth, production infrastructure, legal/privacy approval,
   full monitoring and alert routing, backup/restore drill, owner-reviewed
@@ -384,16 +402,18 @@ Not safe to demo as real or production functionality:
   backup/restore, and shared-cache multi-process/outage evidence remain
   incomplete.
 - Backup/restore planning is more precise, and a local synthetic PostgreSQL
-  restore drill passed, but no real Render managed PostgreSQL restore drill
-  has been completed.
+  restore drill passed. BATCH-15-OPS-08 adds an operator pack for a future
+  Render managed restore drill, but no real Render managed PostgreSQL restore
+  drill has been completed.
 - Monitoring/alerting planning is more precise, a low-frequency
   repository-native staging uptime workflow exists for public GET checks, and
   the operations signal matrix is documented, but no full monitoring provider,
   alert routing, privacy-safe error reporting, or abuse alert is configured.
   OPS-07 bounded repeated public staging GET checks returned HTTP 200 in under
   `0.25` seconds, but OPS-03/OPS-06 severe latency over 30 seconds remains
-  unresolved until an owner/operator mitigation decision and provider evidence
-  exist.
+  unresolved. BATCH-15-OPS-08 adds a longer public observation window and
+  records intermittent slow/severe `/health/` latency, so an owner/operator
+  mitigation decision and provider evidence are still required.
 - No legal/privacy approval is recorded.
 - No verified email/phone ownership policy is approved.
 - No secure account recovery operation is approved.
@@ -413,10 +433,11 @@ Not safe to demo as real or production functionality:
    access is available, including staging shell management commands, managed
    PostgreSQL/Redis evidence, booking confirmation/browser checks with
    synthetic data only, and sanitized targeted log review.
-2. Next operations follow-up: owner/operator decision on Render latency
-   mitigation and monitoring/alerting provider setup, plus operator-approved
-   Render managed PostgreSQL restore drill with synthetic data only.
-3. Batch 15-OPS-08: dependency response owner approval, GitHub alert settings
+2. Next operations follow-up: owner/operator Render latency mitigation and
+   external monitoring/alert-routing setup for intermittent slow/severe
+   `/health/` latency; then operator-approved Render managed PostgreSQL
+   restore drill execution planning with synthetic data only.
+3. Batch 15-OPS-09: dependency response owner approval, GitHub alert settings
    decision, and bounded-ranges versus lockfile/hash workflow decision.
 4. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
@@ -508,6 +529,15 @@ It does not add product features, create patient data, submit booking POSTs,
 change dependencies, configure external providers, route alerts, add
 error-reporting SDKs, change Render settings, run Render shell commands, or
 claim production launch readiness.
+
+Batch 15-OPS-08 adds extended public staging observation evidence, a Render
+managed PostgreSQL restore-drill operator approval pack, a backup
+retention/RPO/RTO approval decision pack, and a production blocker closure
+roadmap. It does not add product features, create patient data, submit booking
+POSTs, change dependencies, configure external providers, route alerts, add
+error-reporting SDKs, change Render settings, run Render shell commands, run a
+managed restore drill, approve backup policy, or claim production launch
+readiness.
 
 ## Design Status
 

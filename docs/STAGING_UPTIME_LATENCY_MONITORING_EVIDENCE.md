@@ -36,6 +36,15 @@ OPS-03 and OPS-06 severe latency evidence, repeats bounded safe public GET
 checks without response bodies, and documents likely causes, production
 impact, mitigation options, and decision gates.
 
+BATCH-15-OPS-08 adds extended low-frequency public staging observation
+evidence:
+
+- `docs/EXTENDED_STAGING_OBSERVATION_EVIDENCE.md`
+
+It uses the same public endpoint boundary, extends the observation window to 8
+rounds with 15 minutes between rounds, records only safe metadata, and does
+not configure external monitoring or alert routing.
+
 Production-ready status:
 
 ```text
@@ -176,6 +185,15 @@ persistent latency while the service is available or warm. It does not disprove
 intermittent cold starts, platform queuing, deploy/restart effects, regional
 network delay, runtime stalls, or future severe responses.
 
+BATCH-15-OPS-08 extends the observation period but remains public GET evidence
+only. The full 8-round table and classification are recorded in
+`docs/EXTENDED_STAGING_OBSERVATION_EVIDENCE.md`. The final observation recorded
+HTTP 200 with curl exit code 0 for all checks, but `/health/` was severe in
+rounds 1 and 3 and slow in rounds 5 and 7 while `/` stayed fast in every
+round. The observation must be read with the OPS-03/OPS-06 severe latency
+evidence and the post-PR #33 operator evidence that `/health/` returned HTTP
+200 only after about 32.49 seconds while `/` was fast in the same window.
+
 ## What This Evidence Proves
 
 This evidence proves only that the repository now has:
@@ -248,6 +266,14 @@ BATCH-15-OPS-07 spot-check conclusion:
 ```text
 public GET availability observed; current bounded repeated checks were fast,
 but historical intermittent severe staging latency remains unresolved
+```
+
+BATCH-15-OPS-08 extended-observation conclusion:
+
+```text
+public GET availability and latency evidence extended; intermittent
+slow/severe /health/ latency remains unresolved; production launch remains
+blocked pending owner/operator latency, monitoring, and alert-routing decisions
 ```
 
 Mitigation decision status:
