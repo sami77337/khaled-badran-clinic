@@ -249,6 +249,22 @@ Render managed PostgreSQL restore drill, approve backup retention/RPO/RTO,
 approve legal/privacy, validate load/concurrency, or validate production
 readiness.
 
+BATCH-15-OPS-09 documented operations governance decision packs:
+
+- owner assignment decision pack exists;
+- monitoring provider selection decision pack exists;
+- alert-routing approval and synthetic test plan exists;
+- dependency security governance decision pack exists;
+- operations governance closure matrix exists.
+
+BATCH-15-OPS-09 did not approve real owners, did not record private contact
+details, did not select or configure an external monitoring provider, did not
+configure or test alert routing, did not configure privacy-safe error
+reporting, did not assign dependency owners, did not change GitHub security
+settings, did not decide bounded ranges versus lockfile/hash workflow, did not
+approve legal/privacy, did not validate load/concurrency, did not configure
+production DNS/TLS, and did not approve production go/no-go.
+
 Do not claim production readiness from Batch 14, Batch 14B,
 Batch 14C-VALIDATE-01/02, Batch 15-OPS-01, Batch 15-OPS-02, or
 Batch 15-OPS-03/04/05/06/07/08.
@@ -477,7 +493,9 @@ Operational launch blockers remain:
   and latency mitigation gates, but it does not prove root cause or configure
   mitigation. BATCH-15-OPS-08 adds a longer public observation window, but it
   recorded intermittent slow/severe `/health/` latency and does not configure
-  provider monitoring or alerting.
+  provider monitoring or alerting. BATCH-15-OPS-09 adds monitoring provider
+  and alert-routing decision packs, but no external monitoring provider or
+  alert route is configured or tested.
 - No owner/operator decision is recorded for Render cold-start or runtime-class
   mitigation before production promotion.
 - No alert routing is configured.
@@ -487,7 +505,11 @@ Operational launch blockers remain:
   in CI, but a named human response owner and backup owner are not recorded,
   GitHub vulnerability and Dependabot alert settings still need an owner
   decision if not enabled, and the lockfile/hash workflow decision remains
-  open.
+  open. BATCH-15-OPS-09 adds the dependency security governance decision pack,
+  but no owner/backup approval, GitHub setting decision, or lockfile/hash
+  decision was made.
+- No real owner approvals are recorded for required operations roles.
+- No privacy-safe error-reporting provider is configured.
 - No staging load test.
 - No staging concurrency test.
 - No complete production static serving validation beyond basic home-page
@@ -521,9 +543,9 @@ not substitutes for full production-like staging validation.
 Recommended next batches:
 
 ```text
+BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution readiness checklist and operator-assisted dry-run package
 Batch 14C-VALIDATE-03: operator-assisted Render runtime validation
-Next operations follow-up: Render latency mitigation plus approved monitoring/alerting setup for intermittent slow/severe /health/ latency; then Render managed restore-drill execution planning
-Batch 15-OPS-09: dependency owner, GitHub alert, and lockfile/hash decisions
+Next operations follow-up: Render latency mitigation plus approved monitoring/alerting setup for intermittent slow/severe /health/ latency after owner/provider decisions
 ```
 
 Dashboard implementation should remain deferred until the staging runtime,

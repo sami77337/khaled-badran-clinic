@@ -168,6 +168,16 @@ providers, route alerts, add privacy-safe error reporting, change Render
 settings, change app code, change workflows, change dependencies, submit
 POSTs, record response bodies, use secrets, or use patient data.
 
+Batch 15-OPS-09 operations update: owner assignment, monitoring provider
+selection, alert-routing approval/synthetic testing, dependency security
+governance, and operations governance closure matrix decision packs are now
+documented. The batch remains docs/evidence only. It does not assign private
+contacts, configure a monitoring provider, configure alert routing, send real
+alerts, add privacy-safe error reporting, change GitHub security settings,
+change dependencies, generate lockfiles, change Render settings, change app
+code, submit POSTs, record response bodies, use secrets, or use patient data.
+Production-ready remains `no`.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -195,8 +205,8 @@ Status labels:
 | Redis/shared cache readiness | Partial | Redis expectations and cache-key privacy tests exist. Batch 14B-FIX-01 proved local Docker Redis cache reachability and Redis-backed booking/patient portal/full-suite tests now pass locally. Render staging cache service exists by operator context, but real multi-process quota, outage, tuning, monitoring, and safe staging command evidence have not run in this batch. |
 | Backup/restore | Partial | Synthetic-only drill runbooks and the Batch 15 operations plan exist. Batch 15-OPS-02 passed a local synthetic PostgreSQL logical dump/restore drill with public/demo setup data only, zero patients, zero appointments, safe post-restore reports, and 246 tests passing. Batch 15-OPS-08 adds a Render managed PostgreSQL restore-drill operator pack and backup retention/RPO/RTO decision pack. Real Render managed PostgreSQL restore execution, approved backup retention, approved RPO/RTO, backup monitoring, and provider-specific restore evidence remain incomplete. |
 | Privacy/legal | Blocked | Draft pages and privacy matrices exist. Formal legal/privacy review, retention/deletion policy, recovery policy, and patient identity verification are required before launch. |
-| Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. Batch 15 adds uptime, latency, error-rate, deploy, database, cache, privacy-safe error reporting, alert routing, severity, incident response, and post-incident review planning. Batch 15-OPS-03 adds a low-frequency GitHub Actions staging uptime workflow for public `/health/` and `/` checks only. Batch 15-OPS-06 documents the operations signal matrix and records public GET spot checks with HTTP 200 but severe latency over 30 seconds. Batch 15-OPS-07 records bounded repeated public GET checks that were fast, plus mitigation decision gates for the historical intermittent severe-latency evidence. Batch 15-OPS-08 adds extended public staging observation evidence, records intermittent slow/severe `/health/` latency while `/` stayed fast, and adds a blocker closure roadmap. No full monitoring provider, alert routing, privacy-safe error reporting, or abuse alerts are configured. |
-| Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. Batch 15-OPS-05 adds a `pip-audit` workflow and records a successful local advisory-backed scan of `requirements.txt` with no known advisories returned at scan time. Named response owner approval, GitHub alert settings decision, and lockfile/hash workflow decision remain incomplete. |
+| Monitoring | Partial | Health/readiness endpoints, endpoint privacy tests, logging foundation, and monitoring/alerting readiness docs exist. Batch 15 adds uptime, latency, error-rate, deploy, database, cache, privacy-safe error reporting, alert routing, severity, incident response, and post-incident review planning. Batch 15-OPS-03 adds a low-frequency GitHub Actions staging uptime workflow for public `/health/` and `/` checks only. Batch 15-OPS-06 documents the operations signal matrix and records public GET spot checks with HTTP 200 but severe latency over 30 seconds. Batch 15-OPS-07 records bounded repeated public GET checks that were fast, plus mitigation decision gates for the historical intermittent severe-latency evidence. Batch 15-OPS-08 adds extended public staging observation evidence, records intermittent slow/severe `/health/` latency while `/` stayed fast, and adds a blocker closure roadmap. Batch 15-OPS-09 adds owner, monitoring provider, alert-routing, and closure-matrix decision packs. No full monitoring provider, alert routing, privacy-safe error reporting, or abuse alerts are configured. |
+| Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. Batch 15-OPS-05 adds a `pip-audit` workflow and records a successful local advisory-backed scan of `requirements.txt` with no known advisories returned at scan time. Batch 15-OPS-09 adds a dependency security governance decision pack. Named response owner approval, backup owner approval, GitHub vulnerability/Dependabot alert settings decisions, severity response SLA, and lockfile/hash workflow decision remain incomplete. |
 | Staff/admin governance | Partial | Staff access governance is documented and staff route tests exist. Real staff roster, superuser minimization, and access review remain manual/pre-launch. |
 | Design/Figma | Blocked | Current code has existing visual foundation from earlier batches. Batch 13 defines UX/product-flow and design handoff requirements only. Future visual changes still require human/Figma handoff and approval before Codex implementation. |
 | Uploads | Out of Scope for Now | No upload routes or private media handling are implemented. Private storage, malware scanning, retention, access control, and legal design are required first. |
@@ -230,8 +240,8 @@ launch.
 
 ## Conservative Completion Estimate
 
-Estimated whole-project completion after Batch 15-OPS-08 extended observation
-and restore-readiness decision packs:
+Estimated whole-project completion after Batch 15-OPS-09 operations governance
+decision packs:
 
 - Approximately 79% unchanged.
 
@@ -300,6 +310,13 @@ Rationale:
   It improves readiness documentation and owner/operator decision clarity, but
   it does not configure providers, route alerts, execute a managed restore,
   approve retention/RPO/RTO, or close launch blockers.
+- Batch 15-OPS-09 adds owner assignment, monitoring provider selection,
+  alert-routing approval/synthetic test, dependency security governance, and
+  operations governance closure matrix decision packs. It improves decision
+  clarity, but does not record real owner private contacts, configure a
+  monitoring provider, configure or test alert routing, enable privacy-safe
+  error reporting, change GitHub settings, approve dependency owners, approve
+  legal/privacy, or close production go/no-go.
 - The estimate remains below launch-ready because real staging/prod
   validation depth, production infrastructure, legal/privacy approval,
   full monitoring and alert routing, backup/restore drill, owner-reviewed
@@ -374,6 +391,13 @@ Not safe to demo as real or production functionality:
 - Monitoring, uptime checks, log collection, and alert routing are configured.
 - Dependency/security scanning is enabled, produces an advisory-backed result,
   and is reviewed by the accountable owner.
+- Named owner roles are approved outside Git without private contact details in
+  repository docs.
+- Monitoring provider selection is approved, configured, and tested.
+- Alert routes are approved and tested with safe synthetic payloads.
+- Dependency response owner and backup are approved.
+- GitHub vulnerability/Dependabot alert settings and dependency update
+  strategy decisions are recorded safely.
 - Load/concurrency tests are completed against staging.
 - Public booking duplicate/concurrency behavior is validated on PostgreSQL.
 - Redis/shared-cache rate limiting is validated across app processes.
@@ -413,7 +437,9 @@ Not safe to demo as real or production functionality:
   `0.25` seconds, but OPS-03/OPS-06 severe latency over 30 seconds remains
   unresolved. BATCH-15-OPS-08 adds a longer public observation window and
   records intermittent slow/severe `/health/` latency, so an owner/operator
-  mitigation decision and provider evidence are still required.
+  mitigation decision and provider evidence are still required. BATCH-15-OPS-09
+  adds provider selection and alert-routing decision packs, but no provider or
+  alert route is configured or tested.
 - No legal/privacy approval is recorded.
 - No verified email/phone ownership policy is approved.
 - No secure account recovery operation is approved.
@@ -422,23 +448,27 @@ Not safe to demo as real or production functionality:
 - Dependency vulnerability scanning is now supported by `pip-audit` locally and
   in CI, but GitHub vulnerability and Dependabot alert settings still need an
   owner decision, the lockfile/hash workflow decision remains open, and
-  response ownership still needs named owner approval.
+  response ownership still needs named owner and backup approval. BATCH-15-OPS-09
+  adds a governance decision pack, but no GitHub setting was changed and no
+  owner decision was made.
+- Owner assignment decision packs exist, but named role approvals remain
+  outside Git and unapproved in repository evidence.
 - No staff access review process is defined.
 - No audit retention/access review policy is defined.
 - No Figma handoff exists for future visual changes.
 
 ## Recommended Next Batches
 
-1. Batch 14C-VALIDATE-03: operator-assisted Render runtime validation if safe
+1. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
+   readiness checklist and operator-assisted dry-run package, using synthetic
+   data only and no Render credentials in Git.
+2. Batch 14C-VALIDATE-03: operator-assisted Render runtime validation if safe
    access is available, including staging shell management commands, managed
    PostgreSQL/Redis evidence, booking confirmation/browser checks with
    synthetic data only, and sanitized targeted log review.
-2. Next operations follow-up: owner/operator Render latency mitigation and
+3. Next operations follow-up: owner/operator Render latency mitigation and
    external monitoring/alert-routing setup for intermittent slow/severe
-   `/health/` latency; then operator-approved Render managed PostgreSQL
-   restore drill execution planning with synthetic data only.
-3. Batch 15-OPS-09: dependency response owner approval, GitHub alert settings
-   decision, and bounded-ranges versus lockfile/hash workflow decision.
+   `/health/` latency after owner/provider decisions.
 4. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
 5. Batch 16: legal/privacy/account recovery and patient identity verification
@@ -538,6 +568,14 @@ POSTs, change dependencies, configure external providers, route alerts, add
 error-reporting SDKs, change Render settings, run Render shell commands, run a
 managed restore drill, approve backup policy, or claim production launch
 readiness.
+
+Batch 15-OPS-09 adds owner assignment, monitoring provider selection,
+alert-routing approval/synthetic test, dependency security governance, and
+operations governance closure matrix decision packs. It does not add product
+features, create patient data, submit booking POSTs, change dependencies,
+configure external providers, route alerts, add error-reporting SDKs, change
+GitHub security settings, change Render settings, record private contacts, run
+Render shell commands, approve owners, or claim production launch readiness.
 
 ## Design Status
 

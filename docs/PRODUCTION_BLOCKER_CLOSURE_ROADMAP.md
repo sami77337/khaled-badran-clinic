@@ -9,6 +9,13 @@ This is docs/evidence-only. It does not configure providers, change Render
 settings, add dependencies, change application code, run restore commands,
 submit booking POSTs, create patient data, or approve production launch.
 
+BATCH-15-OPS-09 adds governance decision packs and a closure matrix for owner
+assignment, monitoring provider selection, alert routing, dependency security
+governance, and release ownership. These packs improve decision readiness, but
+they do not close blockers that require owner approval, provider setup, route
+testing, GitHub security setting decisions, legal/privacy review, or production
+go/no-go approval.
+
 Production-ready status:
 
 ```text
@@ -73,3 +80,37 @@ Still blocked:
 - no production DNS/TLS;
 - no approved backup retention/RPO/RTO;
 - no named owner/backup owner where applicable.
+
+## Batch 15 OPS-09 Closure Status
+
+Improved in this batch:
+
+- owner-assignment decision pack exists:
+  `docs/OPERATIONS_OWNER_ASSIGNMENT_DECISION_PACK.md`;
+- monitoring provider selection decision pack exists:
+  `docs/MONITORING_PROVIDER_SELECTION_DECISION_PACK.md`;
+- alert-routing approval and synthetic test plan exists:
+  `docs/ALERT_ROUTING_APPROVAL_AND_SYNTHETIC_TEST_PLAN.md`;
+- dependency security governance decision pack exists:
+  `docs/DEPENDENCY_SECURITY_GOVERNANCE_DECISION_PACK.md`;
+- operations governance closure matrix exists:
+  `docs/OPS_GOVERNANCE_CLOSURE_MATRIX.md`.
+
+Still blocked:
+
+- no named owner assignments are approved outside Git;
+- no monitoring provider is selected, configured, or validated;
+- no alert routing is configured or tested;
+- no privacy-safe error-reporting provider is configured;
+- no dependency security owner or backup is approved;
+- no GitHub vulnerability alert setting decision is recorded;
+- no Dependabot alert setting decision is recorded;
+- no bounded-ranges versus lockfile/hash workflow decision is approved;
+- no legal/privacy approval is recorded;
+- no production go/no-go approval is recorded.
+
+OPS-09 is improved governance evidence only. Production-ready remains:
+
+```text
+no
+```

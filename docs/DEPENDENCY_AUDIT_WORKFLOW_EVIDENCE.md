@@ -115,6 +115,22 @@ If advisories are found:
   any dependency change;
 - do not auto-merge dependency updates.
 
+## Governance Closure Status
+
+BATCH-15-OPS-09 adds:
+
+- `docs/DEPENDENCY_SECURITY_GOVERNANCE_DECISION_PACK.md`
+- `docs/OPS_GOVERNANCE_CLOSURE_MATRIX.md`
+
+The workflow provides advisory-backed scan evidence, but it does not by itself
+close dependency security governance. Before dependency security governance can
+be claimed ready, the owner must approve the dependency response owner and
+backup, GitHub vulnerability alert setting decision, Dependabot alert setting
+decision, Dependabot update strategy, bounded-ranges versus lockfile/hash
+workflow decision, and advisory severity response SLA.
+
+No GitHub repository security setting is changed by documenting this status.
+
 ## Remaining Blockers
 
 - A named human dependency response owner and backup owner still need approval

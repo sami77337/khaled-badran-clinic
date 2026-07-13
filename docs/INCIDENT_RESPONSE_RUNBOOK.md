@@ -29,6 +29,26 @@ This runbook is an operational outline for future staging and production use. It
 
 - Documentation, checklist, or non-urgent operational follow-up.
 
+## Ownership And Alert-Routing Governance
+
+BATCH-15-OPS-09 adds governance packs that must be reviewed before claiming
+incident response readiness:
+
+- `docs/OPERATIONS_OWNER_ASSIGNMENT_DECISION_PACK.md`
+- `docs/ALERT_ROUTING_APPROVAL_AND_SYNTHETIC_TEST_PLAN.md`
+- `docs/OPS_GOVERNANCE_CLOSURE_MATRIX.md`
+
+Incident response ownership remains blocked until the incident commander,
+backup coverage, project owner escalation, legal/privacy escalation, primary
+alert route, and backup alert route are approved outside Git and tested with
+safe synthetic events.
+
+Git may record role status, severity, test event name, acknowledgement timing,
+and sanitized pass/fail summaries only. Do not record private emails, phone
+numbers, pager IDs, chat destination identifiers, webhook URLs, provider
+credentials, patient data, response bodies, raw logs, cookies, session values,
+CSRF token values, database/cache connection values, or secret values.
+
 ## First 15 Minutes
 
 1. Assign an incident owner.

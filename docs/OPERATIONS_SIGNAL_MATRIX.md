@@ -44,6 +44,12 @@ Operations signal coverage:
 documented, but not fully wired to providers or alerts
 ```
 
+Governance decision packs:
+
+```text
+documented, but owner/provider/route decisions remain open
+```
+
 ## Public Staging Spot Check Evidence
 
 On `2026-07-05`, safe public GET checks were run against the existing Render
@@ -80,6 +86,23 @@ These checks are public staging availability and latency observations only.
 They do not prove private readiness, database health, cache health, provider
 alerting, production uptime, or launch readiness.
 
+## Batch 15-OPS-09 Governance Decision Packs
+
+BATCH-15-OPS-09 adds decision-pack evidence for the provider and routing
+decisions that this matrix depends on:
+
+- `docs/OPERATIONS_OWNER_ASSIGNMENT_DECISION_PACK.md`
+- `docs/MONITORING_PROVIDER_SELECTION_DECISION_PACK.md`
+- `docs/ALERT_ROUTING_APPROVAL_AND_SYNTHETIC_TEST_PLAN.md`
+- `docs/DEPENDENCY_SECURITY_GOVERNANCE_DECISION_PACK.md`
+- `docs/OPS_GOVERNANCE_CLOSURE_MATRIX.md`
+
+These documents define required roles, provider capabilities, synthetic alert
+tests, safe evidence, forbidden evidence, Codex boundaries, and remaining
+blockers. They do not configure a provider, route an alert, assign private
+contacts, enable GitHub security settings, add error-reporting SDKs, or approve
+production readiness.
+
 ## Signal Matrix
 
 | Signal group | Required signal | Current repository support or evidence | Monitoring provider readiness | Alert routing readiness | Privacy-safe handling | Current status |
@@ -100,6 +123,11 @@ alerting, production uptime, or launch readiness.
 | Dependency security | dependency scan failures and advisories | `pip-audit` local/CI scanning added by BATCH-15-OPS-05. | GitHub/security alert settings still need owner decision if not enabled. | No named dependency owner route approved. | Scanner output should not include secrets or patient data. | Partial. |
 | Privacy-safe error reporting | scrubbed exception/event reporting | Requirements documented. | Provider not selected or configured. | No event alert route tested. | Request bodies, cookies, auth headers, CSRF tokens, patient identifiers, and secrets must be scrubbed. | Incomplete. |
 | Incident response | severity, owner, timeline, escalation, recovery checks | Incident response runbook and severity model exist. | Detection sources not fully wired. | No live escalation route tested. | Incident evidence containing sensitive data must stay outside Git. | Partial planning. |
+
+OPS-09 updates the governance state for this matrix, but not the wired signal
+state: monitoring provider readiness, alert routing readiness, privacy-safe
+error reporting, dependency response ownership, and incident owner coverage
+remain incomplete until owner-approved external decisions and tests occur.
 
 ## Provider Readiness Criteria
 
