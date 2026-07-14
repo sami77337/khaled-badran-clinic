@@ -1,6 +1,16 @@
+from django import forms
 from django.contrib import admin
 
 from .models import ClinicalNote, RecordMedia, VisitRecord
+
+
+class RecordMediaAdminForm(forms.ModelForm):
+    class Meta:
+        model = RecordMedia
+        fields = "__all__"
+        widgets = {
+            "file": forms.FileInput(attrs={"aria-label": "Private media file"}),
+        }
 
 
 @admin.register(VisitRecord)
@@ -71,13 +81,19 @@ class ClinicalNoteAdmin(admin.ModelAdmin):
 
 @admin.register(RecordMedia)
 class RecordMediaAdmin(admin.ModelAdmin):
+    form = RecordMediaAdminForm
     list_display = (
+        "public_id",
         "patient",
         "visit",
         "media_type",
         "visibility",
         "consent_confirmed",
         "is_active",
+        "original_filename",
+        "file_size",
+        "content_type",
+        "uploaded_by",
         "uploaded_at",
     )
     list_filter = (
@@ -91,17 +107,61 @@ class RecordMediaAdmin(admin.ModelAdmin):
         "patient__full_name",
         "patient__phone_raw",
         "patient__phone_e164",
+        "original_filename",
         "title",
     )
-    autocomplete_fields = ("patient", "visit")
-    readonly_fields = ("uploaded_at", "updated_at")
+    autocomplete_fields = ("patient", "visit", "uploaded_by")
+    readonly_fields = (
+        "public_id",
+        "original_filename",
+        "file_size",
+        "content_type",
+        "private_download_status",
+        "uploaded_at",
+        "updated_at",
+    )
     date_hierarchy = "uploaded_at"
-    list_select_related = ("patient", "visit")
+    list_select_related = ("patient", "visit", "uploaded_by")
     fieldsets = (
-        (None, {"fields": ("patient", "visit", "media_type", "title", "description")}),
+        (
+            None,
+            {
+                "fields": (
+                    "patient",
+                    "visit",
+                    "media_type",
+                    "file",
+                    "title",
+                    "description",
+                    "uploaded_by",
+                )
+            },
+        ),
+        (
+            "Private File Metadata",
+            {
+                "fields": (
+                    "public_id",
+                    "original_filename",
+                    "file_size",
+                    "content_type",
+                    "private_download_status",
+                )
+            },
+        ),
         (
             "Privacy And Consent",
             {"fields": ("visibility", "consent_confirmed", "is_active")},
         ),
         ("Timestamps", {"fields": ("uploaded_at", "updated_at")}),
     )
+
+    @admin.display(description="Private download status")
+    def private_download_status(self, obj):
+        if not obj.pk:
+            return "Available after save through the staff-only private route."
+        if not obj.is_active:
+            return "Inactive media cannot be downloaded."
+        if not obj.file:
+            return "No private file is stored."
+        return "Staff-only private download route; no public file URL is rendered."

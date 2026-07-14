@@ -155,11 +155,19 @@ final product completion and professional delivery readiness.
   record routes, public medical file links, actual private file upload
   delivery, external storage, Render settings, WhatsApp API behavior,
   production readiness, or real patient data.
+- BATCH-16-DELIVERY-02 implements the private media storage and access-control
+  foundation for Commercial Delivery v1 patient record media. It adds local
+  private filesystem storage, UUID-based private file paths, image and short
+  MP4 validation, metadata capture, admin metadata visibility, and a staff-only
+  private download route by media `public_id`. It does not add patient portal
+  medical-record visibility, public cases/achievements media display, external
+  storage, Render settings, WhatsApp API behavior, production readiness, or
+  real patient data.
 
 ## Next Recommended Batch
 
 ```text
-BATCH-16-DELIVERY-02: private media storage and access-control foundation
+BATCH-16-DELIVERY-03: patient portal approved record visibility foundation
 ```
 
 Rationale:
@@ -171,8 +179,13 @@ Rationale:
 - BATCH-16-DELIVERY-01 establishes patient record models, private-by-default
   visibility rules, media metadata states, admin registration, and tests
   without implementing actual medical file uploads.
-- The next delivery need is private media storage and access control for
-  patient/visit media, including type/size validation and non-public delivery.
+- BATCH-16-DELIVERY-02 establishes private image and short-video file handling
+  with type/size validation, private storage paths, and staff-only private
+  download access. Private media remains non-public by default; `visible_to_patient`
+  and `approved_public_case` do not create public file links in this batch.
+- The next delivery need is read-only patient portal visibility for
+  doctor/staff-approved patient record content, using the existing visibility
+  states and keeping private-only media unavailable to patients.
 - This is not a production-readiness batch and does not close operations,
   legal/privacy, backup/restore, monitoring, alert-routing, staging, DNS/TLS,
   load/concurrency, or production go/no-go blockers.
@@ -901,39 +914,37 @@ Must read before the next staging or operations batch:
 
 ## Ordered Recommended Batches
 
-1. BATCH-16-DELIVERY-02: private media storage and access-control foundation,
+1. BATCH-16-DELIVERY-03: patient portal approved record visibility foundation,
    using `docs/CLINIC_DELIVERY_V1_SCOPE_LOCK.md` as the commercial v1 source
-   of truth, with no public medical file links and no production-readiness
-   claim.
-2. BATCH-16-DELIVERY-03: patient portal read-only approved record visibility,
-   only after private media access control is designed and tested.
-3. BATCH-16-DELIVERY-04: approved public cases/achievements media section,
+   of truth, with read-only patient access only to explicitly approved record
+   content and no production-readiness claim.
+2. BATCH-16-DELIVERY-04: approved public cases/achievements media section,
    only with separate explicit publication approval and consent state.
-4. Figma implementation audit and UI foundation plan, temporarily deferred by
+3. Figma implementation audit and UI foundation plan, temporarily deferred by
    owner decision and still required before final visual implementation.
-5. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
+4. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
    readiness checklist and operator-assisted dry-run package, using synthetic
    data only, no Render credentials in Git, no real restore execution, and no
    patient data.
-6. Batch 14C-VALIDATE-03: complete operator-assisted Render runtime validation
+5. Batch 14C-VALIDATE-03: complete operator-assisted Render runtime validation
    if safe access is available, including staging shell management commands,
    managed PostgreSQL/Redis command evidence, booking confirmation/browser
    checks with synthetic data only, and sanitized targeted log review.
-7. Next operations follow-up: owner/operator Render latency mitigation and
+6. Next operations follow-up: owner/operator Render latency mitigation and
    external monitoring/alert-routing setup for intermittent slow/severe
    `/health/` latency; then operator-approved Render managed PostgreSQL
    restore drill execution planning with synthetic data only.
-8. Batch 14A: dashboard implementation planning/authorization, only if the
+7. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
-9. Batch 16: legal/privacy/account recovery and patient identity verification
+8. Batch 16: legal/privacy/account recovery and patient identity verification
    policy.
-10. Batch 17: doctor dashboard workflow completion/polish.
-11. Batch 18: patient portal completion/hardening.
-12. Batch 19: WhatsApp limited integration design/implementation only after
+9. Batch 17: doctor dashboard workflow completion/polish.
+10. Batch 18: patient portal completion/hardening.
+11. Batch 19: WhatsApp limited integration design/implementation only after
    privacy gates.
-13. Batch 20: approved cases/reviews/media showcase plus private publication
+12. Batch 20: approved cases/reviews/media showcase plus private publication
    rules.
-14. Batch 21: release candidate hardening.
+13. Batch 21: release candidate hardening.
 
 ## Final Quality Goals
 

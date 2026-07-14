@@ -1,7 +1,29 @@
+import uuid
+from pathlib import PurePosixPath
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+
+from .storage import private_record_media_storage, private_record_media_upload_path
+
+
+IMAGE_MAX_BYTES = 10 * 1024 * 1024
+SHORT_VIDEO_MAX_BYTES = 50 * 1024 * 1024
+
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+ALLOWED_IMAGE_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+ALLOWED_SHORT_VIDEO_EXTENSIONS = {".mp4"}
+ALLOWED_SHORT_VIDEO_CONTENT_TYPES = {"video/mp4"}
+
+
+def _safe_basename(filename):
+    return PurePosixPath(str(filename or "").replace("\\", "/")).name[:255]
+
+
+def _filename_extension(filename):
+    return PurePosixPath(str(filename or "").replace("\\", "/")).suffix.lower()
 
 
 class VisitRecord(models.Model):
@@ -144,6 +166,12 @@ class RecordMedia(models.Model):
         VISIBLE_TO_PATIENT = "visible_to_patient", "Visible to patient"
         APPROVED_PUBLIC_CASE = "approved_public_case", "Approved public case"
 
+    public_id = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        db_index=True,
+    )
     patient = models.ForeignKey(
         "patients.Patient",
         on_delete=models.PROTECT,
@@ -157,6 +185,14 @@ class RecordMedia(models.Model):
         related_name="media_items",
     )
     media_type = models.CharField(max_length=20, choices=MediaType.choices)
+    file = models.FileField(
+        upload_to=private_record_media_upload_path,
+        storage=private_record_media_storage,
+        default="",
+    )
+    original_filename = models.CharField(max_length=255, blank=True)
+    file_size = models.PositiveBigIntegerField(default=0)
+    content_type = models.CharField(max_length=100, blank=True)
     title = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
     visibility = models.CharField(
@@ -167,6 +203,13 @@ class RecordMedia(models.Model):
     )
     consent_confirmed = models.BooleanField(default=False, db_index=True)
     is_active = models.BooleanField(default=True, db_index=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="record_media_uploaded",
+    )
     uploaded_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -191,6 +234,14 @@ class RecordMedia(models.Model):
         return self.title or f"{self.get_media_type_display()} for {self.patient}"
 
     @property
+    def download_filename(self):
+        original_filename = _safe_basename(self.original_filename)
+        if original_filename:
+            return original_filename
+        extension = _filename_extension(self.file.name)
+        return f"record-media-{self.public_id}{extension}"
+
+    @property
     def is_visible_to_patient(self):
         return self.visibility == self.Visibility.VISIBLE_TO_PATIENT
 
@@ -202,13 +253,101 @@ class RecordMedia(models.Model):
             and self.is_active
         )
 
+    def _uploaded_file(self):
+        return getattr(self.file, "_file", None)
+
+    def _file_size(self):
+        uploaded_file = self._uploaded_file()
+        if uploaded_file is not None and hasattr(uploaded_file, "size"):
+            return uploaded_file.size
+        if self.file_size:
+            return self.file_size
+        if self.file:
+            try:
+                return self.file.size
+            except (FileNotFoundError, OSError, ValueError):
+                return 0
+        return 0
+
+    def _file_content_type(self):
+        uploaded_file = self._uploaded_file()
+        if uploaded_file is not None:
+            return (getattr(uploaded_file, "content_type", "") or "").strip()
+        return self.content_type.strip()
+
+    def populate_file_metadata(self):
+        if not self.file:
+            return
+
+        uploaded_file = self._uploaded_file()
+        if uploaded_file is not None or not self.original_filename:
+            source_name = getattr(uploaded_file, "name", "") or self.file.name
+            self.original_filename = _safe_basename(source_name)
+
+        self.file_size = self._file_size()
+        content_type = self._file_content_type()
+        if content_type:
+            self.content_type = content_type[:100]
+
+    def _media_policy(self):
+        if self.media_type == self.MediaType.IMAGE:
+            return {
+                "extensions": ALLOWED_IMAGE_EXTENSIONS,
+                "content_types": ALLOWED_IMAGE_CONTENT_TYPES,
+                "max_bytes": IMAGE_MAX_BYTES,
+                "label": "image",
+            }
+        if self.media_type == self.MediaType.SHORT_VIDEO:
+            return {
+                "extensions": ALLOWED_SHORT_VIDEO_EXTENSIONS,
+                "content_types": ALLOWED_SHORT_VIDEO_CONTENT_TYPES,
+                "max_bytes": SHORT_VIDEO_MAX_BYTES,
+                "label": "short video",
+            }
+        return None
+
+    def _validate_private_file(self):
+        if not self.file:
+            raise ValidationError({"file": "Private media file is required."})
+
+        policy = self._media_policy()
+        if policy is None:
+            return
+
+        extension = _filename_extension(self.original_filename or self.file.name)
+        content_type = self.content_type.strip()
+        errors = {}
+
+        if extension not in policy["extensions"]:
+            errors["file"] = f"Unsupported {policy['label']} file extension."
+        if content_type not in policy["content_types"]:
+            errors["content_type"] = f"Unsupported {policy['label']} content type."
+        if self.file_size > policy["max_bytes"]:
+            errors["file_size"] = f"{policy['label'].title()} file exceeds the allowed size."
+
+        if errors:
+            raise ValidationError(errors)
+
     def clean(self):
+        self.populate_file_metadata()
+        self._validate_private_file()
+
         if self.visit_id and self.patient_id and self.visit.patient_id != self.patient_id:
             raise ValidationError({"visit": "Visit must belong to the selected patient."})
         if self.visibility == self.Visibility.APPROVED_PUBLIC_CASE and not self.consent_confirmed:
             raise ValidationError(
                 {"consent_confirmed": "Public case media requires confirmed consent."}
             )
+
+    def save(self, *args, **kwargs):
+        self.populate_file_metadata()
+        self.full_clean()
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            update_fields = set(update_fields)
+            update_fields.update({"original_filename", "file_size", "content_type", "updated_at"})
+            kwargs["update_fields"] = update_fields
+        return super().save(*args, **kwargs)
 
     def get_patient_visible_metadata(self):
         if not self.is_active or not self.is_visible_to_patient:
