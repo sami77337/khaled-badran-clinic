@@ -18,11 +18,74 @@ seeded, committed, copied into docs, or used in screenshots/logs.
 - Patient portal pages are no-cache.
 - Staff operational data stays behind staff-only authorization.
 - Patient-facing medical records are limited to read-only approved visits,
-  notes, and active patient-visible media. Patient uploads, public medical file
-  URLs, public cases/achievements media display, WhatsApp message storage, and
-  payment features are not implemented.
+  notes, and active patient-visible media.
+- Public cases/achievements are public, but limited to sanitized metadata and
+  controlled media responses for active `RecordMedia` rows with
+  `visibility=approved_public_case` and `consent_confirmed=True`.
+- Patient-visible media is not automatically public; private-only media,
+  inactive media, and unconsented public-case media are not public.
+- Patient uploads, public direct private-file URLs, WhatsApp message storage,
+  and payment features are not implemented.
 - Future WhatsApp messaging must not carry detailed medical information before a
   separate approved design exists.
+
+## Public Cases and Achievements Pages
+
+Current pages:
+
+- `/cases/`
+- `/en/cases/`
+- `/cases/media/<uuid:public_id>/`
+- `/en/cases/media/<uuid:public_id>/`
+
+Public-safe fields visible on cases/achievements pages:
+
+| Field or data | Source | Exposure status | Notes |
+| --- | --- | --- | --- |
+| Media title | `RecordMedia.title` | Public approved showcase metadata | Only for active `approved_public_case` rows with confirmed consent. |
+| Media description | `RecordMedia.description` | Public approved showcase metadata | Must not include patient identity or private clinical details. |
+| Media type | `RecordMedia.media_type` | Public approved showcase metadata | Image or short video label only. |
+| Uploaded/publication date category | `RecordMedia.uploaded_at` | Public approved showcase metadata | Displayed as a date only, not an appointment or visit detail. |
+| Controlled media URL | `RecordMedia.public_id` | Public approved media route | Uses `/cases/media/<uuid:public_id>/`; it is not a direct storage URL. |
+
+Public cases access controls:
+
+- `/cases/` and `/en/cases/` are public GET pages.
+- Public case listings filter to `visibility=approved_public_case`,
+  `consent_confirmed=True`, `is_active=True`, and a present file value.
+- `/cases/media/<uuid:public_id>/` and `/en/cases/media/<uuid:public_id>/`
+  look up media by `RecordMedia.public_id` only.
+- Public case media responses require `visibility=approved_public_case`,
+  `consent_confirmed=True`, `is_active=True`, a present file value, and an
+  existing private storage file.
+- Public case media responses use `FileResponse`, include
+  `X-Content-Type-Options: nosniff`, and do not call or expose
+  `media.file.url`.
+
+Public cases must not expose:
+
+- patient full name,
+- patient phone,
+- patient date of birth,
+- appointment details,
+- visit reason,
+- visit notes,
+- doctor notes,
+- diagnosis/plan,
+- instructions,
+- follow-up notes,
+- clinical note titles or bodies,
+- internal numeric database IDs,
+- private media paths,
+- direct `MEDIA_URL` or private file URLs,
+- private-only media,
+- patient-visible-only media,
+- inactive media,
+- unconsented public-case media,
+- diagnosis automation output,
+- triage automation output,
+- treatment automation output,
+- medical AI output.
 
 ## Public Booking Pages
 

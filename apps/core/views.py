@@ -1,5 +1,7 @@
+from pathlib import PurePosixPath
+
 from django.db import connection
-from django.http import HttpResponse, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.templatetags.static import static
 from django.urls import reverse
@@ -13,6 +15,7 @@ from apps.clinic.models import (
     Doctor,
     VisitType,
 )
+from apps.records.models import RecordMedia
 
 
 SUPPORTED_LANGUAGES = {"ar", "en"}
@@ -123,6 +126,12 @@ PAGE_COPY = {
             "headline": "خدمات العيادة",
             "subtitle": "تصنيف واضح لخدمات الأنف والأذن والحنجرة للبالغين والأطفال.",
         },
+        "cases": {
+            "title": "الحالات والإنجازات",
+            "description": "وسائط عرض عامة معتمدة وموافق عليها فقط من عيادة الدكتور خالد بدران.",
+            "headline": "حالات وإنجازات معتمدة للعرض",
+            "subtitle": "هذه الصفحة تعرض وسائط تم اعتمادها صراحة للعرض العام مع تأكيد الموافقة، ولا تعرض هوية المرضى أو تفاصيل السجلات الخاصة.",
+        },
         "contact": {
             "title": "التواصل",
             "description": "معلومات التواصل والموقع وساعات العمل لعيادة الدكتور خالد بدران.",
@@ -186,6 +195,12 @@ PAGE_COPY = {
             "headline": "Clinic Services",
             "subtitle": "Clear ENT service groups for adults and children.",
         },
+        "cases": {
+            "title": "Cases and Achievements",
+            "description": "Approved and consented public showcase media for Dr. Khaled Badran Clinic.",
+            "headline": "Approved Cases and Achievements",
+            "subtitle": "This page shows only media explicitly approved for public display with confirmed consent, without patient identity or private record details.",
+        },
         "contact": {
             "title": "Contact",
             "description": "Contact, location, and clinic hours for Dr. Khaled Badran Clinic.",
@@ -239,6 +254,7 @@ LABELS = {
         "whatsapp_note": "زر واتساب placeholder ولا يرسل رسائل حالياً.",
         "contact": "معلومات التواصل",
         "services": "الخدمات",
+        "cases": "الحالات",
         "doctor": "الدكتور",
         "home": "الرئيسية",
         "privacy": "الخصوصية",
@@ -256,6 +272,7 @@ LABELS = {
         "whatsapp_note": "WhatsApp is a placeholder button and does not send messages yet.",
         "contact": "Contact Details",
         "services": "Services",
+        "cases": "Cases",
         "doctor": "Doctor",
         "home": "Home",
         "privacy": "Privacy",
@@ -272,6 +289,7 @@ ROUTE_NAMES = {
     "home": {"ar": "home", "en": "home_en"},
     "doctor": {"ar": "doctor", "en": "doctor_en"},
     "services": {"ar": "services", "en": "services_en"},
+    "cases": {"ar": "public_cases", "en": "public_cases_en"},
     "contact": {"ar": "contact", "en": "contact_en"},
     "privacy": {"ar": "privacy", "en": "privacy_en"},
     "terms": {"ar": "terms", "en": "terms_en"},
@@ -279,6 +297,45 @@ ROUTE_NAMES = {
     "whatsapp_policy": {"ar": "whatsapp_policy", "en": "whatsapp_policy_en"},
     "booking": {"ar": "book", "en": "book_en"},
     "patient_portal": {"ar": "patient_portal_dashboard", "en": "patient_portal_dashboard_en"},
+}
+
+PUBLIC_CASE_LABELS = {
+    "ar": {
+        "approved_only": "محتوى معتمد وموافق عليه فقط",
+        "approved_only_body": (
+            "الوسائط هنا مخصصة للعرض العام بعد موافقة صريحة وتأكيد موافقة. "
+            "لا تمثل تشخيصاً أو خطة علاج أو ضمان نتيجة، ولا تغني عن التقييم الطبي."
+        ),
+        "empty_title": "لا توجد وسائط عامة معتمدة حالياً",
+        "empty_body": "ستظهر هنا فقط الوسائط التي تحمل موافقة عامة مؤكدة وتبقى نشطة.",
+        "view_media": "عرض الوسيط",
+        "view_all": "عرض الحالات",
+        "image": "صورة",
+        "short_video": "فيديو قصير",
+        "untitled": "وسيط معتمد",
+        "safety_note": (
+            "لا تعرض هذه الصفحة أسماء المرضى أو أرقام الهواتف أو تواريخ الميلاد أو الملاحظات الطبية الخاصة. "
+            "وسائط بوابة المريض لا تصبح عامة تلقائياً."
+        ),
+    },
+    "en": {
+        "approved_only": "Approved and consented content only",
+        "approved_only_body": (
+            "Media here is public showcase content only after explicit approval and confirmed consent. "
+            "It is not a diagnosis, treatment plan, outcome guarantee, or substitute for medical assessment."
+        ),
+        "empty_title": "No approved public showcase media yet",
+        "empty_body": "Only active media with explicit public-case approval and confirmed consent will appear here.",
+        "view_media": "View media",
+        "view_all": "View cases",
+        "image": "Image",
+        "short_video": "Short video",
+        "untitled": "Approved media",
+        "safety_note": (
+            "This page does not show patient names, phone numbers, dates of birth, or private clinical notes. "
+            "Patient-visible portal media is not automatically public."
+        ),
+    },
 }
 
 
@@ -379,6 +436,55 @@ def _visit_types(language):
     ]
 
 
+def _public_case_media_queryset():
+    return (
+        RecordMedia.objects.filter(
+            visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+            consent_confirmed=True,
+            is_active=True,
+        )
+        .exclude(file="")
+        .order_by("-uploaded_at", "-public_id")
+    )
+
+
+def _public_case_media_url(media, language):
+    route_name = "public_case_media_en" if _normalize_language(language) == "en" else "public_case_media"
+    return reverse(route_name, kwargs={"public_id": media.public_id})
+
+
+def _public_case_media_type_label(media, language):
+    labels = PUBLIC_CASE_LABELS[_normalize_language(language)]
+    if media.media_type == RecordMedia.MediaType.SHORT_VIDEO:
+        return labels["short_video"]
+    return labels["image"]
+
+
+def _public_case_download_filename(media):
+    source_name = PurePosixPath(str(media.download_filename or "").replace("\\", "/")).name
+    extension = PurePosixPath(source_name).suffix.lower()
+    return f"public-case-{media.public_id}{extension}"
+
+
+def _public_case_media_items(language, limit=None):
+    language = _normalize_language(language)
+    queryset = _public_case_media_queryset()
+    if limit is not None:
+        queryset = queryset[:limit]
+
+    return [
+        {
+            "title": media.title,
+            "description": media.description,
+            "media_type": media.media_type,
+            "media_type_label": _public_case_media_type_label(media, language),
+            "uploaded_at": media.uploaded_at,
+            "url": _public_case_media_url(media, language),
+        }
+        for media in queryset
+    ]
+
+
 def _base_context(request, page_key, language):
     language = _normalize_language(language)
     alternate_language = "en" if language == "ar" else "ar"
@@ -402,6 +508,7 @@ def _base_context(request, page_key, language):
             ("home", LABELS[language]["home"], _route_url("home", language)),
             ("doctor", LABELS[language]["doctor"], _route_url("doctor", language)),
             ("services", LABELS[language]["services"], _route_url("services", language)),
+            ("cases", LABELS[language]["cases"], _route_url("cases", language)),
             ("contact", LABELS[language]["contact"], _route_url("contact", language)),
             ("patient_portal", LABELS[language]["patient_portal"], _route_url("patient_portal", language)),
         ],
@@ -422,6 +529,7 @@ def _base_context(request, page_key, language):
         "whatsapp_placeholder_url": _route_url("contact", language) + "#whatsapp-placeholder",
         "contact_url": _route_url("contact", language),
         "services_url": _route_url("services", language),
+        "cases_url": _route_url("cases", language),
         "doctor_url": _route_url("doctor", language),
         "home_url": _route_url("home", language),
     }
@@ -445,6 +553,8 @@ def home(request, language=DEFAULT_LANGUAGE):
         {
             "service_highlights": services[:4],
             "service_groups": SERVICE_GROUPS[language][:3],
+            "public_case_teasers": _public_case_media_items(language, limit=3),
+            "case_labels": PUBLIC_CASE_LABELS[language],
         },
     )
 
@@ -474,6 +584,49 @@ def services(request, language=DEFAULT_LANGUAGE):
             "visit_types": _visit_types(language),
         },
     )
+
+
+@require_GET
+@never_cache
+def public_cases(request, language=DEFAULT_LANGUAGE):
+    language = _normalize_language(language)
+    return _render_public(
+        request,
+        "core/cases.html",
+        "cases",
+        language,
+        {
+            "case_items": _public_case_media_items(language),
+            "case_labels": PUBLIC_CASE_LABELS[language],
+        },
+    )
+
+
+@require_GET
+@never_cache
+def public_case_media(request, public_id, language=DEFAULT_LANGUAGE):
+    try:
+        media = _public_case_media_queryset().get(public_id=public_id)
+    except RecordMedia.DoesNotExist as exc:
+        raise Http404("Media unavailable.") from exc
+
+    if not media.file:
+        raise Http404("Media unavailable.")
+
+    try:
+        if not media.file.storage.exists(media.file.name):
+            raise Http404("Media unavailable.")
+        response = FileResponse(
+            media.file.open("rb"),
+            as_attachment=False,
+            filename=_public_case_download_filename(media),
+            content_type=media.content_type or "application/octet-stream",
+        )
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        raise Http404("Media unavailable.") from exc
+
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 def contact(request, language=DEFAULT_LANGUAGE):

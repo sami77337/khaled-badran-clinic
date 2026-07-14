@@ -11,6 +11,10 @@ security and operational documentation only.
 - Public booking must remain available without login.
 - Public appointment success must remain UUID-token based.
 - Numeric public appointment success URLs must remain absent.
+- Public cases/achievements routes are allowed only for active
+  `approved_public_case` media with confirmed consent.
+- Public cases media must be served through controlled `RecordMedia.public_id`
+  routes and must not use direct private file URLs.
 - Staff appointment numeric IDs are allowed only behind staff-only routes.
 - Patient portal appointment details must use UUID `public_token` plus
   authenticated ownership filtering.
@@ -29,6 +33,7 @@ security and operational documentation only.
 | --- | --- |
 | Public informational | Public clinic, doctor, service, legal, or site metadata. |
 | Public booking | Patient-submitted booking form fields and patient-safe confirmation details. |
+| Public approved showcase | Sanitized public-case media metadata and controlled media responses for active approved media with confirmed consent. |
 | Patient-limited | Authenticated patient account or linked appointment details filtered to the logged-in owner. |
 | Staff operational | Staff-only appointment operations, audit/status history, operational notes, and internal IDs. |
 | Safe operational health | Liveness/readiness status without internals or credentials. |
@@ -41,6 +46,7 @@ security and operational documentation only.
 | `/` | GET intended | None | No | Not applicable | No state-changing form | Public cache policy not finalized | Public informational | `apps/core/views.py:home` |
 | `/doctor/` | GET intended | None | No | Not applicable | No state-changing form | Public cache policy not finalized | Public informational | `apps/core/views.py:doctor_profile` |
 | `/services/` | GET intended | None | No | Not applicable | No state-changing form | Public cache policy not finalized | Public informational | `apps/core/views.py:services` |
+| `/cases/` | GET only | None | No | Filters to active `RecordMedia` rows with `visibility=approved_public_case` and `consent_confirmed=True` | No state-changing form | `never_cache` | Public approved showcase metadata only | `apps/core/views.py:public_cases` |
 | `/contact/` | GET intended | None | No | Not applicable | No state-changing form | Public cache policy not finalized | Public informational | `apps/core/views.py:contact` |
 | `/privacy/` | GET intended | None | No | Not applicable | No state-changing form | Public cache policy not finalized | Public informational legal draft | `apps/core/views.py:privacy` |
 | `/terms/` | GET intended | None | No | Not applicable | No state-changing form | Public cache policy not finalized | Public informational legal draft | `apps/core/views.py:terms` |
@@ -56,11 +62,34 @@ security and operational documentation only.
 | `/en/` | GET intended | None | No | Not applicable | No state-changing form | Public cache policy not finalized | Public informational | `apps/core/views.py:home` |
 | `/en/doctor/` | GET intended | None | No | Not applicable | No state-changing form | Public cache policy not finalized | Public informational | `apps/core/views.py:doctor_profile` |
 | `/en/services/` | GET intended | None | No | Not applicable | No state-changing form | Public cache policy not finalized | Public informational | `apps/core/views.py:services` |
+| `/en/cases/` | GET only | None | No | Filters to active `RecordMedia` rows with `visibility=approved_public_case` and `consent_confirmed=True` | No state-changing form | `never_cache` | Public approved showcase metadata only | `apps/core/views.py:public_cases` |
 | `/en/contact/` | GET intended | None | No | Not applicable | No state-changing form | Public cache policy not finalized | Public informational | `apps/core/views.py:contact` |
 | `/en/privacy/` | GET intended | None | No | Not applicable | No state-changing form | Public cache policy not finalized | Public informational legal draft | `apps/core/views.py:privacy` |
 | `/en/terms/` | GET intended | None | No | Not applicable | No state-changing form | Public cache policy not finalized | Public informational legal draft | `apps/core/views.py:terms` |
 | `/en/medical-disclaimer/` | GET intended | None | No | Not applicable | No state-changing form | Public cache policy not finalized | Public informational legal draft | `apps/core/views.py:medical_disclaimer` |
 | `/en/whatsapp-policy/` | GET intended | None | No | Not applicable | No state-changing form | Public cache policy not finalized | Public informational legal draft; no API | `apps/core/views.py:whatsapp_policy` |
+
+## Public Cases Media Routes
+
+| Route | Method | Auth | Staff | Ownership filtering | CSRF expectation | Cache expectation | Data exposure | Implementation |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `/cases/media/<uuid:public_id>/` | GET only | None | No | Lookup by `RecordMedia.public_id`; requires `approved_public_case`, confirmed consent, active media, present file, and existing storage file | No state-changing form | `never_cache`; response includes `X-Content-Type-Options: nosniff` | Public approved media response only; no patient identity or direct private file URL | `apps/core/views.py:public_case_media` |
+| `/en/cases/media/<uuid:public_id>/` | GET only | None | No | Lookup by `RecordMedia.public_id`; requires `approved_public_case`, confirmed consent, active media, present file, and existing storage file | No state-changing form | `never_cache`; response includes `X-Content-Type-Options: nosniff` | Public approved media response only; no patient identity or direct private file URL | `apps/core/views.py:public_case_media` |
+
+Public cases media route behavior:
+
+- Private-only media returns 404.
+- Patient-visible-only media returns 404.
+- Public-case media without confirmed consent returns 404. The model and
+  database constraint also prevent normal creation of this invalid state.
+- Inactive media returns 404.
+- Missing records, missing file values, and missing storage files return 404.
+- Responses derive a neutral `public-case-<uuid>.<ext>` content-disposition
+  filename from `RecordMedia.download_filename` and do not expose
+  `PRIVATE_MEDIA_ROOT`, local storage paths, original upload basenames, patient
+  full name, phone, date of birth, appointment details, visit notes, doctor
+  notes, diagnosis/plan, instructions, or follow-up notes.
+- Patient-visible portal media remains separate from public cases.
 
 ## Booking Routes
 
@@ -219,7 +248,10 @@ implements, and tests them with privacy/security review:
 
 ## Route Parity Notes
 
-- Public site routes have Arabic/default and English equivalents.
+- Public site routes have Arabic/default and English equivalents, including
+  public cases/achievements pages.
+- Public cases media routes have Arabic/default and English equivalents and
+  use `RecordMedia.public_id` lookups only.
 - Booking routes have Arabic/default and English equivalents.
 - Booking success routes are UUID-token based in both languages.
 - Portal routes have Arabic/default and English equivalents, including the

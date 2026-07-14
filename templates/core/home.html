@@ -36,6 +36,33 @@
 <section class="section section-soft">
     <div class="container">
         <div class="section-heading">
+            <p class="eyebrow">{% if is_arabic %}الحالات والإنجازات{% else %}Cases and Achievements{% endif %}</p>
+            <h2>{% if is_arabic %}وسائط عامة معتمدة وموافق عليها{% else %}Approved public showcase media{% endif %}</h2>
+            <p class="muted">{{ case_labels.approved_only_body }}</p>
+        </div>
+        {% if public_case_teasers %}
+            <div class="card-grid">
+                {% for item in public_case_teasers %}
+                    <article class="service-card">
+                        <p class="eyebrow">{{ item.media_type_label }} · {{ item.uploaded_at|date:"Y-m-d" }}</p>
+                        <h3>{% if item.title %}{{ item.title }}{% else %}{{ case_labels.untitled }}{% endif %}</h3>
+                        {% if item.description %}
+                            <p class="muted">{{ item.description }}</p>
+                        {% endif %}
+                        <a class="btn btn-secondary" href="{{ item.url }}">{{ case_labels.view_media }}</a>
+                    </article>
+                {% endfor %}
+            </div>
+        {% endif %}
+        <div class="hero-actions">
+            <a class="btn btn-secondary" href="{{ cases_url }}">{{ case_labels.view_all }}</a>
+        </div>
+    </div>
+</section>
+
+<section class="section section-soft">
+    <div class="container">
+        <div class="section-heading">
             <p class="eyebrow">{{ labels.services }}</p>
             <h2>{% if is_arabic %}خدمات بارزة{% else %}Highlighted Services{% endif %}</h2>
         </div>

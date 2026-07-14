@@ -1,14 +1,18 @@
 import json
 import os
 import re
-from datetime import timedelta
+import uuid
+from datetime import date, timedelta
 from io import StringIO
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import CommandError, call_command
+from django.db import connection
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.test.utils import ignore_warnings
 from django.urls import reverse
@@ -18,6 +22,7 @@ from apps.booking.models import Appointment
 from apps.clinic.models import Doctor, VisitType
 from apps.core.checks import production_readiness_checks
 from apps.patients.models import Patient
+from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
 from config.settings.helpers import (
     build_cache_config,
     build_database_config,
@@ -1015,12 +1020,442 @@ class PortalFoundationRouteTests(TestCase):
         self.assertIn(reverse("patient_portal_login"), response["Location"])
 
 
+class PublicCasesTestDataMixin:
+    @classmethod
+    def setUpClass(cls):
+        cls._private_media_tempdir = TemporaryDirectory()
+        cls._private_media_override = override_settings(
+            PRIVATE_MEDIA_ROOT=Path(cls._private_media_tempdir.name)
+        )
+        cls._private_media_override.enable()
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        cls._private_media_override.disable()
+        cls._private_media_tempdir.cleanup()
+
+    def synthetic_image_file(self, name="synthetic-public-case.jpg", content=b"public-image-bytes"):
+        return SimpleUploadedFile(name, content, content_type="image/jpeg")
+
+    def synthetic_video_file(self, name="synthetic-public-case.mp4", content=b"public-video-bytes"):
+        return SimpleUploadedFile(name, content, content_type="video/mp4")
+
+    def create_patient(
+        self,
+        *,
+        user=None,
+        full_name="Synthetic Patient",
+        phone_raw="0790000101",
+        phone_e164="+962790000101",
+    ):
+        return Patient.objects.create(
+            user=user,
+            full_name=full_name,
+            phone_raw=phone_raw,
+            phone_e164=phone_e164,
+            date_of_birth=date(1990, 1, 1),
+        )
+
+    def create_visit(self, *, patient, **kwargs):
+        defaults = {
+            "patient": patient,
+            "visit_reason": "Private visit reason hidden from public cases.",
+            "doctor_notes": "Private doctor notes hidden from public cases.",
+            "diagnosis_plan": "Private diagnosis plan hidden from public cases.",
+            "instructions": "Private instructions hidden from public cases.",
+            "follow_up_notes": "Private follow-up notes hidden from public cases.",
+            "is_visible_to_patient": True,
+        }
+        defaults.update(kwargs)
+        return VisitRecord.objects.create(**defaults)
+
+    def create_appointment(self, *, patient):
+        doctor = Doctor.objects.create(
+            full_name_ar="Synthetic Private Appointment Doctor",
+            full_name_en="Synthetic Private Appointment Doctor",
+            title_en="Dr.",
+            is_active=False,
+        )
+        visit_type = VisitType.objects.create(
+            doctor=doctor,
+            name_ar="Synthetic Private Appointment Type",
+            name_en="Synthetic Private Appointment Type",
+            duration_minutes=30,
+            is_active=False,
+        )
+        starts_at = timezone.now() + timedelta(days=1)
+        return Appointment.objects.create(
+            doctor=doctor,
+            patient=patient,
+            visit_type=visit_type,
+            starts_at=starts_at,
+            ends_at=starts_at + timedelta(minutes=30),
+            booking_note="Private appointment booking note hidden from public cases.",
+        )
+
+    def create_media(
+        self,
+        *,
+        patient=None,
+        visit=None,
+        media_type=RecordMedia.MediaType.IMAGE,
+        visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+        consent_confirmed=None,
+        is_active=True,
+        title="Synthetic approved public case media",
+        description="Synthetic approved public case description.",
+        file=None,
+    ):
+        patient = patient or self.create_patient()
+        if file is None:
+            file = (
+                self.synthetic_video_file()
+                if media_type == RecordMedia.MediaType.SHORT_VIDEO
+                else self.synthetic_image_file()
+            )
+        if consent_confirmed is None:
+            consent_confirmed = visibility == RecordMedia.Visibility.APPROVED_PUBLIC_CASE
+        return RecordMedia.objects.create(
+            patient=patient,
+            visit=visit,
+            media_type=media_type,
+            file=file,
+            visibility=visibility,
+            consent_confirmed=consent_confirmed,
+            is_active=is_active,
+            title=title,
+            description=description,
+        )
+
+    def force_unconsented_public_case(self, media):
+        if connection.vendor != "sqlite":
+            self.skipTest("Unconsented approved_public_case rows are blocked by the database constraint.")
+        with connection.cursor() as cursor:
+            cursor.execute("PRAGMA ignore_check_constraints = ON")
+        try:
+            RecordMedia.objects.filter(pk=media.pk).update(consent_confirmed=False)
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute("PRAGMA ignore_check_constraints = OFF")
+        media.refresh_from_db()
+        return media
+
+
+class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
+    def test_public_cases_routes_return_200_without_login(self):
+        for route_name in ["public_cases", "public_cases_en"]:
+            with self.subTest(route_name=route_name):
+                response = self.client.get(reverse(route_name))
+
+                self.assertEqual(response.status_code, 200)
+
+    def test_empty_state_is_safe(self):
+        response = self.client.get(reverse("public_cases_en"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No approved public showcase media yet")
+        self.assertContains(response, "Approved and consented content only")
+        self.assertNotContains(response, "<form")
+        self.assertNotContains(response, "upload")
+        self.assertNotContains(response, str(settings.PRIVATE_MEDIA_ROOT))
+
+    def test_only_approved_consented_active_public_case_media_appears(self):
+        approved_image = self.create_media(
+            title="Approved public image title",
+            description="Approved public image description.",
+            file=self.synthetic_image_file(name="synthetic-public-case.jpg"),
+        )
+        approved_video = self.create_media(
+            media_type=RecordMedia.MediaType.SHORT_VIDEO,
+            title="Approved public short video title",
+            description="Approved public short video description.",
+            file=self.synthetic_video_file(name="synthetic-public-case.mp4"),
+        )
+        self.create_media(
+            visibility=RecordMedia.Visibility.PRIVATE_ONLY,
+            title="Private-only media must stay hidden",
+        )
+        self.create_media(
+            visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
+            title="Patient-visible media must stay hidden",
+        )
+        self.create_media(
+            is_active=False,
+            title="Inactive public case media must stay hidden",
+        )
+        unconsented = self.create_media(title="Unconsented public case media must stay hidden")
+        self.force_unconsented_public_case(unconsented)
+
+        response = self.client.get(reverse("public_cases_en"))
+
+        self.assertContains(response, "Approved public image title")
+        self.assertContains(response, "Approved public image description.")
+        self.assertContains(response, "Approved public short video title")
+        self.assertContains(response, "Approved public short video description.")
+        self.assertContains(
+            response,
+            f'href="{reverse("public_case_media_en", kwargs={"public_id": approved_image.public_id})}"',
+        )
+        self.assertContains(
+            response,
+            f'href="{reverse("public_case_media_en", kwargs={"public_id": approved_video.public_id})}"',
+        )
+        self.assertNotContains(response, "Private-only media must stay hidden")
+        self.assertNotContains(response, "Patient-visible media must stay hidden")
+        self.assertNotContains(response, "Inactive public case media must stay hidden")
+        self.assertNotContains(response, "Unconsented public case media must stay hidden")
+        self.assertNotContains(response, approved_image.file.name)
+        self.assertNotContains(response, approved_video.file.name)
+        self.assertNotContains(response, "synthetic-public-case.jpg")
+        self.assertNotContains(response, "synthetic-public-case.mp4")
+        self.assertNotContains(response, str(settings.PRIVATE_MEDIA_ROOT))
+        self.assertNotContains(response, 'href="/media/')
+
+    def test_public_cases_page_does_not_expose_patient_identity_or_private_record_content(self):
+        patient = self.create_patient(
+            full_name="Synthetic Patient Hidden Identity",
+            phone_raw="0790000111",
+            phone_e164="+962790000111",
+        )
+        appointment = self.create_appointment(patient=patient)
+        visit = self.create_visit(patient=patient, appointment=appointment)
+        ClinicalNote.objects.create(
+            patient=patient,
+            visit=visit,
+            title="Private clinical note title hidden from public cases",
+            body="Private clinical note body hidden from public cases.",
+            is_visible_to_patient=True,
+        )
+        media = self.create_media(
+            patient=patient,
+            visit=visit,
+            title="Approved public case metadata only",
+            description="Approved public case description only.",
+        )
+
+        response = self.client.get(reverse("public_cases_en"))
+
+        self.assertContains(response, "Approved public case metadata only")
+        self.assertContains(response, "Approved public case description only.")
+        blocked_fragments = [
+            patient.full_name,
+            patient.phone_raw,
+            patient.phone_e164,
+            "1990",
+            appointment.booking_note,
+            appointment.visit_type.name_en,
+            visit.visit_reason,
+            visit.doctor_notes,
+            visit.diagnosis_plan,
+            visit.instructions,
+            visit.follow_up_notes,
+            "Private clinical note title hidden from public cases",
+            "Private clinical note body hidden from public cases.",
+            media.file.name,
+            str(settings.PRIVATE_MEDIA_ROOT),
+        ]
+        for fragment in blocked_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertNotContains(response, fragment)
+
+    def test_home_teaser_uses_public_case_route_only(self):
+        media = self.create_media(
+            title="Home approved public case teaser",
+            description="Home approved public case teaser description.",
+            file=self.synthetic_image_file(name="synthetic-public-case.jpg"),
+        )
+        self.create_media(
+            visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
+            title="Home patient-visible teaser must stay hidden",
+        )
+
+        response = self.client.get(reverse("home_en"))
+
+        self.assertContains(response, "Home approved public case teaser")
+        self.assertContains(response, reverse("public_cases_en"))
+        self.assertContains(
+            response,
+            reverse("public_case_media_en", kwargs={"public_id": media.public_id}),
+        )
+        self.assertNotContains(response, "Home patient-visible teaser must stay hidden")
+        self.assertNotContains(response, media.file.name)
+        self.assertNotContains(response, "synthetic-public-case.jpg")
+        self.assertNotContains(response, str(settings.PRIVATE_MEDIA_ROOT))
+
+
+class PublicCaseMediaRouteTests(PublicCasesTestDataMixin, TestCase):
+    def test_approved_public_case_media_returns_file_response(self):
+        patient = self.create_patient(full_name="Synthetic Header Hidden Patient")
+        media = self.create_media(
+            patient=patient,
+            file=self.synthetic_image_file(name="synthetic-public-case.jpg", content=b"approved-public-bytes"),
+        )
+
+        response = self.client.get(reverse("public_case_media", kwargs={"public_id": media.public_id}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "image/jpeg")
+        self.assertEqual(response["X-Content-Type-Options"], "nosniff")
+        self.assertIn(f"public-case-{media.public_id}.jpg", response.get("Content-Disposition", ""))
+        self.assertNotIn("synthetic-public-case.jpg", response.get("Content-Disposition", ""))
+        headers = "\n".join(f"{key}: {value}" for key, value in response.headers.items())
+        self.assertNotIn(str(settings.PRIVATE_MEDIA_ROOT), headers)
+        self.assertNotIn(media.file.name, headers)
+        self.assertNotIn(patient.full_name, headers)
+        self.assertNotIn(patient.phone_raw, headers)
+        self.assertEqual(b"".join(response.streaming_content), b"approved-public-bytes")
+        response.close()
+        with self.assertRaises(ValueError):
+            media.file.url
+
+    def test_non_public_or_inactive_media_return_404(self):
+        blocked_media = [
+            self.create_media(
+                visibility=RecordMedia.Visibility.PRIVATE_ONLY,
+                title="Private-only public route block",
+            ),
+            self.create_media(
+                visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
+                title="Patient-visible public route block",
+            ),
+            self.create_media(
+                is_active=False,
+                title="Inactive public route block",
+            ),
+        ]
+
+        for media in blocked_media:
+            with self.subTest(media=media.title):
+                response = self.client.get(reverse("public_case_media", kwargs={"public_id": media.public_id}))
+
+                self.assertEqual(response.status_code, 404)
+
+    def test_unconsented_public_case_media_returns_404(self):
+        media = self.create_media(title="Unconsented public media route block")
+        self.force_unconsented_public_case(media)
+
+        response = self.client.get(reverse("public_case_media", kwargs={"public_id": media.public_id}))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_missing_media_and_missing_files_return_404(self):
+        missing_media_response = self.client.get(
+            reverse("public_case_media", kwargs={"public_id": uuid.uuid4()})
+        )
+        missing_file = self.create_media(title="Missing file field public route block")
+        RecordMedia.objects.filter(pk=missing_file.pk).update(file="")
+        missing_file_response = self.client.get(
+            reverse("public_case_media", kwargs={"public_id": missing_file.public_id})
+        )
+        missing_storage_file = self.create_media(title="Missing storage file public route block")
+        missing_storage_file.file.storage.delete(missing_storage_file.file.name)
+        missing_storage_file_response = self.client.get(
+            reverse("public_case_media", kwargs={"public_id": missing_storage_file.public_id})
+        )
+
+        self.assertEqual(missing_media_response.status_code, 404)
+        self.assertEqual(missing_file_response.status_code, 404)
+        self.assertEqual(missing_storage_file_response.status_code, 404)
+
+
+class PublicCasesRegressionBoundaryTests(PublicCasesTestDataMixin, TestCase):
+    def test_patient_portal_media_route_still_only_serves_linked_patient_visible_media(self):
+        user = get_user_model().objects.create_user(
+            username="+962790000333",
+            email="synthetic-public-case-portal@example.test",
+            password="synthetic-test-password",
+        )
+        patient = self.create_patient(user=user, phone_raw="0790000333", phone_e164="+962790000333")
+        visible_media = self.create_media(
+            patient=patient,
+            visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
+            title="Patient-visible media remains portal-only",
+            file=self.synthetic_image_file(name="synthetic-public-case.jpg", content=b"patient-visible-bytes"),
+        )
+        public_case_media = self.create_media(
+            patient=patient,
+            title="Public case media is not patient portal media",
+        )
+        private_media = self.create_media(
+            patient=patient,
+            visibility=RecordMedia.Visibility.PRIVATE_ONLY,
+            title="Private media is not patient portal media",
+        )
+        self.client.force_login(user)
+
+        visible_response = self.client.get(
+            reverse(
+                "patient_portal_medical_record_media_download",
+                kwargs={"public_id": visible_media.public_id},
+            )
+        )
+        public_case_response = self.client.get(
+            reverse(
+                "patient_portal_medical_record_media_download",
+                kwargs={"public_id": public_case_media.public_id},
+            )
+        )
+        private_response = self.client.get(
+            reverse(
+                "patient_portal_medical_record_media_download",
+                kwargs={"public_id": private_media.public_id},
+            )
+        )
+
+        self.assertEqual(visible_response.status_code, 200)
+        self.assertEqual(b"".join(visible_response.streaming_content), b"patient-visible-bytes")
+        visible_response.close()
+        self.assertEqual(public_case_response.status_code, 404)
+        self.assertEqual(private_response.status_code, 404)
+
+    def test_staff_private_media_route_remains_staff_only(self):
+        media = self.create_media(title="Staff route public case access control")
+        normal_user = get_user_model().objects.create_user(
+            username="synthetic-normal-public-case-user",
+            password="synthetic-test-password",
+        )
+
+        anonymous_response = self.client.get(
+            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
+        )
+        self.client.force_login(normal_user)
+        normal_user_response = self.client.get(
+            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
+        )
+
+        self.assertEqual(anonymous_response.status_code, 302)
+        self.assertIn(reverse("admin:login"), anonymous_response["Location"])
+        self.assertEqual(normal_user_response.status_code, 403)
+
+    def test_unlisted_and_prohibited_routes_remain_absent(self):
+        blocked_paths = [
+            "/uploads/",
+            "/portal/uploads/",
+            "/whatsapp/webhook/",
+            "/api/whatsapp/",
+            "/whatsapp/api/",
+            "/records/",
+            "/medical-records/",
+            "/payments/",
+            "/portal/payments/",
+        ]
+
+        for path in blocked_paths:
+            with self.subTest(path=path):
+                response = self.client.get(path)
+
+                self.assertEqual(response.status_code, 404)
+
+
 class PublicPageSmokeTests(TestCase):
     def test_arabic_public_pages_return_200(self):
         route_names = [
             "home",
             "doctor",
             "services",
+            "public_cases",
             "contact",
             "privacy",
             "terms",
@@ -1039,6 +1474,7 @@ class PublicPageSmokeTests(TestCase):
             "home_en",
             "doctor_en",
             "services_en",
+            "public_cases_en",
             "contact_en",
         ]
 
@@ -1095,6 +1531,7 @@ class PublicPageContentTests(TestCase):
             "home",
             "doctor",
             "services",
+            "public_cases",
             "contact",
             "privacy",
             "terms",
@@ -1103,6 +1540,7 @@ class PublicPageContentTests(TestCase):
             "home_en",
             "doctor_en",
             "services_en",
+            "public_cases_en",
             "contact_en",
         ]
 
