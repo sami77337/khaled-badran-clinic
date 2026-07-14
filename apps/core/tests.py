@@ -312,6 +312,8 @@ class DeploymentSmokeCommandTests(TestCase):
 
         self.assertTrue(portal_check["details"]["account_security_routes"])
         self.assertFalse(portal_check["details"]["email_password_reset_enabled"])
+        self.assertTrue(portal_check["details"]["approved_medical_records_enabled"])
+        self.assertFalse(portal_check["details"]["public_medical_file_urls"])
 
     def test_public_booking_security_summary_is_summarized(self):
         output = self.call_smoke(json_output=True)
@@ -337,6 +339,8 @@ class DeploymentSmokeCommandTests(TestCase):
         self.assertEqual(consolidation_check["status"], "pass")
         self.assertEqual(consolidation_check["details"]["public_success_lookup"], "uuid_public_token")
         self.assertFalse(consolidation_check["details"]["numeric_public_success_urls"])
+        self.assertEqual(consolidation_check["details"]["medical_records"], "approved_patient_read_only")
+        self.assertFalse(consolidation_check["details"]["public_medical_records"])
         self.assertFalse(prohibited_check["details"]["uploads_enabled"])
         self.assertFalse(prohibited_check["details"]["medical_records_enabled"])
         self.assertFalse(prohibited_check["details"]["whatsapp_api_enabled"])
@@ -561,7 +565,9 @@ class ProjectStatusReportCommandTests(TestCase):
         self.assertIn("appointments=1", text)
         self.assertIn("public_success_lookup=uuid_public_token", text)
         self.assertIn("uploads=False", text)
-        self.assertIn("medical_records=False", text)
+        self.assertIn("medical_records=True", text)
+        self.assertIn("patient_approved_medical_records=True", text)
+        self.assertIn("public_medical_records=False", text)
         self.assertIn("whatsapp_api_or_webhook=False", text)
         self.assertIn("payments=False", text)
         self.assert_private_values_absent(text, appointment)
@@ -577,7 +583,10 @@ class ProjectStatusReportCommandTests(TestCase):
         self.assertEqual(payload["counts"]["appointments"], 1)
         self.assertEqual(payload["security"]["public_success_lookup"], "uuid_public_token")
         self.assertFalse(payload["features"]["uploads"])
-        self.assertFalse(payload["features"]["medical_records"])
+        self.assertTrue(payload["features"]["medical_records"])
+        self.assertTrue(payload["features"]["patient_approved_medical_records"])
+        self.assertFalse(payload["features"]["public_medical_records"])
+        self.assertFalse(payload["features"]["public_medical_file_urls"])
         self.assertFalse(payload["features"]["whatsapp_api_or_webhook"])
         self.assertFalse(payload["features"]["payments"])
         self.assertFalse(payload["security"]["prohibited_features"]["uploads_enabled"])
@@ -741,12 +750,12 @@ class OperationalDocumentationTests(SimpleTestCase):
     def test_release_checklist_contains_portal_foundation_safety_gates(self):
         content = self.read_doc("RELEASE_CHECKLIST.md")
 
-        self.assertIn("patient portal remains bounded to account security and linked-appointment viewing", content)
+        self.assertIn("patient portal remains bounded to account security, linked-appointment", content)
         self.assertIn("logged-in password change uses Django validation/hashing", content)
         self.assertIn("account recovery is clinic-assisted", content)
         self.assertIn("no patient-facing uploads until private media design", content)
         self.assertIn("no WhatsApp until consent/logging/cost/security design exists", content)
-        self.assertIn("no patient-facing medical records until authorization/audit/patient", content)
+        self.assertIn("patient-facing medical records are limited to read-only doctor/staff-approved", content)
 
     def test_ci_workflow_runs_deployment_smoke(self):
         workflow = Path(settings.BASE_DIR, ".github", "workflows", "django.yml").read_text(encoding="utf-8")
@@ -980,7 +989,7 @@ class PortalFoundationRouteTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("patient_portal_login"), response["Location"])
 
-    def test_upload_and_whatsapp_routes_remain_absent(self):
+    def test_upload_whatsapp_and_unscoped_medical_record_routes_remain_absent(self):
         blocked_paths = [
             "/uploads/",
             "/portal/uploads/",
@@ -989,7 +998,6 @@ class PortalFoundationRouteTests(TestCase):
             "/whatsapp/api/",
             "/records/",
             "/medical-records/",
-            "/portal/medical-records/",
             "/payments/",
             "/portal/payments/",
         ]
@@ -999,6 +1007,12 @@ class PortalFoundationRouteTests(TestCase):
                 response = self.client.get(path)
 
                 self.assertEqual(response.status_code, 404)
+
+    def test_patient_medical_records_route_requires_authentication(self):
+        response = self.client.get("/portal/medical-records/")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("patient_portal_login"), response["Location"])
 
 
 class PublicPageSmokeTests(TestCase):

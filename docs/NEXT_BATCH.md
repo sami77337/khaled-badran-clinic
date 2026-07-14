@@ -20,8 +20,9 @@ final product completion and professional delivery readiness.
   asset delivery, but full production-like staging validation remains
   incomplete.
 - Legal/privacy approval remains blocked.
-- WhatsApp API/webhooks, actual uploads, patient-facing medical-record routes,
-  and payments remain outside the current implemented scope.
+- WhatsApp API/webhooks, actual uploads, public cases/achievements media
+  display, patient medical-record editing/uploads, and payments remain outside
+  the current implemented scope.
 - Batch 12 recorded the final product completion track, dashboard-managed
   configuration principle, and authorized showcase requirements.
 - Batch 13 produced final UX/product-flow specifications and design handoff
@@ -163,11 +164,22 @@ final product completion and professional delivery readiness.
   medical-record visibility, public cases/achievements media display, external
   storage, Render settings, WhatsApp API behavior, production readiness, or
   real patient data.
+- BATCH-16-DELIVERY-03 implements the patient portal approved record visibility
+  foundation for Commercial Delivery v1. The existing portal now exposes a
+  read-only `/portal/medical-records/` page for the authenticated linked
+  patient only, showing only `VisitRecord` and `ClinicalNote` rows marked
+  `is_visible_to_patient=True` and active `RecordMedia` rows with
+  `visibility=visible_to_patient`. A patient-owned authenticated media route
+  serves those approved private files by `public_id` without public file URLs.
+  Private-only media, approved-public-case-only media, inactive media,
+  other-patient records, uploads, public cases/achievements display, external
+  storage, Render settings, WhatsApp API behavior, production readiness, and
+  real patient data remain out of scope.
 
 ## Next Recommended Batch
 
 ```text
-BATCH-16-DELIVERY-03: patient portal approved record visibility foundation
+BATCH-16-DELIVERY-04: approved public cases and achievements media foundation
 ```
 
 Rationale:
@@ -181,11 +193,15 @@ Rationale:
   without implementing actual medical file uploads.
 - BATCH-16-DELIVERY-02 establishes private image and short-video file handling
   with type/size validation, private storage paths, and staff-only private
-  download access. Private media remains non-public by default; `visible_to_patient`
-  and `approved_public_case` do not create public file links in this batch.
-- The next delivery need is read-only patient portal visibility for
-  doctor/staff-approved patient record content, using the existing visibility
-  states and keeping private-only media unavailable to patients.
+  download access. Private media remains non-public by default.
+- BATCH-16-DELIVERY-03 establishes read-only patient portal visibility for
+  doctor/staff-approved patient visits, notes, images, and short videos.
+  Patient visibility remains separate from `approved_public_case`, and approved
+  public case media still does not create patient visibility or public file
+  links by itself.
+- The next delivery need is approved public cases/achievements media display,
+  using explicit publication approval and consent while keeping private medical
+  files non-public.
 - This is not a production-readiness batch and does not close operations,
   legal/privacy, backup/restore, monitoring, alert-routing, staging, DNS/TLS,
   load/concurrency, or production go/no-go blockers.
@@ -914,37 +930,33 @@ Must read before the next staging or operations batch:
 
 ## Ordered Recommended Batches
 
-1. BATCH-16-DELIVERY-03: patient portal approved record visibility foundation,
-   using `docs/CLINIC_DELIVERY_V1_SCOPE_LOCK.md` as the commercial v1 source
-   of truth, with read-only patient access only to explicitly approved record
-   content and no production-readiness claim.
-2. BATCH-16-DELIVERY-04: approved public cases/achievements media section,
+1. BATCH-16-DELIVERY-04: approved public cases and achievements media foundation,
    only with separate explicit publication approval and consent state.
-3. Figma implementation audit and UI foundation plan, temporarily deferred by
+2. Figma implementation audit and UI foundation plan, temporarily deferred by
    owner decision and still required before final visual implementation.
-4. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
+3. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
    readiness checklist and operator-assisted dry-run package, using synthetic
    data only, no Render credentials in Git, no real restore execution, and no
    patient data.
-5. Batch 14C-VALIDATE-03: complete operator-assisted Render runtime validation
+4. Batch 14C-VALIDATE-03: complete operator-assisted Render runtime validation
    if safe access is available, including staging shell management commands,
    managed PostgreSQL/Redis command evidence, booking confirmation/browser
    checks with synthetic data only, and sanitized targeted log review.
-6. Next operations follow-up: owner/operator Render latency mitigation and
+5. Next operations follow-up: owner/operator Render latency mitigation and
    external monitoring/alert-routing setup for intermittent slow/severe
    `/health/` latency; then operator-approved Render managed PostgreSQL
    restore drill execution planning with synthetic data only.
-7. Batch 14A: dashboard implementation planning/authorization, only if the
+6. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
-8. Batch 16: legal/privacy/account recovery and patient identity verification
+7. Batch 16: legal/privacy/account recovery and patient identity verification
    policy.
-9. Batch 17: doctor dashboard workflow completion/polish.
-10. Batch 18: patient portal completion/hardening.
-11. Batch 19: WhatsApp limited integration design/implementation only after
+8. Batch 17: doctor dashboard workflow completion/polish.
+9. Batch 18: patient portal completion/hardening.
+10. Batch 19: WhatsApp limited integration design/implementation only after
    privacy gates.
-12. Batch 20: approved cases/reviews/media showcase plus private publication
+11. Batch 20: approved cases/reviews/media showcase plus private publication
    rules.
-13. Batch 21: release candidate hardening.
+12. Batch 21: release candidate hardening.
 
 ## Final Quality Goals
 

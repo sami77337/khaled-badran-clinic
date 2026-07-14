@@ -42,9 +42,12 @@
         </form>
         <p class="trust-note">
             {% if is_arabic %}
+                {% if False %}
                 يجب أن يتطابق رقم الهاتف مع الرقم المستخدم في الحجز. لا تعرض البوابة السجلات الطبية أو المرفقات حالياً.
+                {% endif %}
+                يجب أن يتطابق رقم الهاتف مع الرقم المستخدم في الحجز. تعرض البوابة السجلات المعتمدة فقط، ولا يتوفر رفع الملفات من بوابة المريض.
             {% else %}
-                The phone number must match the booking phone number. Medical records and uploads are not available in this portal yet.
+                The phone number must match the booking phone number. Only approved records are visible, and patient uploads are not available in this portal.
             {% endif %}
         </p>
     </div>

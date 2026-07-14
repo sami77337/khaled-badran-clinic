@@ -25,6 +25,18 @@
             <div class="success-card">
                 <p class="eyebrow">{% if is_arabic %}مرحباً{% else %}Welcome{% endif %}</p>
                 <h2>{{ display_name }}</h2>
+                {% if False %}
+                <p class="muted">
+                    {% if is_arabic %}
+                        {% if False %}
+                        لديك {{ linked_count }} موعد مرتبط بهذا الحساب.
+                        {% endif %}
+                        تظهر هنا المواعيد الآمنة وأجزاء السجل الطبي التي وافق الطبيب أو الفريق على إظهارها فقط. رفع الملفات غير متاح في بوابة المريض حالياً.
+                    {% else %}
+                        You have {{ linked_count }} appointment{{ linked_count|pluralize }} linked to this account.
+                    {% endif %}
+                </p>
+                {% endif %}
                 <p class="muted">
                     {% if is_arabic %}
                         لديك {{ linked_count }} موعد مرتبط بهذا الحساب.
@@ -39,20 +51,30 @@
                     <a class="btn btn-secondary" href="{{ portal_appointments_url }}">
                         {% if is_arabic %}عرض المواعيد{% else %}View appointments{% endif %}
                     </a>
+                    <a class="btn btn-secondary" href="{{ portal_medical_records_url }}">
+                        {% if is_arabic %}السجل الطبي{% else %}Medical records{% endif %}
+                    </a>
                     <a class="btn btn-secondary" href="{{ portal_account_url }}">
                         {% if is_arabic %}الحساب{% else %}Account{% endif %}
                     </a>
                 </div>
             </div>
             <div class="success-card">
+                {% if is_arabic %}
+                <h2>حدود البوابة</h2>
+                <p class="muted">
+                    تظهر هنا المواعيد الآمنة وأجزاء السجل الطبي التي وافق الطبيب أو الفريق على إظهارها فقط. رفع الملفات غير متاح في بوابة المريض حالياً.
+                </p>
+                {% else %}
                 <h2>{% if is_arabic %}حدود البوابة{% else %}Portal Limits{% endif %}</h2>
                 <p class="muted">
                     {% if is_arabic %}
                         السجلات الطبية ورفع الملفات غير متاحة حالياً. تظهر هنا بيانات المواعيد الآمنة فقط.
                     {% else %}
-                        Medical records and uploads are not available yet. This portal shows patient-safe appointment data only.
+                        This portal shows safe appointment data and medical-record content approved by the doctor or staff only. Patient uploads are not available.
                     {% endif %}
                 </p>
+                {% endif %}
                 <form method="post" action="{{ portal_logout_url }}">
                     {% csrf_token %}
                     <button class="btn btn-secondary" type="submit">

@@ -114,7 +114,7 @@ Commercial handoff readiness requires:
 - patient portal shows only doctor/staff-approved record content and remains
   read-only for medical record content in v1.
 
-Current BATCH-16-DELIVERY-02 status:
+Current BATCH-16-DELIVERY-03 status:
 
 - patient medical record foundation is backend-only model/admin/test
   groundwork governed by `docs/CLINIC_DELIVERY_V1_SCOPE_LOCK.md`;
@@ -122,14 +122,21 @@ Current BATCH-16-DELIVERY-02 status:
   private filesystem storage, UUID-based private file paths, allowed
   image/short-MP4 type and size validation, metadata capture, and a staff-only
   private download route by media `public_id`;
+- patient portal approved record visibility foundation is implemented with a
+  read-only authenticated portal page for the linked patient only;
+- patient portal records show only doctor/staff-approved visits and notes
+  marked `is_visible_to_patient=True` and active media marked
+  `visible_to_patient`;
+- patient-facing media access uses an authenticated patient-owned route by
+  `RecordMedia.public_id` and does not expose public media URLs or local file
+  paths;
 - production-ready remains `no`;
 - Figma implementation is temporarily deferred by owner decision;
-- patient portal approved medical-record visibility is still not implemented;
 - public cases/achievements media display is still not implemented;
 - approved public case media still requires consent, and approval does not
-  create a public file URL in this batch;
-- next delivery batch: `BATCH-16-DELIVERY-03: patient portal approved record
-  visibility foundation`.
+  create a public file URL or patient visibility by itself;
+- next delivery batch: `BATCH-16-DELIVERY-04: approved public cases and
+  achievements media foundation`.
 
 Commercial handoff readiness does not mean production launch readiness.
 Production launch blockers, including legal/privacy approval, staging runtime
@@ -349,7 +356,8 @@ governance decisions, and final go/no-go approval remain separate.
 
 ## Patient Portal Account Security Gates
 
-- patient portal remains bounded to account security and linked-appointment viewing
+- patient portal remains bounded to account security, linked-appointment
+  viewing, and read-only approved medical-record visibility
 - logged-in password change uses Django validation/hashing and keeps the session valid after success
 - email password reset is not implemented unless production email ownership and recovery policy are approved
 - account recovery is clinic-assisted and informational only for now
@@ -362,12 +370,13 @@ governance decisions, and final go/no-go approval remain separate.
 - no patient-facing uploads until private media design and access control are
   approved for that surface
 - no WhatsApp until consent/logging/cost/security design exists
-- no patient-facing medical records until authorization/audit/patient
-  visibility rules are tested
+- patient-facing medical records are limited to read-only doctor/staff-approved
+  visits, notes, and active patient-visible media for the linked authenticated
+  patient only
 - BATCH-16-DELIVERY-01 adds model/admin/test groundwork for patient records;
   BATCH-16-DELIVERY-02 adds private storage plus staff-only private media
-  download access; patient-facing record routes remain absent until a later
-  approved read-only visibility batch.
+  download access; BATCH-16-DELIVERY-03 adds the approved read-only patient
+  visibility route and patient-owned media route.
 - no payments until a payment provider, privacy, refund, and reconciliation policy is reviewed
 
 These gates are intentional blockers for future batches beyond the Batch 9 portal account-security polish.

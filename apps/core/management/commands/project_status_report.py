@@ -46,6 +46,8 @@ REQUIRED_ROUTE_NAMES = {
         "patient_portal_link_appointment",
         "patient_portal_appointment_list",
         "patient_portal_appointment_detail",
+        "patient_portal_medical_records",
+        "patient_portal_medical_record_media_download",
     ],
     "health": ["health", "health_ready"],
 }
@@ -65,6 +67,8 @@ def _route_name_available(name):
         kwargs["appointment_id"] = 1
     if name in {"booking_success", "booking_success_en", "patient_portal_appointment_detail"}:
         kwargs["public_token"] = "00000000-0000-4000-8000-000000000000"
+    if name == "patient_portal_medical_record_media_download":
+        kwargs["public_id"] = "00000000-0000-4000-8000-000000000000"
 
     try:
         reverse(name, kwargs=kwargs or None)
@@ -109,7 +113,10 @@ def build_project_status_report():
             "staff_appointment_operations": True,
             "patient_portal": True,
             "uploads": False,
-            "medical_records": False,
+            "medical_records": True,
+            "patient_approved_medical_records": True,
+            "public_medical_records": False,
+            "public_medical_file_urls": False,
             "whatsapp_api_or_webhook": False,
             "payments": False,
             "medical_ai": False,
@@ -124,7 +131,9 @@ def build_project_status_report():
             "numeric_public_success_urls": False,
             "staff_operations_require_staff": True,
             "patient_appointment_lookup": "uuid_public_token_with_authenticated_owner",
+            "patient_medical_record_media_lookup": "uuid_public_id_with_authenticated_patient_owner",
             "portal_pages_no_cache": True,
+            "patient_medical_records_read_only": True,
             "csrf_expected_for_state_changing_posts": True,
             "prohibited_features": prohibited_features,
             "safe_output_policy": "counts_booleans_and_route_categories_only",
@@ -169,6 +178,8 @@ class Command(BaseCommand):
             f"patient_portal={features['patient_portal']}, "
             f"uploads={features['uploads']}, "
             f"medical_records={features['medical_records']}, "
+            f"patient_approved_medical_records={features['patient_approved_medical_records']}, "
+            f"public_medical_records={features['public_medical_records']}, "
             f"whatsapp_api_or_webhook={features['whatsapp_api_or_webhook']}, "
             f"payments={features['payments']}, "
             f"medical_ai={features['medical_ai']}"

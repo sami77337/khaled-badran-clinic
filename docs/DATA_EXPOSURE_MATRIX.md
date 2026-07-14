@@ -12,10 +12,15 @@ seeded, committed, copied into docs, or used in screenshots/logs.
 - Public booking remains login-free.
 - Public booking success uses UUID `public_token` routes.
 - Patient portal appointment detail requires login and ownership filtering.
+- Patient portal approved medical-record visibility requires login, a linked
+  `Patient`, patient ownership filtering, and explicit doctor/staff visibility
+  approval.
 - Patient portal pages are no-cache.
 - Staff operational data stays behind staff-only authorization.
-- Medical records, uploads, WhatsApp message storage, and payment features are
-  not implemented.
+- Patient-facing medical records are limited to read-only approved visits,
+  notes, and active patient-visible media. Patient uploads, public medical file
+  URLs, public cases/achievements media display, WhatsApp message storage, and
+  payment features are not implemented.
 - Future WhatsApp messaging must not carry detailed medical information before a
   separate approved design exists.
 
@@ -106,6 +111,8 @@ Current pages:
 - appointment linking,
 - appointment list,
 - appointment detail,
+- approved medical-record visibility,
+- approved patient media download/view by `RecordMedia.public_id`,
 - English equivalents under `/en/portal/`.
 
 Patient-safe fields visible in the patient portal:
@@ -122,13 +129,25 @@ Patient-safe fields visible in the patient portal:
 | Doctor display name | Linked `Appointment.doctor` | Patient-limited | Public doctor display data. |
 | Clinic public name/address | Public clinic context | Patient-limited/public-safe | No private clinic internals. |
 | Appointment created date | `Appointment.created_at` | Patient-limited | Current user only. |
+| Approved visit date and patient-visible visit fields | `VisitRecord` with `patient=current_patient` and `is_visible_to_patient=True` | Patient-limited approved medical record | Manual doctor/staff-written content only; private visits are excluded. |
+| Approved clinical note title/body | `ClinicalNote` with `patient=current_patient` and `is_visible_to_patient=True` | Patient-limited approved medical record | Manual note content only; private/staff-only notes are excluded unless explicitly patient-visible. |
+| Approved media title/description/type/uploaded date | Active `RecordMedia` with `patient=current_patient` and `visibility=visible_to_patient` | Patient-limited approved media metadata | No local file path or public file URL is rendered. |
+| Approved media response | Patient portal media route using `RecordMedia.public_id` | Patient-limited private media response | Requires authenticated linked patient ownership, `visible_to_patient`, and active media. |
 
 Patient portal access controls:
 
 - Dashboard/list/detail/account/password/link pages require login.
 - Appointment detail filters by `public_token` and `patient__user=request.user`.
+- Medical-record page resolves the current user's linked `Patient` and filters
+  visits, notes, and media to that patient only.
+- Patient media route filters by `RecordMedia.public_id`, linked patient
+  ownership, `visibility=visible_to_patient`, and `is_active=True`.
 - User A receives 404 for User B's appointment UUID.
+- User A receives 404 for User B's media UUID and cannot see User B's record
+  page content.
 - Numeric portal appointment detail URLs are not routed.
+- Private-only, approved-public-case-only, and inactive media are not visible
+  or downloadable to patients.
 - Portal pages are no-cache.
 
 ## Staff-Only Fields
@@ -178,7 +197,8 @@ visitors:
 
 The following must never appear on public booking, public success, patient
 dashboard, patient account, patient appointment list, patient appointment
-detail, account recovery, login, registration, or password-change pages:
+detail, patient medical-record page, patient media response, account recovery,
+login, registration, or password-change pages:
 
 - internal IDs,
 - staff notes,
@@ -186,9 +206,13 @@ detail, account recovery, login, registration, or password-change pages:
 - status history notes,
 - audit logs,
 - audit metadata,
-- medical records,
-- upload/media metadata,
+- unapproved medical records,
+- private-only media metadata,
+- approved-public-case-only media metadata unless separately made
+  patient-visible by policy,
+- inactive media metadata,
 - private media paths,
+- public URLs for private medical files,
 - WhatsApp messages,
 - WhatsApp API identifiers,
 - payment admin details,

@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">{% if is_arabic %}السجل الطبي{% else %}Medical Records{% endif %}</p>
+        <h1>{% if is_arabic %}السجل الطبي المعتمد{% else %}Approved Medical Record{% endif %}</h1>
+        <p>{{ labels.not_emergency }}</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container booking-layout">
+        {% include "patients/_portal_nav.html" %}
+
+        <div class="success-card">
+            <h2>{% if is_arabic %}محتوى معتمد فقط{% else %}Approved content only{% endif %}</h2>
+            <p class="muted">
+                {% if is_arabic %}
+                    تعرض هذه الصفحة أجزاء السجل التي وافق الطبيب أو الفريق على إظهارها للمريض فقط. لا تظهر الملاحظات الداخلية أو الملفات الخاصة هنا.
+                {% else %}
+                    This page shows only record content that the doctor or staff approved for patient visibility. Internal notes and private files are not shown here.
+                {% endif %}
+            </p>
+        </div>
+
+        {% if not patient %}
+            <div class="success-card">
+                <h2>{% if is_arabic %}لا يوجد ملف مريض مرتبط{% else %}No linked patient profile{% endif %}</h2>
+                <p class="muted">
+                    {% if is_arabic %}
+                        لم يتم ربط هذا الحساب بملف مريض في العيادة بعد. لا يمكن عرض أي سجلات طبية من دون ربط آمن.
+                    {% else %}
+                        This account is not linked to a clinic patient profile yet. No medical records can be shown without a secure patient link.
+                    {% endif %}
+                </p>
+                <div class="hero-actions">
+                    <a class="btn btn-primary" href="{{ portal_link_url }}">
+                        {% if is_arabic %}ربط موعد{% else %}Link appointment{% endif %}
+                    </a>
+                    <a class="btn btn-secondary" href="{{ portal_dashboard_url }}">
+                        {% if is_arabic %}العودة للبوابة{% else %}Back to portal{% endif %}
+                    </a>
+                </div>
+            </div>
+        {% else %}
+            <div class="staff-detail-grid">
+                <div class="staff-panel">
+                    <h2>{% if is_arabic %}الزيارات المعتمدة{% else %}Approved visits{% endif %}</h2>
+                    {% if visits %}
+                        <div class="slot-day-list">
+                            {% for visit in visits %}
+                                <article class="booking-option">
+                                    <h3>{{ visit.visit_date|date:"Y-m-d H:i" }}</h3>
+                                    {% if visit.appointment %}
+                                        <p class="muted">
+                                            {% if is_arabic %}
+                                                {{ visit.appointment.visit_type.name_ar }} مع {{ visit.appointment.doctor.display_name_ar }}
+                                            {% else %}
+                                                {{ visit.appointment.visit_type.name_en }} with {{ visit.appointment.doctor.display_name_en }}
+                                            {% endif %}
+                                        </p>
+                                    {% endif %}
+                                    <dl class="detail-list">
+                                        {% if visit.visit_reason %}
+                                            <div>
+                                                <dt>{% if is_arabic %}سبب الزيارة{% else %}Visit reason{% endif %}</dt>
+                                                <dd>{{ visit.visit_reason }}</dd>
+                                            </div>
+                                        {% endif %}
+                                        {% if visit.doctor_notes %}
+                                            <div>
+                                                <dt>{% if is_arabic %}ملاحظات الطبيب{% else %}Doctor notes{% endif %}</dt>
+                                                <dd>{{ visit.doctor_notes }}</dd>
+                                            </div>
+                                        {% endif %}
+                                        {% if visit.diagnosis_plan %}
+                                            <div>
+                                                <dt>{% if is_arabic %}الخطة المكتوبة{% else %}Written plan{% endif %}</dt>
+                                                <dd>{{ visit.diagnosis_plan }}</dd>
+                                            </div>
+                                        {% endif %}
+                                        {% if visit.instructions %}
+                                            <div>
+                                                <dt>{% if is_arabic %}التعليمات{% else %}Instructions{% endif %}</dt>
+                                                <dd>{{ visit.instructions }}</dd>
+                                            </div>
+                                        {% endif %}
+                                        {% if visit.follow_up_notes %}
+                                            <div>
+                                                <dt>{% if is_arabic %}المتابعة{% else %}Follow-up{% endif %}</dt>
+                                                <dd>{{ visit.follow_up_notes }}</dd>
+                                            </div>
+                                        {% endif %}
+                                    </dl>
+                                </article>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="muted">{% if is_arabic %}لا توجد زيارات معتمدة للعرض حالياً.{% else %}No approved visits are available yet.{% endif %}</p>
+                    {% endif %}
+                </div>
+
+                <div class="staff-panel">
+                    <h2>{% if is_arabic %}الملاحظات المعتمدة{% else %}Approved notes{% endif %}</h2>
+                    {% if notes %}
+                        <div class="slot-day-list">
+                            {% for note in notes %}
+                                <article class="booking-option">
+                                    <h3>{% if note.title %}{{ note.title }}{% else %}{{ note.get_note_type_display }}{% endif %}</h3>
+                                    <p class="muted">{{ note.created_at|date:"Y-m-d H:i" }}</p>
+                                    <p>{{ note.body }}</p>
+                                </article>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="muted">{% if is_arabic %}لا توجد ملاحظات معتمدة للعرض حالياً.{% else %}No approved notes are available yet.{% endif %}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="staff-panel">
+                <h2>{% if is_arabic %}الصور والفيديوهات المعتمدة{% else %}Approved images and short videos{% endif %}</h2>
+                {% if media_items %}
+                    <div class="slot-day-list">
+                        {% for item in media_items %}
+                            <article class="booking-option">
+                                <h3>{% if item.media.title %}{{ item.media.title }}{% else %}{{ item.media.get_media_type_display }}{% endif %}</h3>
+                                {% if item.media.description %}
+                                    <p>{{ item.media.description }}</p>
+                                {% endif %}
+                                <p class="muted">
+                                    {{ item.media.get_media_type_display }} · {{ item.media.uploaded_at|date:"Y-m-d H:i" }}
+                                </p>
+                                <a class="btn btn-secondary" href="{{ item.download_url }}">
+                                    {% if is_arabic %}عرض أو تنزيل الملف{% else %}View or download file{% endif %}
+                                </a>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="muted">{% if is_arabic %}لا توجد ملفات وسائط معتمدة للعرض حالياً.{% else %}No approved media files are available yet.{% endif %}</p>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <p class="trust-note">
+            {% if is_arabic %}
+                هذه الصفحة للقراءة فقط. لا يمكن تعديل السجل الطبي أو رفع ملفات من بوابة المريض في هذا الإصدار.
+            {% else %}
+                This page is read-only. Patients cannot edit medical records or upload files in this version.
+            {% endif %}
+        </p>
+    </div>
+</section>
+{% endblock %}

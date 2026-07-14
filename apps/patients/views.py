@@ -5,7 +5,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import ValidationError
-from django.http import HttpResponseNotAllowed
+from django.http import FileResponse, Http404, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -17,6 +17,7 @@ from apps.booking.models import Appointment
 from apps.core.views import _base_context
 from apps.patients import rate_limits, services
 from apps.patients.forms import AppointmentLinkForm, PatientLoginForm, PatientRegistrationForm
+from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
 
 
 def _language(language):
@@ -51,6 +52,7 @@ def _portal_context(request, language, **extra):
     context = _base_context(request, "patient_portal", language)
     nav_labels = {
         "ar": {
+            "medical_records": "السجل الطبي",
             "dashboard": "لوحة البوابة",
             "appointments": "المواعيد",
             "link": "ربط موعد",
@@ -59,6 +61,7 @@ def _portal_context(request, language, **extra):
             "logout": "تسجيل الخروج",
         },
         "en": {
+            "medical_records": "Medical Records",
             "dashboard": "Dashboard",
             "appointments": "Appointments",
             "link": "Link Appointment",
@@ -76,6 +79,7 @@ def _portal_context(request, language, **extra):
             "portal_register_url": _portal_url("patient_portal_register", language),
             "portal_link_url": _portal_url("patient_portal_link_appointment", language),
             "portal_appointments_url": _portal_url("patient_portal_appointment_list", language),
+            "portal_medical_records_url": _portal_url("patient_portal_medical_records", language),
             "portal_account_url": _portal_url("patient_portal_account", language),
             "portal_password_change_url": _portal_url("patient_portal_password_change", language),
             "portal_account_recovery_url": _portal_url("patient_portal_account_recovery", language),
@@ -89,6 +93,11 @@ def _portal_context(request, language, **extra):
                     "key": "appointments",
                     "label": nav_labels["appointments"],
                     "url": _portal_url("patient_portal_appointment_list", language),
+                },
+                {
+                    "key": "medical_records",
+                    "label": nav_labels["medical_records"],
+                    "url": _portal_url("patient_portal_medical_records", language),
                 },
                 {
                     "key": "link",
@@ -139,6 +148,22 @@ def _password_change_form(user, data=None, language="ar"):
         form.fields["new_password1"].label = "New password"
         form.fields["new_password2"].label = "Confirm new password"
     return form
+
+
+def _patient_media_response(media):
+    if not media.file:
+        raise Http404("Media unavailable.")
+    if not media.file.storage.exists(media.file.name):
+        raise Http404("Media unavailable.")
+
+    response = FileResponse(
+        media.file.open("rb"),
+        as_attachment=True,
+        filename=media.download_filename,
+        content_type=media.content_type or "application/octet-stream",
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @_login_required
@@ -338,6 +363,82 @@ def portal_appointment_list(request, language="ar"):
         "patients/appointment_list.html",
         _portal_context(request, language, appointments=appointments),
     )
+
+
+@require_GET
+@_login_required
+def patient_portal_medical_records(request, language="ar"):
+    language = _language(language)
+    patient = services.user_patient_profile(request.user)
+    visits = []
+    notes = []
+    media_items = []
+
+    if patient is not None:
+        visits = (
+            VisitRecord.objects.filter(patient=patient, is_visible_to_patient=True)
+            .select_related("appointment", "appointment__doctor", "appointment__visit_type")
+            .order_by("-visit_date", "-created_at")
+        )
+        notes = (
+            ClinicalNote.objects.filter(patient=patient, is_visible_to_patient=True)
+            .select_related("visit")
+            .order_by("-created_at")
+        )
+        visible_media = (
+            RecordMedia.objects.filter(
+                patient=patient,
+                visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
+                is_active=True,
+            )
+            .select_related("visit")
+            .order_by("-uploaded_at")
+        )
+        media_items = [
+            {
+                "media": media,
+                "download_url": _portal_url(
+                    "patient_portal_medical_record_media_download",
+                    language,
+                    public_id=media.public_id,
+                ),
+            }
+            for media in visible_media
+        ]
+
+    return render(
+        request,
+        "patients/medical_records.html",
+        _portal_context(
+            request,
+            language,
+            patient=patient,
+            visits=visits,
+            notes=notes,
+            media_items=media_items,
+            portal_section="medical_records",
+        ),
+    )
+
+
+@require_GET
+@_login_required
+def patient_portal_medical_record_media_download(request, public_id, language="ar"):
+    patient = services.user_patient_profile(request.user)
+    if patient is None:
+        raise Http404("Media unavailable.")
+
+    try:
+        media = RecordMedia.objects.select_related("patient", "visit").get(
+            public_id=public_id,
+            patient=patient,
+            visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
+            is_active=True,
+        )
+    except RecordMedia.DoesNotExist as exc:
+        raise Http404("Media unavailable.") from exc
+
+    return _patient_media_response(media)
 
 
 @_login_required

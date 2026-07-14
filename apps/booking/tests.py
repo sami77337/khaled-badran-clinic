@@ -1629,12 +1629,18 @@ class PublicPrivacyBoundaryTests(BookingTestDataMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("patient_portal_login"), response["Location"])
 
+    def test_patient_medical_records_route_requires_authentication(self):
+        response = self.client.get("/portal/medical-records/")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("patient_portal_login"), response["Location"])
+
     def test_no_upload_route_exists(self):
         response = self.client.get("/uploads/")
 
         self.assertEqual(response.status_code, 404)
 
-    def test_no_upload_medical_record_whatsapp_or_payment_routes_exist(self):
+    def test_no_upload_unscoped_medical_record_whatsapp_or_payment_routes_exist(self):
         blocked_paths = [
             "/uploads/",
             "/portal/uploads/",
@@ -1643,7 +1649,6 @@ class PublicPrivacyBoundaryTests(BookingTestDataMixin, TestCase):
             "/whatsapp/api/",
             "/records/",
             "/medical-records/",
-            "/portal/medical-records/",
             "/payments/",
             "/portal/payments/",
         ]
