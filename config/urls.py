@@ -1,7 +1,7 @@
 """Root URL configuration for Dr. Khaled Badran Clinic."""
 
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 
 from apps.booking import views as booking_views
 from apps.core import views
@@ -125,6 +125,7 @@ urlpatterns = [
     path("sitemap.xml", views.sitemap_xml, name="sitemap_xml"),
     path("health/", views.health_check, name="health"),
     path("health/ready/", views.readiness_check, name="health_ready"),
+    path("records/", include("apps.records.urls")),
     path("portal/", patient_views.portal_dashboard, {"language": "ar"}, name="patient_portal_dashboard"),
     path("portal/login/", patient_views.portal_login, {"language": "ar"}, name="patient_portal_login"),
     path("portal/logout/", patient_views.portal_logout, {"language": "ar"}, name="patient_portal_logout"),

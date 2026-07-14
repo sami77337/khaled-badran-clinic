@@ -744,9 +744,9 @@ class OperationalDocumentationTests(SimpleTestCase):
         self.assertIn("patient portal remains bounded to account security and linked-appointment viewing", content)
         self.assertIn("logged-in password change uses Django validation/hashing", content)
         self.assertIn("account recovery is clinic-assisted", content)
-        self.assertIn("no uploads until private media design exists", content)
+        self.assertIn("no patient-facing uploads until private media design", content)
         self.assertIn("no WhatsApp until consent/logging/cost/security design exists", content)
-        self.assertIn("no medical records until authorization/audit/patient visibility rules are tested", content)
+        self.assertIn("no patient-facing medical records until authorization/audit/patient", content)
 
     def test_ci_workflow_runs_deployment_smoke(self):
         workflow = Path(settings.BASE_DIR, ".github", "workflows", "django.yml").read_text(encoding="utf-8")

@@ -114,16 +114,22 @@ Commercial handoff readiness requires:
 - patient portal shows only doctor/staff-approved record content and remains
   read-only for medical record content in v1.
 
-Current BATCH-16-DELIVERY-01 status:
+Current BATCH-16-DELIVERY-02 status:
 
 - patient medical record foundation is backend-only model/admin/test
   groundwork governed by `docs/CLINIC_DELIVERY_V1_SCOPE_LOCK.md`;
+- private media storage/access-control foundation is implemented with local
+  private filesystem storage, UUID-based private file paths, allowed
+  image/short-MP4 type and size validation, metadata capture, and a staff-only
+  private download route by media `public_id`;
 - production-ready remains `no`;
 - Figma implementation is temporarily deferred by owner decision;
-- media records are metadata/status only, with no actual file upload field and
-  no public medical file links;
-- next delivery batch: `BATCH-16-DELIVERY-02: private media storage and
-  access-control foundation`.
+- patient portal approved medical-record visibility is still not implemented;
+- public cases/achievements media display is still not implemented;
+- approved public case media still requires consent, and approval does not
+  create a public file URL in this batch;
+- next delivery batch: `BATCH-16-DELIVERY-03: patient portal approved record
+  visibility foundation`.
 
 Commercial handoff readiness does not mean production launch readiness.
 Production launch blockers, including legal/privacy approval, staging runtime
@@ -353,12 +359,15 @@ governance decisions, and final go/no-go approval remain separate.
 - portal pages are no-cache
 - portal login, registration, password change, and appointment linking keep CSRF protection
 - portal rate limits use hashed identities and do not store raw public tokens, raw phone numbers, or passwords in cache keys
-- no uploads until private media design exists
+- no patient-facing uploads until private media design and access control are
+  approved for that surface
 - no WhatsApp until consent/logging/cost/security design exists
-- no medical records until authorization/audit/patient visibility rules are tested
-- BATCH-16-DELIVERY-01 adds only model/admin/test groundwork for patient
-  records; patient-facing record routes remain absent until a later approved
-  read-only visibility batch.
+- no patient-facing medical records until authorization/audit/patient
+  visibility rules are tested
+- BATCH-16-DELIVERY-01 adds model/admin/test groundwork for patient records;
+  BATCH-16-DELIVERY-02 adds private storage plus staff-only private media
+  download access; patient-facing record routes remain absent until a later
+  approved read-only visibility batch.
 - no payments until a payment provider, privacy, refund, and reconciliation policy is reviewed
 
 These gates are intentional blockers for future batches beyond the Batch 9 portal account-security polish.
