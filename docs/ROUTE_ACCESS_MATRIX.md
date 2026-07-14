@@ -16,6 +16,8 @@ security and operational documentation only.
 - Public cases media must be served through controlled `RecordMedia.public_id`
   routes and must not use direct private file URLs.
 - Staff appointment numeric IDs are allowed only behind staff-only routes.
+- Staff dashboard patient-record workflow routes are allowed only behind
+  authenticated `is_staff=True` access and must remain `never_cache`.
 - Patient portal appointment details must use UUID `public_token` plus
   authenticated ownership filtering.
 - Patient portal medical-record routes must require authentication, resolve the
@@ -35,7 +37,7 @@ security and operational documentation only.
 | Public booking | Patient-submitted booking form fields and patient-safe confirmation details. |
 | Public approved showcase | Sanitized public-case media metadata and controlled media responses for active approved media with confirmed consent. |
 | Patient-limited | Authenticated patient account or linked appointment details filtered to the logged-in owner. |
-| Staff operational | Staff-only appointment operations, audit/status history, operational notes, and internal IDs. |
+| Staff operational | Staff-only appointment operations, patient-record workflow pages/forms, audit/status history, operational notes, private media metadata, and internal IDs. |
 | Safe operational health | Liveness/readiness status without internals or credentials. |
 | Absent/prohibited | Route intentionally not implemented and expected to return 404. |
 
@@ -141,6 +143,33 @@ Staff route behavior:
 - Staff operations reject non-POST requests with `405` after staff
   authorization.
 - Staff numeric appointment IDs are not linked from patient portal pages.
+
+## Staff Dashboard Patient Record Routes
+
+| Route | Method | Auth | Staff | Ownership filtering | CSRF expectation | Cache expectation | Data exposure | Implementation |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `/dashboard/patients/` | GET only | Required | Required | Staff-only patient queryset | No state-changing form | `never_cache` | Staff operational patient list with names, phones, and record counts | `apps/dashboard/views.py:dashboard_patient_list` |
+| `/dashboard/patients/<patient-id>/records/` | GET only | Required | Required | Staff-only lookup by `Patient.id`; visits, notes, and media filtered to selected patient | No state-changing form | `never_cache` | Staff operational patient record overview | `apps/dashboard/views.py:dashboard_patient_record_detail` |
+| `/dashboard/patients/<patient-id>/records/visits/new/` | GET, POST after staff auth | Required | Required | Creates `VisitRecord` for selected patient only | POST protected by Django CSRF middleware | `never_cache` | Staff operational visit creation | `apps/dashboard/views.py:dashboard_visit_create` |
+| `/dashboard/patients/<patient-id>/records/notes/new/` | GET, POST after staff auth | Required | Required | Creates `ClinicalNote` for selected patient only; optional visit choices are patient-filtered | POST protected by Django CSRF middleware | `never_cache` | Staff operational clinical-note creation | `apps/dashboard/views.py:dashboard_note_create` |
+| `/dashboard/patients/<patient-id>/records/media/new/` | GET, POST after staff auth | Required | Required | Creates `RecordMedia` for selected patient only; optional visit choices are patient-filtered | POST protected by Django CSRF middleware | `never_cache` | Staff operational private image/short-video upload | `apps/dashboard/views.py:dashboard_media_create` |
+| `/dashboard/patients/<patient-id>/records/media/<uuid:public_id>/edit/` | GET, POST after staff auth | Required | Required | Updates `RecordMedia` by selected patient and `public_id` only | POST protected by Django CSRF middleware | `never_cache` | Staff operational media visibility/consent/active-state update | `apps/dashboard/views.py:dashboard_media_update` |
+
+Staff dashboard record route behavior:
+
+- Anonymous users are redirected to Django admin login.
+- Authenticated non-staff users receive `403`.
+- Staff create/update forms use Django CSRF protection.
+- Visit and note visibility defaults stay private unless staff explicitly mark
+  `is_visible_to_patient=True`.
+- Media `visible_to_patient` remains patient-portal-only and does not create a
+  public cases route.
+- Media `approved_public_case` requires `consent_confirmed=True`; public cases
+  still require `approved_public_case`, confirmed consent, active state, and a
+  controlled `/cases/media/<uuid:public_id>/` route.
+- Staff dashboard templates use the staff private media route for staff file
+  links and do not render `media.file.url`, `PRIVATE_MEDIA_ROOT`, or local
+  storage paths.
 
 ## Staff Record Media Routes
 
@@ -256,7 +285,7 @@ implements, and tests them with privacy/security review:
 - Booking success routes are UUID-token based in both languages.
 - Portal routes have Arabic/default and English equivalents, including the
   approved read-only medical-record visibility routes.
-- Staff appointment routes currently exist once, outside the public language
-  prefixes, and use English operational copy.
+- Staff appointment and dashboard record workflow routes currently exist once,
+  outside the public language prefixes.
 - Prohibited upload, public/unscoped medical-record, WhatsApp API/webhook, and
   payment routes are absent in both public and portal namespaces.

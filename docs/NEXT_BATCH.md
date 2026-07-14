@@ -187,11 +187,22 @@ final product completion and professional delivery readiness.
   notes, diagnosis/plan, instructions, follow-up notes, local file paths,
   external storage, Render settings, WhatsApp API behavior, production
   readiness, and real patient data remain out of scope.
+- BATCH-16-DELIVERY-05 implements the doctor/staff dashboard record workflow
+  foundation for Commercial Delivery v1. Staff-only `/dashboard/patients/`
+  routes list patients, show selected patient record overviews, create visits,
+  create clinical notes, upload private images/short MP4 videos, mark
+  visit/note/media visibility for patient access, and manage media
+  title/description/visibility/consent/active state. Patient-visible media
+  remains separate from public cases, public-case media still requires
+  `approved_public_case` plus `consent_confirmed=True` plus active state,
+  patient portal medical records remain read-only, and no public direct private
+  media URLs, patient uploads, WhatsApp API behavior, external storage, Render
+  settings, production readiness, or real patient data are added.
 
 ## Next Recommended Batch
 
 ```text
-BATCH-16-DELIVERY-05: doctor/staff dashboard record workflow polish
+BATCH-16-DELIVERY-06: commercial handoff QA and Figma implementation audit
 ```
 
 Rationale:
@@ -214,10 +225,13 @@ Rationale:
 - BATCH-16-DELIVERY-04 establishes approved public cases/achievements display
   using explicit publication approval and consent while keeping private medical
   files non-public.
-- The next delivery need is doctor/staff dashboard workflow polish around the
-  existing patient record and media foundation, without expanding patient
-  uploads, WhatsApp API behavior, payments, production infrastructure, or
-  public medical-file URLs.
+- BATCH-16-DELIVERY-05 establishes the bounded staff-only dashboard workflow
+  for managing patient records, notes, private media, patient visibility, and
+  consent-gated public-case approval states.
+- The next delivery need is a commercial handoff QA pass and Figma
+  implementation audit, because Figma implementation remains temporarily
+  deferred by owner decision and still needs an explicit implementation audit
+  before final visual completion.
 - This is not a production-readiness batch and does not close operations,
   legal/privacy, backup/restore, monitoring, alert-routing, staging, DNS/TLS,
   load/concurrency, or production go/no-go blockers.
@@ -946,32 +960,30 @@ Must read before the next staging or operations batch:
 
 ## Ordered Recommended Batches
 
-1. BATCH-16-DELIVERY-05: doctor/staff dashboard record workflow polish.
-2. Figma implementation audit and UI foundation plan, temporarily deferred by
-   owner decision and still required before final visual implementation.
-3. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
+1. BATCH-16-DELIVERY-06: commercial handoff QA and Figma implementation audit.
+2. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
    readiness checklist and operator-assisted dry-run package, using synthetic
    data only, no Render credentials in Git, no real restore execution, and no
    patient data.
-4. Batch 14C-VALIDATE-03: complete operator-assisted Render runtime validation
+3. Batch 14C-VALIDATE-03: complete operator-assisted Render runtime validation
    if safe access is available, including staging shell management commands,
    managed PostgreSQL/Redis command evidence, booking confirmation/browser
    checks with synthetic data only, and sanitized targeted log review.
-5. Next operations follow-up: owner/operator Render latency mitigation and
+4. Next operations follow-up: owner/operator Render latency mitigation and
    external monitoring/alert-routing setup for intermittent slow/severe
    `/health/` latency; then operator-approved Render managed PostgreSQL
    restore drill execution planning with synthetic data only.
-6. Batch 14A: dashboard implementation planning/authorization, only if the
+5. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
-7. Batch 16: legal/privacy/account recovery and patient identity verification
+6. Batch 16: legal/privacy/account recovery and patient identity verification
    policy.
-8. Batch 17: doctor dashboard workflow completion/polish.
-9. Batch 18: patient portal completion/hardening.
-10. Batch 19: WhatsApp limited integration design/implementation only after
+7. Batch 17: doctor dashboard workflow completion/polish.
+8. Batch 18: patient portal completion/hardening.
+9. Batch 19: WhatsApp limited integration design/implementation only after
    privacy gates.
-11. Batch 20: approved cases/reviews/media showcase plus private publication
+10. Batch 20: approved cases/reviews/media showcase plus private publication
    rules.
-12. Batch 21: release candidate hardening.
+11. Batch 21: release candidate hardening.
 
 ## Final Quality Goals
 

@@ -116,7 +116,7 @@ Commercial handoff readiness requires:
 - public cases/achievements display uses only active `approved_public_case`
   media with confirmed consent through controlled public media routes.
 
-Current BATCH-16-DELIVERY-04 status:
+Current BATCH-16-DELIVERY-05 status:
 
 - patient medical record foundation is backend-only model/admin/test
   groundwork governed by `docs/CLINIC_DELIVERY_V1_SCOPE_LOCK.md`;
@@ -143,10 +143,26 @@ Current BATCH-16-DELIVERY-04 status:
 - private medical record content, patient identity, appointment details,
   doctor notes, diagnosis/plan, instructions, and follow-up notes are not
   exposed by public cases;
+- doctor/staff dashboard record workflow foundation is implemented under
+  staff-only `/dashboard/patients/` routes;
+- staff-only patient list and patient record detail pages are implemented with
+  no-cache staff authorization;
+- staff can create `VisitRecord` and `ClinicalNote` rows for a selected patient
+  and explicitly mark those rows visible to the patient;
+- staff can upload private images and short MP4 videos for a selected patient
+  using existing private media validation and storage;
+- staff can manage media title, description, visibility, confirmed consent,
+  and active state without deleting files in this batch;
+- staff dashboard media links use the staff private media route, while public
+  case links appear only for active `approved_public_case` media with confirmed
+  consent;
+- patient portal medical records remain read-only and patient-owned;
+- public cases remain limited to active `approved_public_case` media with
+  `consent_confirmed=True` through controlled public media routes;
 - production-ready remains `no`;
 - Figma implementation is temporarily deferred by owner decision;
-- next delivery batch: `BATCH-16-DELIVERY-05: doctor/staff dashboard record
-  workflow polish`.
+- next recommended delivery batch: `BATCH-16-DELIVERY-06: commercial handoff
+  QA and Figma implementation audit`.
 
 Commercial handoff readiness does not mean production launch readiness.
 Production launch blockers, including legal/privacy approval, staging runtime
@@ -388,7 +404,9 @@ governance decisions, and final go/no-go approval remain separate.
   download access; BATCH-16-DELIVERY-03 adds the approved read-only patient
   visibility route and patient-owned media route; BATCH-16-DELIVERY-04 adds
   approved public cases/achievements display only for active public-case media
-  with confirmed consent through controlled public routes.
+  with confirmed consent through controlled public routes; BATCH-16-DELIVERY-05
+  adds staff-only dashboard record workflow pages/forms while keeping the
+  patient portal read-only.
 - no payments until a payment provider, privacy, refund, and reconciliation policy is reviewed
 
 These gates are intentional blockers for future batches beyond the Batch 9 portal account-security polish.

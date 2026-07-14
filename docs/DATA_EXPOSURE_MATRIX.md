@@ -19,6 +19,9 @@ seeded, committed, copied into docs, or used in screenshots/logs.
 - Staff operational data stays behind staff-only authorization.
 - Patient-facing medical records are limited to read-only approved visits,
   notes, and active patient-visible media.
+- Staff dashboard patient-record workflow pages are staff-only, no-cache, and
+  may show patient names, phones, private visits, private notes, and private
+  media metadata to authenticated staff only.
 - Public cases/achievements are public, but limited to sanitized metadata and
   controlled media responses for active `RecordMedia` rows with
   `visibility=approved_public_case` and `consent_confirmed=True`.
@@ -216,12 +219,14 @@ Patient portal access controls:
 ## Staff-Only Fields
 
 Staff-only data may appear only behind authenticated `is_staff=True` staff
-appointment routes:
+appointment and dashboard record workflow routes:
 
 | Field or data | Source | Allowed surface |
 | --- | --- | --- |
 | Internal appointment ID | `Appointment.id` | Staff list/detail/action URLs and staff templates only. |
-| Patient raw phone | `Patient.phone_raw`, `Patient.phone_e164` | Staff appointment search/list/detail only. |
+| Patient full name | `Patient.full_name` | Staff appointment routes and staff dashboard patient-record routes. |
+| Patient raw phone | `Patient.phone_raw`, `Patient.phone_e164` | Staff appointment search/list/detail and staff dashboard patient list/detail only. |
+| Patient date of birth, age, and gender | `Patient.date_of_birth`, `Patient.age`, `Patient.gender` | Staff dashboard patient record detail only. |
 | WhatsApp phone fields | `Patient.whatsapp_phone_raw`, `Patient.whatsapp_phone_e164` | Staff/admin only; no WhatsApp sending exists. |
 | Booking note | `Appointment.booking_note` | Staff appointment detail/admin only. |
 | Status history | `AppointmentStatusHistory` | Staff appointment detail/admin only. |
@@ -230,8 +235,28 @@ appointment routes:
 | Audit metadata | `AuditLog.metadata` | Staff appointment detail/admin only. |
 | Operational action forms | booking staff forms | Staff appointment detail only. |
 | Staff search/filter query fields | staff list view | Staff appointment list only. |
+| Visit reason, doctor notes, diagnosis/plan, instructions, follow-up notes | `VisitRecord` | Staff dashboard patient record detail and visit create form only; patient portal receives only rows explicitly marked `is_visible_to_patient=True`. |
+| Clinical note type, title, and body | `ClinicalNote` | Staff dashboard patient record detail and note create form only; patient portal receives only rows explicitly marked `is_visible_to_patient=True`. |
+| Private media title, description, type, visibility, consent, active state, upload metadata | `RecordMedia` | Staff dashboard patient record detail/media forms and staff private media route only. |
+| Staff private media download URL | `RecordMedia.public_id` | Staff dashboard detail uses `/records/private-media/<uuid:public_id>/download/`; no direct storage URL is rendered. |
 
 Staff pages are no-cache and require authenticated active staff access.
+
+Staff dashboard record workflow exposure controls:
+
+- `/dashboard/patients/` and `/dashboard/patients/<patient-id>/records/` are
+  staff-only and no-cache.
+- Dashboard create/update forms can create visits, clinical notes, and private
+  image/short-video media for the selected patient only.
+- Staff can mark visits/notes visible to patient, but the patient portal stays
+  read-only and filters by linked patient ownership.
+- Staff can mark media `visible_to_patient`; this remains patient-limited and
+  does not create public cases access.
+- Staff can mark media `approved_public_case` only with
+  `consent_confirmed=True`; public cases still require approved public-case
+  visibility, confirmed consent, active state, and controlled media routes.
+- Dashboard pages must not render `media.file.url`, `PRIVATE_MEDIA_ROOT`, local
+  storage paths, or direct `MEDIA_URL` links for private files.
 
 ## Internal-Only Fields
 

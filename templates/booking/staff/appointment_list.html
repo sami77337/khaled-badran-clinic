@@ -82,7 +82,11 @@
                     {% for appointment in appointments %}
                         <tr>
                             <td>{{ appointment.starts_at|date:"Y-m-d H:i" }}</td>
-                            <td>{{ appointment.patient.full_name }}</td>
+                            <td>
+                                {{ appointment.patient.full_name }}
+                                <br>
+                                <a class="btn btn-small btn-secondary" href="{% url 'dashboard_patient_record_detail' appointment.patient_id %}">Records</a>
+                            </td>
                             <td>{{ appointment.patient.phone_e164|default:appointment.patient.phone_raw }}</td>
                             <td>{{ appointment.visit_type.name_en }}</td>
                             <td>{{ appointment.doctor.display_name_en }}</td>

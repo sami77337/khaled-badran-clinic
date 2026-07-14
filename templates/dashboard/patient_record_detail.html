@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">لوحة داخلية للطاقم</p>
+        <h1>سجل {{ patient.full_name }}</h1>
+        <p>إدارة يدوية لسجل المريض والوسائط الخاصة وحالات الظهور.</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container staff-layout">
+        {% include "dashboard/_dashboard_nav.html" %}
+
+        <div class="hero-actions">
+            <a class="btn btn-secondary" href="{{ dashboard_patients_url }}">العودة إلى المرضى</a>
+            <a class="btn btn-primary" href="{{ visit_create_url }}">إضافة زيارة</a>
+            <a class="btn btn-primary" href="{{ note_create_url }}">إضافة ملاحظة</a>
+            <a class="btn btn-primary" href="{{ media_create_url }}">رفع ملف خاص</a>
+        </div>
+
+        {% if messages %}
+            <div class="staff-messages">
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <section class="staff-panel">
+            <h2>بيانات المريض</h2>
+            <dl class="detail-list">
+                <div>
+                    <dt>الاسم</dt>
+                    <dd>{{ patient.full_name }}</dd>
+                </div>
+                <div>
+                    <dt>الهاتف</dt>
+                    <dd>{{ patient.phone }}</dd>
+                </div>
+                {% if patient.date_of_birth %}
+                    <div>
+                        <dt>تاريخ الميلاد</dt>
+                        <dd>{{ patient.date_of_birth|date:"Y-m-d" }}</dd>
+                    </div>
+                {% endif %}
+                {% if patient.age %}
+                    <div>
+                        <dt>العمر</dt>
+                        <dd>{{ patient.age }}</dd>
+                    </div>
+                {% endif %}
+                {% if patient.gender %}
+                    <div>
+                        <dt>الجنس</dt>
+                        <dd>{{ patient.get_gender_display }}</dd>
+                    </div>
+                {% endif %}
+            </dl>
+        </section>
+
+        <div class="staff-detail-grid">
+            <section class="staff-panel">
+                <h2>الزيارات</h2>
+                {% if visit_items %}
+                    <div class="slot-day-list">
+                        {% for item in visit_items %}
+                            <article class="booking-option">
+                                <h3>{{ item.visit.visit_date|date:"Y-m-d H:i" }}</h3>
+                                <p>
+                                    <span class="status-pill">{{ item.visibility_label }}</span>
+                                </p>
+                                {% if item.visit.appointment %}
+                                    <p class="muted">
+                                        {{ item.visit.appointment.visit_type.name_ar|default:item.visit.appointment.visit_type.name_en }}
+                                        ·
+                                        {{ item.visit.appointment.doctor.display_name_ar|default:item.visit.appointment.doctor.display_name_en }}
+                                    </p>
+                                {% endif %}
+                                <dl class="detail-list">
+                                    {% if item.visit.visit_reason %}
+                                        <div>
+                                            <dt>سبب الزيارة</dt>
+                                            <dd>{{ item.visit.visit_reason }}</dd>
+                                        </div>
+                                    {% endif %}
+                                    {% if item.visit.doctor_notes %}
+                                        <div>
+                                            <dt>ملاحظات الطبيب</dt>
+                                            <dd>{{ item.visit.doctor_notes }}</dd>
+                                        </div>
+                                    {% endif %}
+                                    {% if item.visit.diagnosis_plan %}
+                                        <div>
+                                            <dt>الخطة المكتوبة يدويا</dt>
+                                            <dd>{{ item.visit.diagnosis_plan }}</dd>
+                                        </div>
+                                    {% endif %}
+                                    {% if item.visit.instructions %}
+                                        <div>
+                                            <dt>التعليمات</dt>
+                                            <dd>{{ item.visit.instructions }}</dd>
+                                        </div>
+                                    {% endif %}
+                                    {% if item.visit.follow_up_notes %}
+                                        <div>
+                                            <dt>المتابعة</dt>
+                                            <dd>{{ item.visit.follow_up_notes }}</dd>
+                                        </div>
+                                    {% endif %}
+                                </dl>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="muted">لا توجد زيارات لهذا المريض بعد.</p>
+                {% endif %}
+            </section>
+
+            <section class="staff-panel">
+                <h2>الملاحظات السريرية</h2>
+                {% if note_items %}
+                    <div class="slot-day-list">
+                        {% for item in note_items %}
+                            <article class="booking-option">
+                                <h3>{% if item.note.title %}{{ item.note.title }}{% else %}{{ item.note.get_note_type_display }}{% endif %}</h3>
+                                <p>
+                                    <span class="status-pill">{{ item.visibility_label }}</span>
+                                </p>
+                                <p class="muted">{{ item.note.created_at|date:"Y-m-d H:i" }}</p>
+                                <p>{{ item.note.body }}</p>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="muted">لا توجد ملاحظات سريرية لهذا المريض بعد.</p>
+                {% endif %}
+            </section>
+        </div>
+
+        <section class="staff-panel">
+            <h2>الصور والفيديوهات الخاصة</h2>
+            {% if media_items %}
+                <div class="slot-day-list">
+                    {% for item in media_items %}
+                        <article class="booking-option">
+                            <h3>{% if item.media.title %}{{ item.media.title }}{% else %}{{ item.media.get_media_type_display }}{% endif %}</h3>
+                            {% if item.media.description %}
+                                <p>{{ item.media.description }}</p>
+                            {% endif %}
+                            <p class="muted">
+                                {{ item.media.get_media_type_display }} · {{ item.media.uploaded_at|date:"Y-m-d H:i" }}
+                            </p>
+                            <p>
+                                {% for status in item.status_labels %}
+                                    <span class="status-pill {{ status.class }}">{{ status.label }}</span>
+                                {% endfor %}
+                            </p>
+                            <div class="hero-actions">
+                                {% if item.staff_download_url %}
+                                    <a class="btn btn-secondary" href="{{ item.staff_download_url }}">فتح للطاقم</a>
+                                {% endif %}
+                                {% if item.public_case_url %}
+                                    <a class="btn btn-secondary" href="{{ item.public_case_url }}">رابط الحالة العامة المعتمدة</a>
+                                {% endif %}
+                                <a class="btn btn-secondary" href="{{ item.edit_url }}">تعديل الحالة</a>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="muted">لا توجد وسائط خاصة لهذا المريض بعد.</p>
+            {% endif %}
+        </section>
+
+        <p class="trust-note">
+            خاص فقط يعني أن الملف يبقى داخليا. ظاهر للمريض لا يعني أنه عام. حالة عامة بموافقة تتطلب موافقة مؤكدة وأن يكون الملف نشطا.
+        </p>
+    </div>
+</section>
+{% endblock %}

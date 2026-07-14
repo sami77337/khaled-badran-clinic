@@ -139,6 +139,7 @@ urlpatterns = [
     path("sitemap.xml", views.sitemap_xml, name="sitemap_xml"),
     path("health/", views.health_check, name="health"),
     path("health/ready/", views.readiness_check, name="health_ready"),
+    path("dashboard/", include("apps.dashboard.urls")),
     path("records/", include("apps.records.urls")),
     path("portal/", patient_views.portal_dashboard, {"language": "ar"}, name="patient_portal_dashboard"),
     path("portal/login/", patient_views.portal_login, {"language": "ar"}, name="patient_portal_login"),
