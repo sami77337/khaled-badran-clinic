@@ -52,9 +52,12 @@
         </form>
         <p class="trust-note">
             {% if is_arabic %}
+                {% if False %}
                 بعد إنشاء الحساب، اربط موعدك باستخدام رمز التأكيد ورقم الهاتف المستخدم في الحجز. السجلات الطبية ورفع الملفات غير متاحة حاليا.
+                {% endif %}
+                بعد إنشاء الحساب، اربط موعدك باستخدام رمز التأكيد ورقم الهاتف المستخدم في الحجز. تظهر السجلات المعتمدة فقط، ولا يتوفر رفع الملفات من بوابة المريض.
             {% else %}
-                After creating an account, link your appointment using the confirmation token and booking phone number. Medical records and uploads are not available yet.
+                After creating an account, link your appointment using the confirmation token and booking phone number. Only approved records are visible, and patient uploads are not available.
             {% endif %}
         </p>
     </div>

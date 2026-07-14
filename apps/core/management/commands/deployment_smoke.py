@@ -33,7 +33,6 @@ PROHIBITED_ROUTE_GROUPS = {
     "medical_records_enabled": [
         "/records/",
         "/medical-records/",
-        "/portal/medical-records/",
     ],
     "whatsapp_api_enabled": [
         "/whatsapp/webhook/",
@@ -576,7 +575,7 @@ def _add_project_consolidation_summary(result):
     result.add(
         "project_consolidation_summary",
         CHECK_PASS,
-        "Project route and feature surface summary loaded without patient records.",
+        "Project route and feature surface summary loaded with approved patient record visibility.",
         details={
             "public_site": True,
             "public_booking": True,
@@ -584,10 +583,12 @@ def _add_project_consolidation_summary(result):
             "public_success_lookup": "uuid_public_token",
             "numeric_public_success_urls": False,
             "staff_appointment_operations": "staff_only",
-            "patient_portal_scope": "account_login_linked_appointment_viewing",
+            "patient_portal_scope": "account_login_linked_appointment_viewing_approved_record_visibility",
             "patient_portal_pages_no_cache": True,
             "patient_uploads": False,
-            "medical_records": False,
+            "medical_records": "approved_patient_read_only",
+            "public_medical_records": False,
+            "public_medical_file_urls": False,
             "whatsapp_api_or_webhook": False,
             "payments": False,
             "medical_ai": False,
@@ -644,20 +645,24 @@ def _add_public_booking_summary(result):
 
 
 def _add_patient_portal_summary(result):
-    required_routes = [
-        "patient_portal_dashboard",
-        "patient_portal_login",
-        "patient_portal_logout",
-        "patient_portal_register",
-        "patient_portal_account",
-        "patient_portal_password_change",
-        "patient_portal_account_recovery",
-        "patient_portal_link_appointment",
-        "patient_portal_appointment_list",
-    ]
+    required_routes = {
+        "patient_portal_dashboard": {},
+        "patient_portal_login": {},
+        "patient_portal_logout": {},
+        "patient_portal_register": {},
+        "patient_portal_account": {},
+        "patient_portal_password_change": {},
+        "patient_portal_account_recovery": {},
+        "patient_portal_link_appointment": {},
+        "patient_portal_appointment_list": {},
+        "patient_portal_medical_records": {},
+        "patient_portal_medical_record_media_download": {
+            "public_id": "00000000-0000-4000-8000-000000000000",
+        },
+    }
     try:
-        for route_name in required_routes:
-            reverse(route_name)
+        for route_name, kwargs in required_routes.items():
+            reverse(route_name, kwargs=kwargs or None)
     except NoReverseMatch:
         result.add(
             "patient_portal_routes",
@@ -671,13 +676,16 @@ def _add_patient_portal_summary(result):
         CHECK_PASS,
         "Patient portal foundation routes are importable without requiring patient accounts.",
         details={
-            "portal_scope": "account_login_linked_appointment_viewing",
+            "portal_scope": "account_login_linked_appointment_viewing_approved_record_visibility",
             "account_security_routes": True,
             "email_password_reset_enabled": False,
             "public_booking_requires_login": False,
             "appointment_lookup": "uuid_public_token_with_authenticated_owner",
+            "approved_medical_records_enabled": True,
+            "medical_record_media_lookup": "uuid_public_id_with_authenticated_patient_owner",
+            "public_medical_file_urls": False,
             "uploads_enabled": False,
-            "medical_records_enabled": False,
+            "medical_records_enabled": "approved_patient_read_only",
             "whatsapp_api_enabled": False,
             "payments_enabled": False,
         },

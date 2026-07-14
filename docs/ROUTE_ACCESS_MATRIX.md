@@ -14,10 +14,14 @@ security and operational documentation only.
 - Staff appointment numeric IDs are allowed only behind staff-only routes.
 - Patient portal appointment details must use UUID `public_token` plus
   authenticated ownership filtering.
+- Patient portal medical-record routes must require authentication, resolve the
+  linked `Patient`, filter by patient ownership, and show only explicitly
+  patient-visible record content.
 - Portal pages must remain no-cache.
 - CSRF protection must remain enabled for state-changing POSTs.
-- Upload, medical-record, WhatsApp API/webhook, payment, diagnosis, triage,
-  treatment automation, and medical AI routes must remain absent.
+- Upload, public/unscoped medical-record, WhatsApp API/webhook, payment,
+  diagnosis, triage, treatment automation, and medical AI routes must remain
+  absent.
 
 ## Data Exposure Levels
 
@@ -109,6 +113,20 @@ Staff route behavior:
   authorization.
 - Staff numeric appointment IDs are not linked from patient portal pages.
 
+## Staff Record Media Routes
+
+| Route | Method | Auth | Staff | Ownership filtering | CSRF expectation | Cache expectation | Data exposure | Implementation |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `/records/private-media/<uuid:public_id>/download/` | GET intended | Required | Required | Staff-only lookup by `RecordMedia.public_id`, active media only | No state-changing form | `never_cache` | Staff operational private media download | `apps/records/views.py:private_media_download` |
+
+Staff media route behavior:
+
+- Anonymous users are redirected to Django admin login.
+- Authenticated non-staff users receive `403`.
+- The route serves private media through `FileResponse` and does not expose
+  public file URLs.
+- `/records/` root remains unrouted and must not expose a listing.
+
 ## Patient Portal Arabic/Default Routes
 
 | Route | Method | Auth | Staff | Ownership filtering | CSRF expectation | Cache expectation | Data exposure | Implementation |
@@ -122,6 +140,8 @@ Staff route behavior:
 | `/portal/account-recovery/` | GET only | None | No | Not applicable | POST rejected by `require_GET` | `never_cache` | Static recovery policy only | `apps/patients/views.py:portal_account_recovery` |
 | `/portal/link-appointment/` | GET, POST | Required | No | Link requires UUID token plus matching booking phone | POST protected by Django CSRF middleware and template token | `never_cache` | Appointment linking form | `apps/patients/views.py:portal_link_appointment` |
 | `/portal/appointments/` | GET intended | Required | No | Appointments filtered to `patient__user=request.user` | No state-changing form | `never_cache` | Patient-limited appointment list | `apps/patients/views.py:portal_appointment_list` |
+| `/portal/medical-records/` | GET only | Required | No | Current user's linked `Patient`; visits/notes require `is_visible_to_patient=True`; media requires `visibility=visible_to_patient` and `is_active=True` | No state-changing form; POST returns 405 | `never_cache` | Patient-limited approved medical-record visibility | `apps/patients/views.py:patient_portal_medical_records` |
+| `/portal/medical-records/media/<uuid:public_id>/download/` | GET only | Required | No | `RecordMedia.public_id`, linked patient ownership, `visible_to_patient`, and active media only | No state-changing form | `never_cache`; response includes `X-Content-Type-Options: nosniff` | Patient-limited approved private media response; no public file URL | `apps/patients/views.py:patient_portal_medical_record_media_download` |
 | `/portal/appointments/<uuid:public_token>/` | GET intended | Required | No | `public_token` and `patient__user=request.user` | No state-changing form | `never_cache` | Patient-limited appointment detail | `apps/patients/views.py:portal_appointment_detail` |
 | `/portal/appointments/<numeric-id>/` | Not routed | Required if any portal route existed | No | Not applicable | Not applicable | 404 | Absent/prohibited numeric patient appointment detail | `config/urls.py` has no numeric pattern |
 
@@ -138,6 +158,8 @@ Staff route behavior:
 | `/en/portal/account-recovery/` | GET only | None | No | Not applicable | POST rejected by `require_GET` | `never_cache` | Static recovery policy only | `apps/patients/views.py:portal_account_recovery` |
 | `/en/portal/link-appointment/` | GET, POST | Required | No | Link requires UUID token plus matching booking phone | POST protected by Django CSRF middleware and template token | `never_cache` | Appointment linking form | `apps/patients/views.py:portal_link_appointment` |
 | `/en/portal/appointments/` | GET intended | Required | No | Appointments filtered to `patient__user=request.user` | No state-changing form | `never_cache` | Patient-limited appointment list | `apps/patients/views.py:portal_appointment_list` |
+| `/en/portal/medical-records/` | GET only | Required | No | Current user's linked `Patient`; visits/notes require `is_visible_to_patient=True`; media requires `visibility=visible_to_patient` and `is_active=True` | No state-changing form; POST returns 405 | `never_cache` | Patient-limited approved medical-record visibility | `apps/patients/views.py:patient_portal_medical_records` |
+| `/en/portal/medical-records/media/<uuid:public_id>/download/` | GET only | Required | No | `RecordMedia.public_id`, linked patient ownership, `visible_to_patient`, and active media only | No state-changing form | `never_cache`; response includes `X-Content-Type-Options: nosniff` | Patient-limited approved private media response; no public file URL | `apps/patients/views.py:patient_portal_medical_record_media_download` |
 | `/en/portal/appointments/<uuid:public_token>/` | GET intended | Required | No | `public_token` and `patient__user=request.user` | No state-changing form | `never_cache` | Patient-limited appointment detail | `apps/patients/views.py:portal_appointment_detail` |
 | `/en/portal/appointments/<numeric-id>/` | Not routed | Required if any portal route existed | No | Not applicable | Not applicable | 404 | Absent/prohibited numeric patient appointment detail | `config/urls.py` has no numeric pattern |
 
@@ -190,9 +212,8 @@ implements, and tests them with privacy/security review:
 | `/whatsapp/webhook/` | Not routed | Not applicable | Not applicable | Not applicable | Not applicable | 404 | Absent/prohibited WhatsApp webhook | No URL pattern |
 | `/api/whatsapp/` | Not routed | Not applicable | Not applicable | Not applicable | Not applicable | 404 | Absent/prohibited WhatsApp API | No URL pattern |
 | `/whatsapp/api/` | Not routed | Not applicable | Not applicable | Not applicable | Not applicable | 404 | Absent/prohibited WhatsApp API | No URL pattern |
-| `/records/` | Not routed | Not applicable | Not applicable | Not applicable | Not applicable | 404 | Absent/prohibited records | No URL pattern |
+| `/records/` | Not routed | Not applicable | Not applicable | Not applicable | Not applicable | 404 | Absent/prohibited records listing/root | No root URL pattern; staff media download route exists below this prefix |
 | `/medical-records/` | Not routed | Not applicable | Not applicable | Not applicable | Not applicable | 404 | Absent/prohibited medical records | No URL pattern |
-| `/portal/medical-records/` | Not routed | Not applicable | Not applicable | Not applicable | Not applicable | 404 | Absent/prohibited medical records | No URL pattern |
 | `/payments/` | Not routed | Not applicable | Not applicable | Not applicable | Not applicable | 404 | Absent/prohibited payments | No URL pattern |
 | `/portal/payments/` | Not routed | Not applicable | Not applicable | Not applicable | Not applicable | 404 | Absent/prohibited payments | No URL pattern |
 
@@ -201,8 +222,9 @@ implements, and tests them with privacy/security review:
 - Public site routes have Arabic/default and English equivalents.
 - Booking routes have Arabic/default and English equivalents.
 - Booking success routes are UUID-token based in both languages.
-- Portal routes have Arabic/default and English equivalents.
+- Portal routes have Arabic/default and English equivalents, including the
+  approved read-only medical-record visibility routes.
 - Staff appointment routes currently exist once, outside the public language
   prefixes, and use English operational copy.
-- Prohibited upload, medical-record, WhatsApp API/webhook, and payment routes
-  are absent in both public and portal namespaces.
+- Prohibited upload, public/unscoped medical-record, WhatsApp API/webhook, and
+  payment routes are absent in both public and portal namespaces.

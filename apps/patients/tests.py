@@ -1,10 +1,14 @@
 
 from datetime import datetime, time, timedelta
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import uuid
 from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -14,6 +18,7 @@ from apps.clinic.models import Doctor, VisitType
 from apps.core.models import AuditLog
 from apps.patients.forms import GENERIC_LINK_ERROR, GENERIC_LOGIN_ERROR, GENERIC_REGISTRATION_ERROR
 from apps.patients import rate_limits
+from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
 from .models import Patient
 
 
@@ -577,6 +582,337 @@ class PatientPortalRateLimitTests(PatientPortalTestMixin, TestCase):
             self.assertNotIn("patient@example.test", key)
 
 
+class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls._private_media_tempdir = TemporaryDirectory()
+        cls._private_media_override = override_settings(
+            PRIVATE_MEDIA_ROOT=Path(cls._private_media_tempdir.name)
+        )
+        cls._private_media_override.enable()
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        cls._private_media_override.disable()
+        cls._private_media_tempdir.cleanup()
+
+    def setUp(self):
+        self.user = self.create_user(username="+962790000101", email="records-patient@example.test")
+        self.patient = self.create_patient(
+            user=self.user,
+            full_name="Synthetic Portal Patient",
+            phone_raw="0790000101",
+            phone_e164="+962790000101",
+        )
+        self.other_user = self.create_user(username="+962790000202", email="records-other@example.test")
+        self.other_patient = self.create_patient(
+            user=self.other_user,
+            full_name="Synthetic Other Patient",
+            phone_raw="0790000202",
+            phone_e164="+962790000202",
+        )
+        self.client.force_login(self.user)
+
+    def synthetic_image_file(self, name="visible-image.jpg", content=b"image-bytes"):
+        return SimpleUploadedFile(name, content, content_type="image/jpeg")
+
+    def synthetic_video_file(self, name="visible-video.mp4", content=b"video-bytes"):
+        return SimpleUploadedFile(name, content, content_type="video/mp4")
+
+    def create_visit(self, *, patient=None, is_visible_to_patient=False, **kwargs):
+        defaults = {
+            "patient": patient or self.patient,
+            "visit_date": timezone.now(),
+            "visit_reason": "Synthetic visit reason.",
+            "doctor_notes": "Synthetic doctor note.",
+            "diagnosis_plan": "Synthetic manually written plan.",
+            "instructions": "Synthetic written instructions.",
+            "follow_up_notes": "Synthetic follow-up note.",
+            "is_visible_to_patient": is_visible_to_patient,
+        }
+        defaults.update(kwargs)
+        return VisitRecord.objects.create(**defaults)
+
+    def create_note(self, *, patient=None, is_visible_to_patient=False, **kwargs):
+        defaults = {
+            "patient": patient or self.patient,
+            "title": "Synthetic visible note",
+            "body": "Synthetic visible note body.",
+            "is_visible_to_patient": is_visible_to_patient,
+        }
+        defaults.update(kwargs)
+        return ClinicalNote.objects.create(**defaults)
+
+    def create_media(
+        self,
+        *,
+        patient=None,
+        media_type=RecordMedia.MediaType.IMAGE,
+        visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
+        is_active=True,
+        consent_confirmed=False,
+        title="Synthetic visible media",
+        description="Synthetic visible media description.",
+        file=None,
+    ):
+        if file is None:
+            file = (
+                self.synthetic_video_file()
+                if media_type == RecordMedia.MediaType.SHORT_VIDEO
+                else self.synthetic_image_file()
+            )
+        if visibility == RecordMedia.Visibility.APPROVED_PUBLIC_CASE:
+            consent_confirmed = True
+        return RecordMedia.objects.create(
+            patient=patient or self.patient,
+            media_type=media_type,
+            file=file,
+            visibility=visibility,
+            consent_confirmed=consent_confirmed,
+            is_active=is_active,
+            title=title,
+            description=description,
+        )
+
+    def test_anonymous_user_cannot_access_medical_records_page(self):
+        self.client.logout()
+
+        response = self.client.get(reverse("patient_portal_medical_records"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("patient_portal_login"), response["Location"])
+
+    def test_authenticated_user_without_linked_patient_gets_safe_empty_state(self):
+        unlinked_user = self.create_user(username="+962790000303", email="unlinked@example.test")
+        self.create_visit(
+            patient=self.other_patient,
+            is_visible_to_patient=True,
+            visit_reason="Other patient visible visit reason.",
+        )
+        self.client.force_login(unlinked_user)
+
+        response = self.client.get(reverse("patient_portal_medical_records_en"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No linked patient profile")
+        self.assertNotContains(response, "Other patient visible visit reason")
+        self.assertNotContains(response, "Synthetic Other Patient")
+
+    def test_linked_patient_can_access_medical_records_page(self):
+        response = self.client.get(reverse("patient_portal_medical_records_en"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Approved content only")
+        self.assertContains(response, "No approved visits are available yet.")
+
+    def test_patient_sees_visible_visit_only(self):
+        self.create_visit(
+            is_visible_to_patient=True,
+            visit_reason="Visible visit reason for patient.",
+            doctor_notes="Visible doctor note for patient.",
+        )
+        self.create_visit(
+            is_visible_to_patient=False,
+            visit_reason="Private visit reason hidden from patient.",
+            doctor_notes="Private doctor note hidden from patient.",
+        )
+        self.create_visit(
+            patient=self.other_patient,
+            is_visible_to_patient=True,
+            visit_reason="Other patient visible visit hidden from current user.",
+        )
+
+        response = self.client.get(reverse("patient_portal_medical_records_en"))
+
+        self.assertContains(response, "Visible visit reason for patient.")
+        self.assertContains(response, "Visible doctor note for patient.")
+        self.assertNotContains(response, "Private visit reason hidden from patient.")
+        self.assertNotContains(response, "Private doctor note hidden from patient.")
+        self.assertNotContains(response, "Other patient visible visit hidden from current user.")
+
+    def test_patient_sees_visible_clinical_note_only(self):
+        self.create_note(
+            is_visible_to_patient=True,
+            title="Visible note title for patient",
+            body="Visible note body for patient.",
+        )
+        self.create_note(
+            is_visible_to_patient=False,
+            title="Private note title hidden from patient",
+            body="Private note body hidden from patient.",
+        )
+        self.create_note(
+            patient=self.other_patient,
+            is_visible_to_patient=True,
+            title="Other patient visible note hidden from current user",
+            body="Other patient visible note body.",
+        )
+
+        response = self.client.get(reverse("patient_portal_medical_records_en"))
+
+        self.assertContains(response, "Visible note title for patient")
+        self.assertContains(response, "Visible note body for patient.")
+        self.assertNotContains(response, "Private note title hidden from patient")
+        self.assertNotContains(response, "Private note body hidden from patient.")
+        self.assertNotContains(response, "Other patient visible note hidden from current user")
+
+    def test_patient_sees_visible_media_metadata_and_patient_route_links_only(self):
+        image = self.create_media(
+            title="Visible image metadata for patient",
+            description="Visible image description for patient.",
+            file=self.synthetic_image_file(name="synthetic-visible-image.jpg"),
+        )
+        video = self.create_media(
+            media_type=RecordMedia.MediaType.SHORT_VIDEO,
+            title="Visible short video metadata for patient",
+            description="Visible short video description for patient.",
+            file=self.synthetic_video_file(name="synthetic-visible-video.mp4"),
+        )
+
+        response = self.client.get(reverse("patient_portal_medical_records_en"))
+
+        image_download_url = reverse(
+            "patient_portal_medical_record_media_download_en",
+            kwargs={"public_id": image.public_id},
+        )
+        video_download_url = reverse(
+            "patient_portal_medical_record_media_download_en",
+            kwargs={"public_id": video.public_id},
+        )
+        self.assertContains(response, "Visible image metadata for patient")
+        self.assertContains(response, "Visible short video metadata for patient")
+        self.assertContains(response, f'href="{image_download_url}"')
+        self.assertContains(response, f'href="{video_download_url}"')
+        self.assertNotContains(response, image.file.name)
+        self.assertNotContains(response, video.file.name)
+        self.assertNotContains(response, str(settings.PRIVATE_MEDIA_ROOT))
+        self.assertNotContains(response, "synthetic-visible-image.jpg")
+        self.assertNotContains(response, "synthetic-visible-video.mp4")
+        with self.assertRaises(ValueError):
+            image.file.url
+
+    def test_patient_does_not_see_private_public_case_inactive_or_other_patient_media(self):
+        self.create_media(
+            visibility=RecordMedia.Visibility.PRIVATE_ONLY,
+            title="Private-only media hidden from patient",
+        )
+        self.create_media(
+            visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+            title="Approved public case media hidden from patient",
+        )
+        self.create_media(
+            is_active=False,
+            title="Inactive media hidden from patient",
+        )
+        self.create_media(
+            patient=self.other_patient,
+            title="Other patient visible media hidden from current user",
+        )
+
+        response = self.client.get(reverse("patient_portal_medical_records_en"))
+
+        self.assertNotContains(response, "Private-only media hidden from patient")
+        self.assertNotContains(response, "Approved public case media hidden from patient")
+        self.assertNotContains(response, "Inactive media hidden from patient")
+        self.assertNotContains(response, "Other patient visible media hidden from current user")
+
+    def test_patient_medical_records_page_is_read_only(self):
+        response = self.client.post(reverse("patient_portal_medical_records"))
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_anonymous_user_cannot_download_patient_media(self):
+        media = self.create_media()
+        self.client.logout()
+
+        response = self.client.get(
+            reverse("patient_portal_medical_record_media_download", kwargs={"public_id": media.public_id})
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("patient_portal_login"), response["Location"])
+
+    def test_linked_patient_can_download_own_visible_active_media_by_public_id(self):
+        media = self.create_media(
+            file=self.synthetic_image_file(name="patient-visible-download.jpg", content=b"download-bytes"),
+            title="Downloadable visible media",
+        )
+
+        response = self.client.get(
+            reverse("patient_portal_medical_record_media_download", kwargs={"public_id": media.public_id})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "image/jpeg")
+        self.assertEqual(response["X-Content-Type-Options"], "nosniff")
+        self.assertIn("patient-visible-download.jpg", response.get("Content-Disposition", ""))
+        self.assertNotIn(str(settings.PRIVATE_MEDIA_ROOT), response.get("Content-Disposition", ""))
+        self.assertNotIn(media.file.name, response.get("Content-Disposition", ""))
+        self.assertEqual(b"".join(response.streaming_content), b"download-bytes")
+        response.close()
+
+    def test_linked_patient_cannot_download_non_patient_visible_media(self):
+        blocked_media = [
+            self.create_media(
+                visibility=RecordMedia.Visibility.PRIVATE_ONLY,
+                title="Private media blocked from download",
+            ),
+            self.create_media(
+                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+                title="Public case media blocked from download",
+            ),
+            self.create_media(
+                is_active=False,
+                title="Inactive media blocked from download",
+            ),
+            self.create_media(
+                patient=self.other_patient,
+                title="Other patient media blocked from download",
+            ),
+        ]
+
+        for media in blocked_media:
+            with self.subTest(media=media.title):
+                response = self.client.get(
+                    reverse("patient_portal_medical_record_media_download", kwargs={"public_id": media.public_id})
+                )
+
+                self.assertEqual(response.status_code, 404)
+
+    def test_patient_media_response_does_not_expose_private_root_or_public_url(self):
+        media = self.create_media(
+            file=self.synthetic_image_file(name="safe-visible-image.jpg", content=b"safe-bytes"),
+        )
+
+        response = self.client.get(
+            reverse("patient_portal_medical_record_media_download", kwargs={"public_id": media.public_id})
+        )
+
+        combined_headers = "\n".join(f"{key}: {value}" for key, value in response.headers.items())
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(str(settings.PRIVATE_MEDIA_ROOT), combined_headers)
+        self.assertNotIn(media.file.name, combined_headers)
+        with self.assertRaises(ValueError):
+            media.file.url
+        response.close()
+
+    def test_existing_staff_private_media_route_still_requires_staff(self):
+        media = self.create_media()
+
+        response = self.client.get(
+            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_records_root_remains_safe_and_unlisted(self):
+        response = self.client.get("/records/")
+
+        self.assertEqual(response.status_code, 404)
+
+
 class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
     def test_authenticated_portal_pages_include_expected_safe_navigation_links(self):
         user = self.create_user()
@@ -585,6 +921,7 @@ class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
         expected_links = [
             reverse("patient_portal_dashboard"),
             reverse("patient_portal_appointment_list"),
+            reverse("patient_portal_medical_records"),
             reverse("patient_portal_link_appointment"),
             reverse("patient_portal_account"),
             reverse("patient_portal_password_change"),
@@ -595,6 +932,7 @@ class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
             reverse("patient_portal_link_appointment"),
             reverse("patient_portal_account"),
             reverse("patient_portal_password_change"),
+            reverse("patient_portal_medical_records"),
             reverse("patient_portal_appointment_detail", kwargs={"public_token": appointment.public_token}),
         ]
 
@@ -715,6 +1053,7 @@ class PatientPortalPrivacyTests(PatientPortalTestMixin, TestCase):
             reverse("patient_portal_password_change"),
             reverse("patient_portal_link_appointment"),
             reverse("patient_portal_appointment_list"),
+            reverse("patient_portal_medical_records"),
             reverse("patient_portal_appointment_detail", kwargs={"public_token": appointment.public_token}),
         ]
         blocked_fragments = [
@@ -756,6 +1095,7 @@ class PatientPortalPrivacyTests(PatientPortalTestMixin, TestCase):
             reverse("patient_portal_dashboard"),
             reverse("patient_portal_account"),
             reverse("patient_portal_appointment_list"),
+            reverse("patient_portal_medical_records"),
             reverse("patient_portal_appointment_detail", kwargs={"public_token": appointment.public_token}),
         ]
         blocked_text = [
@@ -796,6 +1136,7 @@ class PatientPortalPrivacyTests(PatientPortalTestMixin, TestCase):
             reverse("patient_portal_password_change"),
             reverse("patient_portal_link_appointment"),
             reverse("patient_portal_appointment_list"),
+            reverse("patient_portal_medical_records"),
             reverse("patient_portal_appointment_detail", kwargs={"public_token": appointment.public_token}),
         ]
         for url in authenticated_urls:
@@ -839,7 +1180,7 @@ class PatientPortalPrivacyTests(PatientPortalTestMixin, TestCase):
         self.assertEqual(register_response.status_code, 403)
         self.assertEqual(link_response.status_code, 403)
 
-    def test_upload_whatsapp_and_medical_record_routes_remain_absent(self):
+    def test_upload_whatsapp_and_unscoped_medical_record_routes_remain_absent(self):
         blocked_paths = [
             "/uploads/",
             "/portal/uploads/",
@@ -848,7 +1189,6 @@ class PatientPortalPrivacyTests(PatientPortalTestMixin, TestCase):
             "/whatsapp/api/",
             "/records/",
             "/medical-records/",
-            "/portal/medical-records/",
             "/payments/",
             "/portal/payments/",
         ]
@@ -858,3 +1198,9 @@ class PatientPortalPrivacyTests(PatientPortalTestMixin, TestCase):
                 response = self.client.get(path)
 
                 self.assertEqual(response.status_code, 404)
+
+    def test_patient_medical_record_route_requires_authentication(self):
+        response = self.client.get("/portal/medical-records/")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("patient_portal_login"), response["Location"])

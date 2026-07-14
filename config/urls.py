@@ -156,6 +156,18 @@ urlpatterns = [
         name="patient_portal_appointment_list",
     ),
     path(
+        "portal/medical-records/",
+        patient_views.patient_portal_medical_records,
+        {"language": "ar"},
+        name="patient_portal_medical_records",
+    ),
+    path(
+        "portal/medical-records/media/<uuid:public_id>/download/",
+        patient_views.patient_portal_medical_record_media_download,
+        {"language": "ar"},
+        name="patient_portal_medical_record_media_download",
+    ),
+    path(
         "portal/appointments/<uuid:public_token>/",
         patient_views.portal_appointment_detail,
         {"language": "ar"},
@@ -189,6 +201,18 @@ urlpatterns = [
         patient_views.portal_appointment_list,
         {"language": "en"},
         name="patient_portal_appointment_list_en",
+    ),
+    path(
+        "en/portal/medical-records/",
+        patient_views.patient_portal_medical_records,
+        {"language": "en"},
+        name="patient_portal_medical_records_en",
+    ),
+    path(
+        "en/portal/medical-records/media/<uuid:public_id>/download/",
+        patient_views.patient_portal_medical_record_media_download,
+        {"language": "en"},
+        name="patient_portal_medical_record_media_download_en",
     ),
     path(
         "en/portal/appointments/<uuid:public_token>/",
