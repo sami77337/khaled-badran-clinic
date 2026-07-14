@@ -12,6 +12,13 @@ urlpatterns = [
     path("", views.home, {"language": "ar"}, name="home"),
     path("doctor/", views.doctor_profile, {"language": "ar"}, name="doctor"),
     path("services/", views.services, {"language": "ar"}, name="services"),
+    path("cases/", views.public_cases, {"language": "ar"}, name="public_cases"),
+    path(
+        "cases/media/<uuid:public_id>/",
+        views.public_case_media,
+        {"language": "ar"},
+        name="public_case_media",
+    ),
     path("contact/", views.contact, {"language": "ar"}, name="contact"),
     path("book/", booking_views.book_start, {"language": "ar"}, name="book"),
     path(
@@ -50,6 +57,13 @@ urlpatterns = [
     path("en/", views.home, {"language": "en"}, name="home_en"),
     path("en/doctor/", views.doctor_profile, {"language": "en"}, name="doctor_en"),
     path("en/services/", views.services, {"language": "en"}, name="services_en"),
+    path("en/cases/", views.public_cases, {"language": "en"}, name="public_cases_en"),
+    path(
+        "en/cases/media/<uuid:public_id>/",
+        views.public_case_media,
+        {"language": "en"},
+        name="public_case_media_en",
+    ),
     path("en/contact/", views.contact, {"language": "en"}, name="contact_en"),
     path("en/book/", booking_views.book_start, {"language": "en"}, name="book_en"),
     path(

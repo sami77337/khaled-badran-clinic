@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">{% if is_arabic %}الحالات والإنجازات{% else %}Cases and Achievements{% endif %}</p>
+        <h1>{{ page.headline }}</h1>
+        <p>{{ page.subtitle }}</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <div class="success-card">
+            <h2>{{ case_labels.approved_only }}</h2>
+            <p class="muted">{{ case_labels.approved_only_body }}</p>
+        </div>
+
+        {% if case_items %}
+            <div class="card-grid">
+                {% for item in case_items %}
+                    <article class="service-card">
+                        <p class="eyebrow">{{ item.media_type_label }} · {{ item.uploaded_at|date:"Y-m-d" }}</p>
+                        <h3>{% if item.title %}{{ item.title }}{% else %}{{ case_labels.untitled }}{% endif %}</h3>
+                        {% if item.description %}
+                            <p class="muted">{{ item.description }}</p>
+                        {% endif %}
+                        <a class="btn btn-secondary" href="{{ item.url }}">{{ case_labels.view_media }}</a>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="success-card">
+                <h2>{{ case_labels.empty_title }}</h2>
+                <p class="muted">{{ case_labels.empty_body }}</p>
+            </div>
+        {% endif %}
+
+        <p class="trust-note">{{ case_labels.safety_note }}</p>
+    </div>
+</section>
+
+{% include "partials/cta.html" %}
+{% endblock %}

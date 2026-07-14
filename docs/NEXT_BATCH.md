@@ -20,9 +20,10 @@ final product completion and professional delivery readiness.
   asset delivery, but full production-like staging validation remains
   incomplete.
 - Legal/privacy approval remains blocked.
-- WhatsApp API/webhooks, actual uploads, public cases/achievements media
-  display, patient medical-record editing/uploads, and payments remain outside
-  the current implemented scope.
+- WhatsApp API/webhooks, actual patient uploads, patient medical-record
+  editing/uploads, and payments remain outside the current implemented scope.
+  Public cases/achievements media display is implemented only for explicitly
+  approved, consent-confirmed, active public-case media.
 - Batch 12 recorded the final product completion track, dashboard-managed
   configuration principle, and authorized showcase requirements.
 - Batch 13 produced final UX/product-flow specifications and design handoff
@@ -175,11 +176,22 @@ final product completion and professional delivery readiness.
   other-patient records, uploads, public cases/achievements display, external
   storage, Render settings, WhatsApp API behavior, production readiness, and
   real patient data remain out of scope.
+- BATCH-16-DELIVERY-04 implements the approved public cases/achievements media
+  foundation for Commercial Delivery v1. Public `/cases/` and `/en/cases/`
+  pages show sanitized metadata only for active `RecordMedia` rows marked
+  `visibility=approved_public_case` with `consent_confirmed=True`. Public media
+  is served only through controlled `/cases/media/<uuid:public_id>/` routes,
+  never through direct private file URLs. Patient-visible media remains
+  separate from public cases; private-only media, inactive media, unconsented
+  public-case rows, patient identity, appointment details, visit notes, doctor
+  notes, diagnosis/plan, instructions, follow-up notes, local file paths,
+  external storage, Render settings, WhatsApp API behavior, production
+  readiness, and real patient data remain out of scope.
 
 ## Next Recommended Batch
 
 ```text
-BATCH-16-DELIVERY-04: approved public cases and achievements media foundation
+BATCH-16-DELIVERY-05: doctor/staff dashboard record workflow polish
 ```
 
 Rationale:
@@ -199,9 +211,13 @@ Rationale:
   Patient visibility remains separate from `approved_public_case`, and approved
   public case media still does not create patient visibility or public file
   links by itself.
-- The next delivery need is approved public cases/achievements media display,
+- BATCH-16-DELIVERY-04 establishes approved public cases/achievements display
   using explicit publication approval and consent while keeping private medical
   files non-public.
+- The next delivery need is doctor/staff dashboard workflow polish around the
+  existing patient record and media foundation, without expanding patient
+  uploads, WhatsApp API behavior, payments, production infrastructure, or
+  public medical-file URLs.
 - This is not a production-readiness batch and does not close operations,
   legal/privacy, backup/restore, monitoring, alert-routing, staging, DNS/TLS,
   load/concurrency, or production go/no-go blockers.
@@ -930,8 +946,7 @@ Must read before the next staging or operations batch:
 
 ## Ordered Recommended Batches
 
-1. BATCH-16-DELIVERY-04: approved public cases and achievements media foundation,
-   only with separate explicit publication approval and consent state.
+1. BATCH-16-DELIVERY-05: doctor/staff dashboard record workflow polish.
 2. Figma implementation audit and UI foundation plan, temporarily deferred by
    owner decision and still required before final visual implementation.
 3. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution

@@ -223,6 +223,18 @@ remains temporarily deferred by owner decision, and production-ready remains
 `no`. The next delivery batch is `BATCH-16-DELIVERY-04: approved public cases
 and achievements media foundation`.
 
+BATCH-16-DELIVERY-04 delivery update: approved public cases/achievements media
+foundation is implemented. Public `/cases/` and `/en/cases/` pages now render
+only sanitized metadata for active `RecordMedia` rows marked
+`visibility=approved_public_case` with `consent_confirmed=True`. Public media
+responses use controlled `/cases/media/<uuid:public_id>/` routes and do not use
+direct private file URLs, local paths, patient-visible portal media, or
+private-only media. Patient identity, appointment details, visit notes, doctor
+notes, diagnosis/plan, instructions, and follow-up notes are not part of the
+public cases surface. Figma implementation remains temporarily deferred by
+owner decision, and production-ready remains `no`. The next delivery batch is
+`BATCH-16-DELIVERY-05: doctor/staff dashboard record workflow polish`.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -238,7 +250,7 @@ Status labels:
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Public site | Partial | Bilingual public pages, legal drafts, SEO basics, PWA foundation, and safe placeholder content exist. Batch 14C-VALIDATE-02 confirmed the Render staging home page returns HTTP 200 and its four same-origin static assets return HTTP 200. Final visual approval, legal review, real content verification, monitoring, and production validation remain. |
+| Public site | Partial | Bilingual public pages, legal drafts, SEO basics, PWA foundation, safe placeholder content, and approved public cases/achievements pages now exist. Public cases show only sanitized metadata for active `approved_public_case` media with confirmed consent and use controlled public media routes by `RecordMedia.public_id`. Batch 14C-VALIDATE-02 confirmed the Render staging home page returns HTTP 200 and its four same-origin static assets return HTTP 200. Final visual approval, legal review, real content verification, monitoring, and production validation remain. |
 | Public booking | Partial | Login-free booking, slot generation, UUID success URLs, rate limits, no-cache confirmation/success, and regression tests exist. Batch 14C-VALIDATE-02 confirmed the public booking entry pages return HTTP 200 by GET, but staging rendered a placeholder state with no safe slot links, so booking confirmation CSRF/cookie behavior and success-page no-cache evidence remain incomplete. Booking POST, provider database/cache behavior, and load/concurrency tests remain. |
 | Staff operations | Partial | Staff-only appointment list/detail and bounded status operations exist with authorization and tests. Broader dashboard, staff access review, audit retention, and operational policies remain. |
 | Patient portal | Partial | Optional account, login, logout, password change, account summary, static recovery policy, appointment linking, linked appointment viewing, and read-only approved medical-record visibility exist. The medical-record page shows only doctor/staff-approved patient-owned visits, notes, and active patient-visible media, with media served through an authenticated patient-owned route. Identity verification, secure recovery process, abuse monitoring, legal review, and staging validation remain. |
@@ -254,8 +266,8 @@ Status labels:
 | Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. Batch 15-OPS-05 adds a `pip-audit` workflow and records a successful local advisory-backed scan of `requirements.txt` with no known advisories returned at scan time. Batch 15-OPS-09 adds a dependency security governance decision pack. Named response owner approval, backup owner approval, GitHub vulnerability/Dependabot alert settings decisions, severity response SLA, and lockfile/hash workflow decision remain incomplete. |
 | Staff/admin governance | Partial | Staff access governance is documented and staff route tests exist. Real staff roster, superuser minimization, and access review remain manual/pre-launch. |
 | Design/Figma | Blocked | Current code has existing visual foundation from earlier batches. Batch 13 defines UX/product-flow and design handoff requirements only. Future visual changes still require human/Figma handoff and approval before Codex implementation. |
-| Uploads | Partial | BATCH-16-DELIVERY-02 adds private local filesystem media storage, UUID-based private file paths, image/short-MP4 type and size validation, metadata capture, and staff-only private download access for record media. No patient-facing upload route, public media route, public case media display, malware scanning workflow, external storage provider, or production readiness is implemented. |
-| Medical records | Partial | BATCH-16-DELIVERY-01 adds backend model/admin/test foundation for patients, visits, clinical notes, and media metadata with private-by-default visibility and consent-gated public case state. BATCH-16-DELIVERY-02 adds private image/short-video file handling and staff-only access-controlled private downloads. BATCH-16-DELIVERY-03 adds read-only patient portal visibility only for doctor/staff-approved patient-owned visits, notes, and active patient-visible media through authenticated patient-owned routes. Public cases/achievements media display, public medical file links, automated diagnosis/treatment/triage, legal approval, audit workflow, and production readiness remain unimplemented. |
+| Uploads | Partial | BATCH-16-DELIVERY-02 adds private local filesystem media storage, UUID-based private file paths, image/short-MP4 type and size validation, metadata capture, and staff-only private download access for record media. BATCH-16-DELIVERY-04 adds controlled public read access only for active approved-public-case media with confirmed consent. No patient-facing upload route, malware scanning workflow, external storage provider, or production readiness is implemented. |
+| Medical records | Partial | BATCH-16-DELIVERY-01 adds backend model/admin/test foundation for patients, visits, clinical notes, and media metadata with private-by-default visibility and consent-gated public case state. BATCH-16-DELIVERY-02 adds private image/short-video file handling and staff-only access-controlled private downloads. BATCH-16-DELIVERY-03 adds read-only patient portal visibility only for doctor/staff-approved patient-owned visits, notes, and active patient-visible media through authenticated patient-owned routes. BATCH-16-DELIVERY-04 adds public cases/achievements display only for active `approved_public_case` media with confirmed consent through controlled public media routes. Unapproved public file links, automated diagnosis/treatment/triage, legal approval, audit workflow, and production readiness remain unimplemented. |
 | WhatsApp | Out of Scope for Now | No WhatsApp API sending, webhook, message model, or credential use is implemented. Consent, security, logging, provider, and medical-information boundaries are required first. |
 | Payments | Out of Scope for Now | No payment routes or payment provider integration are implemented. Provider, refund, reconciliation, privacy, and accounting policy are required first. |
 
@@ -368,10 +380,11 @@ Rationale:
   security response, load testing, and Figma-approved future design governance
   are still unresolved.
 - Large future feature areas remain intentionally absent or incomplete:
-  public cases/achievements media display, WhatsApp API/webhooks, payments,
-  broader patient portal hardening, and medical automation. Patient-facing
-  medical-record access is currently limited to read-only doctor/staff-approved
-  content for the linked authenticated patient.
+  WhatsApp API/webhooks, payments, broader patient portal hardening, dashboard
+  workflow polish, and medical automation. Public cases/achievements are
+  limited to approved, consent-confirmed, active showcase media only.
+  Patient-facing medical-record access is currently limited to read-only
+  doctor/staff-approved content for the linked authenticated patient.
 
 ## Safe to Demo Now
 
@@ -391,6 +404,8 @@ Safe demo scope with synthetic data only:
   linked authenticated patient.
 - Authenticated patient-owned media download/view route for synthetic
   `visible_to_patient` media only.
+- Public cases/achievements pages and controlled public media routes using
+  synthetic active `approved_public_case` media with confirmed consent only.
 - Staff appointment list/detail and bounded status operations using synthetic
   appointments and staff accounts.
 - `deployment_smoke` human and JSON output.
@@ -408,9 +423,9 @@ Demo rules:
   histories.
 - Do not claim legal/privacy approval.
 - Do not claim production readiness.
-- Do not test uploads, public medical file links, public cases/achievements
-  media display, WhatsApp API, payments, diagnosis automation, triage,
-  treatment automation, or medical AI.
+- Do not test uploads, unapproved public medical file links, private or
+  patient-visible media as public cases, WhatsApp API, payments, diagnosis
+  automation, triage, treatment automation, or medical AI.
 
 ## Not Safe to Demo Yet
 
@@ -423,7 +438,9 @@ Not safe to demo as real or production functionality:
 - Real WhatsApp sending or receiving.
 - Real uploads or medical reports.
 - Unapproved patient-facing medical-record access.
-- Public cases/achievements media display.
+- Public cases/achievements using real patient data, unapproved media,
+  unconsented media, patient-visible-only media, private-only media, or direct
+  private file URLs.
 - Payment collection.
 - Diagnosis, triage, treatment automation, or medical AI.
 - Production deployment.
@@ -514,8 +531,7 @@ Not safe to demo as real or production functionality:
 
 ## Recommended Next Batches
 
-1. BATCH-16-DELIVERY-04: approved public cases and achievements media
-   foundation, using explicit publication approval and consent state.
+1. BATCH-16-DELIVERY-05: doctor/staff dashboard record workflow polish.
 2. Figma implementation audit and UI foundation plan, temporarily deferred by
    owner decision and still required before final visual implementation.
 3. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
