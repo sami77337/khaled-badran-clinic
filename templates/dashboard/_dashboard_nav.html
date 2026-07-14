@@ -1,0 +1,8 @@
+<nav class="booking-steps" aria-label="تنقل لوحة السجلات">
+    {% for item in dashboard_nav_items %}
+        <a class="booking-step" href="{{ item.url }}">
+            <span>{{ forloop.counter }}</span>
+            {{ item.label }}
+        </a>
+    {% endfor %}
+</nav>

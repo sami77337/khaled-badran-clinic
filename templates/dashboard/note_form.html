@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">لوحة داخلية للطاقم</p>
+        <h1>{{ form_title }}</h1>
+        <p>المريض: {{ patient.full_name }}. الملاحظات لا تظهر للمريض إلا عند اختيار ظاهر للمريض.</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container staff-layout">
+        {% include "dashboard/_dashboard_nav.html" %}
+
+        <form class="booking-form" method="post" action="">
+            {% csrf_token %}
+            {% include "dashboard/_form_fields.html" %}
+            <div class="hero-actions">
+                <button class="btn btn-primary" type="submit">حفظ الملاحظة</button>
+                <a class="btn btn-secondary" href="{{ cancel_url }}">إلغاء</a>
+            </div>
+        </form>
+
+        <p class="trust-note">
+            بوابة المريض للقراءة فقط، ولا تسمح للمرضى بتعديل السجل أو رفع ملفات.
+        </p>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">لوحة داخلية للطاقم</p>
+        <h1>{{ form_title }}</h1>
+        <p>المريض: {{ patient.full_name }}. الملفات الخاصة لا تستخدم روابط تخزين عامة.</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container staff-layout">
+        {% include "dashboard/_dashboard_nav.html" %}
+
+        {% if media %}
+            <section class="staff-panel">
+                <h2>ملخص الملف</h2>
+                <dl class="detail-list">
+                    <div>
+                        <dt>نوع الملف</dt>
+                        <dd>{{ media.get_media_type_display }}</dd>
+                    </div>
+                    <div>
+                        <dt>رفع بواسطة</dt>
+                        <dd>{{ media.uploaded_by|default:"غير محدد" }}</dd>
+                    </div>
+                    <div>
+                        <dt>تاريخ الرفع</dt>
+                        <dd>{{ media.uploaded_at|date:"Y-m-d H:i" }}</dd>
+                    </div>
+                </dl>
+            </section>
+        {% endif %}
+
+        <form class="booking-form" method="post" action=""{% if is_multipart %} enctype="multipart/form-data"{% endif %}>
+            {% csrf_token %}
+            {% include "dashboard/_form_fields.html" %}
+            <div class="hero-actions">
+                <button class="btn btn-primary" type="submit">حفظ الملف</button>
+                <a class="btn btn-secondary" href="{{ cancel_url }}">إلغاء</a>
+            </div>
+        </form>
+
+        <p class="trust-note">
+            خاص فقط يبقى داخليا. ظاهر للمريض لا يجعله عاما. حالة عامة بموافقة لا تحفظ إلا مع موافقة مؤكدة.
+        </p>
+    </div>
+</section>
+{% endblock %}

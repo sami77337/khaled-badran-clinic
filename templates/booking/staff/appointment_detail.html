@@ -13,6 +13,7 @@
     <div class="container staff-layout">
         <div class="hero-actions">
             <a class="btn btn-secondary" href="{{ staff_appointments_url }}">Back to appointments</a>
+            <a class="btn btn-secondary" href="{% url 'dashboard_patient_record_detail' appointment.patient_id %}">Open patient records</a>
         </div>
 
         {% if messages %}

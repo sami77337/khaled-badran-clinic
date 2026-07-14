@@ -235,6 +235,22 @@ public cases surface. Figma implementation remains temporarily deferred by
 owner decision, and production-ready remains `no`. The next delivery batch is
 `BATCH-16-DELIVERY-05: doctor/staff dashboard record workflow polish`.
 
+BATCH-16-DELIVERY-05 delivery update: doctor/staff dashboard record workflow
+foundation is implemented. Staff-only `/dashboard/patients/` pages now list
+patients and show selected patient record overviews with visits, clinical
+notes, private media, patient-visibility state, consent state, public-case
+state, and active/inactive state. Staff can create visits, create clinical
+notes, upload private images and short MP4 videos, mark record parts visible to
+the patient, and update media title/description/visibility/consent/active
+state. Media marked `approved_public_case` still requires
+`consent_confirmed=True`, patient-visible media remains separate from public
+cases, the patient portal remains read-only, and public cases remain limited to
+active approved-public-case media with confirmed consent. Figma implementation
+remains temporarily deferred by owner decision, production-ready remains `no`,
+and Commercial v1 scope remains governed by
+`docs/CLINIC_DELIVERY_V1_SCOPE_LOCK.md`. The next recommended delivery batch is
+`BATCH-16-DELIVERY-06: commercial handoff QA and Figma implementation audit`.
+
 Status labels:
 
 - `Done` means implemented and covered by local checks for the current bounded
@@ -252,7 +268,7 @@ Status labels:
 | --- | --- | --- |
 | Public site | Partial | Bilingual public pages, legal drafts, SEO basics, PWA foundation, safe placeholder content, and approved public cases/achievements pages now exist. Public cases show only sanitized metadata for active `approved_public_case` media with confirmed consent and use controlled public media routes by `RecordMedia.public_id`. Batch 14C-VALIDATE-02 confirmed the Render staging home page returns HTTP 200 and its four same-origin static assets return HTTP 200. Final visual approval, legal review, real content verification, monitoring, and production validation remain. |
 | Public booking | Partial | Login-free booking, slot generation, UUID success URLs, rate limits, no-cache confirmation/success, and regression tests exist. Batch 14C-VALIDATE-02 confirmed the public booking entry pages return HTTP 200 by GET, but staging rendered a placeholder state with no safe slot links, so booking confirmation CSRF/cookie behavior and success-page no-cache evidence remain incomplete. Booking POST, provider database/cache behavior, and load/concurrency tests remain. |
-| Staff operations | Partial | Staff-only appointment list/detail and bounded status operations exist with authorization and tests. Broader dashboard, staff access review, audit retention, and operational policies remain. |
+| Staff operations | Partial | Staff-only appointment list/detail and bounded status operations exist with authorization and tests. BATCH-16-DELIVERY-05 adds staff-only dashboard patient list, patient record detail, visit/note creation, private media upload, and media visibility/consent/active-state management. Staff access review, audit retention, broader operational policies, and production validation remain. |
 | Patient portal | Partial | Optional account, login, logout, password change, account summary, static recovery policy, appointment linking, linked appointment viewing, and read-only approved medical-record visibility exist. The medical-record page shows only doctor/staff-approved patient-owned visits, notes, and active patient-visible media, with media served through an authenticated patient-owned route. Identity verification, secure recovery process, abuse monitoring, legal review, and staging validation remain. |
 | Account security | Partial | Password hashing/validation, CSRF, POST-only logout, no-cache portal pages, generic linking errors, and rate limits exist. Batch 14C-VALIDATE-02 confirmed anonymous portal login/register forms include CSRF inputs and set a secure CSRF cookie over HTTPS. Email/phone ownership, recovery operations, production tuning, and abuse monitoring remain. |
 | Production settings | Partial | Split settings, production checks, secure-cookie defaults, PostgreSQL/Redis support, strict smoke blockers, environment contract, safe production settings report, and Render-ready Gunicorn/WhiteNoise prerequisites exist. Render staging public GET/static/header evidence is now deeper, but strict staging runtime checks, full browser/proxy/security behavior, database/cache evidence, backups, monitoring, and owner-reviewed security response remain. |
@@ -266,8 +282,8 @@ Status labels:
 | Dependency security | Partial | Dependabot for Python and GitHub Actions plus dependency readiness docs exist. Batch 15-OPS-05 adds a `pip-audit` workflow and records a successful local advisory-backed scan of `requirements.txt` with no known advisories returned at scan time. Batch 15-OPS-09 adds a dependency security governance decision pack. Named response owner approval, backup owner approval, GitHub vulnerability/Dependabot alert settings decisions, severity response SLA, and lockfile/hash workflow decision remain incomplete. |
 | Staff/admin governance | Partial | Staff access governance is documented and staff route tests exist. Real staff roster, superuser minimization, and access review remain manual/pre-launch. |
 | Design/Figma | Blocked | Current code has existing visual foundation from earlier batches. Batch 13 defines UX/product-flow and design handoff requirements only. Future visual changes still require human/Figma handoff and approval before Codex implementation. |
-| Uploads | Partial | BATCH-16-DELIVERY-02 adds private local filesystem media storage, UUID-based private file paths, image/short-MP4 type and size validation, metadata capture, and staff-only private download access for record media. BATCH-16-DELIVERY-04 adds controlled public read access only for active approved-public-case media with confirmed consent. No patient-facing upload route, malware scanning workflow, external storage provider, or production readiness is implemented. |
-| Medical records | Partial | BATCH-16-DELIVERY-01 adds backend model/admin/test foundation for patients, visits, clinical notes, and media metadata with private-by-default visibility and consent-gated public case state. BATCH-16-DELIVERY-02 adds private image/short-video file handling and staff-only access-controlled private downloads. BATCH-16-DELIVERY-03 adds read-only patient portal visibility only for doctor/staff-approved patient-owned visits, notes, and active patient-visible media through authenticated patient-owned routes. BATCH-16-DELIVERY-04 adds public cases/achievements display only for active `approved_public_case` media with confirmed consent through controlled public media routes. Unapproved public file links, automated diagnosis/treatment/triage, legal approval, audit workflow, and production readiness remain unimplemented. |
+| Uploads | Partial | BATCH-16-DELIVERY-02 adds private local filesystem media storage, UUID-based private file paths, image/short-MP4 type and size validation, metadata capture, and staff-only private download access for record media. BATCH-16-DELIVERY-04 adds controlled public read access only for active approved-public-case media with confirmed consent. BATCH-16-DELIVERY-05 adds staff-only dashboard private media upload and media visibility/consent/active-state management. No patient-facing upload route, malware scanning workflow, external storage provider, or production readiness is implemented. |
+| Medical records | Partial | BATCH-16-DELIVERY-01 adds backend model/admin/test foundation for patients, visits, clinical notes, and media metadata with private-by-default visibility and consent-gated public case state. BATCH-16-DELIVERY-02 adds private image/short-video file handling and staff-only access-controlled private downloads. BATCH-16-DELIVERY-03 adds read-only patient portal visibility only for doctor/staff-approved patient-owned visits, notes, and active patient-visible media through authenticated patient-owned routes. BATCH-16-DELIVERY-04 adds public cases/achievements display only for active `approved_public_case` media with confirmed consent through controlled public media routes. BATCH-16-DELIVERY-05 adds staff-only dashboard patient list, record detail, visit/note creation, media upload, and media status management. Unapproved public file links, automated diagnosis/treatment/triage, legal approval, audit workflow, and production readiness remain unimplemented. |
 | WhatsApp | Out of Scope for Now | No WhatsApp API sending, webhook, message model, or credential use is implemented. Consent, security, logging, provider, and medical-information boundaries are required first. |
 | Payments | Out of Scope for Now | No payment routes or payment provider integration are implemented. Provider, refund, reconciliation, privacy, and accounting policy are required first. |
 
@@ -531,30 +547,28 @@ Not safe to demo as real or production functionality:
 
 ## Recommended Next Batches
 
-1. BATCH-16-DELIVERY-05: doctor/staff dashboard record workflow polish.
-2. Figma implementation audit and UI foundation plan, temporarily deferred by
-   owner decision and still required before final visual implementation.
-3. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
+1. BATCH-16-DELIVERY-06: commercial handoff QA and Figma implementation audit.
+2. BATCH-15-OPS-10: Render managed PostgreSQL restore-drill execution
    readiness checklist and operator-assisted dry-run package, using synthetic
    data only and no Render credentials in Git.
-4. Batch 14C-VALIDATE-03: operator-assisted Render runtime validation if safe
+3. Batch 14C-VALIDATE-03: operator-assisted Render runtime validation if safe
    access is available, including staging shell management commands, managed
    PostgreSQL/Redis evidence, booking confirmation/browser checks with
    synthetic data only, and sanitized targeted log review.
-5. Next operations follow-up: owner/operator Render latency mitigation and
+4. Next operations follow-up: owner/operator Render latency mitigation and
    external monitoring/alert-routing setup for intermittent slow/severe
    `/health/` latency after owner/provider decisions.
-6. Batch 14A: dashboard implementation planning/authorization, only if the
+5. Batch 14A: dashboard implementation planning/authorization, only if the
    owner explicitly chooses planning before dashboard code.
-7. Batch 16: legal/privacy/account recovery and patient identity verification
+6. Batch 16: legal/privacy/account recovery and patient identity verification
    policy.
-8. Batch 17: doctor dashboard workflow completion/polish.
-9. Batch 18: patient portal completion/hardening.
-10. Batch 19: WhatsApp limited integration design/implementation only after
+7. Batch 17: doctor dashboard workflow completion/polish.
+8. Batch 18: patient portal completion/hardening.
+9. Batch 19: WhatsApp limited integration design/implementation only after
    privacy gates.
-11. Batch 20: approved cases/reviews/media showcase plus private publication
+10. Batch 20: approved cases/reviews/media showcase plus private publication
    rules.
-12. Batch 21: release candidate hardening.
+11. Batch 21: release candidate hardening.
 
 Batch 12 adds planning documents for final product completion, doctor-managed
 configuration, and authorized showcase publication-consent requirements. It
