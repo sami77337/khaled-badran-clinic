@@ -1,0 +1,59 @@
+هذه هي المحادثة الرئيسية الجديدة لاستكمال مشروع «عيادة الدكتور خالد بدران» حتى التسليم.
+
+هذه ليست محادثة Figma فقط. المشروع يشمل Figma وDjango وGitHub/Codex/PRs والحجز وبوابة المريض والسجل الطبي والوسائط الخاصة ولوحة الطبيب والخصوصية والأمن وRender/Staging وQA والتسليم التجاري.
+
+اقرأ أولًا بالكامل:
+
+`docs/project-handoff/KBC_MASTER_HANDOFF_AR.md`
+`docs/project-handoff/CHATGPT_PROJECT_INSTRUCTIONS_AR.md`
+`docs/project-handoff/CURRENT_EXECUTION_QUEUE_AR.md`
+
+ثم تحقق من المصادر الحالية بدل الاعتماد على الذاكرة:
+
+1. افحص GitHub `main` HEAD.
+2. افحص Open PRs.
+3. عند العمل على التصميم افحص Figma الحالي والـrender والconsole.
+4. لا تبدأ المشروع من الصفر.
+5. لا تعيد فتح Scope المعتمد.
+6. لا تخلط Commercial handoff مع Production readiness.
+7. لا تدّعِ Production-ready.
+
+وقت إنشاء Handoff كانت الحالة الموثقة:
+
+Repository: `sami77337/khaled-badran-clinic`
+Main: `7eb782003eccd686a6cff0a14011dbf09cd1de42`
+آخر merged Commercial PR: `#41`
+آخر Full Test count موثق: `321`
+
+لكن تحقق منها Live الآن.
+
+آخر Blocker مباشر في Figma:
+
+`ReferenceError: Cannot access 'user' before initialization`
+
+داخل:
+`src/app/portal/PortalMainLayout.tsx`
+
+المطلوب أولًا:
+- افحص الحالة الحالية في Figma.
+- أصلح Current authenticated patient/session flow.
+- لا تستخدم hardcoded Ahmad/Sami أو أول demo patient.
+- تحقق من `/portal`.
+- Refresh.
+- Logout.
+- Login بحسابين مختلفين.
+- Arabic/English.
+- `/portal/appointments`.
+- `/portal/medical-records`.
+- Console/runtime.
+
+بعد إغلاق Figma بالكامل، انتقل إلى Commercial handoff QA + Figma-to-Django implementation audit، ولا تعِد تنفيذ Backend الموجود أصلًا.
+
+أول رد منك يجب أن يحتوي فقط على:
+- تأكيد قراءة ملفات Handoff.
+- Main HEAD الحالي الذي تحققت منه.
+- Open PRs ذات الصلة التي وجدتها.
+- آخر Blocker الحالي.
+- الخطوة المباشرة التالية.
+
+لا تعيد شرح المشروع كاملًا في أول رد.
