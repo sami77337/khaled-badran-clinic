@@ -15,9 +15,9 @@
         <h2>{% if is_arabic %}نطاق واتساب{% else %}WhatsApp Scope{% endif %}</h2>
         <p>
             {% if is_arabic %}
-                واتساب قناة تواصل مبدئية وإدارية. لا توجد في هذه الدفعة رسائل واتساب فعلية أو Webhook أو إرسال آلي.
+                واتساب قناة تواصل إدارية محدودة عبر رابط سريع فقط بعد اعتماد رقم العيادة المخصص له. لا توجد WhatsApp Business API أو Webhooks أو رسائل آلية.
             {% else %}
-                WhatsApp is an initial administrative communication channel. This batch has no real WhatsApp sending, webhook, or automation.
+                WhatsApp is limited to an administrative quick link once its dedicated clinic number is approved. There is no WhatsApp Business API, webhook, or automated messaging.
             {% endif %}
         </p>
         <h2>{% if is_arabic %}المعلومات الحساسة{% else %}Sensitive Information{% endif %}</h2>

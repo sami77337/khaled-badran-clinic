@@ -2,6 +2,7 @@
 
 from django.contrib import admin
 from django.urls import include, path
+from django.views.generic.base import RedirectView
 
 from apps.booking import views as booking_views
 from apps.core import views
@@ -19,7 +20,12 @@ urlpatterns = [
         {"language": "ar"},
         name="public_case_media",
     ),
-    path("contact/", views.contact, {"language": "ar"}, name="contact"),
+    path("contact-location/", views.contact, {"language": "ar"}, name="contact"),
+    path(
+        "contact/",
+        RedirectView.as_view(pattern_name="contact", permanent=True, query_string=True),
+        name="contact_legacy",
+    ),
     path("book/", booking_views.book_start, {"language": "ar"}, name="book"),
     path(
         "book/visit-type/",
@@ -64,7 +70,12 @@ urlpatterns = [
         {"language": "en"},
         name="public_case_media_en",
     ),
-    path("en/contact/", views.contact, {"language": "en"}, name="contact_en"),
+    path("en/contact-location/", views.contact, {"language": "en"}, name="contact_en"),
+    path(
+        "en/contact/",
+        RedirectView.as_view(pattern_name="contact_en", permanent=True, query_string=True),
+        name="contact_legacy_en",
+    ),
     path("en/book/", booking_views.book_start, {"language": "en"}, name="book_en"),
     path(
         "en/book/visit-type/",
@@ -237,3 +248,5 @@ urlpatterns = [
     ),
     path("admin/", admin.site.urls),
 ]
+
+handler404 = "apps.core.views.public_404"

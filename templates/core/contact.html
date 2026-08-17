@@ -1,51 +1,59 @@
 {% extends "base.html" %}
-{% load static %}
 
 {% block content %}
-{% include "partials/page_hero.html" %}
+<section class="contact-page-hero" aria-labelledby="contact-page-title">
+    <div class="container contact-page-hero-inner">
+        <p class="eyebrow">{{ labels.contact }}</p>
+        <h1 id="contact-page-title">{{ page.headline }}</h1>
+        <p>{{ page.subtitle }}</p>
+    </div>
+</section>
 
-<section class="section">
-    <div class="container contact-grid">
-        <div class="contact-panel">
-            <p class="eyebrow">{{ labels.contact }}</p>
-            <h2>{% if is_arabic %}بيانات التواصل{% else %}Contact Details{% endif %}</h2>
-            <dl class="detail-list">
+<section class="section contact-location-section">
+    <div class="container contact-location-card">
+        <div class="contact-map-panel">
+            <iframe
+                src="{{ clinic.map_embed_url }}"
+                title="{% if is_arabic %}خريطة موقع عيادة الدكتور خالد بدران{% else %}Map showing Dr. Khaled Badran Clinic{% endif %}"
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade"
+            ></iframe>
+            <a class="map-open-link" href="{{ clinic.map_url }}" target="_blank" rel="noopener noreferrer">
+                <span aria-hidden="true">⌖</span>
+                {% if is_arabic %}فتح الموقع على Google Maps{% else %}Open in Google Maps{% endif %}
+            </a>
+        </div>
+
+        <div class="contact-details-panel">
+            <dl class="contact-detail-list">
                 <div>
-                    <dt>{% if is_arabic %}الهاتف{% else %}Phone{% endif %}</dt>
-                    <dd>{{ clinic.phone_raw }}</dd>
+                    <dt><span aria-hidden="true">⌖</span> {% if is_arabic %}موقع العيادة{% else %}Clinic Location{% endif %}</dt>
+                    <dd>{% if is_arabic %}{{ clinic.address_ar|linebreaksbr }}{% else %}{{ clinic.address_en|linebreaksbr }}{% endif %}</dd>
                 </div>
-                <div id="whatsapp-placeholder">
-                    <dt>{% if is_arabic %}واتساب{% else %}WhatsApp{% endif %}</dt>
+                {% if clinic.phone_raw %}
+                    <div>
+                        <dt><span aria-hidden="true">☎</span> {% if is_arabic %}الهاتف{% else %}Phone{% endif %}</dt>
+                        <dd><a href="tel:{{ clinic.phone_raw }}" dir="ltr">{{ clinic.phone_raw }}</a></dd>
+                    </div>
+                {% endif %}
+                <div id="whatsapp-placeholder" class="whatsapp-status-row">
+                    <dt><span aria-hidden="true">WA</span> {{ labels.whatsapp }}</dt>
                     <dd>{{ labels.whatsapp_note }}</dd>
                 </div>
-                <div>
-                    <dt>{% if is_arabic %}العنوان{% else %}Address{% endif %}</dt>
-                    <dd>{% if is_arabic %}{{ clinic.address_ar }}{% else %}{{ clinic.address_en }}{% endif %}</dd>
-                </div>
-                <div>
-                    <dt>{% if is_arabic %}ساعات العمل{% else %}Clinic Hours{% endif %}</dt>
-                    <dd>{% if is_arabic %}تضاف بعد اعتماد جدول الدوام.{% else %}To be added after schedule approval.{% endif %}</dd>
-                </div>
             </dl>
-            <div id="booking-placeholder" class="placeholder-note">
-                <strong>{{ labels.book }}</strong>
-                <p>{{ labels.book_note }}</p>
+            <div class="contact-page-actions">
                 <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
+                <a class="btn btn-secondary" href="{{ clinic.map_url }}" target="_blank" rel="noopener noreferrer">{% if is_arabic %}الحصول على الاتجاهات{% else %}Get Directions{% endif %}</a>
             </div>
-        </div>
-        <div class="map-panel">
-            <img src="{% static 'img/placeholders/map-placeholder.svg' %}" alt="{% if is_arabic %}خريطة مؤقتة لحين إضافة موقع العيادة الرسمي{% else %}Map placeholder until the official clinic location is added{% endif %}">
         </div>
     </div>
 </section>
 
-<section class="section section-soft">
+<section class="section contact-safety-section">
     <div class="container safety-panel">
         <p class="eyebrow">{% if is_arabic %}تنبيه طوارئ{% else %}Emergency Notice{% endif %}</p>
         <h2>{% if is_arabic %}هذا الموقع ليس للطوارئ{% else %}This website is not for emergencies{% endif %}</h2>
         <p>{{ labels.not_emergency }}</p>
     </div>
 </section>
-
-{% include "partials/cta.html" %}
 {% endblock %}

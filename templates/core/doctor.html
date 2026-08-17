@@ -2,57 +2,51 @@
 {% load static %}
 
 {% block content %}
-{% include "partials/page_hero.html" %}
-
-<section class="section">
-    <div class="container doctor-profile">
-        <div class="doctor-media">
-            <img src="{% static 'img/placeholders/doctor-placeholder.svg' %}" alt="{% if is_arabic %}صورة مؤقتة للدكتور لحين إضافة الصورة الرسمية{% else %}Doctor placeholder until the official portrait is added{% endif %}">
+<section class="doctor-page-hero" aria-labelledby="doctor-page-title">
+    <div class="container doctor-page-hero-grid">
+        <div class="doctor-page-portrait">
+            <img src="{% static 'img/doctor/dr-khaled-badran.png' %}" alt="{% if is_arabic %}{{ doctor.display_name_ar }}{% else %}{{ doctor.display_name_en }}{% endif %}">
         </div>
-        <div class="prose">
-            <p class="eyebrow">{% if is_arabic %}الملف التعريفي{% else %}Profile{% endif %}</p>
-            <h2>{% if is_arabic %}{{ doctor.display_name_ar }}{% else %}{{ doctor.display_name_en }}{% endif %}</h2>
-            <p>{% if is_arabic %}{{ doctor.specialty_ar }}{% else %}{{ doctor.specialty_en }}{% endif %}</p>
+        <div class="doctor-page-intro">
+            <p class="eyebrow">{% if is_arabic %}الملف التعريفي{% else %}Doctor Profile{% endif %}</p>
+            <h1 id="doctor-page-title">{% if is_arabic %}{{ doctor.display_name_ar }}{% else %}{{ doctor.display_name_en }}{% endif %}</h1>
+            <p class="doctor-page-specialty">{% if is_arabic %}{{ doctor.specialty_ar }}{% else %}{{ doctor.specialty_en }}{% endif %}</p>
+            <p class="doctor-page-bio">{% if is_arabic %}{{ doctor.bio_ar }}{% else %}{{ doctor.bio_en }}{% endif %}</p>
+            <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
+        </div>
+    </div>
+</section>
+
+<section class="section doctor-profile-content" aria-labelledby="professional-profile-title">
+    <div class="container doctor-content-grid">
+        <article class="professional-profile-card">
+            <p class="eyebrow">{% if is_arabic %}نبذة مهنية{% else %}Professional Profile{% endif %}</p>
+            <h2 id="professional-profile-title">{% if is_arabic %}{{ doctor.display_name_ar }}{% else %}{{ doctor.display_name_en }}{% endif %}</h2>
             <p>{% if is_arabic %}{{ doctor.bio_ar }}{% else %}{{ doctor.bio_en }}{% endif %}</p>
-            <p class="trust-note">{{ labels.verify_profile }}</p>
-        </div>
+            {% if doctor.object and not doctor.object.bio_ar and not doctor.object.bio_en %}
+                <p class="trust-note">{{ labels.verify_profile }}</p>
+            {% endif %}
+        </article>
+
+        <aside class="doctor-contact-card" aria-labelledby="doctor-contact-title">
+            <p class="eyebrow">{% if is_arabic %}الزيارة والحجز{% else %}Visit & Booking{% endif %}</p>
+            <h2 id="doctor-contact-title">{% if is_arabic %}خطوات واضحة للحجز{% else %}A clear path to booking{% endif %}</h2>
+            <p>{% if is_arabic %}اختر نوع الزيارة والموعد المتاح، ثم أكّد بيانات التواصل. لا يلزم تسجيل الدخول للحجز.{% else %}Choose a visit type and available time, then confirm your contact details. Sign-in is not required to book.{% endif %}</p>
+            <div class="stacked-actions">
+                <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
+                <a class="btn btn-secondary" href="{{ contact_url }}">{{ labels.contact }}</a>
+            </div>
+        </aside>
     </div>
 </section>
 
-<section class="section section-soft">
-    <div class="container info-grid">
-        <article>
-            <p class="eyebrow">{% if is_arabic %}المؤهلات{% else %}Credentials{% endif %}</p>
-            <h2>{% if is_arabic %}تحتاج تدقيقاً قبل النشر{% else %}Verification needed before publication{% endif %}</h2>
-            <p>
-                {% if is_arabic %}
-                    تضاف الشهادات والعضويات المهنية بعد مراجعة الصياغة الرسمية واعتمادها من العيادة.
-                {% else %}
-                    Degrees and professional memberships should be added only after the clinic verifies the official wording.
-                {% endif %}
-            </p>
-        </article>
-        <article>
-            <p class="eyebrow">{% if is_arabic %}الخبرة{% else %}Experience{% endif %}</p>
-            <h2>{% if is_arabic %}صياغة حذرة ومؤكدة{% else %}Careful, verified wording{% endif %}</h2>
-            <p>
-                {% if is_arabic %}
-                    يمكن ذكر الخبرة في الأردن والمملكة المتحدة بعد اعتماد التفاصيل والتواريخ من مصدر رسمي.
-                {% else %}
-                    Jordan and United Kingdom experience can be listed after details and dates are confirmed from an official source.
-                {% endif %}
-            </p>
-        </article>
-    </div>
-</section>
-
-<section class="section">
+<section class="section doctor-care-section" aria-labelledby="doctor-care-title">
     <div class="container">
         <div class="section-heading">
             <p class="eyebrow">{% if is_arabic %}مجالات الرعاية{% else %}Areas of Care{% endif %}</p>
-            <h2>{% if is_arabic %}خدمات أنف وأذن وحنجرة للبالغين والأطفال{% else %}ENT care for adults and children{% endif %}</h2>
+            <h2 id="doctor-care-title">{% if is_arabic %}خدمات أنف وأذن وحنجرة للبالغين والأطفال{% else %}ENT care for adults and children{% endif %}</h2>
         </div>
-        <div class="card-grid">
+        <div class="card-grid doctor-care-grid">
             {% for service in areas_of_care %}
                 {% include "partials/service_card.html" with service=service %}
             {% endfor %}
@@ -60,5 +54,14 @@
     </div>
 </section>
 
-{% include "partials/cta.html" %}
+<section class="doctor-final-cta" aria-labelledby="doctor-cta-title">
+    <div class="container">
+        <h2 id="doctor-cta-title">{% if is_arabic %}هل ترغب في حجز استشارة؟{% else %}Ready to schedule a consultation?{% endif %}</h2>
+        <div class="doctor-final-actions">
+            <a class="btn btn-light" href="{{ booking_url }}">{{ labels.book }}</a>
+            <a class="btn btn-outline-light" href="{{ services_url }}">{{ labels.services }}</a>
+            <a class="btn btn-outline-light" href="{{ clinic.map_url }}" target="_blank" rel="noopener noreferrer">{% if is_arabic %}الاتجاهات{% else %}Get Directions{% endif %}</a>
+        </div>
+    </div>
+</section>
 {% endblock %}

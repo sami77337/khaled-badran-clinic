@@ -27,15 +27,36 @@ DOCTOR_DEFAULT = {
     "display_name_ar": "د. خالد حسان بدران",
     "display_name_en": "Dr. Khaled Hassan Badran",
     "specialty_ar": "استشاري الأنف والأذن والحنجرة",
-    "specialty_en": "ENT consultant",
+    "specialty_en": "Consultant Ear, Nose and Throat Surgeon",
     "bio_ar": (
-        "صفحة تعريفية أولية للدكتور خالد بدران ضمن موقع العيادة. "
-        "يجب تدقيق تفاصيل المؤهلات والخبرة قبل النشر النهائي."
+        "استشاري في أمراض وجراحة الأنف والأذن والحنجرة للكبار والأطفال، "
+        "حاصل على البورد الأوروبي والبورد الأردني، مع خبرة مهنية في مستشفيات "
+        "المملكة المتحدة واهتمام خاص بجراحة الأنف الوظيفية والتجميلية."
     ),
     "bio_en": (
-        "Initial public profile for Dr. Khaled Badran. Credentials and "
-        "experience details should be verified before final publication."
+        "Consultant in adult and pediatric ear, nose and throat medicine and "
+        "surgery, certified by the European and Jordanian Boards, with "
+        "professional experience in UK hospitals and a special focus on "
+        "functional and cosmetic rhinoplasty."
     ),
+}
+
+APPROVED_CLINIC_LOCATION = {
+    "address_ar": (
+        "عمّان – الشميساني\n"
+        "شارع رفيق العظم 13\n"
+        "مجمع الفيحاء الطبي – الطابق الأول\n"
+        "مقابل مستشفى الشميساني وحديقة الطيور"
+    ),
+    "address_en": (
+        "Al Shmeisani, Amman\n"
+        "Rafiq Al Athem St. 13\n"
+        "Al Fayhaa Medical Complex – First Floor\n"
+        "Opposite Shmeisani Hospital and Bird Garden"
+    ),
+    "coordinates": "31.970276,35.8934391",
+    "map_url": "https://www.google.com/maps/search/?api=1&query=31.970276%2C35.8934391",
+    "map_embed_url": "https://www.google.com/maps?q=31.970276,35.8934391&z=16&output=embed",
 }
 
 FALLBACK_VISIT_TYPES = [
@@ -112,7 +133,7 @@ PAGE_COPY = {
             "description": "موقع عيادة الدكتور خالد بدران، استشاري الأنف والأذن والحنجرة.",
             "hero_label": "عيادة أنف وأذن وحنجرة",
             "headline": "رعاية أنف وأذن وحنجرة بهدوء واهتمام بالتفاصيل",
-            "subtitle": "تجربة عيادية دافئة ومنظمة للدكتور خالد حسان بدران، مع تجهيز الموقع للانتقال لاحقاً إلى الحجز الإلكتروني.",
+            "subtitle": "رعاية متخصصة للكبار والأطفال، مع اهتمام خاص بجراحة الأنف الوظيفية والتجميلية.",
         },
         "doctor": {
             "title": "الدكتور",
@@ -133,10 +154,10 @@ PAGE_COPY = {
             "subtitle": "هذه الصفحة تعرض وسائط تم اعتمادها صراحة للعرض العام مع تأكيد الموافقة، ولا تعرض هوية المرضى أو تفاصيل السجلات الخاصة.",
         },
         "contact": {
-            "title": "التواصل",
-            "description": "معلومات التواصل والموقع وساعات العمل لعيادة الدكتور خالد بدران.",
-            "headline": "تواصل مع العيادة",
-            "subtitle": "بيانات التواصل الحالية placeholders آمنة لحين اعتماد الأرقام والعنوان النهائي.",
+            "title": "التواصل والموقع",
+            "description": "معلومات التواصل والموقع المعتمد لعيادة الدكتور خالد بدران.",
+            "headline": "موقع العيادة",
+            "subtitle": "عيادة الدكتور خالد بدران في الشميساني، داخل مجمع الفيحاء الطبي، مقابل مستشفى الشميساني وحديقة الطيور.",
         },
         "privacy": {
             "title": "سياسة الخصوصية",
@@ -181,7 +202,7 @@ PAGE_COPY = {
             "description": "Public website for Dr. Khaled Badran Clinic, ENT consultant care.",
             "hero_label": "ENT Clinic",
             "headline": "Warm, focused ENT care in a calm clinic setting",
-            "subtitle": "A polished public foundation for Dr. Khaled Hassan Badran Clinic, prepared for a later online booking workflow.",
+            "subtitle": "Specialized adult and pediatric ENT care, with a particular focus on functional and cosmetic rhinoplasty.",
         },
         "doctor": {
             "title": "Doctor",
@@ -202,10 +223,10 @@ PAGE_COPY = {
             "subtitle": "This page shows only media explicitly approved for public display with confirmed consent, without patient identity or private record details.",
         },
         "contact": {
-            "title": "Contact",
-            "description": "Contact, location, and clinic hours for Dr. Khaled Badran Clinic.",
-            "headline": "Contact the Clinic",
-            "subtitle": "Current contact details are safe placeholders until final approval.",
+            "title": "Contact & Location",
+            "description": "Contact details and the approved location for Dr. Khaled Badran Clinic.",
+            "headline": "Clinic Location",
+            "subtitle": "Dr. Khaled Badran Clinic is in Al Shmeisani, inside Al Fayhaa Medical Complex, opposite Shmeisani Hospital and Bird Garden.",
         },
         "privacy": {
             "title": "Privacy Policy",
@@ -248,11 +269,11 @@ PAGE_COPY = {
 
 LABELS = {
     "ar": {
-        "book": "طلب حجز مبدئي",
+        "book": "احجز موعداً",
         "book_note": "يتم تأكيد الموعد بعد اختيار الوقت وإرسال بيانات التواصل في خطوة التأكيد.",
         "whatsapp": "واتساب العيادة",
-        "whatsapp_note": "زر واتساب placeholder ولا يرسل رسائل حالياً.",
-        "contact": "معلومات التواصل",
+        "whatsapp_note": "رابط واتساب السريع غير مفعّل حتى اعتماد رقم العيادة المخصص له.",
+        "contact": "التواصل والموقع",
         "services": "الخدمات",
         "cases": "الحالات",
         "doctor": "الدكتور",
@@ -266,11 +287,11 @@ LABELS = {
         "verify_profile": "تحتاج تفاصيل المؤهلات والعضويات والخبرة إلى تدقيق نهائي قبل النشر العام.",
     },
     "en": {
-        "book": "Request booking",
+        "book": "Book an Appointment",
         "book_note": "Your appointment is confirmed after choosing a time and submitting the confirmation step.",
         "whatsapp": "Clinic WhatsApp",
-        "whatsapp_note": "WhatsApp is a placeholder button and does not send messages yet.",
-        "contact": "Contact Details",
+        "whatsapp_note": "The WhatsApp quick link stays inactive until the clinic approves its dedicated number.",
+        "contact": "Contact & Location",
         "services": "Services",
         "cases": "Cases",
         "doctor": "Doctor",
@@ -376,15 +397,34 @@ def _active_doctor():
     return Doctor.objects.filter(is_active=True).order_by("display_order", "id").first()
 
 
+def _is_placeholder_value(value):
+    normalized = (value or "").strip().casefold()
+    placeholder_markers = ("placeholder", "pending approval", "سيضاف", "لحين اعتماد")
+    return not normalized or any(marker in normalized for marker in placeholder_markers)
+
+
+def _public_phone(value):
+    normalized = (value or "").strip()
+    if _is_placeholder_value(normalized) or "x" in normalized.casefold():
+        return ""
+    digits = "".join(character for character in normalized if character.isdigit())
+    return normalized if len(digits) >= 7 else ""
+
+
 def _clinic_context():
     clinic = _active_clinic()
+    address_ar = clinic.address_ar if clinic and not _is_placeholder_value(clinic.address_ar) else ""
+    address_en = clinic.address_en if clinic and not _is_placeholder_value(clinic.address_en) else ""
     return {
         "object": clinic,
         "name_ar": clinic.official_name_ar if clinic else CLINIC_OFFICIAL_NAME_AR,
         "name_en": clinic.official_name_en if clinic else CLINIC_OFFICIAL_NAME_EN,
-        "phone_raw": clinic.phone_raw if clinic and clinic.phone_raw else "+962 7X XXX XXXX",
-        "address_ar": clinic.address_ar if clinic and clinic.address_ar else "العنوان سيضاف بعد اعتماده",
-        "address_en": clinic.address_en if clinic and clinic.address_en else "Address placeholder pending approval",
+        "phone_raw": _public_phone(clinic.phone_raw if clinic else ""),
+        "address_ar": address_ar or APPROVED_CLINIC_LOCATION["address_ar"],
+        "address_en": address_en or APPROVED_CLINIC_LOCATION["address_en"],
+        "coordinates": APPROVED_CLINIC_LOCATION["coordinates"],
+        "map_url": APPROVED_CLINIC_LOCATION["map_url"],
+        "map_embed_url": APPROVED_CLINIC_LOCATION["map_embed_url"],
     }
 
 
@@ -523,10 +563,12 @@ def _base_context(request, page_key, language):
             "url": _route_url(page_key, alternate_language),
         },
         "canonical_url": request.build_absolute_uri(canonical_path),
-        "og_image_url": request.build_absolute_uri(static("img/placeholders/clinic-placeholder.svg")),
+        "og_image_url": request.build_absolute_uri(static("img/clinic/clinic-interior-1.png")),
         "booking_placeholder_url": _route_url("booking", language),
         "booking_url": _route_url("booking", language),
         "whatsapp_placeholder_url": _route_url("contact", language) + "#whatsapp-placeholder",
+        "whatsapp_is_configured": False,
+        "whatsapp_url": "",
         "contact_url": _route_url("contact", language),
         "services_url": _route_url("services", language),
         "cases_url": _route_url("cases", language),
@@ -657,6 +699,28 @@ def whatsapp_policy(request, language=DEFAULT_LANGUAGE):
         "whatsapp_policy",
         language,
     )
+
+
+def public_404(request, exception=None):
+    language = "en" if request.path.startswith("/en/") else DEFAULT_LANGUAGE
+    context = _base_context(request, "home", language)
+    context.update(
+        {
+            "page_key": "not_found",
+            "page_title": (
+                f"Page Not Found | {context['clinic']['name_en']}"
+                if language == "en"
+                else f"الصفحة غير موجودة | {context['clinic']['name_ar']}"
+            ),
+            "meta_description": (
+                "The requested clinic page could not be found."
+                if language == "en"
+                else "تعذر العثور على صفحة العيادة المطلوبة."
+            ),
+            "canonical_url": request.build_absolute_uri(request.path),
+        }
+    )
+    return render(request, "404.html", context, status=404)
 
 
 def robots_txt(request):

@@ -19,7 +19,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.booking.models import Appointment
-from apps.clinic.models import Doctor, VisitType
+from apps.clinic.models import ClinicProfile, Doctor, VisitType
 from apps.core.checks import production_readiness_checks
 from apps.patients.models import Patient
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
@@ -1555,3 +1555,155 @@ class PublicPageContentTests(TestCase):
 
         self.assertContains(robots_response, "Sitemap:")
         self.assertContains(sitemap_response, "<urlset", status_code=200)
+
+
+class PublicUiFoundationTests(TestCase):
+    def test_public_language_direction_is_natural_for_arabic_and_english(self):
+        arabic = self.client.get(reverse("home"))
+        english = self.client.get(reverse("home_en"))
+
+        self.assertContains(arabic, '<html lang="ar" dir="rtl">')
+        self.assertContains(english, '<html lang="en" dir="ltr">')
+
+    def test_contact_location_is_canonical_and_legacy_contact_routes_redirect(self):
+        self.assertEqual(reverse("contact"), "/contact-location/")
+        self.assertEqual(reverse("contact_en"), "/en/contact-location/")
+
+        arabic = self.client.get("/contact/", follow=False)
+        english = self.client.get("/en/contact/", follow=False)
+
+        self.assertEqual(arabic.status_code, 301)
+        self.assertEqual(arabic["Location"], "/contact-location/")
+        self.assertEqual(english.status_code, 301)
+        self.assertEqual(english["Location"], "/en/contact-location/")
+
+    def test_contact_location_uses_approved_map_and_hides_unconfigured_contact_rows(self):
+        ClinicProfile.objects.create(
+            official_name_ar="عيادة الدكتور خالد بدران",
+            official_name_en="Dr. Khaled Badran Clinic",
+            phone_raw="+962 7X XXX XXXX",
+            address_ar="العنوان سيضاف بعد اعتماده",
+            address_en="Address placeholder pending approval",
+            is_active=True,
+        )
+
+        response = self.client.get(reverse("contact"))
+
+        self.assertContains(response, "شارع رفيق العظم 13")
+        self.assertContains(response, "31.970276,35.8934391")
+        self.assertContains(response, "رابط واتساب السريع غير مفعّل")
+        self.assertNotContains(response, "+962 7X XXX XXXX")
+        self.assertNotContains(response, "ساعات العمل")
+        self.assertNotContains(response, "ساعات الدوام")
+
+    def test_public_shell_has_accessible_mobile_drawer_and_language_switch_outside_it(self):
+        response = self.client.get(reverse("services"))
+        html = response.content.decode()
+
+        self.assertIn('data-menu-toggle', html)
+        self.assertIn('aria-controls="mobile-navigation"', html)
+        self.assertIn('id="mobile-navigation"', html)
+        self.assertIn('class="is-active" aria-current="page">الخدمات</a>', html)
+        self.assertIn('data-mobile-booking-cta', html)
+
+        language_switch_position = html.index('class="mobile-language-switch"')
+        drawer_start = html.index('id="mobile-navigation"')
+        drawer_end = html.index('</header>')
+        drawer_html = html[drawer_start:drawer_end]
+        self.assertLess(language_switch_position, drawer_start)
+        self.assertNotIn('mobile-language-switch', drawer_html)
+
+    def test_home_sections_follow_locked_order_and_review_surface_is_empty(self):
+        response = self.client.get(reverse("home"))
+        html = response.content.decode()
+        ordered_markers = [
+            '<section class="home-hero"',
+            '<section class="section home-doctor"',
+            '<section class="section home-cases"',
+            '<section class="section home-services"',
+            '<section id="reviews"',
+            '<section class="section home-contact"',
+            '<footer class="site-footer"',
+        ]
+
+        positions = [html.index(marker) for marker in ordered_markers]
+        self.assertEqual(positions, sorted(positions))
+        self.assertIn('data-review-surface="empty" aria-hidden="true"></section>', html)
+        self.assertNotIn("Patient Stories", html)
+        self.assertNotIn("قصص المرضى", html)
+        self.assertNotIn("Testimonials", html)
+
+    def test_home_has_responsive_hooks_without_scale_workaround(self):
+        response = self.client.get(reverse("home_en"))
+        html = response.content.decode()
+        css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(encoding="utf-8")
+
+        self.assertIn('data-hero-carousel', html)
+        self.assertIn('class="home-hero-visual"', html)
+        self.assertIn('class="section home-services"', html)
+        self.assertIn('class="section home-faq"', html)
+        self.assertIn('@media (min-width: 768px)', css)
+        self.assertIn('.home-services,\n    .home-faq {\n        display: block;', css)
+        self.assertNotIn('transform: scale(', css.casefold())
+
+    def test_doctor_page_renders_existing_backend_doctor_fields_only(self):
+        doctor = Doctor.objects.create(
+            full_name_ar="طبيب عربي معتمد",
+            full_name_en="Approved Backend Doctor",
+            title_ar="د.",
+            title_en="Dr.",
+            specialty_ar="تخصص معتمد من الخلفية",
+            specialty_en="Backend-approved specialty",
+            bio_ar="نبذة عربية معتمدة من الخلفية فقط.",
+            bio_en="Backend-approved profile copy only.",
+            is_active=True,
+        )
+
+        response = self.client.get(reverse("doctor_en"))
+
+        self.assertContains(response, doctor.display_name_en)
+        self.assertContains(response, doctor.specialty_en)
+        self.assertContains(response, doctor.bio_en)
+        for unsupported_profile_field in ["FRCSI", "MRCSI", "GMC", "MDU", "Bachelor of Medicine"]:
+            with self.subTest(field=unsupported_profile_field):
+                self.assertNotContains(response, unsupported_profile_field)
+
+    def test_unsupported_figma_claims_are_absent_from_public_pages(self):
+        route_names = [
+            "home",
+            "home_en",
+            "doctor",
+            "doctor_en",
+            "contact",
+            "contact_en",
+        ]
+        blocked_copy = ["world-class", "15+ years", "Dubai", "best clinic", "guaranteed"]
+
+        for route_name in route_names:
+            response_text = self.client.get(reverse(route_name)).content.decode().casefold()
+            for blocked in blocked_copy:
+                with self.subTest(route=route_name, blocked=blocked):
+                    self.assertNotIn(blocked.casefold(), response_text)
+
+    @override_settings(DEBUG=False)
+    def test_branded_404_is_bilingual_and_design_system_is_not_exposed(self):
+        arabic = self.client.get("/missing-public-page/")
+        english = self.client.get("/en/missing-public-page/")
+        design_system = self.client.get("/design-system/")
+
+        self.assertEqual(arabic.status_code, 404)
+        self.assertContains(arabic, "الصفحة غير موجودة", status_code=404)
+        self.assertContains(arabic, "عيادة الدكتور خالد بدران", status_code=404)
+        self.assertEqual(english.status_code, 404)
+        self.assertContains(english, "Page Not Found", status_code=404)
+        self.assertContains(english, "Dr. Khaled Badran Clinic", status_code=404)
+        self.assertEqual(design_system.status_code, 404)
+        self.assertNotContains(design_system, "Design System", status_code=404)
+
+    def test_sitemap_uses_contact_location_and_never_lists_design_system(self):
+        response = self.client.get(reverse("sitemap_xml"))
+        content = response.content.decode()
+
+        self.assertIn("/contact-location/", content)
+        self.assertIn("/en/contact-location/", content)
+        self.assertNotIn("/design-system", content)
