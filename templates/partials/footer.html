@@ -15,11 +15,7 @@
         <div class="footer-about">
             <p class="footer-brand">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</p>
             <p>
-                {% if is_arabic %}
-                    رعاية متخصصة في أمراض وجراحة الأنف والأذن والحنجرة للكبار والأطفال، مع اهتمام خاص بجراحة الأنف الوظيفية والتجميلية.
-                {% else %}
-                    Adult and pediatric ear, nose and throat medicine and surgery, with a special focus on functional and cosmetic rhinoplasty.
-                {% endif %}
+                {% if is_arabic %}{{ doctor.bio_ar }}{% else %}{{ doctor.bio_en }}{% endif %}
             </p>
             <div class="footer-actions">
                 <a class="btn btn-light" href="{{ booking_url }}">{{ labels.book }}</a>

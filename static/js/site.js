@@ -141,7 +141,11 @@
                 return;
             }
             const nextIndex = (index + cards.length) % cards.length;
-            caseCarousel.scrollTo({ left: cards[nextIndex].offsetLeft, behavior });
+            cards[nextIndex].scrollIntoView({
+                behavior,
+                block: "nearest",
+                inline: "start",
+            });
             setActiveDot(nextIndex);
         };
 
@@ -171,11 +175,15 @@
             stopAutoplay();
         });
         caseCarousel.addEventListener("scroll", () => {
-            const carouselStart = caseCarousel.getBoundingClientRect().left;
+            const isRtl = window.getComputedStyle(caseCarousel).direction === "rtl";
+            const carouselRect = caseCarousel.getBoundingClientRect();
+            const carouselStart = isRtl ? carouselRect.right : carouselRect.left;
             let closestIndex = 0;
             let closestDistance = Number.POSITIVE_INFINITY;
             cards.forEach((card, index) => {
-                const distance = Math.abs(card.getBoundingClientRect().left - carouselStart);
+                const cardRect = card.getBoundingClientRect();
+                const cardStart = isRtl ? cardRect.right : cardRect.left;
+                const distance = Math.abs(cardStart - carouselStart);
                 if (distance < closestDistance) {
                     closestDistance = distance;
                     closestIndex = index;

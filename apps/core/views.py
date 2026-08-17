@@ -28,6 +28,12 @@ DOCTOR_DEFAULT = {
     "display_name_en": "Dr. Khaled Hassan Badran",
     "specialty_ar": "استشاري الأنف والأذن والحنجرة",
     "specialty_en": "Consultant Ear, Nose and Throat Surgeon",
+    "credential_label_ar": "البورد الأوروبي والأردني",
+    "credential_label_en": "European & Jordanian Boards",
+    "public_focus_ar": "الأنف والأذن والحنجرة وجراحة الأنف الوظيفية والتجميلية",
+    "public_focus_en": "ENT & Functional and Cosmetic Rhinoplasty",
+    "hero_summary_ar": "رعاية متخصصة للكبار والأطفال، مع اهتمام خاص بجراحة الأنف الوظيفية والتجميلية.",
+    "hero_summary_en": "Specialized adult and pediatric ENT care, with a particular focus on functional and cosmetic rhinoplasty.",
     "bio_ar": (
         "استشاري في أمراض وجراحة الأنف والأذن والحنجرة للكبار والأطفال، "
         "حاصل على البورد الأوروبي والبورد الأردني، مع خبرة مهنية في مستشفيات "
@@ -133,7 +139,6 @@ PAGE_COPY = {
             "description": "موقع عيادة الدكتور خالد بدران، استشاري الأنف والأذن والحنجرة.",
             "hero_label": "عيادة أنف وأذن وحنجرة",
             "headline": "رعاية أنف وأذن وحنجرة بهدوء واهتمام بالتفاصيل",
-            "subtitle": "رعاية متخصصة للكبار والأطفال، مع اهتمام خاص بجراحة الأنف الوظيفية والتجميلية.",
         },
         "doctor": {
             "title": "الدكتور",
@@ -202,7 +207,6 @@ PAGE_COPY = {
             "description": "Public website for Dr. Khaled Badran Clinic, ENT consultant care.",
             "hero_label": "ENT Clinic",
             "headline": "Warm, focused ENT care in a calm clinic setting",
-            "subtitle": "Specialized adult and pediatric ENT care, with a particular focus on functional and cosmetic rhinoplasty.",
         },
         "doctor": {
             "title": "Doctor",
@@ -443,6 +447,12 @@ def _doctor_context():
         "specialty_en": doctor.specialty_en or DOCTOR_DEFAULT["specialty_en"],
         "bio_ar": doctor.bio_ar or DOCTOR_DEFAULT["bio_ar"],
         "bio_en": doctor.bio_en or DOCTOR_DEFAULT["bio_en"],
+        "credential_label_ar": DOCTOR_DEFAULT["credential_label_ar"],
+        "credential_label_en": DOCTOR_DEFAULT["credential_label_en"],
+        "public_focus_ar": DOCTOR_DEFAULT["public_focus_ar"],
+        "public_focus_en": DOCTOR_DEFAULT["public_focus_en"],
+        "hero_summary_ar": DOCTOR_DEFAULT["hero_summary_ar"],
+        "hero_summary_en": DOCTOR_DEFAULT["hero_summary_en"],
     }
 
 
@@ -525,7 +535,14 @@ def _public_case_media_items(language, limit=None):
     ]
 
 
-def _base_context(request, page_key, language):
+def _base_context(
+    request,
+    page_key,
+    language,
+    *,
+    use_public_shell=False,
+    show_mobile_booking_cta=False,
+):
     language = _normalize_language(language)
     alternate_language = "en" if language == "ar" else "ar"
     page = PAGE_COPY[language][page_key]
@@ -539,6 +556,8 @@ def _base_context(request, page_key, language):
         "direction": "rtl" if language == "ar" else "ltr",
         "page_key": page_key,
         "page": page,
+        "use_public_shell": use_public_shell,
+        "show_mobile_booking_cta": show_mobile_booking_cta,
         "page_title": page_title,
         "meta_description": page["description"],
         "clinic": clinic,
@@ -577,8 +596,22 @@ def _base_context(request, page_key, language):
     }
 
 
-def _render_public(request, template_name, page_key, language=DEFAULT_LANGUAGE, extra_context=None):
-    context = _base_context(request, page_key, language)
+def _render_public(
+    request,
+    template_name,
+    page_key,
+    language=DEFAULT_LANGUAGE,
+    extra_context=None,
+    *,
+    show_mobile_booking_cta=False,
+):
+    context = _base_context(
+        request,
+        page_key,
+        language,
+        use_public_shell=True,
+        show_mobile_booking_cta=show_mobile_booking_cta,
+    )
     if extra_context:
         context.update(extra_context)
     return render(request, template_name, context)
@@ -598,6 +631,7 @@ def home(request, language=DEFAULT_LANGUAGE):
             "public_case_teasers": _public_case_media_items(language, limit=3),
             "case_labels": PUBLIC_CASE_LABELS[language],
         },
+        show_mobile_booking_cta=True,
     )
 
 
@@ -611,6 +645,7 @@ def doctor_profile(request, language=DEFAULT_LANGUAGE):
         {
             "areas_of_care": SERVICE_GROUPS[language],
         },
+        show_mobile_booking_cta=True,
     )
 
 
@@ -625,6 +660,7 @@ def services(request, language=DEFAULT_LANGUAGE):
             "service_groups": SERVICE_GROUPS[language],
             "visit_types": _visit_types(language),
         },
+        show_mobile_booking_cta=True,
     )
 
 
@@ -641,6 +677,7 @@ def public_cases(request, language=DEFAULT_LANGUAGE):
             "case_items": _public_case_media_items(language),
             "case_labels": PUBLIC_CASE_LABELS[language],
         },
+        show_mobile_booking_cta=True,
     )
 
 
@@ -672,7 +709,13 @@ def public_case_media(request, public_id, language=DEFAULT_LANGUAGE):
 
 
 def contact(request, language=DEFAULT_LANGUAGE):
-    return _render_public(request, "core/contact.html", "contact", language)
+    return _render_public(
+        request,
+        "core/contact.html",
+        "contact",
+        language,
+        show_mobile_booking_cta=True,
+    )
 
 
 def privacy(request, language=DEFAULT_LANGUAGE):
@@ -703,7 +746,7 @@ def whatsapp_policy(request, language=DEFAULT_LANGUAGE):
 
 def public_404(request, exception=None):
     language = "en" if request.path.startswith("/en/") else DEFAULT_LANGUAGE
-    context = _base_context(request, "home", language)
+    context = _base_context(request, "home", language, use_public_shell=True)
     context.update(
         {
             "page_key": "not_found",

@@ -781,16 +781,7 @@ summary:focus-visible {
 .info-grid article,
 .contact-panel,
 .map-panel,
-.safety-panel,
-.booking-option,
-.slot-day,
-.booking-summary,
-.booking-form,
-.success-card,
-.staff-filter-panel,
-.staff-panel,
-.staff-table-wrap,
-.staff-messages {
+.safety-panel {
     border-color: var(--color-line);
     border-radius: 1rem;
     box-shadow: var(--shadow-card);

@@ -31,7 +31,7 @@
             <span class="brand-copy">
                 <span class="brand-name">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</span>
                 <span class="brand-subtitle">
-                    {% if is_arabic %}الأنف والأذن والحنجرة وجراحة الأنف الوظيفية والتجميلية{% else %}ENT & Functional and Cosmetic Rhinoplasty{% endif %}
+                    {% if is_arabic %}{{ doctor.public_focus_ar }}{% else %}{{ doctor.public_focus_en }}{% endif %}
                 </span>
             </span>
         </a>

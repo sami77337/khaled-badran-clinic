@@ -5,10 +5,10 @@
 <section class="home-hero" aria-labelledby="home-hero-title">
     <div class="container home-hero-grid">
         <div class="home-hero-copy">
-            <p class="credential-chip">{% if is_arabic %}البورد الأوروبي والأردني{% else %}European & Jordanian Boards{% endif %}</p>
+            <p class="credential-chip">{% if is_arabic %}{{ doctor.credential_label_ar }}{% else %}{{ doctor.credential_label_en }}{% endif %}</p>
             <h1 id="home-hero-title">{% if is_arabic %}{{ doctor.display_name_ar }}{% else %}{{ doctor.display_name_en }}{% endif %}</h1>
             <p class="home-hero-specialty">{% if is_arabic %}{{ doctor.specialty_ar }}{% else %}{{ doctor.specialty_en }}{% endif %}</p>
-            <p class="hero-subtitle">{{ page.subtitle }}</p>
+            <p class="hero-subtitle">{% if is_arabic %}{{ doctor.hero_summary_ar }}{% else %}{{ doctor.hero_summary_en }}{% endif %}</p>
             <div class="hero-actions">
                 <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
                 <a class="btn btn-secondary" href="{{ services_url }}">{% if is_arabic %}استكشف الخدمات{% else %}Explore Services{% endif %}</a>

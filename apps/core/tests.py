@@ -1558,6 +1558,25 @@ class PublicPageContentTests(TestCase):
 
 
 class PublicUiFoundationTests(TestCase):
+    public_stylesheet_href = f'href="{settings.STATIC_URL}css/public.css"'
+
+    def assert_public_shell(self, response, *, has_mobile_booking_cta):
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn("public-shell", html)
+        self.assertIn(self.public_stylesheet_href, html)
+        if has_mobile_booking_cta:
+            self.assertIn("data-mobile-booking-cta", html)
+        else:
+            self.assertNotIn("data-mobile-booking-cta", html)
+
+    def assert_non_public_shell(self, response):
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertNotIn("public-shell", html)
+        self.assertNotIn(self.public_stylesheet_href, html)
+        self.assertNotIn("data-mobile-booking-cta", html)
+
     def test_public_language_direction_is_natural_for_arabic_and_english(self):
         arabic = self.client.get(reverse("home"))
         english = self.client.get(reverse("home_en"))
@@ -1612,6 +1631,191 @@ class PublicUiFoundationTests(TestCase):
         drawer_html = html[drawer_start:drawer_end]
         self.assertLess(language_switch_position, drawer_start)
         self.assertNotIn('mobile-language-switch', drawer_html)
+
+    def test_mobile_booking_cta_is_opted_in_only_on_approved_public_marketing_routes(self):
+        approved_routes = [
+            "home",
+            "doctor",
+            "services",
+            "public_cases",
+            "contact",
+            "home_en",
+            "doctor_en",
+            "services_en",
+            "public_cases_en",
+            "contact_en",
+        ]
+        legal_routes = [
+            "privacy",
+            "terms",
+            "medical_disclaimer",
+            "whatsapp_policy",
+            "privacy_en",
+            "terms_en",
+            "medical_disclaimer_en",
+            "whatsapp_policy_en",
+        ]
+
+        for route_name in approved_routes:
+            with self.subTest(route=route_name):
+                self.assert_public_shell(
+                    self.client.get(reverse(route_name)),
+                    has_mobile_booking_cta=True,
+                )
+
+        for route_name in legal_routes:
+            with self.subTest(route=route_name):
+                self.assert_public_shell(
+                    self.client.get(reverse(route_name)),
+                    has_mobile_booking_cta=False,
+                )
+
+    def test_booking_routes_do_not_load_public_shell_or_mobile_booking_cta(self):
+        route_names = [
+            "book",
+            "booking_visit_type",
+            "book_en",
+            "booking_visit_type_en",
+        ]
+
+        for route_name in route_names:
+            with self.subTest(route=route_name):
+                self.assert_non_public_shell(self.client.get(reverse(route_name)))
+
+    def test_patient_auth_account_and_portal_routes_do_not_load_public_shell_or_mobile_booking_cta(self):
+        anonymous_route_names = [
+            "patient_portal_login",
+            "patient_portal_register",
+            "patient_portal_login_en",
+            "patient_portal_register_en",
+        ]
+
+        for route_name in anonymous_route_names:
+            with self.subTest(route=route_name):
+                self.assert_non_public_shell(self.client.get(reverse(route_name)))
+
+        user = get_user_model().objects.create_user(
+            username="synthetic-batch-17-01-portal",
+        )
+        Patient.objects.create(
+            user=user,
+            full_name="Synthetic Batch 17 Portal Patient",
+            phone_raw="synthetic-phone-1701",
+            phone_e164="+000000001701",
+        )
+        self.client.force_login(user)
+
+        for route_name in [
+            "patient_portal_dashboard",
+            "patient_portal_account",
+            "patient_portal_medical_records",
+            "patient_portal_dashboard_en",
+            "patient_portal_account_en",
+            "patient_portal_medical_records_en",
+        ]:
+            with self.subTest(route=route_name):
+                self.assert_non_public_shell(self.client.get(reverse(route_name)))
+
+    def test_staff_and_dashboard_routes_do_not_load_public_shell_or_mobile_booking_cta(self):
+        staff_user = get_user_model().objects.create_user(
+            username="synthetic-batch-17-01-staff",
+            is_staff=True,
+        )
+        patient = Patient.objects.create(
+            full_name="Synthetic Batch 17 Staff Record Patient",
+            phone_raw="synthetic-phone-1702",
+            phone_e164="+000000001702",
+        )
+        self.client.force_login(staff_user)
+
+        route_requests = [
+            ("staff_appointment_list", {}),
+            ("dashboard_patient_list", {}),
+            ("dashboard_patient_record_detail", {"patient_id": patient.id}),
+        ]
+        for route_name, kwargs in route_requests:
+            with self.subTest(route=route_name):
+                self.assert_non_public_shell(self.client.get(reverse(route_name, kwargs=kwargs)))
+
+    @override_settings(DEBUG=False)
+    def test_404_uses_public_branding_without_mobile_booking_cta(self):
+        for path in ["/missing-public-shell-page/", "/en/missing-public-shell-page/"]:
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                html = response.content.decode()
+
+                self.assertEqual(response.status_code, 404)
+                self.assertIn("public-shell", html)
+                self.assertIn(self.public_stylesheet_href, html)
+                self.assertNotIn("data-mobile-booking-cta", html)
+
+    def test_public_stylesheet_does_not_override_booking_or_staff_components(self):
+        css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(encoding="utf-8")
+
+        for selector in [
+            ".booking-option",
+            ".booking-summary",
+            ".booking-form",
+            ".slot-day",
+            ".success-card",
+            ".staff-filter-panel",
+            ".staff-panel",
+            ".staff-table-wrap",
+            ".staff-messages",
+        ]:
+            with self.subTest(selector=selector):
+                self.assertNotIn(selector, css)
+
+    def test_professional_claims_render_from_central_doctor_context(self):
+        doctor = Doctor.objects.create(
+            full_name_ar="طبيب مركزي معتمد",
+            full_name_en="Central Approved Doctor",
+            title_ar="د.",
+            title_en="Dr.",
+            specialty_ar="تخصص مركزي معتمد",
+            specialty_en="Central approved specialty",
+            bio_ar="نبذة مركزية معتمدة من بيانات الطبيب.",
+            bio_en="Central approved doctor profile copy.",
+            is_active=True,
+        )
+
+        response = self.client.get(reverse("home_en"))
+        html = response.content.decode()
+        doctor_context = response.context["doctor"]
+
+        self.assertIn(doctor.specialty_en, html)
+        self.assertIn(doctor.bio_en, html)
+        self.assertIn(doctor_context["credential_label_en"].replace("&", "&amp;"), html)
+        self.assertIn(doctor_context["public_focus_en"].replace("&", "&amp;"), html)
+        self.assertIn(doctor_context["hero_summary_en"], html)
+
+        template_claims = {
+            settings.BASE_DIR / "templates" / "core" / "home.html": [
+                "European & Jordanian Boards",
+                "functional and cosmetic rhinoplasty",
+            ],
+            settings.BASE_DIR / "templates" / "partials" / "header.html": [
+                "ENT & Functional and Cosmetic Rhinoplasty",
+            ],
+            settings.BASE_DIR / "templates" / "partials" / "footer.html": [
+                "Adult and pediatric ear, nose and throat medicine and surgery",
+                "functional and cosmetic rhinoplasty",
+            ],
+        }
+        for template_path, claims in template_claims.items():
+            source = template_path.read_text(encoding="utf-8")
+            for claim in claims:
+                with self.subTest(template=template_path.name, claim=claim):
+                    self.assertNotIn(claim, source)
+
+    def test_case_carousel_uses_logical_rtl_safe_element_scrolling(self):
+        javascript = (settings.BASE_DIR / "static" / "js" / "site.js").read_text(encoding="utf-8")
+
+        self.assertIn("scrollIntoView", javascript)
+        self.assertIn('inline: "start"', javascript)
+        self.assertIn("getComputedStyle(caseCarousel).direction", javascript)
+        self.assertNotIn("caseCarousel.scrollTo", javascript)
+        self.assertNotIn("offsetLeft", javascript)
 
     def test_home_sections_follow_locked_order_and_review_surface_is_empty(self):
         response = self.client.get(reverse("home"))

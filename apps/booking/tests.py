@@ -488,6 +488,38 @@ class PublicBookingViewTests(BookingTestDataMixin, TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertNotIn("/portal/login/", response.request.get("PATH_INFO", ""))
 
+    def test_public_booking_flow_does_not_render_public_mobile_cta_or_stylesheet(self):
+        route_requests = [
+            (reverse("book"), {}),
+            (reverse("book_en"), {}),
+            (reverse("booking_visit_type"), {}),
+            (reverse("booking_visit_type_en"), {}),
+            (
+                reverse("booking_slots"),
+                {"visit_type": self.visit_type.id, "date": self.tomorrow.isoformat()},
+            ),
+            (
+                reverse("booking_slots_en"),
+                {"visit_type": self.visit_type.id, "date": self.tomorrow.isoformat()},
+            ),
+            (
+                reverse("booking_confirm"),
+                {"visit_type": self.visit_type.id, "starts_at": self.slot.value},
+            ),
+            (
+                reverse("booking_confirm_en"),
+                {"visit_type": self.visit_type.id, "starts_at": self.slot.value},
+            ),
+        ]
+
+        for url, params in route_requests:
+            with self.subTest(url=url):
+                response = self.client.get(url, params)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertNotContains(response, "data-mobile-booking-cta")
+                self.assertNotContains(response, "/static/css/public.css")
+
     def test_visit_type_step_returns_200(self):
         response = self.client.get(reverse("booking_visit_type"))
 
