@@ -56,10 +56,54 @@
             <p class="eyebrow">{% if is_arabic %}داخل العيادة{% else %}Inside the Clinic{% endif %}</p>
             <h2 id="clinic-gallery-title">{% if is_arabic %}مساحة هادئة ومجهزة بعناية{% else %}A calm, thoughtfully equipped clinic{% endif %}</h2>
         </div>
-        <div class="clinic-photo-grid">
-            <img src="{% static 'img/clinic/clinic-interior-1.png' %}" alt="{% if is_arabic %}مساحة الاستقبال داخل عيادة الدكتور خالد بدران{% else %}Reception area inside Dr. Khaled Badran Clinic{% endif %}" loading="lazy">
-            <img src="{% static 'img/clinic/clinic-interior-2.png' %}" alt="{% if is_arabic %}تجهيزات الفحص داخل العيادة{% else %}Examination equipment inside the clinic{% endif %}" loading="lazy">
-            <img src="{% static 'img/clinic/clinic-interior-3.png' %}" alt="{% if is_arabic %}غرفة الفحص في عيادة الدكتور خالد بدران{% else %}Examination room at Dr. Khaled Badran Clinic{% endif %}" loading="lazy">
+        <div
+            class="clinic-gallery"
+            data-clinic-gallery
+            role="region"
+            aria-roledescription="{% if is_arabic %}عارض صور{% else %}carousel{% endif %}"
+            aria-label="{% if is_arabic %}صور عيادة الدكتور خالد بدران{% else %}Dr. Khaled Badran Clinic gallery{% endif %}"
+        >
+            <div class="clinic-gallery-viewport" data-gallery-viewport tabindex="0">
+                <div class="clinic-gallery-track">
+                    {% for photo in clinic_gallery %}
+                        <figure
+                            class="clinic-gallery-slide{% if forloop.first %} is-active{% endif %}"
+                            data-gallery-slide
+                            aria-label="{% if is_arabic %}الصورة {{ forloop.counter }} من {{ clinic_gallery|length }}{% else %}Photo {{ forloop.counter }} of {{ clinic_gallery|length }}{% endif %}"
+                        >
+                            {% static photo.asset_path as clinic_photo_url %}
+                            <img src="{{ clinic_photo_url }}" alt="{{ photo.alt }}" loading="{% if forloop.first %}eager{% else %}lazy{% endif %}" draggable="false">
+                        </figure>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% if clinic_gallery|length > 1 %}
+                <div class="clinic-gallery-controls" data-gallery-controls>
+                    <button class="clinic-gallery-arrow" type="button" data-gallery-previous aria-label="{% if is_arabic %}الصورة السابقة{% else %}Previous photo{% endif %}">
+                        <span aria-hidden="true">{% if is_arabic %}›{% else %}‹{% endif %}</span>
+                    </button>
+                    <div class="clinic-gallery-position" aria-live="polite" aria-atomic="true">
+                        <span data-gallery-current>1</span>
+                        <span aria-hidden="true">/</span>
+                        <span>{{ clinic_gallery|length }}</span>
+                    </div>
+                    <div class="clinic-gallery-dots" role="group" aria-label="{% if is_arabic %}اختيار صورة العيادة{% else %}Choose a clinic photo{% endif %}">
+                        {% for photo in clinic_gallery %}
+                            <button
+                                type="button"
+                                class="{% if forloop.first %}is-active{% endif %}"
+                                data-gallery-dot="{{ forloop.counter0 }}"
+                                aria-label="{% if is_arabic %}عرض الصورة {{ forloop.counter }}{% else %}Show photo {{ forloop.counter }}{% endif %}"
+                                aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"
+                            ></button>
+                        {% endfor %}
+                    </div>
+                    <button class="clinic-gallery-arrow" type="button" data-gallery-next aria-label="{% if is_arabic %}الصورة التالية{% else %}Next photo{% endif %}">
+                        <span aria-hidden="true">{% if is_arabic %}‹{% else %}›{% endif %}</span>
+                    </button>
+                </div>
+            {% endif %}
         </div>
     </div>
 </section>

@@ -290,6 +290,185 @@
         startAutoplay();
     }
 
+    const clinicGalleries = document.querySelectorAll("[data-clinic-gallery]");
+
+    clinicGalleries.forEach((gallery) => {
+        const viewport = gallery.querySelector("[data-gallery-viewport]");
+        const slides = Array.from(gallery.querySelectorAll("[data-gallery-slide]"));
+        const dots = Array.from(gallery.querySelectorAll("[data-gallery-dot]"));
+        const previousButton = gallery.querySelector("[data-gallery-previous]");
+        const nextButton = gallery.querySelector("[data-gallery-next]");
+        const controls = gallery.querySelector("[data-gallery-controls]");
+        const currentPosition = gallery.querySelector("[data-gallery-current]");
+
+        if (!viewport || !slides.length) {
+            return;
+        }
+
+        let activeIndex = 0;
+        let timerId = null;
+        let manualResumeId = null;
+        let scrollFrameId = null;
+        const pauseReasons = new Set();
+
+        if (controls) {
+            controls.hidden = slides.length <= 1;
+        }
+
+        const setActiveSlide = (index) => {
+            activeIndex = (index + slides.length) % slides.length;
+            slides.forEach((slide, slideIndex) => {
+                const isActive = slideIndex === activeIndex;
+                slide.classList.toggle("is-active", isActive);
+                if (isActive) {
+                    slide.setAttribute("aria-current", "true");
+                } else {
+                    slide.removeAttribute("aria-current");
+                }
+            });
+            dots.forEach((dot, dotIndex) => {
+                const isActive = dotIndex === activeIndex;
+                dot.classList.toggle("is-active", isActive);
+                dot.setAttribute("aria-pressed", isActive ? "true" : "false");
+            });
+            if (currentPosition) {
+                currentPosition.textContent = String(activeIndex + 1);
+            }
+        };
+
+        const scrollToSlide = (index, behavior = "smooth") => {
+            const nextIndex = (index + slides.length) % slides.length;
+            const effectiveBehavior = reducedMotion ? "auto" : behavior;
+            setActiveSlide(nextIndex);
+            slides[nextIndex].scrollIntoView({
+                behavior: effectiveBehavior,
+                block: "nearest",
+                inline: "start",
+            });
+        };
+
+        const stopAutoplay = () => {
+            if (timerId !== null) {
+                window.clearInterval(timerId);
+                timerId = null;
+            }
+        };
+
+        const startAutoplay = () => {
+            stopAutoplay();
+            if (!reducedMotion && pauseReasons.size === 0 && slides.length > 1) {
+                timerId = window.setInterval(() => scrollToSlide(activeIndex + 1), 6000);
+            }
+        };
+
+        const pauseAutoplay = (reason) => {
+            pauseReasons.add(reason);
+            stopAutoplay();
+        };
+
+        const resumeAutoplay = (reason) => {
+            pauseReasons.delete(reason);
+            startAutoplay();
+        };
+
+        const scheduleManualResume = () => {
+            if (manualResumeId !== null) {
+                window.clearTimeout(manualResumeId);
+            }
+            manualResumeId = window.setTimeout(() => {
+                manualResumeId = null;
+                resumeAutoplay("manual");
+            }, 7000);
+        };
+
+        const manuallySelectSlide = (index) => {
+            pauseAutoplay("manual");
+            scrollToSlide(index);
+            scheduleManualResume();
+        };
+
+        const focusRemainsInGallery = (nextTarget) => (
+            nextTarget instanceof Node && gallery.contains(nextTarget)
+        );
+
+        dots.forEach((dot, index) => {
+            dot.addEventListener("click", () => manuallySelectSlide(index));
+        });
+        if (previousButton) {
+            previousButton.addEventListener("click", () => manuallySelectSlide(activeIndex - 1));
+        }
+        if (nextButton) {
+            nextButton.addEventListener("click", () => manuallySelectSlide(activeIndex + 1));
+        }
+
+        gallery.addEventListener("pointerenter", (event) => {
+            if (event.pointerType !== "touch") {
+                pauseAutoplay("hover");
+            }
+        });
+        gallery.addEventListener("pointerleave", () => resumeAutoplay("hover"));
+        gallery.addEventListener("focusin", () => pauseAutoplay("focus"));
+        gallery.addEventListener("focusout", (event) => {
+            if (!focusRemainsInGallery(event.relatedTarget)) {
+                resumeAutoplay("focus");
+            }
+        });
+        viewport.addEventListener("pointerdown", () => pauseAutoplay("pointer"));
+        viewport.addEventListener("pointerup", () => resumeAutoplay("pointer"));
+        viewport.addEventListener("pointercancel", () => resumeAutoplay("pointer"));
+        viewport.addEventListener("wheel", () => {
+            pauseAutoplay("manual");
+            scheduleManualResume();
+        }, { passive: true });
+        viewport.addEventListener("keydown", (event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+                return;
+            }
+            event.preventDefault();
+            const isRtl = window.getComputedStyle(viewport).direction === "rtl";
+            const direction = event.key === "ArrowRight"
+                ? (isRtl ? -1 : 1)
+                : (isRtl ? 1 : -1);
+            manuallySelectSlide(activeIndex + direction);
+        });
+        viewport.addEventListener("scroll", () => {
+            if (scrollFrameId !== null) {
+                window.cancelAnimationFrame(scrollFrameId);
+            }
+            scrollFrameId = window.requestAnimationFrame(() => {
+                scrollFrameId = null;
+                const isRtl = window.getComputedStyle(viewport).direction === "rtl";
+                const viewportRect = viewport.getBoundingClientRect();
+                const viewportStart = isRtl ? viewportRect.right : viewportRect.left;
+                let closestIndex = 0;
+                let closestDistance = Number.POSITIVE_INFINITY;
+                slides.forEach((slide, index) => {
+                    const slideRect = slide.getBoundingClientRect();
+                    const slideStart = isRtl ? slideRect.right : slideRect.left;
+                    const distance = Math.abs(slideStart - viewportStart);
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestIndex = index;
+                    }
+                });
+                setActiveSlide(closestIndex);
+            });
+        }, { passive: true });
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                pauseAutoplay("visibility");
+            } else {
+                resumeAutoplay("visibility");
+            }
+        });
+
+        setActiveSlide(0);
+        if (document.hidden) {
+            pauseReasons.add("visibility");
+        }
+        startAutoplay();
+    });
+
     // Service worker registration remains intentionally disabled. Public pages
     // must not establish a cache strategy that could include authenticated or
     // private medical content.

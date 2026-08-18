@@ -73,6 +73,34 @@ APPROVED_CLINIC_LOCATION = {
     "map_embed_url": "https://www.google.com/maps?q=31.970276,35.8934391&z=16&output=embed",
 }
 
+APPROVED_PUBLIC_CLINIC_GALLERY = (
+    {
+        "asset_path": "img/clinic/clinic-interior-1.png",
+        "alt_ar": "منطقة الاستقبال داخل عيادة الدكتور خالد بدران",
+        "alt_en": "Reception area inside Dr. Khaled Badran Clinic",
+    },
+    {
+        "asset_path": "img/clinic/clinic-interior-2.png",
+        "alt_ar": "غرفة الفحص وتجهيزاتها داخل العيادة",
+        "alt_en": "Examination room and equipment inside the clinic",
+    },
+    {
+        "asset_path": "img/clinic/clinic-interior-3.png",
+        "alt_ar": "مساحة الاستشارة داخل عيادة الدكتور خالد بدران",
+        "alt_en": "Consultation space inside Dr. Khaled Badran Clinic",
+    },
+    {
+        "asset_path": "img/clinic/clinic-interior-4.webp",
+        "alt_ar": "إطلالة واسعة على منطقة الاستقبال والعيادة",
+        "alt_en": "Wide view of the clinic reception and interior",
+    },
+    {
+        "asset_path": "img/clinic/clinic-interior-5.webp",
+        "alt_ar": "منطقة الانتظار داخل عيادة الدكتور خالد بدران",
+        "alt_en": "Waiting area inside Dr. Khaled Badran Clinic",
+    },
+)
+
 FALLBACK_VISIT_TYPES = [
     ("كشف جديد", "New consultation", 30),
     ("مراجعة", "Follow-up", 15),
@@ -532,6 +560,17 @@ def _clinic_context():
     }
 
 
+def _clinic_gallery(language):
+    language = _normalize_language(language)
+    return [
+        {
+            "asset_path": photo["asset_path"],
+            "alt": photo[f"alt_{language}"],
+        }
+        for photo in APPROVED_PUBLIC_CLINIC_GALLERY
+    ]
+
+
 def _doctor_context():
     doctor = _active_doctor()
     if not doctor:
@@ -722,17 +761,16 @@ def _render_public(
 
 def home(request, language=DEFAULT_LANGUAGE):
     language = _normalize_language(language)
-    services = _visit_types(language)
     return _render_public(
         request,
         "core/home.html",
         "home",
         language,
         {
-            "service_highlights": services[:4],
-            "service_groups": SERVICE_GROUPS[language][:3],
             "public_case_teasers": _public_case_media_items(language, limit=3),
             "case_labels": PUBLIC_CASE_LABELS[language],
+            "public_reviews": (),
+            "review_summary": None,
         },
         show_mobile_booking_cta=True,
     )
@@ -815,11 +853,13 @@ def public_case_media(request, public_id, language=DEFAULT_LANGUAGE):
 
 
 def contact(request, language=DEFAULT_LANGUAGE):
+    language = _normalize_language(language)
     return _render_public(
         request,
         "core/contact.html",
         "contact",
         language,
+        {"clinic_gallery": _clinic_gallery(language)},
         show_mobile_booking_cta=True,
     )
 

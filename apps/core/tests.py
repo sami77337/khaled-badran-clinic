@@ -1642,23 +1642,22 @@ class PublicUiFoundationTests(TestCase):
         self.assertNotContains(response, "Price:")
         self.assert_no_service_dictionary_leak(response)
 
-    def test_arabic_home_service_highlights_do_not_leak_dictionary_data(self):
+    def test_home_omits_visit_type_services_while_services_routes_remain_available(self):
         self.create_public_visit_type()
 
-        response = self.client.get(reverse("home"))
+        arabic_home = self.client.get(reverse("home"))
+        english_home = self.client.get(reverse("home_en"))
+        arabic_services = self.client.get(reverse("services"))
+        english_services = self.client.get(reverse("services_en"))
 
-        self.assertContains(response, "استشارة اختبار عامة")
-        self.assertContains(response, "30 دقيقة")
-        self.assert_no_service_dictionary_leak(response)
-
-    def test_english_home_service_highlights_do_not_leak_dictionary_data(self):
-        self.create_public_visit_type()
-
-        response = self.client.get(reverse("home_en"))
-
-        self.assertContains(response, "Synthetic public consultation")
-        self.assertContains(response, "30 minutes")
-        self.assert_no_service_dictionary_leak(response)
+        self.assertNotContains(arabic_home, "استشارة اختبار عامة")
+        self.assertNotContains(english_home, "Synthetic public consultation")
+        self.assertNotContains(arabic_home, 'class="section home-services"')
+        self.assertNotContains(english_home, 'class="section home-services"')
+        self.assertContains(arabic_services, "استشارة اختبار عامة")
+        self.assertContains(english_services, "Synthetic public consultation")
+        for response in [arabic_home, english_home, arabic_services, english_services]:
+            self.assert_no_service_dictionary_leak(response)
 
     def test_visible_visit_type_price_is_rendered_only_when_intentionally_enabled(self):
         self.create_public_visit_type(price=Decimal("25.00"), show_price=True)
@@ -1944,27 +1943,38 @@ class PublicUiFoundationTests(TestCase):
         self.assertIn('pauseAutoplay("pointer")', javascript)
         self.assertIn('card.classList.toggle("is-active", isActive)', javascript)
         self.assertIn(".case-card.is-active", css)
-        self.assertIn(".case-card {\n        transition: none;", css)
+        reduced_motion_css = css[css.index("@media (prefers-reduced-motion: reduce)") :]
+        self.assertIn(".case-card,", reduced_motion_css)
+        self.assertIn("transition: none;", reduced_motion_css)
 
     def test_home_sections_follow_locked_order_and_review_surface_is_empty(self):
         response = self.client.get(reverse("home"))
         html = response.content.decode()
+        css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(encoding="utf-8")
         ordered_markers = [
             '<section class="home-hero"',
             '<section class="section home-doctor"',
             '<section class="section home-cases"',
-            '<section class="section home-services"',
-            '<section id="reviews"',
+            'id="reviews"',
             '<section class="section home-contact"',
+            '<section class="section home-faq"',
             '<footer class="site-footer"',
         ]
 
         positions = [html.index(marker) for marker in ordered_markers]
         self.assertEqual(positions, sorted(positions))
-        self.assertIn('data-review-surface="empty" aria-hidden="true"></section>', html)
+        self.assertIn('data-review-surface="empty"', html)
+        self.assertIn('hidden aria-hidden="true"', html)
+        self.assertNotIn('data-review-card', html)
+        self.assertNotIn('data-review-summary', html)
+        self.assertNotIn('class="section home-services"', html)
         self.assertNotIn("Patient Stories", html)
         self.assertNotIn("قصص المرضى", html)
         self.assertNotIn("Testimonials", html)
+        self.assertNotIn("4.8", html)
+        self.assertNotIn("174", html)
+        self.assertIn(".home-hero-visual {\n    display: none;", css)
+        self.assertIn(".home-faq {\n    display: none;", css)
 
     def test_home_has_responsive_hooks_without_scale_workaround(self):
         response = self.client.get(reverse("home_en"))
@@ -1973,10 +1983,12 @@ class PublicUiFoundationTests(TestCase):
 
         self.assertIn('data-hero-carousel', html)
         self.assertIn('class="home-hero-visual"', html)
-        self.assertIn('class="section home-services"', html)
+        self.assertIn('class="section home-reviews"', html)
         self.assertIn('class="section home-faq"', html)
         self.assertIn('@media (min-width: 768px)', css)
-        self.assertIn('.home-services,\n    .home-faq {\n        display: block;', css)
+        self.assertIn('.home-faq {\n        display: block;', css)
+        self.assertIn('.home-reviews[hidden]', css)
+        self.assertNotIn('.home-services', css)
         self.assertNotIn('transform: scale(', css.casefold())
 
     def test_doctor_page_renders_backend_identity_and_approved_owner_profile(self):
@@ -2028,6 +2040,28 @@ class PublicUiFoundationTests(TestCase):
         for approved_value in approved_profile_copy:
             with self.subTest(value=approved_value):
                 self.assertContains(response, approved_value)
+
+    def test_doctor_awards_and_languages_are_inside_the_professional_composition(self):
+        response = self.client.get(reverse("doctor_en"))
+        html = response.content.decode()
+        professional_start = html.index('class="section doctor-details-section"')
+        clinical_start = html.index('class="section doctor-clinical-section"')
+        professional_html = html[professional_start:clinical_start]
+
+        ordered_headings = [
+            "Professional Experience",
+            "Education & Training",
+            "Boards / Certifications",
+            "Professional Memberships",
+            "Awards",
+            "Languages",
+        ]
+        heading_positions = [professional_html.index(heading) for heading in ordered_headings]
+        self.assertEqual(heading_positions, sorted(heading_positions))
+        self.assertIn('class="doctor-detail-card doctor-awards-card"', professional_html)
+        self.assertIn('class="doctor-detail-card doctor-languages-card"', professional_html)
+        self.assertNotIn("doctor-recognition-section", html)
+        self.assertNotIn("doctor-recognition-card", html)
 
     def test_doctor_professional_experience_and_education_preserve_all_owner_facts(self):
         arabic = self.client.get(reverse("doctor"))
@@ -2207,17 +2241,83 @@ class PublicUiFoundationTests(TestCase):
         self.assertNotIn("clinic-placeholder.svg", css)
         self.assertNotIn("calc(100vh", css)
 
-    def test_real_clinic_media_is_used_on_home_and_contact(self):
-        for route_name in ["home", "home_en", "contact", "contact_en"]:
+    def test_clinic_gallery_uses_only_approved_unique_public_asset_paths(self):
+        approved_assets = [
+            "img/clinic/clinic-interior-1.png",
+            "img/clinic/clinic-interior-2.png",
+            "img/clinic/clinic-interior-3.png",
+            "img/clinic/clinic-interior-4.webp",
+            "img/clinic/clinic-interior-5.webp",
+        ]
+        configured_assets = [
+            photo["asset_path"] for photo in core_views.APPROVED_PUBLIC_CLINIC_GALLERY
+        ]
+        contact_source = (settings.BASE_DIR / "templates" / "core" / "contact.html").read_text(
+            encoding="utf-8"
+        )
+        views_source = (settings.BASE_DIR / "apps" / "core" / "views.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertEqual(configured_assets, approved_assets)
+        self.assertEqual(len(configured_assets), 5)
+        self.assertEqual(len(set(configured_assets)), len(configured_assets))
+        for asset_path in approved_assets:
+            with self.subTest(asset=asset_path):
+                self.assertTrue((settings.BASE_DIR / "static" / asset_path).is_file())
+
+        for route_name in ["contact", "contact_en"]:
             html = self.client.get(reverse(route_name)).content.decode()
             with self.subTest(route=route_name):
-                for image_name in [
-                    "clinic-interior-1.png",
-                    "clinic-interior-2.png",
-                    "clinic-interior-3.png",
-                ]:
-                    self.assertIn(image_name, html)
+                for asset_path in approved_assets:
+                    self.assertIn(asset_path, html)
                 self.assertNotIn("clinic-placeholder.svg", html)
+                self.assertNotIn("unnamed (2).webp", html)
+                self.assertNotIn("unnamed (5).webp", html)
+
+        for route_name in ["home", "home_en"]:
+            html = self.client.get(reverse(route_name)).content.decode()
+            with self.subTest(route=route_name):
+                for asset_path in approved_assets[:3]:
+                    self.assertIn(asset_path, html)
+                self.assertNotIn("clinic-placeholder.svg", html)
+
+        for excluded_source_name in ["unnamed (2).webp", "unnamed (5).webp"]:
+            with self.subTest(excluded=excluded_source_name):
+                self.assertNotIn(excluded_source_name, contact_source)
+                self.assertNotIn(excluded_source_name, views_source)
+
+    def test_clinic_gallery_carousel_contract_covers_motion_swipe_pause_and_direction(self):
+        response = self.client.get(reverse("contact_en"))
+        html = response.content.decode()
+        javascript = (settings.BASE_DIR / "static" / "js" / "site.js").read_text(
+            encoding="utf-8"
+        )
+        css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("data-clinic-gallery", html)
+        self.assertEqual(html.count("data-gallery-slide"), 5)
+        self.assertEqual(html.count("data-gallery-dot="), 5)
+        self.assertIn("data-gallery-previous", html)
+        self.assertIn("data-gallery-next", html)
+        self.assertIn('document.querySelectorAll("[data-clinic-gallery]")', javascript)
+        self.assertIn("!reducedMotion && pauseReasons.size === 0 && slides.length > 1", javascript)
+        self.assertIn("controls.hidden = slides.length <= 1", javascript)
+        self.assertIn('window.setInterval(() => scrollToSlide(activeIndex + 1), 6000)', javascript)
+        self.assertIn('pauseAutoplay("hover")', javascript)
+        self.assertIn('pauseAutoplay("focus")', javascript)
+        self.assertIn('pauseAutoplay("manual")', javascript)
+        self.assertIn('pauseAutoplay("pointer")', javascript)
+        self.assertIn('const effectiveBehavior = reducedMotion ? "auto" : behavior;', javascript)
+        self.assertIn("window.getComputedStyle(viewport).direction", javascript)
+        self.assertIn('inline: "start"', javascript)
+        self.assertIn('event.key !== "ArrowLeft" && event.key !== "ArrowRight"', javascript)
+        self.assertIn("overflow-x: auto", css)
+        self.assertIn("scroll-snap-type: inline mandatory", css)
+        self.assertIn("touch-action: pan-x pan-y", css)
+        self.assertIn(".clinic-gallery-viewport {\n        scroll-behavior: auto;", css)
 
     def test_public_footer_is_concise_complete_and_uses_one_emergency_sentence(self):
         response = self.client.get(reverse("home_en"))

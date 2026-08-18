@@ -68,6 +68,14 @@
                     {% endfor %}
                 </div>
             </article>
+            <article class="doctor-detail-card doctor-awards-card">
+                <h3>{% if is_arabic %}الجوائز{% else %}Awards{% endif %}</h3>
+                <ul>{% for item in doctor_profile.awards %}<li>{{ item }}</li>{% endfor %}</ul>
+            </article>
+            <article class="doctor-detail-card doctor-languages-card">
+                <h3>{% if is_arabic %}اللغات{% else %}Languages{% endif %}</h3>
+                <div class="language-list">{% for item in doctor_profile.languages %}<span>{{ item }}</span>{% endfor %}</div>
+            </article>
         </div>
     </div>
 </section>
@@ -94,21 +102,6 @@
                 </article>
             {% endfor %}
         </div>
-    </div>
-</section>
-
-<section class="section doctor-recognition-section" aria-labelledby="doctor-recognition-title">
-    <div class="container doctor-recognition-grid">
-        <article class="doctor-recognition-card">
-            <p class="eyebrow">{% if is_arabic %}التقدير المهني{% else %}Recognition{% endif %}</p>
-            <h2 id="doctor-recognition-title">{% if is_arabic %}الجوائز{% else %}Awards{% endif %}</h2>
-            <ul>{% for item in doctor_profile.awards %}<li>{{ item }}</li>{% endfor %}</ul>
-        </article>
-        <article class="doctor-recognition-card">
-            <p class="eyebrow">{% if is_arabic %}التواصل{% else %}Communication{% endif %}</p>
-            <h2>{% if is_arabic %}اللغات{% else %}Languages{% endif %}</h2>
-            <div class="language-list">{% for item in doctor_profile.languages %}<span>{{ item }}</span>{% endfor %}</div>
-        </article>
     </div>
 </section>
 

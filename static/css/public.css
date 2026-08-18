@@ -670,14 +670,74 @@ summary:focus-visible {
     display: none;
 }
 
-.home-services {
-    display: none;
+.home-reviews {
     border-block: 1px solid var(--color-line);
-    background: rgba(245, 239, 233, 0.72);
+    background:
+        radial-gradient(circle at 12% 18%, rgba(193, 154, 107, 0.12), transparent 22rem),
+        var(--color-burgundy);
 }
 
-.home-reviews-hook {
+.home-reviews[hidden] {
     display: none;
+}
+
+.home-reviews-panel {
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.home-reviews-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: clamp(1.75rem, 3vw, 2.75rem);
+}
+
+.home-reviews-heading h2 {
+    color: var(--color-white);
+}
+
+.home-reviews-heading .eyebrow {
+    color: var(--color-beige);
+}
+
+.home-review-summary {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+    padding: 0.7rem 1rem;
+}
+
+.home-review-summary strong {
+    color: var(--color-white);
+    font-size: 1.45rem;
+}
+
+.home-review-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.home-review-card {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: var(--radius-card);
+    background: rgba(255, 255, 255, 0.08);
+    padding: clamp(1.4rem, 3vw, 2rem);
+}
+
+.home-review-card blockquote {
+    margin: 0;
+    color: var(--color-white);
+    font-size: 1.05rem;
+}
+
+.home-review-card p {
+    margin: 1rem 0 0;
+    color: var(--color-beige);
+    font-weight: 600;
 }
 
 .home-faq {
@@ -835,8 +895,7 @@ summary:focus-visible {
 
 .service-card li::marker,
 .doctor-detail-card li::marker,
-.doctor-condition-group li::marker,
-.doctor-recognition-card li::marker {
+.doctor-condition-group li::marker {
     color: var(--color-wood);
 }
 
@@ -968,15 +1027,13 @@ summary:focus-visible {
 }
 
 .doctor-details-grid,
-.doctor-condition-grid,
-.doctor-recognition-grid {
+.doctor-condition-grid {
     display: grid;
     gap: 1rem;
 }
 
 .doctor-detail-card,
 .doctor-condition-group,
-.doctor-recognition-card,
 .doctor-specialties {
     border: 1px solid var(--color-line);
     border-radius: 1.25rem;
@@ -991,8 +1048,7 @@ summary:focus-visible {
 }
 
 .doctor-detail-card ul,
-.doctor-condition-group ul,
-.doctor-recognition-card ul {
+.doctor-condition-group ul {
     display: grid;
     gap: 0.65rem;
     margin: 0;
@@ -1041,15 +1097,6 @@ summary:focus-visible {
 .doctor-condition-group h4 {
     margin: 0 0 0.75rem;
     font-size: 1.02rem;
-}
-
-.doctor-recognition-section {
-    border-top: 1px solid var(--color-line);
-    background: rgba(245, 239, 233, 0.72);
-}
-
-.doctor-recognition-card h2 {
-    margin-bottom: 1rem;
 }
 
 .doctor-final-cta {
@@ -1175,20 +1222,104 @@ summary:focus-visible {
     background: rgba(245, 239, 233, 0.7);
 }
 
-.clinic-photo-grid {
-    display: grid;
-    gap: 1rem;
+.clinic-gallery {
+    width: min(100%, 1080px);
+    margin-inline: auto;
 }
 
-.clinic-photo-grid img {
+.clinic-gallery-viewport {
+    min-width: 0;
+    overflow-x: auto;
+    border: 4px solid var(--color-white);
+    border-radius: clamp(1.25rem, 3vw, 2rem);
+    background: var(--color-white);
+    box-shadow: var(--shadow-soft);
+    scroll-behavior: smooth;
+    scroll-snap-type: inline mandatory;
+    scrollbar-width: none;
+    overscroll-behavior-inline: contain;
+    touch-action: pan-x pan-y;
+}
+
+.clinic-gallery-viewport::-webkit-scrollbar {
+    display: none;
+}
+
+.clinic-gallery-track {
+    display: flex;
+}
+
+.clinic-gallery-slide {
+    flex: 0 0 100%;
+    margin: 0;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+}
+
+.clinic-gallery-slide img {
+    display: block;
     width: 100%;
     aspect-ratio: 4 / 3;
-    overflow: hidden;
-    border: 3px solid var(--color-white);
-    border-radius: 1.25rem;
+    background: var(--color-soft);
+    object-fit: contain;
+    user-select: none;
+}
+
+.clinic-gallery-controls {
+    display: grid;
+    grid-template-columns: 44px auto minmax(0, 1fr) 44px;
+    align-items: center;
+    gap: clamp(0.6rem, 2vw, 1rem);
+    margin-top: 1.25rem;
+}
+
+.clinic-gallery-arrow {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border: 1px solid rgba(139, 30, 40, 0.2);
+    border-radius: 50%;
     background: var(--color-white);
+    color: var(--color-burgundy);
     box-shadow: var(--shadow-card);
-    object-fit: cover;
+    font: inherit;
+    font-size: 1.65rem;
+    line-height: 1;
+}
+
+.clinic-gallery-position {
+    display: flex;
+    min-width: 3.5rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    color: var(--color-wood);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.clinic-gallery-dots {
+    display: flex;
+    min-width: 0;
+    justify-content: center;
+    gap: 0.45rem;
+}
+
+.clinic-gallery-dots button {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(139, 90, 43, 0.3);
+    padding: 0;
+    transition: width 200ms ease, background-color 200ms ease;
+}
+
+.clinic-gallery-dots button.is-active {
+    width: 26px;
+    background: var(--color-red);
 }
 
 .public-case-grid {
@@ -1385,13 +1516,12 @@ summary:focus-visible {
 
 @media (min-width: 640px) {
     .card-grid,
-    .doctor-condition-grid,
-    .clinic-photo-grid {
+    .doctor-condition-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .doctor-details-grid,
-    .doctor-recognition-grid {
+    .home-review-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -1489,7 +1619,6 @@ summary:focus-visible {
         background: var(--color-white);
     }
 
-    .home-services,
     .home-faq {
         display: block;
     }
@@ -1552,9 +1681,6 @@ summary:focus-visible {
         grid-column: 1 / -1;
     }
 
-    .clinic-photo-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
 }
 
 @media (min-width: 1024px) {
@@ -1575,6 +1701,10 @@ summary:focus-visible {
 
     .card-grid,
     .doctor-condition-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .home-review-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
@@ -1709,7 +1839,12 @@ summary:focus-visible {
 @media (prefers-reduced-motion: reduce) {
     .hero-slide,
     .hero-carousel-dots button,
-    .case-card {
+    .case-card,
+    .clinic-gallery-dots button {
         transition: none;
+    }
+
+    .clinic-gallery-viewport {
+        scroll-behavior: auto;
     }
 }

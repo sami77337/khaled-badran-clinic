@@ -97,43 +97,37 @@
     </div>
 </section>
 
-<section class="section home-services" id="services" aria-labelledby="home-services-title">
-    <div class="container">
-        <div class="section-heading section-heading-row">
-            <div>
-                <p class="eyebrow">{% if is_arabic %}رعاية متخصصة بتقييم طبي{% else %}Specialized Care Guided by Assessment{% endif %}</p>
-                <h2 id="home-services-title">{% if is_arabic %}خدمات العيادة{% else %}Clinic Services{% endif %}</h2>
+{# Phase 2 will supply owner-approved review rows and a dynamic summary. #}
+<section
+    id="reviews"
+    class="section home-reviews"
+    data-review-surface="{% if public_reviews %}populated{% else %}empty{% endif %}"
+    {% if not public_reviews %}hidden aria-hidden="true"{% endif %}
+    aria-labelledby="home-reviews-title"
+>
+    <div class="container home-reviews-panel">
+        {% if public_reviews %}
+            <div class="home-reviews-heading">
+                <div>
+                    <p class="eyebrow">{% if is_arabic %}آراء موثقة{% else %}Verified Feedback{% endif %}</p>
+                    <h2 id="home-reviews-title">{% if is_arabic %}آراء المراجعين{% else %}Patient Reviews{% endif %}</h2>
+                </div>
+                {% if review_summary %}
+                    <div class="home-review-summary" data-review-summary>
+                        {% if review_summary.average_rating %}<strong>{{ review_summary.average_rating }}</strong>{% endif %}
+                        {% if review_summary.review_count %}<span>{{ review_summary.review_count }}</span>{% endif %}
+                    </div>
+                {% endif %}
             </div>
-            <a class="btn btn-secondary" href="{{ services_url }}">{% if is_arabic %}عرض كل الخدمات{% else %}View All Services{% endif %}</a>
-        </div>
-        <div class="card-grid home-service-grid">
-            {% for visit_type in service_highlights %}
-                {% include "partials/service_card.html" with visit_type=visit_type %}
-            {% endfor %}
-        </div>
-    </div>
-</section>
-
-{# BATCH-17-05 will populate this hook from an approved reviews backend. #}
-<section id="reviews" class="home-reviews-hook" data-review-surface="empty" aria-hidden="true"></section>
-
-<section class="section home-faq" aria-labelledby="home-faq-title">
-    <div class="container faq-grid">
-        <div>
-            <p class="eyebrow">{% if is_arabic %}معلومات مهمة{% else %}Useful Information{% endif %}</p>
-            <h2 id="home-faq-title">{% if is_arabic %}أسئلة شائعة{% else %}Frequently Asked Questions{% endif %}</h2>
-            <p>{% if is_arabic %}إجابات مختصرة حول الحجز ونطاق الموقع.{% else %}Short answers about booking and the website scope.{% endif %}</p>
-        </div>
-        <div class="faq-list">
-            <details>
-                <summary>{% if is_arabic %}هل يعالج الدكتور الكبار والأطفال؟{% else %}Does the doctor see adults and children?{% endif %}</summary>
-                <p>{% if is_arabic %}نعم، تشمل الرعاية المعتمدة أمراض وجراحة الأنف والأذن والحنجرة للكبار والأطفال.{% else %}Yes. The approved profile covers adult and pediatric ear, nose and throat medicine and surgery.{% endif %}</p>
-            </details>
-            <details>
-                <summary>{% if is_arabic %}هل أحتاج إلى حساب لحجز موعد؟{% else %}Do I need an account to book?{% endif %}</summary>
-                <p>{% if is_arabic %}لا. يمكن حجز الموعد من الموقع دون تسجيل الدخول.{% else %}No. An appointment can be booked from the website without signing in.{% endif %}</p>
-            </details>
-        </div>
+            <div class="home-review-grid" data-review-list>
+                {% for review in public_reviews %}
+                    <article class="home-review-card" data-review-card>
+                        <blockquote>{{ review.body }}</blockquote>
+                        {% if review.reviewer_name %}<p>{{ review.reviewer_name }}</p>{% endif %}
+                    </article>
+                {% endfor %}
+            </div>
+        {% endif %}
     </div>
 </section>
 
@@ -163,6 +157,26 @@
         <div class="home-map-preview">
             <iframe src="{{ clinic.map_embed_url }}" title="{% if is_arabic %}خريطة موقع العيادة{% else %}Clinic location map{% endif %}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" tabindex="-1"></iframe>
             <a href="{{ clinic.map_url }}" target="_blank" rel="noopener noreferrer" aria-label="{% if is_arabic %}فتح موقع العيادة على خرائط Google{% else %}Open the clinic location in Google Maps{% endif %}">{% if is_arabic %}فتح الموقع على Google Maps{% else %}Open in Google Maps{% endif %}</a>
+        </div>
+    </div>
+</section>
+
+<section class="section home-faq" aria-labelledby="home-faq-title">
+    <div class="container faq-grid">
+        <div>
+            <p class="eyebrow">{% if is_arabic %}معلومات مهمة{% else %}Useful Information{% endif %}</p>
+            <h2 id="home-faq-title">{% if is_arabic %}أسئلة شائعة{% else %}Frequently Asked Questions{% endif %}</h2>
+            <p>{% if is_arabic %}إجابات مختصرة حول الحجز ونطاق الموقع.{% else %}Short answers about booking and the website scope.{% endif %}</p>
+        </div>
+        <div class="faq-list">
+            <details>
+                <summary>{% if is_arabic %}هل يعالج الدكتور الكبار والأطفال؟{% else %}Does the doctor see adults and children?{% endif %}</summary>
+                <p>{% if is_arabic %}نعم، تشمل الرعاية المعتمدة أمراض وجراحة الأنف والأذن والحنجرة للكبار والأطفال.{% else %}Yes. The approved profile covers adult and pediatric ear, nose and throat medicine and surgery.{% endif %}</p>
+            </details>
+            <details>
+                <summary>{% if is_arabic %}هل أحتاج إلى حساب لحجز موعد؟{% else %}Do I need an account to book?{% endif %}</summary>
+                <p>{% if is_arabic %}لا. يمكن حجز الموعد من الموقع دون تسجيل الدخول.{% else %}No. An appointment can be booked from the website without signing in.{% endif %}</p>
+            </details>
         </div>
     </div>
 </section>
