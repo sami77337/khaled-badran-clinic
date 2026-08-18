@@ -62,7 +62,11 @@
             </article>
             <article class="doctor-detail-card">
                 <h3>{% if is_arabic %}العضويات المهنية{% else %}Professional Memberships{% endif %}</h3>
-                <div class="credential-list">{% for item in doctor_profile.memberships %}<span dir="ltr">{{ item }}</span>{% endfor %}</div>
+                <div class="credential-list">
+                    {% for item in doctor_profile.memberships %}
+                        <span>{% if item.label %}{{ item.label }} — {% endif %}<bdi dir="ltr">{{ item.acronym }}</bdi></span>
+                    {% endfor %}
+                </div>
             </article>
         </div>
     </div>
@@ -84,10 +88,9 @@
             <h3>{% if is_arabic %}الحالات التي يعالجها الدكتور{% else %}Conditions Treated{% endif %}</h3>
         </div>
         <div class="doctor-condition-grid">
-            {% for group in doctor_profile.conditions %}
+            {% for condition in doctor_profile.conditions %}
                 <article class="doctor-condition-group">
-                    <h4>{{ group.title }}</h4>
-                    <ul>{% for item in group.items %}<li>{{ item }}</li>{% endfor %}</ul>
+                    <h4>{{ condition }}</h4>
                 </article>
             {% endfor %}
         </div>

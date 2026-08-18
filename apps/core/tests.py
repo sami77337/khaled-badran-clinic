@@ -20,6 +20,7 @@ from django.utils import timezone
 
 from apps.booking.models import Appointment
 from apps.clinic.models import ClinicProfile, Doctor, VisitType
+from apps.core import views as core_views
 from apps.core.checks import production_readiness_checks
 from apps.patients.models import Patient
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
@@ -1885,25 +1886,197 @@ class PublicUiFoundationTests(TestCase):
             "Conditions Treated",
             "Awards",
             "Languages",
-            "European ENT Board",
-            "Jordanian ENT Board",
+            "European Board Certificate — ENT (EBC)",
+            "Jordanian Board Certificate — ENT (JBC)",
             "FRCSI",
-            "MRCSI",
             "GMC",
+            "BAO-HNS",
             "MDU",
+            "MRCSI",
             "Higher Specialization — University of Jordan",
             "Bachelor of Medicine and Surgery — University of Jordan",
             "University of Central Lancashire, United Kingdom",
             "Monklands Hospital, United Kingdom",
-            "Current private practice in Amman",
-            "2015 — King Hussein Cancer Center award",
-            "2011 — Presidential Candidate Award",
+            "Four years of ENT consultant experience in a UK hospital.",
+            "Specialist registrar experience across multiple UK hospitals.",
+            "King Hussein Cancer Center Award — 2015",
+            "Presidential Candidate Award — 2011",
             "Arabic",
             "English",
         ]
         for approved_value in approved_profile_copy:
             with self.subTest(value=approved_value):
                 self.assertContains(response, approved_value)
+
+    def test_doctor_professional_experience_and_education_preserve_all_owner_facts(self):
+        arabic = self.client.get(reverse("doctor"))
+        english = self.client.get(reverse("doctor_en"))
+
+        expected_experience_ar = [
+            "الدكتور خالد يعمل حالياً في عيادته الخاصة في عمّان.",
+            "زمالة/تدريب في الأنف والأذن والحنجرة في مستشفى مونكلاندز، المملكة المتحدة.",
+            "عمل لمدة أربعة أعوام كمستشار في اختصاص الأنف والأذن والحنجرة في مستشفى الوادي الرابع الملكي",
+            "عمل كطبيب اختصاصي مسجل في عدد كبير من المستشفيات البريطانية.",
+        ]
+        expected_experience_en = [
+            "Dr. Khaled currently works in his private clinic in Amman.",
+            "ENT fellowship/training at Monklands Hospital, United Kingdom.",
+            "Four years of ENT consultant experience in a UK hospital.",
+            "Specialist registrar experience across multiple UK hospitals.",
+        ]
+        expected_education_ar = [
+            "بكالوريوس الطب والجراحة — الجامعة الأردنية، الأردن",
+            "ماجستير في العلوم الصحية — جامعة لانكشاير المركزية، المملكة المتحدة",
+            "زمالة — أنف وأذن وحنجرة — مستشفى مونكلاندز، المملكة المتحدة",
+            "تخصص — أنف وأذن وحنجرة — مستشفى الجامعة الأردنية، الأردن",
+            "الاختصاص العالي — الجامعة الأردنية",
+        ]
+        expected_education_en = [
+            "Bachelor of Medicine and Surgery — University of Jordan, Jordan",
+            "Master’s in Health Sciences — University of Central Lancashire, United Kingdom",
+            "ENT Fellowship — Monklands Hospital, United Kingdom",
+            "ENT Specialization — University of Jordan Hospital, Jordan",
+            "Higher Specialization — University of Jordan",
+        ]
+
+        self.assertEqual(arabic.context["doctor_profile"]["experience"], expected_experience_ar)
+        self.assertEqual(english.context["doctor_profile"]["experience"], expected_experience_en)
+        self.assertEqual(arabic.context["doctor_profile"]["education"], expected_education_ar)
+        self.assertEqual(english.context["doctor_profile"]["education"], expected_education_en)
+        for response, expected_items in [
+            (arabic, expected_experience_ar + expected_education_ar),
+            (english, expected_experience_en + expected_education_en),
+        ]:
+            for item in expected_items:
+                with self.subTest(language=response.context["language"], item=item):
+                    self.assertContains(response, item)
+
+    def test_doctor_boards_memberships_and_six_specialties_match_owner_content(self):
+        arabic = self.client.get(reverse("doctor"))
+        english = self.client.get(reverse("doctor_en"))
+
+        expected_boards_ar = [
+            "شهادة البورد الأوروبي — أنف وأذن وحنجرة (EBC)",
+            "شهادة البورد الأردني — أنف وأذن وحنجرة (JBC)",
+        ]
+        expected_boards_en = [
+            "European Board Certificate — ENT (EBC)",
+            "Jordanian Board Certificate — ENT (JBC)",
+        ]
+        expected_membership_labels_ar = [
+            "الكلية الملكية للجراحين - أيرلندا",
+            "المجلس الطبي العام البريطاني",
+            "الأكاديمية الأمريكية لجراحة الأنف والأذن والحنجرة والرأس والرقبة",
+            "اتحاد الدفاع الطبي",
+            "عضو الكلية الملكية للجراحين - أيرلندا",
+        ]
+        expected_acronyms = ["FRCSI", "GMC", "BAO-HNS", "MDU", "MRCSI"]
+        expected_specialties_ar = [
+            "أنف وأذن وحنجرة",
+            "أنف وأذن وحنجرة كبار",
+            "أنف وأذن وحنجرة أطفال",
+            "جراحة أنف وأذن وحنجرة كبار",
+            "جراحة أنف وأذن وحنجرة أطفال",
+            "جراحة تجميل الأنف",
+        ]
+        expected_specialties_en = [
+            "Ear, Nose and Throat",
+            "Adult ENT",
+            "Pediatric ENT",
+            "Adult ENT Surgery",
+            "Pediatric ENT Surgery",
+            "Rhinoplasty",
+        ]
+
+        self.assertEqual(arabic.context["doctor_profile"]["boards"], expected_boards_ar)
+        self.assertEqual(english.context["doctor_profile"]["boards"], expected_boards_en)
+        self.assertEqual(len(arabic.context["doctor_profile"]["memberships"]), 5)
+        self.assertEqual(len(english.context["doctor_profile"]["memberships"]), 5)
+        self.assertEqual(
+            [item["label"] for item in arabic.context["doctor_profile"]["memberships"]],
+            expected_membership_labels_ar,
+        )
+        self.assertEqual(
+            [item["acronym"] for item in arabic.context["doctor_profile"]["memberships"]],
+            expected_acronyms,
+        )
+        self.assertEqual(
+            [item["acronym"] for item in english.context["doctor_profile"]["memberships"]],
+            expected_acronyms,
+        )
+        self.assertEqual(arabic.context["doctor_profile"]["specialties"], expected_specialties_ar)
+        self.assertEqual(english.context["doctor_profile"]["specialties"], expected_specialties_en)
+
+        for response, expected_items in [
+            (arabic, expected_boards_ar + expected_membership_labels_ar + expected_acronyms + expected_specialties_ar),
+            (english, expected_boards_en + expected_acronyms + expected_specialties_en),
+        ]:
+            for item in expected_items:
+                with self.subTest(language=response.context["language"], item=item):
+                    self.assertContains(response, item)
+
+    def test_doctor_conditions_use_dedicated_owner_source_not_service_groups(self):
+        expected_ar = [
+            "التهاب الجيوب الأنفية المزمن",
+            "الرشح",
+            "طنين الأذن",
+            "ألم الأذن",
+            "الحالات الطارئة لأمراض الأنف والأذن والحنجرة",
+            "الشخير",
+            "التهاب الأذن",
+            "التهاب الحلق المزمن",
+            "التهاب الحنجرة",
+            "التهاب اللوزتين عند الكبار",
+            "لحمية الأنف (سليلة أنفية)",
+        ]
+        expected_en = [
+            "Chronic sinusitis",
+            "Common cold",
+            "Tinnitus",
+            "Ear pain",
+            "ENT emergencies",
+            "Snoring",
+            "Ear infection",
+            "Chronic sore throat",
+            "Laryngitis",
+            "Adult tonsillitis",
+            "Nasal polyps (nasal polyp)",
+        ]
+        arabic = self.client.get(reverse("doctor"))
+        english = self.client.get(reverse("doctor_en"))
+
+        self.assertEqual(core_views.DOCTOR_CONDITIONS["ar"], expected_ar)
+        self.assertEqual(core_views.DOCTOR_CONDITIONS["en"], expected_en)
+        self.assertEqual(arabic.context["doctor_profile"]["conditions"], expected_ar)
+        self.assertEqual(english.context["doctor_profile"]["conditions"], expected_en)
+        self.assertNotEqual(arabic.context["doctor_profile"]["conditions"], core_views.SERVICE_GROUPS["ar"])
+        self.assertNotEqual(english.context["doctor_profile"]["conditions"], core_views.SERVICE_GROUPS["en"])
+
+        views_source = (settings.BASE_DIR / "apps" / "core" / "views.py").read_text(encoding="utf-8")
+        self.assertIn('"conditions": DOCTOR_CONDITIONS[language]', views_source)
+        self.assertNotIn('"conditions": SERVICE_GROUPS[language]', views_source)
+        for response, expected_items in [(arabic, expected_ar), (english, expected_en)]:
+            for item in expected_items:
+                with self.subTest(language=response.context["language"], item=item):
+                    self.assertContains(response, item)
+
+    def test_doctor_awards_and_languages_use_approved_bilingual_content(self):
+        arabic = self.client.get(reverse("doctor"))
+        english = self.client.get(reverse("doctor_en"))
+
+        self.assertEqual(
+            arabic.context["doctor_profile"]["awards"],
+            ["جائزة مركز الحسين للسرطان — 2015", "جائزة المرشح الرئاسي — 2011"],
+        )
+        self.assertEqual(
+            english.context["doctor_profile"]["awards"],
+            ["King Hussein Cancer Center Award — 2015", "Presidential Candidate Award — 2011"],
+        )
+        self.assertEqual(arabic.context["doctor_profile"]["languages"], ["العربية", "الإنجليزية"])
+        self.assertEqual(english.context["doctor_profile"]["languages"], ["Arabic", "English"])
+        self.assertContains(arabic, "جائزة المرشح الرئاسي — 2011")
+        self.assertNotContains(arabic, "Presidential Candidate Award")
+        self.assertContains(english, "Presidential Candidate Award — 2011")
 
     def test_public_backgrounds_share_geometry_and_exclude_placeholder_cross_motif(self):
         css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(encoding="utf-8")
