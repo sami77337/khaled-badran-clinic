@@ -126,9 +126,19 @@
         let activeIndex = 0;
         let timerId = null;
         let paused = false;
+        const pauseReasons = new Set();
 
         const setActiveDot = (index) => {
             activeIndex = Math.max(0, Math.min(index, cards.length - 1));
+            cards.forEach((card, cardIndex) => {
+                const isActive = cardIndex === activeIndex;
+                card.classList.toggle("is-active", isActive);
+                if (isActive) {
+                    card.setAttribute("aria-current", "true");
+                } else {
+                    card.removeAttribute("aria-current");
+                }
+            });
             dots.forEach((dot, dotIndex) => {
                 const isActive = dotIndex === activeIndex;
                 dot.classList.toggle("is-active", isActive);
@@ -142,11 +152,14 @@
             }
             const nextIndex = (index + cards.length) % cards.length;
             const effectiveBehavior = reducedMotion ? "auto" : behavior;
-            cards[nextIndex].scrollIntoView({
-                behavior: effectiveBehavior,
-                block: "nearest",
-                inline: "start",
-            });
+            const hasScrollableRail = caseCarousel.scrollWidth > caseCarousel.clientWidth + 1;
+            if (hasScrollableRail) {
+                cards[nextIndex].scrollIntoView({
+                    behavior: effectiveBehavior,
+                    block: "nearest",
+                    inline: "start",
+                });
+            }
             setActiveDot(nextIndex);
         };
 
@@ -159,21 +172,67 @@
 
         const startAutoplay = () => {
             stopAutoplay();
-            if (!reducedMotion && !paused && window.innerWidth < 768 && cards.length > 1) {
+            if (!reducedMotion && !paused && cards.length > 1) {
                 timerId = window.setInterval(() => scrollToCard(activeIndex + 1), 5500);
             }
         };
 
-        dots.forEach((dot, index) => {
-            dot.addEventListener("click", () => {
-                paused = true;
-                stopAutoplay();
-                scrollToCard(index);
-            });
-        });
-        caseCarousel.addEventListener("pointerdown", () => {
+        const pauseAutoplay = (reason) => {
+            pauseReasons.add(reason);
             paused = true;
             stopAutoplay();
+        };
+
+        const resumeAutoplay = (reason) => {
+            pauseReasons.delete(reason);
+            paused = pauseReasons.size > 0;
+            startAutoplay();
+        };
+
+        const focusRemainsInCaseControls = (nextTarget) => (
+            nextTarget instanceof Node
+            && (caseCarousel.contains(nextTarget) || caseDotsContainer.contains(nextTarget))
+        );
+
+        dots.forEach((dot, index) => {
+            dot.addEventListener("click", () => {
+                stopAutoplay();
+                scrollToCard(index);
+                startAutoplay();
+            });
+        });
+
+        cards.forEach((card, index) => {
+            card.addEventListener("pointerenter", () => setActiveDot(index));
+            card.addEventListener("focusin", () => setActiveDot(index));
+        });
+
+        caseCarousel.addEventListener("pointerenter", (event) => {
+            if (event.pointerType !== "touch") {
+                pauseAutoplay("hover");
+            }
+        });
+        caseCarousel.addEventListener("pointerleave", () => resumeAutoplay("hover"));
+        caseCarousel.addEventListener("pointerdown", () => pauseAutoplay("pointer"));
+        caseCarousel.addEventListener("pointerup", () => resumeAutoplay("pointer"));
+        caseCarousel.addEventListener("pointercancel", () => resumeAutoplay("pointer"));
+        caseCarousel.addEventListener("focusin", () => pauseAutoplay("focus"));
+        caseCarousel.addEventListener("focusout", (event) => {
+            if (!focusRemainsInCaseControls(event.relatedTarget)) {
+                resumeAutoplay("focus");
+            }
+        });
+        caseDotsContainer.addEventListener("pointerenter", (event) => {
+            if (event.pointerType !== "touch") {
+                pauseAutoplay("hover");
+            }
+        });
+        caseDotsContainer.addEventListener("pointerleave", () => resumeAutoplay("hover"));
+        caseDotsContainer.addEventListener("focusin", () => pauseAutoplay("focus"));
+        caseDotsContainer.addEventListener("focusout", (event) => {
+            if (!focusRemainsInCaseControls(event.relatedTarget)) {
+                resumeAutoplay("focus");
+            }
         });
         caseCarousel.addEventListener("scroll", () => {
             const isRtl = window.getComputedStyle(caseCarousel).direction === "rtl";
@@ -193,6 +252,7 @@
             setActiveDot(closestIndex);
         }, { passive: true });
         window.addEventListener("resize", startAutoplay, { passive: true });
+        setActiveDot(0);
         startAutoplay();
     }
 

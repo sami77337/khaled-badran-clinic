@@ -89,53 +89,53 @@ SERVICE_GROUPS = {
     "ar": [
         {
             "title": "أنف وأذن وحنجرة للبالغين",
-            "items": ["التقييم السريري", "التهابات الأذن والأنف والحنجرة", "متابعة الحالات المزمنة"],
+            "bullet_items": ["التقييم السريري", "التهابات الأذن والأنف والحنجرة", "متابعة الحالات المزمنة"],
         },
         {
             "title": "أنف وأذن وحنجرة للأطفال",
-            "items": ["التهابات الأذن المتكررة", "مشاكل اللوز واللحمية", "صعوبات التنفس الأنفي"],
+            "bullet_items": ["التهابات الأذن المتكررة", "مشاكل اللوز واللحمية", "صعوبات التنفس الأنفي"],
         },
         {
             "title": "الأنف والجيوب الأنفية",
-            "items": ["انسداد الأنف", "التهاب الجيوب", "الحساسية الأنفية"],
+            "bullet_items": ["انسداد الأنف", "التهاب الجيوب", "الحساسية الأنفية"],
         },
         {
             "title": "الأذن والسمع والتوازن",
-            "items": ["ألم الأذن", "ضعف السمع", "الدوخة ومشاكل التوازن"],
+            "bullet_items": ["ألم الأذن", "ضعف السمع", "الدوخة ومشاكل التوازن"],
         },
         {
             "title": "الحنجرة والصوت",
-            "items": ["بحة الصوت", "آلام الحلق", "مشاكل البلع الأولية"],
+            "bullet_items": ["بحة الصوت", "آلام الحلق", "مشاكل البلع الأولية"],
         },
         {
             "title": "إجراءات عيادية",
-            "items": ["إجراءات بسيطة داخل العيادة", "تفاصيل الإجراءات تحدد بعد التقييم الطبي"],
+            "bullet_items": ["إجراءات بسيطة داخل العيادة", "تفاصيل الإجراءات تحدد بعد التقييم الطبي"],
         },
     ],
     "en": [
         {
             "title": "Adult ENT",
-            "items": ["Clinical assessment", "Ear, nose, and throat infections", "Ongoing ENT follow-up"],
+            "bullet_items": ["Clinical assessment", "Ear, nose, and throat infections", "Ongoing ENT follow-up"],
         },
         {
             "title": "Pediatric ENT",
-            "items": ["Recurrent ear infections", "Tonsil and adenoid concerns", "Nasal breathing concerns"],
+            "bullet_items": ["Recurrent ear infections", "Tonsil and adenoid concerns", "Nasal breathing concerns"],
         },
         {
             "title": "Nose and Sinus",
-            "items": ["Nasal obstruction", "Sinus concerns", "Allergic rhinitis"],
+            "bullet_items": ["Nasal obstruction", "Sinus concerns", "Allergic rhinitis"],
         },
         {
             "title": "Ear, Hearing, and Balance",
-            "items": ["Ear pain", "Hearing concerns", "Dizziness and balance symptoms"],
+            "bullet_items": ["Ear pain", "Hearing concerns", "Dizziness and balance symptoms"],
         },
         {
             "title": "Throat and Voice",
-            "items": ["Hoarseness", "Sore throat", "Initial swallowing concerns"],
+            "bullet_items": ["Hoarseness", "Sore throat", "Initial swallowing concerns"],
         },
         {
             "title": "Clinic Procedures",
-            "items": ["Simple in-clinic procedures", "Procedure details are confirmed after medical assessment"],
+            "bullet_items": ["Simple in-clinic procedures", "Procedure details are confirmed after medical assessment"],
         },
     ],
 }
@@ -562,14 +562,16 @@ def _visit_types(language):
     language = _normalize_language(language)
     rows = []
     for visit_type in VisitType.objects.filter(is_active=True).order_by("display_order", "name_en"):
+        visible_price = visit_type.patient_visible_price
         rows.append(
             {
-                "name": visit_type.name_ar if language == "ar" else visit_type.name_en,
-                "name_ar": visit_type.name_ar,
-                "name_en": visit_type.name_en,
+                "localized_name": visit_type.name_ar if language == "ar" else visit_type.name_en,
                 "duration_minutes": visit_type.duration_minutes,
-                "instructions": visit_type.instructions_ar if language == "ar" else visit_type.instructions_en,
-                "price": visit_type.patient_visible_price,
+                "public_instructions": (
+                    visit_type.instructions_ar if language == "ar" else visit_type.instructions_en
+                ),
+                "show_price": visible_price is not None,
+                "visible_price": format(visible_price, "f") if visible_price is not None else "",
             }
         )
     if rows:
@@ -577,12 +579,11 @@ def _visit_types(language):
 
     return [
         {
-            "name": item[0] if language == "ar" else item[1],
-            "name_ar": item[0],
-            "name_en": item[1],
+            "localized_name": item[0] if language == "ar" else item[1],
             "duration_minutes": item[2],
-            "instructions": "",
-            "price": None,
+            "public_instructions": "",
+            "show_price": False,
+            "visible_price": "",
         }
         for item in FALLBACK_VISIT_TYPES
     ]

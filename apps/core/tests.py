@@ -1,8 +1,10 @@
+import html as html_lib
 import json
 import os
 import re
 import uuid
 from datetime import date, timedelta
+from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -1562,6 +1564,35 @@ class PublicPageContentTests(TestCase):
 
 class PublicUiFoundationTests(TestCase):
     public_stylesheet_href = f'href="{settings.STATIC_URL}css/public.css"'
+    service_dictionary_leak_markers = (
+        "('name',",
+        "('name_ar',",
+        "('name_en',",
+        "('duration_minutes',",
+        "('instructions',",
+        "('price', None)",
+        "('visible_price', None)",
+    )
+
+    def create_public_visit_type(self, *, price=None, show_price=False):
+        return VisitType.objects.create(
+            name_ar="استشارة اختبار عامة",
+            name_en="Synthetic public consultation",
+            duration_minutes=30,
+            instructions_ar="تعليمات عامة للاختبار فقط.",
+            instructions_en="Synthetic public instructions only.",
+            price=price,
+            show_price_to_patient=show_price,
+            is_active=True,
+            display_order=0,
+        )
+
+    def assert_no_service_dictionary_leak(self, response):
+        rendered_html = html_lib.unescape(response.content.decode())
+        for marker in self.service_dictionary_leak_markers:
+            with self.subTest(marker=marker):
+                self.assertNotIn(marker, rendered_html)
+        self.assertNotIn("duration_minutes", rendered_html)
 
     def assert_public_shell(self, response, *, has_mobile_booking_cta):
         self.assertEqual(response.status_code, 200)
@@ -1586,6 +1617,72 @@ class PublicUiFoundationTests(TestCase):
 
         self.assertContains(arabic, '<html lang="ar" dir="rtl">')
         self.assertContains(english, '<html lang="en" dir="ltr">')
+
+    def test_arabic_services_render_explicit_visit_type_fields_without_dictionary_leak(self):
+        self.create_public_visit_type()
+
+        response = self.client.get(reverse("services"))
+
+        self.assertContains(response, "استشارة اختبار عامة")
+        self.assertContains(response, "30 دقيقة")
+        self.assertContains(response, "تعليمات عامة للاختبار فقط.")
+        self.assertNotContains(response, "Synthetic public consultation")
+        self.assertNotContains(response, "السعر:")
+        self.assert_no_service_dictionary_leak(response)
+
+    def test_english_services_render_explicit_visit_type_fields_without_dictionary_leak(self):
+        self.create_public_visit_type()
+
+        response = self.client.get(reverse("services_en"))
+
+        self.assertContains(response, "Synthetic public consultation")
+        self.assertContains(response, "30 minutes")
+        self.assertContains(response, "Synthetic public instructions only.")
+        self.assertNotContains(response, "استشارة اختبار عامة")
+        self.assertNotContains(response, "Price:")
+        self.assert_no_service_dictionary_leak(response)
+
+    def test_arabic_home_service_highlights_do_not_leak_dictionary_data(self):
+        self.create_public_visit_type()
+
+        response = self.client.get(reverse("home"))
+
+        self.assertContains(response, "استشارة اختبار عامة")
+        self.assertContains(response, "30 دقيقة")
+        self.assert_no_service_dictionary_leak(response)
+
+    def test_english_home_service_highlights_do_not_leak_dictionary_data(self):
+        self.create_public_visit_type()
+
+        response = self.client.get(reverse("home_en"))
+
+        self.assertContains(response, "Synthetic public consultation")
+        self.assertContains(response, "30 minutes")
+        self.assert_no_service_dictionary_leak(response)
+
+    def test_visible_visit_type_price_is_rendered_only_when_intentionally_enabled(self):
+        self.create_public_visit_type(price=Decimal("25.00"), show_price=True)
+
+        arabic = self.client.get(reverse("services"))
+        english = self.client.get(reverse("services_en"))
+
+        self.assertContains(arabic, "السعر: 25.00")
+        self.assertContains(english, "Price: 25.00")
+        self.assert_no_service_dictionary_leak(arabic)
+        self.assert_no_service_dictionary_leak(english)
+
+    def test_service_cards_use_separate_explicit_template_contracts(self):
+        visit_type_template = (
+            settings.BASE_DIR / "templates" / "partials" / "service_card.html"
+        ).read_text(encoding="utf-8")
+        service_group_template = (
+            settings.BASE_DIR / "templates" / "partials" / "service_group_card.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("visit_type.localized_name", visit_type_template)
+        self.assertIn("visit_type.duration_minutes", visit_type_template)
+        self.assertIn("service_group.bullet_items", service_group_template)
+        self.assertNotIn("service.items", visit_type_template + service_group_template)
 
     def test_contact_location_is_canonical_and_legacy_contact_routes_redirect(self):
         self.assertEqual(reverse("contact"), "/contact-location/")
@@ -1824,6 +1921,23 @@ class PublicUiFoundationTests(TestCase):
         self.assertIn("behavior: effectiveBehavior", javascript)
         self.assertNotIn("caseCarousel.scrollTo", javascript)
         self.assertNotIn("offsetLeft", javascript)
+
+    def test_case_carousel_autoplays_across_viewports_and_preserves_motion_controls(self):
+        javascript = (settings.BASE_DIR / "static" / "js" / "site.js").read_text(encoding="utf-8")
+        css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(encoding="utf-8")
+
+        self.assertIn("!reducedMotion && !paused && cards.length > 1", javascript)
+        self.assertNotIn("window.innerWidth < 768", javascript)
+        self.assertIn('caseCarousel.addEventListener("pointerenter"', javascript)
+        self.assertIn('caseCarousel.addEventListener("pointerleave"', javascript)
+        self.assertIn('caseCarousel.addEventListener("focusin"', javascript)
+        self.assertIn('caseCarousel.addEventListener("focusout"', javascript)
+        self.assertIn('pauseAutoplay("hover")', javascript)
+        self.assertIn('pauseAutoplay("focus")', javascript)
+        self.assertIn('pauseAutoplay("pointer")', javascript)
+        self.assertIn('card.classList.toggle("is-active", isActive)', javascript)
+        self.assertIn(".case-card.is-active", css)
+        self.assertIn(".case-card {\n        transition: none;", css)
 
     def test_home_sections_follow_locked_order_and_review_surface_is_empty(self):
         response = self.client.get(reverse("home"))

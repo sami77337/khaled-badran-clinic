@@ -1564,6 +1564,15 @@ summary:focus-visible {
         overflow: visible;
     }
 
+    .case-card {
+        transition: border-color 250ms ease, box-shadow 250ms ease;
+    }
+
+    .case-card.is-active {
+        border-color: rgba(139, 30, 40, 0.42);
+        box-shadow: 0 18px 46px rgba(74, 15, 20, 0.16);
+    }
+
     .card-grid,
     .doctor-condition-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1699,7 +1708,8 @@ summary:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
     .hero-slide,
-    .hero-carousel-dots button {
+    .hero-carousel-dots button,
+    .case-card {
         transition: none;
     }
 }

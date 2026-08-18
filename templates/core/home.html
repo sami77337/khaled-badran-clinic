@@ -107,8 +107,8 @@
             <a class="btn btn-secondary" href="{{ services_url }}">{% if is_arabic %}عرض كل الخدمات{% else %}View All Services{% endif %}</a>
         </div>
         <div class="card-grid home-service-grid">
-            {% for service in service_highlights %}
-                {% include "partials/service_card.html" with service=service %}
+            {% for visit_type in service_highlights %}
+                {% include "partials/service_card.html" with visit_type=visit_type %}
             {% endfor %}
         </div>
     </div>
