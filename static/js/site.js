@@ -123,9 +123,11 @@
     if (caseCarousel && caseDotsContainer) {
         const cards = Array.from(caseCarousel.children);
         const dots = Array.from(caseDotsContainer.querySelectorAll("[data-card-dot]"));
+        const desktopCaseLayout = window.matchMedia("(min-width: 1024px)");
         let activeIndex = 0;
         let timerId = null;
         let paused = false;
+        let desktopStartIndex = null;
         const pauseReasons = new Set();
 
         const setActiveDot = (index) => {
@@ -146,21 +148,40 @@
             });
         };
 
+        const restoreOriginalCardOrder = () => {
+            if (desktopStartIndex === null) {
+                return;
+            }
+            cards.forEach((card) => caseCarousel.append(card));
+            desktopStartIndex = null;
+        };
+
+        const rotateDesktopCards = (startIndex) => {
+            if (desktopStartIndex === startIndex) {
+                return;
+            }
+            const orderedCards = cards.slice(startIndex).concat(cards.slice(0, startIndex));
+            orderedCards.forEach((card) => caseCarousel.append(card));
+            desktopStartIndex = startIndex;
+        };
+
         const scrollToCard = (index, behavior = "smooth") => {
             if (!cards.length) {
                 return;
             }
             const nextIndex = (index + cards.length) % cards.length;
             const effectiveBehavior = reducedMotion ? "auto" : behavior;
-            const hasScrollableRail = caseCarousel.scrollWidth > caseCarousel.clientWidth + 1;
-            if (hasScrollableRail) {
+            setActiveDot(nextIndex);
+            if (desktopCaseLayout.matches) {
+                rotateDesktopCards(nextIndex);
+            } else {
+                restoreOriginalCardOrder();
                 cards[nextIndex].scrollIntoView({
                     behavior: effectiveBehavior,
                     block: "nearest",
                     inline: "start",
                 });
             }
-            setActiveDot(nextIndex);
         };
 
         const stopAutoplay = () => {
@@ -235,6 +256,9 @@
             }
         });
         caseCarousel.addEventListener("scroll", () => {
+            if (desktopCaseLayout.matches) {
+                return;
+            }
             const isRtl = window.getComputedStyle(caseCarousel).direction === "rtl";
             const carouselRect = caseCarousel.getBoundingClientRect();
             const carouselStart = isRtl ? carouselRect.right : carouselRect.left;
@@ -251,8 +275,18 @@
             });
             setActiveDot(closestIndex);
         }, { passive: true });
-        window.addEventListener("resize", startAutoplay, { passive: true });
+        window.addEventListener("resize", () => {
+            if (desktopCaseLayout.matches) {
+                rotateDesktopCards(activeIndex);
+            } else {
+                restoreOriginalCardOrder();
+            }
+            startAutoplay();
+        }, { passive: true });
         setActiveDot(0);
+        if (desktopCaseLayout.matches) {
+            rotateDesktopCards(0);
+        }
         startAutoplay();
     }
 

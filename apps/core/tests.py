@@ -1928,6 +1928,13 @@ class PublicUiFoundationTests(TestCase):
 
         self.assertIn("!reducedMotion && !paused && cards.length > 1", javascript)
         self.assertNotIn("window.innerWidth < 768", javascript)
+        self.assertIn('window.matchMedia("(min-width: 1024px)")', javascript)
+        self.assertIn("const rotateDesktopCards", javascript)
+        self.assertIn("const orderedCards = cards.slice(startIndex).concat", javascript)
+        self.assertIn("orderedCards.forEach((card) => caseCarousel.append(card))", javascript)
+        self.assertIn("const restoreOriginalCardOrder", javascript)
+        self.assertIn("cards.forEach((card) => caseCarousel.append(card))", javascript)
+        self.assertIn("if (desktopCaseLayout.matches)", javascript)
         self.assertIn('caseCarousel.addEventListener("pointerenter"', javascript)
         self.assertIn('caseCarousel.addEventListener("pointerleave"', javascript)
         self.assertIn('caseCarousel.addEventListener("focusin"', javascript)
