@@ -4,8 +4,8 @@
             <span aria-hidden="true">⌖</span>
             {% if is_arabic %}الشميساني، عمّان{% else %}Al Shmeisani, Amman{% endif %}
         </span>
-        {% if clinic.phone_raw %}
-            <a href="tel:{{ clinic.phone_raw }}" dir="ltr">{{ clinic.phone_raw }}</a>
+        {% if clinic.phone_e164 %}
+            <a href="tel:{{ clinic.phone_e164 }}" dir="ltr">{{ clinic.phone_display }}</a>
         {% endif %}
         <a class="utility-language" href="{{ language_switch.url }}" hreflang="{% if is_arabic %}en{% else %}ar{% endif %}">
             <span aria-hidden="true">◎</span>

@@ -15,21 +15,19 @@
         <h2>{% if is_arabic %}نطاق واتساب{% else %}WhatsApp Scope{% endif %}</h2>
         <p>
             {% if is_arabic %}
-                واتساب قناة تواصل إدارية محدودة عبر رابط سريع فقط بعد اعتماد رقم العيادة المخصص له. لا توجد WhatsApp Business API أو Webhooks أو رسائل آلية.
+                واتساب قناة تواصل إدارية محدودة عبر رقم العيادة المعتمد. لا توجد WhatsApp Business API أو Webhooks أو رسائل آلية.
             {% else %}
-                WhatsApp is limited to an administrative quick link once its dedicated clinic number is approved. There is no WhatsApp Business API, webhook, or automated messaging.
+                WhatsApp is limited to an administrative quick link using the approved clinic number. There is no WhatsApp Business API, webhook, or automated messaging.
             {% endif %}
         </p>
         <h2>{% if is_arabic %}المعلومات الحساسة{% else %}Sensitive Information{% endif %}</h2>
         <p>
             {% if is_arabic %}
-                لا ينبغي إرسال حالات طارئة أو ملفات حساسة عبر واتساب قبل اعتماد سياسة الخصوصية وتدفق العمل النهائي.
+                لا ينبغي إرسال ملفات طبية حساسة عبر واتساب قبل اعتماد سياسة الخصوصية وتدفق العمل النهائي.
             {% else %}
-                Emergencies and sensitive files should not be sent through WhatsApp before final privacy policy and workflow approval.
+                Sensitive medical files should not be sent through WhatsApp before final privacy policy and workflow approval.
             {% endif %}
         </p>
-        <h2>{% if is_arabic %}الطوارئ{% else %}Emergencies{% endif %}</h2>
-        <p>{{ labels.not_emergency }}</p>
     </div>
 </section>
 {% endblock %}

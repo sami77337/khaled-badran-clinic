@@ -55,7 +55,7 @@
             <div>
                 <p class="eyebrow">{% if is_arabic %}محتوى مصرح بعرضه{% else %}Approved Public Showcase{% endif %}</p>
                 <h2 id="home-cases-title">{% if is_arabic %}الحالات المصرح بعرضها{% else %}Authorized Case Gallery{% endif %}</h2>
-                <p>{{ case_labels.approved_only_body }}</p>
+                <p>{{ case_labels.approved_only }}</p>
             </div>
             <a class="btn btn-secondary desktop-only-action" href="{{ cases_url }}">{{ case_labels.view_all }}</a>
         </div>
@@ -91,7 +91,6 @@
             <div class="empty-showcase" role="status">
                 <span class="privacy-mark" aria-hidden="true">✓</span>
                 <h3>{{ case_labels.empty_title }}</h3>
-                <p>{{ case_labels.empty_body }}</p>
             </div>
         {% endif %}
         <a class="btn btn-secondary mobile-only-action" href="{{ cases_url }}">{{ case_labels.view_all }}</a>
@@ -134,10 +133,6 @@
                 <summary>{% if is_arabic %}هل أحتاج إلى حساب لحجز موعد؟{% else %}Do I need an account to book?{% endif %}</summary>
                 <p>{% if is_arabic %}لا. يمكن حجز الموعد من الموقع دون تسجيل الدخول.{% else %}No. An appointment can be booked from the website without signing in.{% endif %}</p>
             </details>
-            <details>
-                <summary>{% if is_arabic %}هل يقدم الموقع تشخيصاً أو خدمة طوارئ؟{% else %}Does the website provide diagnosis or emergency care?{% endif %}</summary>
-                <p>{{ labels.not_emergency }}</p>
-            </details>
         </div>
     </div>
 </section>
@@ -154,10 +149,10 @@
                     <p>{% if is_arabic %}{{ clinic.address_ar|linebreaksbr }}{% else %}{{ clinic.address_en|linebreaksbr }}{% endif %}</p>
                 </div>
             </div>
-            {% if clinic.phone_raw %}
+            {% if clinic.phone_e164 %}
                 <div class="contact-address-row">
                     <span class="contact-icon" aria-hidden="true">☎</span>
-                    <div><h3>{% if is_arabic %}الهاتف{% else %}Phone{% endif %}</h3><a href="tel:{{ clinic.phone_raw }}" dir="ltr">{{ clinic.phone_raw }}</a></div>
+                    <div><h3>{% if is_arabic %}الهاتف{% else %}Phone{% endif %}</h3><a href="tel:{{ clinic.phone_e164 }}" dir="ltr">{{ clinic.phone_display }}</a></div>
                 </div>
             {% endif %}
             <div class="contact-actions">

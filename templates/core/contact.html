@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block content %}
 <section class="contact-page-hero" aria-labelledby="contact-page-title">
@@ -30,15 +31,15 @@
                     <dt><span aria-hidden="true">⌖</span> {% if is_arabic %}موقع العيادة{% else %}Clinic Location{% endif %}</dt>
                     <dd>{% if is_arabic %}{{ clinic.address_ar|linebreaksbr }}{% else %}{{ clinic.address_en|linebreaksbr }}{% endif %}</dd>
                 </div>
-                {% if clinic.phone_raw %}
+                {% if clinic.phone_e164 %}
                     <div>
                         <dt><span aria-hidden="true">☎</span> {% if is_arabic %}الهاتف{% else %}Phone{% endif %}</dt>
-                        <dd><a href="tel:{{ clinic.phone_raw }}" dir="ltr">{{ clinic.phone_raw }}</a></dd>
+                        <dd><a href="tel:{{ clinic.phone_e164 }}" dir="ltr">{{ clinic.phone_display }}</a></dd>
                     </div>
                 {% endif %}
-                <div id="whatsapp-placeholder" class="whatsapp-status-row">
+                <div class="whatsapp-status-row">
                     <dt><span aria-hidden="true">WA</span> {{ labels.whatsapp }}</dt>
-                    <dd>{{ labels.whatsapp_note }}</dd>
+                    <dd><a href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">{{ labels.whatsapp_note }}</a></dd>
                 </div>
             </dl>
             <div class="contact-page-actions">
@@ -49,11 +50,17 @@
     </div>
 </section>
 
-<section class="section contact-safety-section">
-    <div class="container safety-panel">
-        <p class="eyebrow">{% if is_arabic %}تنبيه طوارئ{% else %}Emergency Notice{% endif %}</p>
-        <h2>{% if is_arabic %}هذا الموقع ليس للطوارئ{% else %}This website is not for emergencies{% endif %}</h2>
-        <p>{{ labels.not_emergency }}</p>
+<section class="section clinic-gallery-section" aria-labelledby="clinic-gallery-title">
+    <div class="container">
+        <div class="section-heading compact-section-heading">
+            <p class="eyebrow">{% if is_arabic %}داخل العيادة{% else %}Inside the Clinic{% endif %}</p>
+            <h2 id="clinic-gallery-title">{% if is_arabic %}مساحة هادئة ومجهزة بعناية{% else %}A calm, thoughtfully equipped clinic{% endif %}</h2>
+        </div>
+        <div class="clinic-photo-grid">
+            <img src="{% static 'img/clinic/clinic-interior-1.png' %}" alt="{% if is_arabic %}مساحة الاستقبال داخل عيادة الدكتور خالد بدران{% else %}Reception area inside Dr. Khaled Badran Clinic{% endif %}" loading="lazy">
+            <img src="{% static 'img/clinic/clinic-interior-2.png' %}" alt="{% if is_arabic %}تجهيزات الفحص داخل العيادة{% else %}Examination equipment inside the clinic{% endif %}" loading="lazy">
+            <img src="{% static 'img/clinic/clinic-interior-3.png' %}" alt="{% if is_arabic %}غرفة الفحص في عيادة الدكتور خالد بدران{% else %}Examination room at Dr. Khaled Badran Clinic{% endif %}" loading="lazy">
+        </div>
     </div>
 </section>
 {% endblock %}

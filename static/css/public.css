@@ -11,8 +11,8 @@
     --color-muted: #6B5E5B;
     --color-line: #E3DAC9;
     --color-soft: #F5EFE9;
-    --shadow-soft: 0 12px 32px -8px rgba(44, 36, 35, 0.12);
-    --shadow-card: 0 6px 22px -8px rgba(44, 36, 35, 0.16);
+    --shadow-soft: 0 18px 44px -24px rgba(74, 15, 20, 0.24);
+    --shadow-card: 0 12px 30px -24px rgba(44, 36, 35, 0.28);
     --radius: 0.75rem;
     --radius-card: 1.5rem;
     --container: 1280px;
@@ -26,7 +26,9 @@ html {
 body,
 body.is-ltr {
     overflow-x: clip;
-    background: var(--color-ivory);
+    background:
+        radial-gradient(circle at 14% 8%, rgba(193, 154, 107, 0.08), transparent 24rem),
+        linear-gradient(180deg, #FFFDFC 0, var(--color-ivory) 32rem);
     color: var(--color-charcoal);
     font-family: "IBM Plex Sans Arabic", Arial, sans-serif;
     line-height: 1.7;
@@ -44,7 +46,7 @@ main,
 section,
 .container,
 .header-inner > *,
-.footer-desktop > *,
+.footer-main > *,
 .home-hero-grid > *,
 .home-doctor-grid > *,
 .home-contact-grid > * {
@@ -75,13 +77,23 @@ h3,
 
 h1 {
     max-width: 100%;
-    font-size: clamp(2.25rem, 7vw, 4.5rem);
+    font-size: clamp(2.15rem, 5vw, 4.15rem);
     line-height: 1.25;
 }
 
+.is-rtl h1 {
+    font-size: clamp(2rem, 4.5vw, 3.5rem);
+    line-height: 1.45;
+}
+
 h2 {
-    font-size: clamp(1.85rem, 4vw, 2.75rem);
+    font-size: clamp(1.75rem, 3.5vw, 2.6rem);
     line-height: 1.35;
+}
+
+.is-rtl h2 {
+    font-size: clamp(1.65rem, 3.1vw, 2.35rem);
+    line-height: 1.55;
 }
 
 h3 {
@@ -125,7 +137,7 @@ summary:focus-visible {
 }
 
 .section {
-    padding-block: clamp(4rem, 8vw, 6rem);
+    padding-block: clamp(3.5rem, 6vw, 5.25rem);
 }
 
 .section-soft {
@@ -135,7 +147,11 @@ summary:focus-visible {
 
 .section-heading {
     max-width: 760px;
-    margin-bottom: clamp(2rem, 5vw, 4rem);
+    margin-bottom: clamp(1.75rem, 3vw, 2.75rem);
+}
+
+.compact-section-heading {
+    margin-bottom: clamp(1.5rem, 2.5vw, 2.25rem);
 }
 
 .section-heading-row {
@@ -387,7 +403,7 @@ summary:focus-visible {
 .whatsapp-quick-link {
     position: fixed;
     inset-inline-end: 1rem;
-    bottom: calc(var(--mobile-cta-height) + env(safe-area-inset-bottom) + 0.75rem);
+    bottom: calc(env(safe-area-inset-bottom) + 1rem);
     z-index: 91;
     display: grid;
     width: 54px;
@@ -401,10 +417,17 @@ summary:focus-visible {
     font-weight: 700;
 }
 
-.home-hero {
+.has-mobile-booking-cta .whatsapp-quick-link {
+    bottom: calc(var(--mobile-cta-height) + env(safe-area-inset-bottom) + 0.75rem);
+}
+
+.public-shell .home-hero,
+.public-shell.is-rtl .home-hero {
     min-height: 0;
     border-bottom: 1px solid var(--color-line);
-    background: var(--color-ivory);
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(245, 239, 233, 0.28)),
+        var(--color-ivory);
     color: var(--color-charcoal);
 }
 
@@ -412,7 +435,7 @@ summary:focus-visible {
     display: grid;
     align-items: center;
     gap: clamp(2rem, 6vw, 5rem);
-    padding-block: clamp(3.75rem, 9vw, 7rem);
+    padding-block: clamp(3.25rem, 6vw, 5.5rem);
 }
 
 .home-hero-copy {
@@ -421,15 +444,15 @@ summary:focus-visible {
 
 .home-hero-copy h1 {
     margin-inline: auto;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.4rem;
 }
 
 .credential-chip {
     display: inline-flex;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.2rem;
     border: 1px solid rgba(139, 30, 40, 0.25);
     border-radius: 999px;
-    background: #FCF4F5;
+    background: #FFF7F7;
     color: #63151D;
     padding: 0.4rem 0.85rem;
     font-size: 0.74rem;
@@ -476,7 +499,7 @@ summary:focus-visible {
 
 .home-doctor {
     border-bottom: 1px solid var(--color-line);
-    background: var(--color-white);
+    background: rgba(255, 255, 255, 0.82);
 }
 
 .home-doctor-grid {
@@ -526,7 +549,9 @@ summary:focus-visible {
 }
 
 .home-cases {
-    background: var(--color-ivory);
+    background:
+        linear-gradient(180deg, rgba(245, 239, 233, 0.36), transparent 55%),
+        var(--color-ivory);
 }
 
 .case-card-row {
@@ -608,7 +633,7 @@ summary:focus-visible {
     border: 1px solid var(--color-line);
     border-radius: var(--radius-card);
     background: var(--color-white);
-    padding: clamp(2rem, 7vw, 4rem);
+    padding: clamp(2rem, 4vw, 3rem);
     box-shadow: var(--shadow-card);
     text-align: center;
 }
@@ -616,6 +641,12 @@ summary:focus-visible {
 .empty-showcase p {
     margin-bottom: 0;
     color: var(--color-muted);
+}
+
+.empty-showcase h2,
+.empty-showcase h3 {
+    max-width: 620px;
+    margin: 0 auto;
 }
 
 .privacy-mark {
@@ -642,7 +673,7 @@ summary:focus-visible {
 .home-services {
     display: none;
     border-block: 1px solid var(--color-line);
-    background: var(--color-soft);
+    background: rgba(245, 239, 233, 0.72);
 }
 
 .home-reviews-hook {
@@ -651,7 +682,7 @@ summary:focus-visible {
 
 .home-faq {
     display: none;
-    background: var(--color-ivory);
+    background: rgba(255, 255, 255, 0.7);
 }
 
 .faq-grid {
@@ -689,7 +720,9 @@ summary:focus-visible {
 
 .home-contact {
     border-top: 1px solid var(--color-line);
-    background: var(--color-ivory);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.6), transparent),
+        var(--color-ivory);
 }
 
 .home-contact-grid {
@@ -788,11 +821,23 @@ summary:focus-visible {
 }
 
 .service-card {
-    padding: 1.5rem;
+    min-height: 100%;
+    border: 1px solid var(--color-line);
+    border-radius: 1.25rem;
+    background: rgba(255, 255, 255, 0.96);
+    padding: clamp(1.35rem, 2.5vw, 1.8rem);
 }
 
 .service-card h3 {
+    margin-bottom: 0.75rem;
     color: var(--color-burgundy);
+}
+
+.service-card li::marker,
+.doctor-detail-card li::marker,
+.doctor-condition-group li::marker,
+.doctor-recognition-card li::marker {
+    color: var(--color-wood);
 }
 
 .card-grid {
@@ -800,17 +845,23 @@ summary:focus-visible {
     gap: 1rem;
 }
 
-.page-hero {
+.public-shell .page-hero,
+.public-shell.is-rtl .page-hero {
     border-color: var(--color-line);
-    background: var(--color-soft);
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(245, 239, 233, 0.72)),
+        var(--color-ivory);
 }
 
 .page-hero-inner {
-    padding-block: clamp(3.5rem, 8vw, 6rem);
+    max-width: 920px;
+    padding-block: clamp(3rem, 5vw, 4.5rem);
 }
 
 .page-hero p {
+    max-width: 760px;
     color: var(--color-muted);
+    font-size: 1.04rem;
 }
 
 .cta-band,
@@ -839,8 +890,10 @@ summary:focus-visible {
 
 .doctor-page-hero {
     border-bottom: 1px solid var(--color-line);
-    background: var(--color-soft);
-    padding-block: clamp(3.5rem, 8vw, 6rem);
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(245, 239, 233, 0.7)),
+        var(--color-ivory);
+    padding-block: clamp(3rem, 5.5vw, 5rem);
 }
 
 .doctor-page-hero-grid {
@@ -850,7 +903,7 @@ summary:focus-visible {
 }
 
 .doctor-page-portrait {
-    width: min(100%, 430px);
+    width: min(100%, 390px);
     margin-inline: auto;
     overflow: hidden;
     border: 4px solid var(--color-white);
@@ -871,9 +924,20 @@ summary:focus-visible {
     font-weight: 600;
 }
 
+.doctor-page-intro .credential-chip {
+    margin: 0 0 1rem;
+}
+
 .doctor-page-bio {
-    max-width: 720px;
+    max-width: 680px;
     font-size: 1.08rem;
+}
+
+.doctor-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
 }
 
 .doctor-content-grid {
@@ -885,7 +949,7 @@ summary:focus-visible {
 .doctor-contact-card {
     border: 1px solid var(--color-line);
     border-radius: var(--radius-card);
-    padding: clamp(1.5rem, 5vw, 3rem);
+    padding: clamp(1.5rem, 3.5vw, 2.5rem);
     box-shadow: var(--shadow-card);
 }
 
@@ -894,12 +958,98 @@ summary:focus-visible {
 }
 
 .doctor-contact-card {
-    background: var(--color-soft);
+    background: linear-gradient(145deg, #F8F1EC, var(--color-soft));
 }
 
-.doctor-care-section {
+.doctor-details-section {
     border-top: 1px solid var(--color-line);
-    background: var(--color-soft);
+    border-bottom: 1px solid var(--color-line);
+    background: rgba(245, 239, 233, 0.72);
+}
+
+.doctor-details-grid,
+.doctor-condition-grid,
+.doctor-recognition-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.doctor-detail-card,
+.doctor-condition-group,
+.doctor-recognition-card,
+.doctor-specialties {
+    border: 1px solid var(--color-line);
+    border-radius: 1.25rem;
+    background: var(--color-white);
+    padding: clamp(1.35rem, 2.8vw, 2rem);
+    box-shadow: var(--shadow-card);
+}
+
+.doctor-detail-card h3,
+.doctor-condition-group h4 {
+    color: var(--color-burgundy);
+}
+
+.doctor-detail-card ul,
+.doctor-condition-group ul,
+.doctor-recognition-card ul {
+    display: grid;
+    gap: 0.65rem;
+    margin: 0;
+    padding-inline-start: 1.25rem;
+    color: var(--color-muted);
+}
+
+.credential-list,
+.specialty-chip-list,
+.language-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+
+.credential-list span,
+.specialty-chip-list span,
+.language-list span {
+    border: 1px solid rgba(139, 30, 40, 0.2);
+    border-radius: 999px;
+    background: #FFF7F7;
+    color: var(--color-burgundy);
+    padding: 0.5rem 0.85rem;
+    font-weight: 600;
+}
+
+.doctor-clinical-section {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.72), transparent),
+        var(--color-ivory);
+}
+
+.doctor-specialties {
+    margin-bottom: 2rem;
+}
+
+.doctor-specialties h3,
+.conditions-heading h3 {
+    margin-bottom: 1rem;
+}
+
+.conditions-heading {
+    margin-bottom: 1rem;
+}
+
+.doctor-condition-group h4 {
+    margin: 0 0 0.75rem;
+    font-size: 1.02rem;
+}
+
+.doctor-recognition-section {
+    border-top: 1px solid var(--color-line);
+    background: rgba(245, 239, 233, 0.72);
+}
+
+.doctor-recognition-card h2 {
+    margin-bottom: 1rem;
 }
 
 .doctor-final-cta {
@@ -915,34 +1065,35 @@ summary:focus-visible {
 .contact-page-hero {
     position: relative;
     overflow: hidden;
-    background: var(--color-burgundy);
-    color: var(--color-white);
+    border-bottom: 1px solid var(--color-line);
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(245, 239, 233, 0.72)),
+        var(--color-ivory);
+    color: var(--color-charcoal);
 }
 
 .contact-page-hero-inner {
     max-width: 920px;
-    padding-block: clamp(4rem, 9vw, 7rem);
-    text-align: center;
+    padding-block: clamp(3rem, 5vw, 4.5rem);
+    text-align: start;
 }
 
 .contact-page-hero h1 {
-    margin-inline: auto;
-    color: var(--color-white);
+    color: var(--color-burgundy);
 }
 
 .contact-page-hero .eyebrow {
-    color: var(--color-beige);
+    color: var(--color-wood);
 }
 
 .contact-page-hero p:last-child {
     max-width: 760px;
-    margin-inline: auto;
-    color: rgba(255, 255, 255, 0.82);
+    color: var(--color-muted);
     font-size: 1.05rem;
 }
 
 .contact-location-section {
-    padding-top: 0;
+    padding-top: clamp(2.25rem, 4vw, 3.5rem);
 }
 
 .contact-location-card {
@@ -1019,9 +1170,70 @@ summary:focus-visible {
     margin-top: 2rem;
 }
 
-.contact-safety-section {
+.clinic-gallery-section {
     border-top: 1px solid var(--color-line);
+    background: rgba(245, 239, 233, 0.7);
+}
+
+.clinic-photo-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.clinic-photo-grid img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border: 3px solid var(--color-white);
+    border-radius: 1.25rem;
+    background: var(--color-white);
+    box-shadow: var(--shadow-card);
+    object-fit: cover;
+}
+
+.public-case-grid {
+    display: grid;
+    gap: 1.25rem;
+}
+
+.public-case-card {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+    background: var(--color-white);
+    box-shadow: var(--shadow-card);
+}
+
+.public-case-media {
+    display: grid;
+    min-height: 240px;
+    aspect-ratio: 4 / 3;
+    place-items: center;
+    overflow: hidden;
     background: var(--color-soft);
+}
+
+.public-case-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.public-case-copy {
+    padding: clamp(1.4rem, 3vw, 2.25rem);
+}
+
+.public-case-copy h2 {
+    font-size: clamp(1.45rem, 2.4vw, 2rem);
+}
+
+.public-case-copy > p:not(.eyebrow) {
+    color: var(--color-muted);
+}
+
+.public-cases-empty {
+    margin-block: 0.5rem;
 }
 
 .legal-page {
@@ -1075,45 +1287,44 @@ summary:focus-visible {
 
 .site-footer {
     border-color: rgba(255, 255, 255, 0.06);
-    background: var(--color-burgundy);
-    color: rgba(255, 255, 255, 0.76);
-    padding: 3.5rem 0 calc(2rem + var(--mobile-cta-height) + env(safe-area-inset-bottom));
+    background:
+        radial-gradient(circle at 18% 0, rgba(193, 154, 107, 0.14), transparent 26rem),
+        linear-gradient(150deg, #4A0F14, #3C0C11);
+    color: rgba(255, 255, 255, 0.78);
+    padding: 3.5rem 0 2rem;
 }
 
-.footer-mobile {
+.has-mobile-booking-cta .site-footer {
+    padding-bottom: calc(2rem + var(--mobile-cta-height) + env(safe-area-inset-bottom));
+}
+
+.footer-main {
     display: grid;
-    justify-items: center;
-    gap: 1.5rem;
-    text-align: center;
+    gap: 2.5rem;
 }
 
 .footer-brand {
-    margin: 0;
+    margin: 0 0 0.8rem;
     color: var(--color-white);
-    font-size: 1.35rem;
+    font-size: clamp(1.35rem, 2.5vw, 1.8rem);
 }
 
-.footer-mobile-nav {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.75rem 1.25rem;
-    font-size: 0.88rem;
+.footer-specialization {
+    max-width: 520px;
+    margin-bottom: 1.35rem;
+    color: rgba(255, 255, 255, 0.74);
 }
 
-.footer-mobile-nav a:hover,
 .footer-links a:hover,
-.footer-bottom a:hover,
+.footer-meta a:hover,
 .footer-location:hover,
-.footer-phone:hover {
+.footer-phone:hover,
+.footer-whatsapp:hover {
     color: var(--color-beige);
 }
 
-.footer-desktop {
-    display: none;
-}
-
 .footer-heading {
+    margin-bottom: 1rem;
     color: var(--color-beige);
     font-family: inherit;
     font-size: 0.8rem;
@@ -1122,6 +1333,7 @@ summary:focus-visible {
 }
 
 .footer-links {
+    display: grid;
     gap: 0.75rem;
 }
 
@@ -1130,43 +1342,56 @@ summary:focus-visible {
 }
 
 .footer-location,
-.footer-phone {
+.footer-phone,
+.footer-whatsapp {
     display: block;
     color: rgba(255, 255, 255, 0.72);
 }
 
-.footer-phone {
+.footer-contact address {
+    font-style: normal;
+}
+
+.footer-phone,
+.footer-whatsapp {
     margin-top: 1rem;
 }
 
-.footer-bottom {
-    margin-top: 2.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    padding-top: 1.5rem;
-    font-size: 0.8rem;
-    text-align: center;
-}
-
-.footer-bottom > p {
-    max-width: 900px;
-    margin-inline: auto;
-}
-
-.footer-bottom-row {
+.footer-meta {
     display: grid;
     gap: 1rem;
+    margin-top: 3rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 1.75rem;
+    font-size: 0.8rem;
 }
 
-.footer-bottom-row nav {
+.footer-emergency {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.88);
+    font-weight: 600;
+}
+
+.footer-legal {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
     gap: 0.65rem 1rem;
+}
+
+.footer-copyright {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.56);
 }
 
 @media (min-width: 640px) {
     .card-grid,
-    .doctor-care-grid {
+    .doctor-condition-grid,
+    .clinic-photo-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .doctor-details-grid,
+    .doctor-recognition-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -1176,7 +1401,8 @@ summary:focus-visible {
         display: none;
     }
 
-    .whatsapp-quick-link {
+    .whatsapp-quick-link,
+    .has-mobile-booking-cta .whatsapp-quick-link {
         bottom: 1.5rem;
     }
 
@@ -1210,13 +1436,13 @@ summary:focus-visible {
     .home-hero-visual {
         position: relative;
         display: block;
-        width: min(100%, 540px);
+        width: min(100%, 560px);
         justify-self: end;
     }
 
     .hero-photo-frame {
         position: relative;
-        aspect-ratio: 4 / 5;
+        aspect-ratio: 4 / 3;
         overflow: hidden;
         border: 4px solid var(--color-white);
         border-radius: 2rem;
@@ -1300,58 +1526,38 @@ summary:focus-visible {
 
     .contact-map-panel,
     .contact-map-panel iframe {
-        min-height: 560px;
+        min-height: 520px;
     }
 
     .site-footer {
         padding-block: 4.5rem 2rem;
     }
 
-    .footer-mobile {
-        display: none;
-    }
-
-    .footer-desktop {
+    .footer-main {
         display: grid;
         grid-template-columns: minmax(0, 2fr) minmax(170px, 0.8fr) minmax(220px, 1fr);
         gap: 3rem;
     }
 
-    .footer-about p:not(.footer-brand) {
-        max-width: 620px;
-    }
-
-    .footer-actions {
-        margin-top: 1.5rem;
-    }
-
-    .footer-bottom {
-        text-align: start;
-    }
-
-    .footer-bottom > p {
-        margin-inline: 0;
-    }
-
-    .footer-bottom-row {
-        grid-template-columns: minmax(0, 1fr) auto;
+    .footer-meta {
+        grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.5fr);
         align-items: center;
     }
 
-    .footer-bottom-row nav {
+    .footer-legal {
         justify-content: flex-end;
+    }
+
+    .footer-copyright {
+        grid-column: 1 / -1;
+    }
+
+    .clinic-photo-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 
 @media (min-width: 1024px) {
-    .home-hero {
-        min-height: calc(100vh - 110px);
-    }
-
-    .home-hero-grid {
-        min-height: calc(100vh - 110px);
-    }
-
     .case-card-row {
         grid-auto-flow: initial;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1359,8 +1565,12 @@ summary:focus-visible {
     }
 
     .card-grid,
-    .doctor-care-grid {
+    .doctor-condition-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .public-case-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 

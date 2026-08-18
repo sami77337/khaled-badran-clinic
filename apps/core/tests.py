@@ -1155,8 +1155,10 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         response = self.client.get(reverse("public_cases_en"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "No approved public showcase media yet")
-        self.assertContains(response, "Approved and consented content only")
+        self.assertContains(response, "Only cases explicitly approved for public display are shown.", count=1)
+        self.assertContains(response, "No public cases are currently published.", count=1)
+        self.assertNotContains(response, "outcome guarantee")
+        self.assertNotContains(response, "Patient-visible portal media")
         self.assertNotContains(response, "<form")
         self.assertNotContains(response, "upload")
         self.assertNotContains(response, str(settings.PRIVATE_MEDIA_ROOT))
@@ -1596,7 +1598,7 @@ class PublicUiFoundationTests(TestCase):
         self.assertEqual(english.status_code, 301)
         self.assertEqual(english["Location"], "/en/contact-location/")
 
-    def test_contact_location_uses_approved_map_and_hides_unconfigured_contact_rows(self):
+    def test_contact_location_uses_approved_map_phone_and_whatsapp_data(self):
         ClinicProfile.objects.create(
             official_name_ar="عيادة الدكتور خالد بدران",
             official_name_en="Dr. Khaled Badran Clinic",
@@ -1610,7 +1612,10 @@ class PublicUiFoundationTests(TestCase):
 
         self.assertContains(response, "شارع رفيق العظم 13")
         self.assertContains(response, "31.970276,35.8934391")
-        self.assertContains(response, "رابط واتساب السريع غير مفعّل")
+        self.assertContains(response, "+962 7 8976 6332")
+        self.assertContains(response, 'href="tel:+962789766332"')
+        self.assertContains(response, 'href="https://wa.me/962789766332"')
+        self.assertContains(response, "تواصل مع العيادة مباشرة عبر واتساب")
         self.assertNotContains(response, "+962 7X XXX XXXX")
         self.assertNotContains(response, "ساعات العمل")
         self.assertNotContains(response, "ساعات الدوام")
@@ -1791,7 +1796,7 @@ class PublicUiFoundationTests(TestCase):
 
         template_claims = {
             settings.BASE_DIR / "templates" / "core" / "home.html": [
-                "European & Jordanian Boards",
+                "European ENT Board",
                 "functional and cosmetic rhinoplasty",
             ],
             settings.BASE_DIR / "templates" / "partials" / "header.html": [
@@ -1852,7 +1857,7 @@ class PublicUiFoundationTests(TestCase):
         self.assertIn('.home-services,\n    .home-faq {\n        display: block;', css)
         self.assertNotIn('transform: scale(', css.casefold())
 
-    def test_doctor_page_renders_existing_backend_doctor_fields_only(self):
+    def test_doctor_page_renders_backend_identity_and_approved_owner_profile(self):
         doctor = Doctor.objects.create(
             full_name_ar="طبيب عربي معتمد",
             full_name_en="Approved Backend Doctor",
@@ -1870,9 +1875,74 @@ class PublicUiFoundationTests(TestCase):
         self.assertContains(response, doctor.display_name_en)
         self.assertContains(response, doctor.specialty_en)
         self.assertContains(response, doctor.bio_en)
-        for unsupported_profile_field in ["FRCSI", "MRCSI", "GMC", "MDU", "Bachelor of Medicine"]:
-            with self.subTest(field=unsupported_profile_field):
-                self.assertNotContains(response, unsupported_profile_field)
+        approved_profile_copy = [
+            "Professional Profile",
+            "Professional Experience",
+            "Education & Training",
+            "Boards / Certifications",
+            "Professional Memberships",
+            "Specialties",
+            "Conditions Treated",
+            "Awards",
+            "Languages",
+            "European ENT Board",
+            "Jordanian ENT Board",
+            "FRCSI",
+            "MRCSI",
+            "GMC",
+            "MDU",
+            "Higher Specialization — University of Jordan",
+            "Bachelor of Medicine and Surgery — University of Jordan",
+            "University of Central Lancashire, United Kingdom",
+            "Monklands Hospital, United Kingdom",
+            "Current private practice in Amman",
+            "2015 — King Hussein Cancer Center award",
+            "2011 — Presidential Candidate Award",
+            "Arabic",
+            "English",
+        ]
+        for approved_value in approved_profile_copy:
+            with self.subTest(value=approved_value):
+                self.assertContains(response, approved_value)
+
+    def test_public_backgrounds_share_geometry_and_exclude_placeholder_cross_motif(self):
+        css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(encoding="utf-8")
+
+        self.assertIn(".public-shell.is-rtl .home-hero", css)
+        self.assertIn(".public-shell.is-rtl .page-hero", css)
+        self.assertNotIn("clinic-placeholder.svg", css)
+        self.assertNotIn("calc(100vh", css)
+
+    def test_real_clinic_media_is_used_on_home_and_contact(self):
+        for route_name in ["home", "home_en", "contact", "contact_en"]:
+            html = self.client.get(reverse(route_name)).content.decode()
+            with self.subTest(route=route_name):
+                for image_name in [
+                    "clinic-interior-1.png",
+                    "clinic-interior-2.png",
+                    "clinic-interior-3.png",
+                ]:
+                    self.assertIn(image_name, html)
+                self.assertNotIn("clinic-placeholder.svg", html)
+
+    def test_public_footer_is_concise_complete_and_uses_one_emergency_sentence(self):
+        response = self.client.get(reverse("home_en"))
+        html = response.content.decode()
+
+        self.assertContains(
+            response,
+            "Consultant Ear, Nose and Throat Surgeon · Functional and Cosmetic Rhinoplasty",
+        )
+        self.assertContains(response, "Book an Appointment")
+        self.assertContains(response, "Patient Portal")
+        self.assertContains(response, "+962 7 8976 6332")
+        self.assertContains(response, "The website and WhatsApp are not for emergencies.", count=1)
+        self.assertNotIn("For urgent symptoms, contact local emergency services immediately.", html)
+
+        footer_source = (settings.BASE_DIR / "templates" / "partials" / "footer.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("doctor.bio_", footer_source)
 
     def test_unsupported_figma_claims_are_absent_from_public_pages(self):
         route_names = [

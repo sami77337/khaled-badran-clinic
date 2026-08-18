@@ -1,53 +1,44 @@
 <footer class="site-footer">
-    <div class="container footer-mobile">
-        <p class="footer-brand">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</p>
-        <nav class="footer-mobile-nav" aria-label="{% if is_arabic %}روابط التذييل{% else %}Footer links{% endif %}">
-            <a href="{{ home_url }}">{{ labels.home }}</a>
-            <a href="{{ doctor_url }}">{{ labels.doctor }}</a>
-            <a href="{{ services_url }}">{{ labels.services }}</a>
-            <a href="{{ cases_url }}">{{ labels.cases }}</a>
-            <a href="{{ contact_url }}">{{ labels.contact }}</a>
-            {% for label, url in legal_links %}<a href="{{ url }}">{{ label }}</a>{% endfor %}
-        </nav>
-    </div>
-
-    <div class="container footer-desktop">
-        <div class="footer-about">
+    <div class="container footer-main">
+        <div class="footer-identity">
             <p class="footer-brand">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</p>
-            <p>
-                {% if is_arabic %}{{ doctor.bio_ar }}{% else %}{{ doctor.bio_en }}{% endif %}
+            <p class="footer-specialization">
+                {% if is_arabic %}{{ doctor.footer_summary_ar }}{% else %}{{ doctor.footer_summary_en }}{% endif %}
             </p>
             <div class="footer-actions">
                 <a class="btn btn-light" href="{{ booking_url }}">{{ labels.book }}</a>
                 <a class="btn btn-outline-light" href="{% if is_arabic %}{% url 'patient_portal_login' %}{% else %}{% url 'patient_portal_login_en' %}{% endif %}">{{ labels.patient_portal }}</a>
             </div>
         </div>
-        <div>
-            <h2 class="footer-heading">{% if is_arabic %}الخدمات والمعلومات{% else %}Services & Information{% endif %}</h2>
-            <ul class="footer-links">
-                <li><a href="{{ doctor_url }}">{{ labels.doctor }}</a></li>
-                <li><a href="{{ services_url }}">{{ labels.services }}</a></li>
-                <li><a href="{{ cases_url }}">{{ labels.cases }}</a></li>
-                <li><a href="{% if is_arabic %}{% url 'patient_portal_dashboard' %}{% else %}{% url 'patient_portal_dashboard_en' %}{% endif %}">{{ labels.patient_portal }}</a></li>
-            </ul>
+
+        <div class="footer-column">
+            <h2 class="footer-heading">{% if is_arabic %}العيادة{% else %}Clinic{% endif %}</h2>
+            <nav class="footer-links" aria-label="{% if is_arabic %}روابط العيادة{% else %}Clinic links{% endif %}">
+                <a href="{{ doctor_url }}">{{ labels.doctor }}</a>
+                <a href="{{ services_url }}">{{ labels.services }}</a>
+                <a href="{{ cases_url }}">{{ labels.cases }}</a>
+                <a href="{% if is_arabic %}{% url 'patient_portal_dashboard' %}{% else %}{% url 'patient_portal_dashboard_en' %}{% endif %}">{{ labels.patient_portal }}</a>
+            </nav>
         </div>
-        <div>
+
+        <div class="footer-column footer-contact">
             <h2 class="footer-heading">{{ labels.contact }}</h2>
-            <a class="footer-location" href="{{ clinic.map_url }}" target="_blank" rel="noopener noreferrer">
-                {% if is_arabic %}{{ clinic.address_ar|linebreaksbr }}{% else %}{{ clinic.address_en|linebreaksbr }}{% endif %}
-            </a>
-            {% if clinic.phone_raw %}<a class="footer-phone" href="tel:{{ clinic.phone_raw }}" dir="ltr">{{ clinic.phone_raw }}</a>{% endif %}
+            <address>
+                <a class="footer-location" href="{{ clinic.map_url }}" target="_blank" rel="noopener noreferrer">
+                    {% if is_arabic %}{{ clinic.address_ar|linebreaksbr }}{% else %}{{ clinic.address_en|linebreaksbr }}{% endif %}
+                </a>
+                <a class="footer-phone" href="tel:{{ clinic.phone_e164 }}" dir="ltr">{{ clinic.phone_display }}</a>
+                <a class="footer-whatsapp" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">{{ labels.whatsapp }}</a>
+            </address>
         </div>
     </div>
 
-    <div class="container footer-bottom">
-        <p>{{ labels.not_emergency }}</p>
-        <div class="footer-bottom-row">
-            <p>© {% now "Y" %} {% if is_arabic %}{{ clinic.name_ar }}. جميع الحقوق محفوظة.{% else %}{{ clinic.name_en }}. All rights reserved.{% endif %}</p>
-            <nav aria-label="{% if is_arabic %}الروابط القانونية{% else %}Legal links{% endif %}">
-                {% for label, url in legal_links %}<a href="{{ url }}">{{ label }}</a>{% endfor %}
-                <a href="{% url 'admin:login' %}">{% if is_arabic %}دخول الموظفين{% else %}Staff Login{% endif %}</a>
-            </nav>
-        </div>
+    <div class="container footer-meta">
+        <p class="footer-emergency">{{ labels.public_emergency }}</p>
+        <nav class="footer-legal" aria-label="{% if is_arabic %}الروابط القانونية{% else %}Legal links{% endif %}">
+            {% for label, url in legal_links %}<a href="{{ url }}">{{ label }}</a>{% endfor %}
+            <a href="{% url 'admin:login' %}">{% if is_arabic %}دخول الموظفين{% else %}Staff Login{% endif %}</a>
+        </nav>
+        <p class="footer-copyright">© {% now "Y" %} {% if is_arabic %}{{ clinic.name_ar }}. جميع الحقوق محفوظة.{% else %}{{ clinic.name_en }}. All rights reserved.{% endif %}</p>
     </div>
 </footer>

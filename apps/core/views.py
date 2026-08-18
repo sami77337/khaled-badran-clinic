@@ -28,12 +28,14 @@ DOCTOR_DEFAULT = {
     "display_name_en": "Dr. Khaled Hassan Badran",
     "specialty_ar": "استشاري الأنف والأذن والحنجرة",
     "specialty_en": "Consultant Ear, Nose and Throat Surgeon",
-    "credential_label_ar": "البورد الأوروبي والأردني",
-    "credential_label_en": "European & Jordanian Boards",
+    "credential_label_ar": "البورد الأوروبي والبورد الأردني للأنف والأذن والحنجرة",
+    "credential_label_en": "European ENT Board · Jordanian ENT Board",
     "public_focus_ar": "الأنف والأذن والحنجرة وجراحة الأنف الوظيفية والتجميلية",
     "public_focus_en": "ENT & Functional and Cosmetic Rhinoplasty",
     "hero_summary_ar": "رعاية متخصصة للكبار والأطفال، مع اهتمام خاص بجراحة الأنف الوظيفية والتجميلية.",
     "hero_summary_en": "Specialized adult and pediatric ENT care, with a particular focus on functional and cosmetic rhinoplasty.",
+    "footer_summary_ar": "استشاري الأنف والأذن والحنجرة · جراحة الأنف الوظيفية والتجميلية",
+    "footer_summary_en": "Consultant Ear, Nose and Throat Surgeon · Functional and Cosmetic Rhinoplasty",
     "bio_ar": (
         "استشاري في أمراض وجراحة الأنف والأذن والحنجرة للكبار والأطفال، "
         "حاصل على البورد الأوروبي والبورد الأردني، مع خبرة مهنية في مستشفيات "
@@ -45,6 +47,12 @@ DOCTOR_DEFAULT = {
         "professional experience in UK hospitals and a special focus on "
         "functional and cosmetic rhinoplasty."
     ),
+}
+
+APPROVED_CLINIC_PHONE = {
+    "display": "+962 7 8976 6332",
+    "e164": "+962789766332",
+    "whatsapp_url": "https://wa.me/962789766332",
 }
 
 APPROVED_CLINIC_LOCATION = {
@@ -132,6 +140,65 @@ SERVICE_GROUPS = {
     ],
 }
 
+DOCTOR_PUBLIC_PROFILE = {
+    "ar": {
+        "experience": [
+            "العمل الحالي في العيادة الخاصة في عمّان",
+            "زمالة وتدريب في الأنف والأذن والحنجرة — مستشفى مونكلاندز، المملكة المتحدة",
+        ],
+        "education": [
+            "الاختصاص العالي — الجامعة الأردنية",
+            "بكالوريوس الطب والجراحة — الجامعة الأردنية",
+            "درجة الماجستير في العلوم الصحية — جامعة سنترال لانكشاير، المملكة المتحدة",
+        ],
+        "boards": [
+            "البورد الأوروبي للأنف والأذن والحنجرة",
+            "البورد الأردني للأنف والأذن والحنجرة",
+        ],
+        "memberships": ["FRCSI", "MRCSI", "GMC", "MDU"],
+        "specialties": [
+            "الأنف والأذن والحنجرة",
+            "أنف وأذن وحنجرة للبالغين",
+            "أنف وأذن وحنجرة للأطفال",
+            "جراحة الأنف والأذن والحنجرة",
+            "جراحة الأنف الوظيفية والتجميلية",
+        ],
+        "awards": [
+            "2015 — جائزة مركز الحسين للسرطان",
+            "2011 — Presidential Candidate Award",
+        ],
+        "languages": ["العربية", "الإنجليزية"],
+    },
+    "en": {
+        "experience": [
+            "Current private practice in Amman",
+            "ENT fellowship/training — Monklands Hospital, United Kingdom",
+        ],
+        "education": [
+            "Higher Specialization — University of Jordan",
+            "Bachelor of Medicine and Surgery — University of Jordan",
+            "Master’s degree in Health Sciences — University of Central Lancashire, United Kingdom",
+        ],
+        "boards": [
+            "European ENT Board",
+            "Jordanian ENT Board",
+        ],
+        "memberships": ["FRCSI", "MRCSI", "GMC", "MDU"],
+        "specialties": [
+            "ENT",
+            "Adult ENT",
+            "Pediatric ENT",
+            "ENT surgery",
+            "Functional and cosmetic rhinoplasty",
+        ],
+        "awards": [
+            "2015 — King Hussein Cancer Center award",
+            "2011 — Presidential Candidate Award",
+        ],
+        "languages": ["Arabic", "English"],
+    },
+}
+
 PAGE_COPY = {
     "ar": {
         "home": {
@@ -156,7 +223,7 @@ PAGE_COPY = {
             "title": "الحالات والإنجازات",
             "description": "وسائط عرض عامة معتمدة وموافق عليها فقط من عيادة الدكتور خالد بدران.",
             "headline": "حالات وإنجازات معتمدة للعرض",
-            "subtitle": "هذه الصفحة تعرض وسائط تم اعتمادها صراحة للعرض العام مع تأكيد الموافقة، ولا تعرض هوية المرضى أو تفاصيل السجلات الخاصة.",
+            "subtitle": "تُعرض هنا فقط الحالات المصرّح بنشرها بموافقة صريحة.",
         },
         "contact": {
             "title": "التواصل والموقع",
@@ -224,7 +291,7 @@ PAGE_COPY = {
             "title": "Cases and Achievements",
             "description": "Approved and consented public showcase media for Dr. Khaled Badran Clinic.",
             "headline": "Approved Cases and Achievements",
-            "subtitle": "This page shows only media explicitly approved for public display with confirmed consent, without patient identity or private record details.",
+            "subtitle": "Only cases explicitly approved for public display are shown.",
         },
         "contact": {
             "title": "Contact & Location",
@@ -276,7 +343,7 @@ LABELS = {
         "book": "احجز موعداً",
         "book_note": "يتم تأكيد الموعد بعد اختيار الوقت وإرسال بيانات التواصل في خطوة التأكيد.",
         "whatsapp": "واتساب العيادة",
-        "whatsapp_note": "رابط واتساب السريع غير مفعّل حتى اعتماد رقم العيادة المخصص له.",
+        "whatsapp_note": "تواصل مع العيادة مباشرة عبر واتساب.",
         "contact": "التواصل والموقع",
         "services": "الخدمات",
         "cases": "الحالات",
@@ -288,13 +355,14 @@ LABELS = {
         "whatsapp_policy": "سياسة واتساب",
         "patient_portal": "بوابة المريض",
         "not_emergency": "الموقع وواتساب غير مخصصين للطوارئ. في الحالات الطارئة اتصل بخدمات الطوارئ المحلية فوراً.",
+        "public_emergency": "الموقع وواتساب ليسا للطوارئ.",
         "verify_profile": "تحتاج تفاصيل المؤهلات والعضويات والخبرة إلى تدقيق نهائي قبل النشر العام.",
     },
     "en": {
         "book": "Book an Appointment",
         "book_note": "Your appointment is confirmed after choosing a time and submitting the confirmation step.",
         "whatsapp": "Clinic WhatsApp",
-        "whatsapp_note": "The WhatsApp quick link stays inactive until the clinic approves its dedicated number.",
+        "whatsapp_note": "Contact the clinic directly on WhatsApp.",
         "contact": "Contact & Location",
         "services": "Services",
         "cases": "Cases",
@@ -306,6 +374,7 @@ LABELS = {
         "whatsapp_policy": "WhatsApp Policy",
         "patient_portal": "Patient Portal",
         "not_emergency": "This website and WhatsApp are not for emergencies. For urgent symptoms, contact local emergency services immediately.",
+        "public_emergency": "The website and WhatsApp are not for emergencies.",
         "verify_profile": "Credentials, memberships, and experience details should be verified before final public publication.",
     },
 }
@@ -326,40 +395,22 @@ ROUTE_NAMES = {
 
 PUBLIC_CASE_LABELS = {
     "ar": {
-        "approved_only": "محتوى معتمد وموافق عليه فقط",
-        "approved_only_body": (
-            "الوسائط هنا مخصصة للعرض العام بعد موافقة صريحة وتأكيد موافقة. "
-            "لا تمثل تشخيصاً أو خطة علاج أو ضمان نتيجة، ولا تغني عن التقييم الطبي."
-        ),
-        "empty_title": "لا توجد وسائط عامة معتمدة حالياً",
-        "empty_body": "ستظهر هنا فقط الوسائط التي تحمل موافقة عامة مؤكدة وتبقى نشطة.",
+        "approved_only": "تُعرض هنا فقط الحالات المصرّح بنشرها بموافقة صريحة.",
+        "empty_title": "لا توجد حالات منشورة حالياً.",
         "view_media": "عرض الوسيط",
         "view_all": "عرض الحالات",
         "image": "صورة",
         "short_video": "فيديو قصير",
         "untitled": "وسيط معتمد",
-        "safety_note": (
-            "لا تعرض هذه الصفحة أسماء المرضى أو أرقام الهواتف أو تواريخ الميلاد أو الملاحظات الطبية الخاصة. "
-            "وسائط بوابة المريض لا تصبح عامة تلقائياً."
-        ),
     },
     "en": {
-        "approved_only": "Approved and consented content only",
-        "approved_only_body": (
-            "Media here is public showcase content only after explicit approval and confirmed consent. "
-            "It is not a diagnosis, treatment plan, outcome guarantee, or substitute for medical assessment."
-        ),
-        "empty_title": "No approved public showcase media yet",
-        "empty_body": "Only active media with explicit public-case approval and confirmed consent will appear here.",
+        "approved_only": "Only cases explicitly approved for public display are shown.",
+        "empty_title": "No public cases are currently published.",
         "view_media": "View media",
         "view_all": "View cases",
         "image": "Image",
         "short_video": "Short video",
         "untitled": "Approved media",
-        "safety_note": (
-            "This page does not show patient names, phone numbers, dates of birth, or private clinical notes. "
-            "Patient-visible portal media is not automatically public."
-        ),
     },
 }
 
@@ -407,14 +458,6 @@ def _is_placeholder_value(value):
     return not normalized or any(marker in normalized for marker in placeholder_markers)
 
 
-def _public_phone(value):
-    normalized = (value or "").strip()
-    if _is_placeholder_value(normalized) or "x" in normalized.casefold():
-        return ""
-    digits = "".join(character for character in normalized if character.isdigit())
-    return normalized if len(digits) >= 7 else ""
-
-
 def _clinic_context():
     clinic = _active_clinic()
     address_ar = clinic.address_ar if clinic and not _is_placeholder_value(clinic.address_ar) else ""
@@ -423,12 +466,15 @@ def _clinic_context():
         "object": clinic,
         "name_ar": clinic.official_name_ar if clinic else CLINIC_OFFICIAL_NAME_AR,
         "name_en": clinic.official_name_en if clinic else CLINIC_OFFICIAL_NAME_EN,
-        "phone_raw": _public_phone(clinic.phone_raw if clinic else ""),
+        "phone_raw": APPROVED_CLINIC_PHONE["display"],
+        "phone_display": APPROVED_CLINIC_PHONE["display"],
+        "phone_e164": APPROVED_CLINIC_PHONE["e164"],
         "address_ar": address_ar or APPROVED_CLINIC_LOCATION["address_ar"],
         "address_en": address_en or APPROVED_CLINIC_LOCATION["address_en"],
         "coordinates": APPROVED_CLINIC_LOCATION["coordinates"],
         "map_url": APPROVED_CLINIC_LOCATION["map_url"],
         "map_embed_url": APPROVED_CLINIC_LOCATION["map_embed_url"],
+        "whatsapp_url": APPROVED_CLINIC_PHONE["whatsapp_url"],
     }
 
 
@@ -453,6 +499,8 @@ def _doctor_context():
         "public_focus_en": DOCTOR_DEFAULT["public_focus_en"],
         "hero_summary_ar": DOCTOR_DEFAULT["hero_summary_ar"],
         "hero_summary_en": DOCTOR_DEFAULT["hero_summary_en"],
+        "footer_summary_ar": DOCTOR_DEFAULT["footer_summary_ar"],
+        "footer_summary_en": DOCTOR_DEFAULT["footer_summary_en"],
     }
 
 
@@ -585,9 +633,9 @@ def _base_context(
         "og_image_url": request.build_absolute_uri(static("img/clinic/clinic-interior-1.png")),
         "booking_placeholder_url": _route_url("booking", language),
         "booking_url": _route_url("booking", language),
-        "whatsapp_placeholder_url": _route_url("contact", language) + "#whatsapp-placeholder",
-        "whatsapp_is_configured": False,
-        "whatsapp_url": "",
+        "whatsapp_placeholder_url": clinic["whatsapp_url"],
+        "whatsapp_is_configured": True,
+        "whatsapp_url": clinic["whatsapp_url"],
         "contact_url": _route_url("contact", language),
         "services_url": _route_url("services", language),
         "cases_url": _route_url("cases", language),
@@ -643,7 +691,10 @@ def doctor_profile(request, language=DEFAULT_LANGUAGE):
         "doctor",
         language,
         {
-            "areas_of_care": SERVICE_GROUPS[language],
+            "doctor_profile": {
+                **DOCTOR_PUBLIC_PROFILE[language],
+                "conditions": SERVICE_GROUPS[language],
+            },
         },
         show_mobile_booking_cta=True,
     )
