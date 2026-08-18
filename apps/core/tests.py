@@ -1814,6 +1814,8 @@ class PublicUiFoundationTests(TestCase):
         self.assertIn("scrollIntoView", javascript)
         self.assertIn('inline: "start"', javascript)
         self.assertIn("getComputedStyle(caseCarousel).direction", javascript)
+        self.assertIn('const effectiveBehavior = reducedMotion ? "auto" : behavior;', javascript)
+        self.assertIn("behavior: effectiveBehavior", javascript)
         self.assertNotIn("caseCarousel.scrollTo", javascript)
         self.assertNotIn("offsetLeft", javascript)
 

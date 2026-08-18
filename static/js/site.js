@@ -141,8 +141,9 @@
                 return;
             }
             const nextIndex = (index + cards.length) % cards.length;
+            const effectiveBehavior = reducedMotion ? "auto" : behavior;
             cards[nextIndex].scrollIntoView({
-                behavior,
+                behavior: effectiveBehavior,
                 block: "nearest",
                 inline: "start",
             });
