@@ -2326,15 +2326,42 @@ class PublicUiFoundationTests(TestCase):
         self.assertEqual(html.count("data-gallery-dot="), 5)
         self.assertIn("data-gallery-previous", html)
         self.assertIn("data-gallery-next", html)
-        self.assertIn(".clinic-gallery-slide {\n    flex: 0 0 100%;", css)
+        mobile_css = css[: css.index("@media (min-width: 768px)")]
+        self.assertIn(".clinic-gallery-slide {\n    flex: 0 0 100%;", mobile_css)
+        self.assertIn(".clinic-gallery-viewport {\n    width: 100%;", mobile_css)
+        self.assertIn("overflow-x: auto", mobile_css)
+        self.assertIn("scroll-snap-type: inline mandatory", mobile_css)
+        self.assertIn("touch-action: pan-x pan-y", mobile_css)
+
         desktop_css = css[css.index("@media (min-width: 768px)") :]
-        self.assertIn(".clinic-gallery-slide {\n        flex-basis: calc((100% - 2rem) / 3);", desktop_css)
+        self.assertIn(
+            ".clinic-gallery-viewport {\n"
+            "        overflow: visible;\n"
+            "        scroll-snap-type: none;\n"
+            "        touch-action: auto;",
+            desktop_css,
+        )
+        self.assertIn(
+            ".clinic-gallery-track {\n"
+            "        display: grid;\n"
+            "        width: 100%;\n"
+            "        grid-template-columns: repeat(3, minmax(0, 1fr));",
+            desktop_css,
+        )
+        self.assertIn(
+            ".clinic-gallery-slide {\n"
+            "        width: 100%;\n"
+            "        flex: none;\n"
+            "        scroll-snap-align: none;",
+            desktop_css,
+        )
+        self.assertIn(
+            ".clinic-gallery-slide:nth-child(n + 4) {\n        display: none;",
+            desktop_css,
+        )
+        self.assertNotIn("flex-basis: calc((100% - 2rem) / 3)", desktop_css)
         self.assertIn("max-width: 100%", css)
         self.assertIn("min-width: 0", css)
-        self.assertIn("overflow-x: auto", css)
-        self.assertIn("overflow-x: clip", css)
-        self.assertIn("scroll-snap-type: inline mandatory", css)
-        self.assertIn("touch-action: pan-x pan-y", css)
         self.assertIn(".clinic-gallery-viewport {\n        scroll-behavior: auto;", css)
         self.assertNotIn("transform: scale(", css.casefold())
 

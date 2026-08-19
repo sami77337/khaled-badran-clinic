@@ -141,8 +141,8 @@ const buildRuntime = ({ desktop = true, reducedMotion = false } = {}) => {
     const currentPosition = new FakeNode("current");
     currentPosition.textContent = "1";
     const gallery = new FakeNode("gallery");
+    viewport.append(track);
     gallery.append(viewport);
-    gallery.append(track);
     dots.forEach((dot) => gallery.append(dot));
     gallery.append(previousButton);
     gallery.append(nextButton);
@@ -248,6 +248,11 @@ const runOnlyTimeout = (runtime) => {
     assert.deepEqual(runtime.track.children.map((slide) => slide.name), [
         "slide-1", "slide-2", "slide-3", "slide-4", "slide-5",
     ]);
+    assert.equal(
+        runtime.slides.filter((slide) => slide.lastScrollOptions !== null).length,
+        0,
+        "desktop initialization must not turn the grid into a scrolled one-slide viewport",
+    );
 
     runOnlyInterval(runtime);
     assert.equal(runtime.currentPosition.textContent, "2", "autoplay must advance the live index");
@@ -255,6 +260,11 @@ const runOnlyTimeout = (runtime) => {
     assert.deepEqual(runtime.track.children.slice(0, 3).map((slide) => slide.name), [
         "slide-2", "slide-3", "slide-4",
     ]);
+    assert.equal(
+        runtime.slides.filter((slide) => slide.lastScrollOptions !== null).length,
+        0,
+        "desktop autoplay must change the leading grid composition without scrolling",
+    );
 
     runOnlyInterval(runtime);
     runOnlyInterval(runtime);
@@ -264,6 +274,19 @@ const runOnlyTimeout = (runtime) => {
 
     runtime.nextButton.dispatch("click");
     assert.equal(runtime.intervals.size, 0, "manual navigation must pause autoplay");
+    assert.equal(runtime.currentPosition.textContent, "5", "next must advance the desktop lead");
+    runtime.previousButton.dispatch("click");
+    assert.equal(runtime.currentPosition.textContent, "4", "previous must restore the prior desktop lead");
+    runtime.dots[0].dispatch("click");
+    assert.equal(runtime.currentPosition.textContent, "1", "dots must select their desktop lead");
+    assert.deepEqual(runtime.track.children.slice(0, 3).map((slide) => slide.name), [
+        "slide-1", "slide-2", "slide-3",
+    ], "the reception photo must remain the initial and selectable leading image");
+    assert.equal(
+        runtime.slides.filter((slide) => slide.lastScrollOptions !== null).length,
+        0,
+        "desktop manual controls must rotate the grid without horizontal scrolling",
+    );
     runOnlyTimeout(runtime);
     assert.equal(runtime.intervals.size, 1, "autoplay must resume after manual navigation settles");
 

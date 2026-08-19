@@ -1690,12 +1690,28 @@ summary:focus-visible {
         min-height: 520px;
     }
 
+    .clinic-gallery-viewport {
+        overflow: visible;
+        scroll-snap-type: none;
+        touch-action: auto;
+    }
+
     .clinic-gallery-track {
+        display: grid;
+        width: 100%;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 1rem;
     }
 
     .clinic-gallery-slide {
-        flex-basis: calc((100% - 2rem) / 3);
+        width: 100%;
+        flex: none;
+        scroll-snap-align: none;
+        scroll-snap-stop: normal;
+    }
+
+    .clinic-gallery-slide:nth-child(n + 4) {
+        display: none;
     }
 
     .clinic-gallery-slide img {

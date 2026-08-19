@@ -359,9 +359,10 @@
             if (desktopGalleryLayout.matches) {
                 rotateDesktopSlides(nextIndex);
                 replayAdvanceAnimation();
+                return;
             }
             slides[nextIndex].scrollIntoView({
-                behavior: desktopGalleryLayout.matches ? "auto" : effectiveBehavior,
+                behavior: effectiveBehavior,
                 block: "nearest",
                 inline: "start",
             });
@@ -487,12 +488,12 @@
                 rotateDesktopSlides(activeIndex);
             } else {
                 restoreOriginalSlideOrder();
+                slides[activeIndex].scrollIntoView({
+                    behavior: "auto",
+                    block: "nearest",
+                    inline: "start",
+                });
             }
-            slides[activeIndex].scrollIntoView({
-                behavior: "auto",
-                block: "nearest",
-                inline: "start",
-            });
             startAutoplay();
         });
         document.addEventListener("visibilitychange", () => {
