@@ -69,6 +69,7 @@
                         <figure
                             class="clinic-gallery-slide{% if forloop.first %} is-active{% endif %}"
                             data-gallery-slide
+                            {% if forloop.first %}data-gallery-primary{% endif %}
                             aria-label="{% if is_arabic %}الصورة {{ forloop.counter }} من {{ clinic_gallery|length }}{% else %}Photo {{ forloop.counter }} of {{ clinic_gallery|length }}{% endif %}"
                         >
                             {% static photo.asset_path as clinic_photo_url %}

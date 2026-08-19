@@ -2,6 +2,7 @@ import html as html_lib
 import json
 import os
 import re
+import subprocess
 import uuid
 from datetime import date, timedelta
 from decimal import Decimal
@@ -1948,8 +1949,9 @@ class PublicUiFoundationTests(TestCase):
         self.assertIn("transition: none;", reduced_motion_css)
 
     def test_home_sections_follow_locked_order_and_review_surface_is_empty(self):
-        response = self.client.get(reverse("home"))
-        html = response.content.decode()
+        arabic = self.client.get(reverse("home"))
+        english = self.client.get(reverse("home_en"))
+        html = arabic.content.decode()
         css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(encoding="utf-8")
         ordered_markers = [
             '<section class="home-hero"',
@@ -1964,17 +1966,26 @@ class PublicUiFoundationTests(TestCase):
         positions = [html.index(marker) for marker in ordered_markers]
         self.assertEqual(positions, sorted(positions))
         self.assertIn('data-review-surface="empty"', html)
-        self.assertIn('hidden aria-hidden="true"', html)
-        self.assertNotIn('data-review-card', html)
-        self.assertNotIn('data-review-summary', html)
-        self.assertNotIn('class="section home-services"', html)
-        self.assertNotIn("Patient Stories", html)
-        self.assertNotIn("قصص المرضى", html)
-        self.assertNotIn("Testimonials", html)
-        self.assertNotIn("4.8", html)
-        self.assertNotIn("174", html)
+        self.assertNotIn('hidden aria-hidden="true"', html)
+        self.assertContains(arabic, "آراء المرضى")
+        self.assertContains(arabic, "ستظهر تقييمات المرضى المعتمدة هنا.")
+        self.assertContains(english, "Patient Reviews")
+        self.assertContains(english, "Approved patient reviews will appear here.")
+        for response in [arabic, english]:
+            response_html = response.content.decode()
+            self.assertIn('data-review-empty', response_html)
+            self.assertNotIn('data-review-card', response_html)
+            self.assertNotIn('data-review-summary', response_html)
+            self.assertNotIn('class="section home-services"', response_html)
+            self.assertNotIn("Patient Stories", response_html)
+            self.assertNotIn("قصص المرضى", response_html)
+            self.assertNotIn("Testimonials", response_html)
+            self.assertNotIn("4.8", response_html)
+            self.assertNotIn("174", response_html)
         self.assertIn(".home-hero-visual {\n    display: none;", css)
         self.assertIn(".home-faq {\n    display: none;", css)
+        self.assertIn('.home-reviews[data-review-surface="empty"]', css)
+        self.assertIn(".home-reviews-empty", css)
 
     def test_home_has_responsive_hooks_without_scale_workaround(self):
         response = self.client.get(reverse("home_en"))
@@ -1987,7 +1998,7 @@ class PublicUiFoundationTests(TestCase):
         self.assertIn('class="section home-faq"', html)
         self.assertIn('@media (min-width: 768px)', css)
         self.assertIn('.home-faq {\n        display: block;', css)
-        self.assertIn('.home-reviews[hidden]', css)
+        self.assertNotIn('.home-reviews[hidden]', css)
         self.assertNotIn('.home-services', css)
         self.assertNotIn('transform: scale(', css.casefold())
 
@@ -2262,6 +2273,14 @@ class PublicUiFoundationTests(TestCase):
         self.assertEqual(configured_assets, approved_assets)
         self.assertEqual(len(configured_assets), 5)
         self.assertEqual(len(set(configured_assets)), len(configured_assets))
+        self.assertEqual(
+            core_views.APPROVED_PUBLIC_CLINIC_GALLERY[0]["asset_path"],
+            "img/clinic/clinic-interior-1.png",
+        )
+        self.assertEqual(
+            core_views.APPROVED_PUBLIC_CLINIC_GALLERY[0]["alt_en"],
+            "Reception area inside Dr. Khaled Badran Clinic",
+        )
         for asset_path in approved_assets:
             with self.subTest(asset=asset_path):
                 self.assertTrue((settings.BASE_DIR / "static" / asset_path).is_file())
@@ -2271,6 +2290,14 @@ class PublicUiFoundationTests(TestCase):
             with self.subTest(route=route_name):
                 for asset_path in approved_assets:
                     self.assertIn(asset_path, html)
+                gallery_html = html[html.index("data-clinic-gallery") :]
+                asset_positions = [gallery_html.index(asset_path) for asset_path in approved_assets]
+                self.assertEqual(asset_positions, sorted(asset_positions))
+                primary_marker = gallery_html.index("data-gallery-primary")
+                first_asset_position = gallery_html.index(approved_assets[0])
+                second_asset_position = gallery_html.index(approved_assets[1])
+                self.assertLess(primary_marker, first_asset_position)
+                self.assertLess(first_asset_position, second_asset_position)
                 self.assertNotIn("clinic-placeholder.svg", html)
                 self.assertNotIn("unnamed (2).webp", html)
                 self.assertNotIn("unnamed (5).webp", html)
@@ -2287,12 +2314,9 @@ class PublicUiFoundationTests(TestCase):
                 self.assertNotIn(excluded_source_name, contact_source)
                 self.assertNotIn(excluded_source_name, views_source)
 
-    def test_clinic_gallery_carousel_contract_covers_motion_swipe_pause_and_direction(self):
+    def test_clinic_gallery_responsive_contract_has_three_desktop_and_one_mobile_card(self):
         response = self.client.get(reverse("contact_en"))
         html = response.content.decode()
-        javascript = (settings.BASE_DIR / "static" / "js" / "site.js").read_text(
-            encoding="utf-8"
-        )
         css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(
             encoding="utf-8"
         )
@@ -2302,22 +2326,37 @@ class PublicUiFoundationTests(TestCase):
         self.assertEqual(html.count("data-gallery-dot="), 5)
         self.assertIn("data-gallery-previous", html)
         self.assertIn("data-gallery-next", html)
-        self.assertIn('document.querySelectorAll("[data-clinic-gallery]")', javascript)
-        self.assertIn("!reducedMotion && pauseReasons.size === 0 && slides.length > 1", javascript)
-        self.assertIn("controls.hidden = slides.length <= 1", javascript)
-        self.assertIn('window.setInterval(() => scrollToSlide(activeIndex + 1), 6000)', javascript)
-        self.assertIn('pauseAutoplay("hover")', javascript)
-        self.assertIn('pauseAutoplay("focus")', javascript)
-        self.assertIn('pauseAutoplay("manual")', javascript)
-        self.assertIn('pauseAutoplay("pointer")', javascript)
-        self.assertIn('const effectiveBehavior = reducedMotion ? "auto" : behavior;', javascript)
-        self.assertIn("window.getComputedStyle(viewport).direction", javascript)
-        self.assertIn('inline: "start"', javascript)
-        self.assertIn('event.key !== "ArrowLeft" && event.key !== "ArrowRight"', javascript)
+        self.assertIn(".clinic-gallery-slide {\n    flex: 0 0 100%;", css)
+        desktop_css = css[css.index("@media (min-width: 768px)") :]
+        self.assertIn(".clinic-gallery-slide {\n        flex-basis: calc((100% - 2rem) / 3);", desktop_css)
+        self.assertIn("max-width: 100%", css)
+        self.assertIn("min-width: 0", css)
         self.assertIn("overflow-x: auto", css)
+        self.assertIn("overflow-x: clip", css)
         self.assertIn("scroll-snap-type: inline mandatory", css)
         self.assertIn("touch-action: pan-x pan-y", css)
         self.assertIn(".clinic-gallery-viewport {\n        scroll-behavior: auto;", css)
+        self.assertNotIn("transform: scale(", css.casefold())
+
+    def test_clinic_gallery_runtime_autoplay_pause_resume_and_reduced_motion(self):
+        runtime_test = settings.BASE_DIR / "apps" / "core" / "js_tests" / "clinic_gallery_runtime_test.js"
+        site_script = settings.BASE_DIR / "static" / "js" / "site.js"
+
+        result = subprocess.run(
+            ["node", str(runtime_test), str(site_script)],
+            cwd=settings.BASE_DIR,
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=15,
+        )
+
+        self.assertEqual(
+            result.returncode,
+            0,
+            msg=f"JavaScript gallery behavior failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+        )
+        self.assertIn("clinic gallery runtime behavior passed", result.stdout)
 
     def test_public_footer_is_concise_complete_and_uses_one_emergency_sentence(self):
         response = self.client.get(reverse("home_en"))

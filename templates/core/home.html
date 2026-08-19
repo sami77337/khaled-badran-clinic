@@ -102,23 +102,22 @@
     id="reviews"
     class="section home-reviews"
     data-review-surface="{% if public_reviews %}populated{% else %}empty{% endif %}"
-    {% if not public_reviews %}hidden aria-hidden="true"{% endif %}
     aria-labelledby="home-reviews-title"
 >
     <div class="container home-reviews-panel">
-        {% if public_reviews %}
-            <div class="home-reviews-heading">
-                <div>
-                    <p class="eyebrow">{% if is_arabic %}آراء موثقة{% else %}Verified Feedback{% endif %}</p>
-                    <h2 id="home-reviews-title">{% if is_arabic %}آراء المراجعين{% else %}Patient Reviews{% endif %}</h2>
-                </div>
-                {% if review_summary %}
-                    <div class="home-review-summary" data-review-summary>
-                        {% if review_summary.average_rating %}<strong>{{ review_summary.average_rating }}</strong>{% endif %}
-                        {% if review_summary.review_count %}<span>{{ review_summary.review_count }}</span>{% endif %}
-                    </div>
-                {% endif %}
+        <div class="home-reviews-heading">
+            <div>
+                <p class="eyebrow">{% if is_arabic %}آراء معتمدة{% else %}Approved Feedback{% endif %}</p>
+                <h2 id="home-reviews-title">{% if is_arabic %}آراء المرضى{% else %}Patient Reviews{% endif %}</h2>
             </div>
+            {% if public_reviews and review_summary %}
+                <div class="home-review-summary" data-review-summary>
+                    {% if review_summary.average_rating %}<strong>{{ review_summary.average_rating }}</strong>{% endif %}
+                    {% if review_summary.review_count %}<span>{{ review_summary.review_count }}</span>{% endif %}
+                </div>
+            {% endif %}
+        </div>
+        {% if public_reviews %}
             <div class="home-review-grid" data-review-list>
                 {% for review in public_reviews %}
                     <article class="home-review-card" data-review-card>
@@ -127,6 +126,10 @@
                     </article>
                 {% endfor %}
             </div>
+        {% else %}
+            <p class="home-reviews-empty" data-review-empty role="status">
+                {% if is_arabic %}ستظهر تقييمات المرضى المعتمدة هنا.{% else %}Approved patient reviews will appear here.{% endif %}
+            </p>
         {% endif %}
     </div>
 </section>

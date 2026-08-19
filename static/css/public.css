@@ -677,8 +677,8 @@ summary:focus-visible {
         var(--color-burgundy);
 }
 
-.home-reviews[hidden] {
-    display: none;
+.home-reviews[data-review-surface="empty"] {
+    padding-block: clamp(2.75rem, 5vw, 4.5rem);
 }
 
 .home-reviews-panel {
@@ -738,6 +738,16 @@ summary:focus-visible {
     margin: 1rem 0 0;
     color: var(--color-beige);
     font-weight: 600;
+}
+
+.home-reviews-empty {
+    width: min(100%, 640px);
+    margin: 0;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: var(--radius-card);
+    background: rgba(255, 255, 255, 0.06);
+    padding: clamp(1rem, 2vw, 1.35rem);
+    color: rgba(255, 255, 255, 0.76);
 }
 
 .home-faq {
@@ -1224,16 +1234,16 @@ summary:focus-visible {
 
 .clinic-gallery {
     width: min(100%, 1080px);
+    min-width: 0;
     margin-inline: auto;
 }
 
 .clinic-gallery-viewport {
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
     overflow-x: auto;
-    border: 4px solid var(--color-white);
-    border-radius: clamp(1.25rem, 3vw, 2rem);
-    background: var(--color-white);
-    box-shadow: var(--shadow-soft);
+    overflow-y: hidden;
     scroll-behavior: smooth;
     scroll-snap-type: inline mandatory;
     scrollbar-width: none;
@@ -1247,11 +1257,19 @@ summary:focus-visible {
 
 .clinic-gallery-track {
     display: flex;
+    gap: 0.75rem;
+    padding-block: 0.35rem 0.75rem;
 }
 
 .clinic-gallery-slide {
     flex: 0 0 100%;
+    min-width: 0;
+    overflow: hidden;
     margin: 0;
+    border: 3px solid var(--color-white);
+    border-radius: clamp(1.1rem, 3vw, 1.65rem);
+    background: var(--color-white);
+    box-shadow: var(--shadow-card);
     scroll-snap-align: start;
     scroll-snap-stop: always;
 }
@@ -1259,10 +1277,24 @@ summary:focus-visible {
 .clinic-gallery-slide img {
     display: block;
     width: 100%;
-    aspect-ratio: 4 / 3;
+    height: auto;
     background: var(--color-soft);
     object-fit: contain;
     user-select: none;
+}
+
+.clinic-gallery.is-advancing .clinic-gallery-slide {
+    animation: clinic-gallery-settle 320ms ease both;
+}
+
+@keyframes clinic-gallery-settle {
+    from {
+        opacity: 0.72;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 .clinic-gallery-controls {
@@ -1658,6 +1690,19 @@ summary:focus-visible {
         min-height: 520px;
     }
 
+    .clinic-gallery-track {
+        gap: 1rem;
+    }
+
+    .clinic-gallery-slide {
+        flex-basis: calc((100% - 2rem) / 3);
+    }
+
+    .clinic-gallery-slide img {
+        aspect-ratio: 4 / 3;
+        object-fit: cover;
+    }
+
     .site-footer {
         padding-block: 4.5rem 2rem;
     }
@@ -1785,6 +1830,14 @@ summary:focus-visible {
 }
 
 @media (max-width: 767px) {
+    .home-reviews[data-review-surface="empty"] {
+        padding-block: 2.5rem;
+    }
+
+    .home-reviews-heading {
+        margin-bottom: 1.25rem;
+    }
+
     .section-heading-row {
         align-items: start;
     }
@@ -1846,5 +1899,9 @@ summary:focus-visible {
 
     .clinic-gallery-viewport {
         scroll-behavior: auto;
+    }
+
+    .clinic-gallery.is-advancing .clinic-gallery-slide {
+        animation: none;
     }
 }

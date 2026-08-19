@@ -310,6 +310,7 @@
         let manualResumeId = null;
         let scrollFrameId = null;
         const pauseReasons = new Set();
+        const desktopGalleryLayout = window.matchMedia("(min-width: 768px)");
 
         if (controls) {
             controls.hidden = slides.length <= 1;
@@ -336,12 +337,31 @@
             }
         };
 
+        const restoreOriginalSlideOrder = () => {
+            slides.forEach((slide) => slide.parentElement.append(slide));
+        };
+
+        const rotateDesktopSlides = (startIndex) => {
+            const orderedSlides = slides.slice(startIndex).concat(slides.slice(0, startIndex));
+            orderedSlides.forEach((slide) => slide.parentElement.append(slide));
+        };
+
+        const replayAdvanceAnimation = () => {
+            gallery.classList.remove("is-advancing");
+            void gallery.offsetWidth;
+            gallery.classList.add("is-advancing");
+        };
+
         const scrollToSlide = (index, behavior = "smooth") => {
             const nextIndex = (index + slides.length) % slides.length;
             const effectiveBehavior = reducedMotion ? "auto" : behavior;
             setActiveSlide(nextIndex);
+            if (desktopGalleryLayout.matches) {
+                rotateDesktopSlides(nextIndex);
+                replayAdvanceAnimation();
+            }
             slides[nextIndex].scrollIntoView({
-                behavior: effectiveBehavior,
+                behavior: desktopGalleryLayout.matches ? "auto" : effectiveBehavior,
                 block: "nearest",
                 inline: "start",
             });
@@ -413,7 +433,12 @@
                 resumeAutoplay("focus");
             }
         });
-        viewport.addEventListener("pointerdown", () => pauseAutoplay("pointer"));
+        viewport.addEventListener("pointerdown", (event) => {
+            pauseAutoplay("pointer");
+            if (typeof viewport.setPointerCapture === "function" && event.pointerId !== undefined) {
+                viewport.setPointerCapture(event.pointerId);
+            }
+        });
         viewport.addEventListener("pointerup", () => resumeAutoplay("pointer"));
         viewport.addEventListener("pointercancel", () => resumeAutoplay("pointer"));
         viewport.addEventListener("wheel", () => {
@@ -432,6 +457,9 @@
             manuallySelectSlide(activeIndex + direction);
         });
         viewport.addEventListener("scroll", () => {
+            if (desktopGalleryLayout.matches) {
+                return;
+            }
             if (scrollFrameId !== null) {
                 window.cancelAnimationFrame(scrollFrameId);
             }
@@ -454,6 +482,19 @@
                 setActiveSlide(closestIndex);
             });
         }, { passive: true });
+        desktopGalleryLayout.addEventListener("change", () => {
+            if (desktopGalleryLayout.matches) {
+                rotateDesktopSlides(activeIndex);
+            } else {
+                restoreOriginalSlideOrder();
+            }
+            slides[activeIndex].scrollIntoView({
+                behavior: "auto",
+                block: "nearest",
+                inline: "start",
+            });
+            startAutoplay();
+        });
         document.addEventListener("visibilitychange", () => {
             if (document.hidden) {
                 pauseAutoplay("visibility");
@@ -463,6 +504,9 @@
         });
 
         setActiveSlide(0);
+        if (desktopGalleryLayout.matches) {
+            rotateDesktopSlides(0);
+        }
         if (document.hidden) {
             pauseReasons.add("visibility");
         }
