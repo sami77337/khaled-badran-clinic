@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -77,3 +78,43 @@ class AuditLog(models.Model):
     def __str__(self):
         target = self.object_repr or self.model_name or self.app_label or "system"
         return f"{self.get_action_display()} - {target}"
+
+
+class PublicReview(models.Model):
+    class Language(models.TextChoices):
+        ARABIC = "ar", "Arabic"
+        ENGLISH = "en", "English"
+
+    class Source(models.TextChoices):
+        GOOGLE = "google", "Google"
+        OTHER = "other", "Other approved source"
+
+    reviewer_name = models.CharField(max_length=160)
+    body = models.TextField()
+    rating = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+    )
+    language = models.CharField(max_length=2, choices=Language.choices, db_index=True)
+    source = models.CharField(max_length=20, choices=Source.choices, default=Source.GOOGLE)
+    source_reference = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Optional public source reference only. Do not store secrets or private URLs.",
+    )
+    is_approved_for_publication = models.BooleanField(default=False, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    is_featured = models.BooleanField(default=False, db_index=True)
+    display_order = models.PositiveIntegerField(default=0)
+    reviewed_at = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["display_order", "-reviewed_at", "id"]
+
+    def __str__(self):
+        return f"{self.reviewer_name} ({self.rating}/5)"
+
+    @property
+    def star_text(self):
+        return "★" * self.rating + "☆" * (5 - self.rating)

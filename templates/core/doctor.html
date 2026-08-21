@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/public-closeout.css' %}">
+{% endblock %}
+
 {% block content %}
 <section class="doctor-page-hero" aria-labelledby="doctor-page-title">
     <div class="container doctor-page-hero-grid">
@@ -29,7 +33,7 @@
             <p>{% if is_arabic %}{{ doctor.bio_ar }}{% else %}{{ doctor.bio_en }}{% endif %}</p>
         </article>
 
-        <aside class="doctor-contact-card" aria-labelledby="doctor-contact-title">
+        <aside class="doctor-contact-card doctor-contact-card-desktop" aria-labelledby="doctor-contact-title">
             <p class="eyebrow">{% if is_arabic %}الزيارة والحجز{% else %}Visit & Booking{% endif %}</p>
             <h2 id="doctor-contact-title">{% if is_arabic %}احجز دون تسجيل دخول{% else %}Book without signing in{% endif %}</h2>
             <p>{% if is_arabic %}اختر نوع الزيارة والموعد المتاح، ثم أكّد بيانات التواصل.{% else %}Choose a visit type and an available time, then confirm your contact details.{% endif %}</p>
@@ -77,6 +81,20 @@
                 <div class="language-list">{% for item in doctor_profile.languages %}<span>{{ item }}</span>{% endfor %}</div>
             </article>
         </div>
+    </div>
+</section>
+
+<section class="section doctor-mobile-booking-section" aria-labelledby="doctor-mobile-contact-title">
+    <div class="container">
+        <aside class="doctor-contact-card doctor-contact-card-mobile">
+            <p class="eyebrow">{% if is_arabic %}الزيارة والحجز{% else %}Visit & Booking{% endif %}</p>
+            <h2 id="doctor-mobile-contact-title">{% if is_arabic %}احجز دون تسجيل دخول{% else %}Book without signing in{% endif %}</h2>
+            <p>{% if is_arabic %}اختر نوع الزيارة والموعد المتاح، ثم أكّد بيانات التواصل.{% else %}Choose a visit type and an available time, then confirm your contact details.{% endif %}</p>
+            <div class="stacked-actions">
+                <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
+                <a class="text-link" href="{{ clinic.map_url }}" target="_blank" rel="noopener noreferrer">{% if is_arabic %}الاتجاهات إلى العيادة{% else %}Directions to the clinic{% endif %}</a>
+            </div>
+        </aside>
     </div>
 </section>
 

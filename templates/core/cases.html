@@ -1,6 +1,13 @@
 {% extends "base.html" %}
+{% load static public_showcase %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/public-closeout.css' %}">
+<script src="{% static 'js/public-closeout.js' %}" defer></script>
+{% endblock %}
 
 {% block content %}
+{% public_case_groups language as case_groups %}
 <section class="page-hero">
     <div class="container page-hero-inner">
         <p class="eyebrow">{% if is_arabic %}الحالات والإنجازات{% else %}Cases and Achievements{% endif %}</p>
@@ -11,22 +18,33 @@
 
 <section class="section">
     <div class="container">
-        {% if case_items %}
-            <div class="public-case-grid">
-                {% for item in case_items %}
-                    <article class="public-case-card">
-                        <a class="public-case-media" href="{{ item.url }}">
-                            {% if item.media_type == 'image' %}
-                                <img src="{{ item.url }}" alt="{% if item.title %}{{ item.title }}{% else %}{{ case_labels.untitled }}{% endif %}" loading="lazy">
+        {% if case_groups %}
+            <div class="public-case-grid public-case-group-grid">
+                {% for case in case_groups %}
+                    <article class="public-case-card public-case-group-card">
+                        <div class="public-case-media public-case-primary-media">
+                            {% if case.primary.media_type == 'short_video' %}
+                                <video src="{{ case.primary.url }}" muted playsinline controls preload="metadata" data-public-case-video></video>
                             {% else %}
-                                <span class="case-video-placeholder" aria-hidden="true">▶</span>
+                                <img src="{{ case.primary.url }}" alt="{{ case.display_title }}" loading="lazy">
                             {% endif %}
-                        </a>
+                        </div>
                         <div class="public-case-copy">
-                            <p class="eyebrow">{{ item.media_type_label }} · {{ item.uploaded_at|date:"Y-m-d" }}</p>
-                            <h2>{% if item.title %}{{ item.title }}{% else %}{{ case_labels.untitled }}{% endif %}</h2>
-                            {% if item.description %}<p>{{ item.description }}</p>{% endif %}
-                            <a class="text-link" href="{{ item.url }}">{{ case_labels.view_media }}</a>
+                            <p class="eyebrow">{% if is_arabic %}محتوى مصرح بعرضه{% else %}Approved public content{% endif %}</p>
+                            <h2>{{ case.display_title }}</h2>
+                            {% if case.description %}<p>{{ case.description }}</p>{% endif %}
+                            {% if case.before and case.after %}
+                                <div class="public-case-comparison" aria-label="{% if is_arabic %}صور قبل وبعد{% else %}Before and after images{% endif %}">
+                                    <figure>
+                                        <img src="{{ case.before.url }}" alt="{% if is_arabic %}قبل{% else %}Before{% endif %}" loading="lazy">
+                                        <figcaption>{% if is_arabic %}قبل{% else %}Before{% endif %}</figcaption>
+                                    </figure>
+                                    <figure>
+                                        <img src="{{ case.after.url }}" alt="{% if is_arabic %}بعد{% else %}After{% endif %}" loading="lazy">
+                                        <figcaption>{% if is_arabic %}بعد{% else %}After{% endif %}</figcaption>
+                                    </figure>
+                                </div>
+                            {% endif %}
                         </div>
                     </article>
                 {% endfor %}

@@ -1,7 +1,15 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static public_showcase %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/public-closeout.css' %}">
+<script src="{% static 'js/public-closeout.js' %}" defer></script>
+{% endblock %}
 
 {% block content %}
+{% public_case_groups language 3 as public_case_teasers %}
+{% home_public_reviews 12 as public_reviews %}
+{% public_review_summary as review_summary %}
 <section class="home-hero" aria-labelledby="home-hero-title">
     <div class="container home-hero-grid">
         <div class="home-hero-copy">
@@ -62,27 +70,38 @@
 
         {% if public_case_teasers %}
             <div class="case-card-row" data-card-carousel>
-                {% for item in public_case_teasers %}
+                {% for case in public_case_teasers %}
                     <article class="case-card">
-                        <a class="case-media" href="{{ item.url }}">
-                            {% if item.media_type == 'image' %}
-                                <img src="{{ item.url }}" alt="{% if item.title %}{{ item.title }}{% else %}{{ case_labels.untitled }}{% endif %}" loading="lazy">
+                        <div class="case-media">
+                            {% if case.primary.media_type == 'short_video' %}
+                                <video src="{{ case.primary.url }}" muted playsinline controls preload="metadata" data-public-case-video></video>
                             {% else %}
-                                <span class="case-video-placeholder" aria-hidden="true">▶</span>
+                                <img src="{{ case.primary.url }}" alt="{{ case.display_title }}" loading="lazy">
                             {% endif %}
-                        </a>
+                        </div>
                         <div class="case-card-copy">
-                            <p class="eyebrow">{{ item.media_type_label }}</p>
-                            <h3>{% if item.title %}{{ item.title }}{% else %}{{ case_labels.untitled }}{% endif %}</h3>
-                            {% if item.description %}<p>{{ item.description }}</p>{% endif %}
-                            <a class="text-link" href="{{ item.url }}">{{ case_labels.view_media }}</a>
+                            <p class="eyebrow">{% if is_arabic %}حالة مصرح بعرضها{% else %}Authorized case{% endif %}</p>
+                            <h3>{{ case.display_title }}</h3>
+                            {% if case.description %}<p>{{ case.description }}</p>{% endif %}
+                            {% if case.before and case.after %}
+                                <div class="case-comparison-preview">
+                                    <figure>
+                                        <img src="{{ case.before.url }}" alt="{% if is_arabic %}قبل{% else %}Before{% endif %}" loading="lazy">
+                                        <figcaption>{% if is_arabic %}قبل{% else %}Before{% endif %}</figcaption>
+                                    </figure>
+                                    <figure>
+                                        <img src="{{ case.after.url }}" alt="{% if is_arabic %}بعد{% else %}After{% endif %}" loading="lazy">
+                                        <figcaption>{% if is_arabic %}بعد{% else %}After{% endif %}</figcaption>
+                                    </figure>
+                                </div>
+                            {% endif %}
                         </div>
                     </article>
                 {% endfor %}
             </div>
             {% if public_case_teasers|length > 1 %}
                 <div class="mobile-carousel-dots" role="group" aria-label="{% if is_arabic %}اختيار الحالة{% else %}Choose case{% endif %}" data-card-dots>
-                    {% for item in public_case_teasers %}
+                    {% for case in public_case_teasers %}
                         <button type="button" class="{% if forloop.first %}is-active{% endif %}" aria-label="{% if is_arabic %}الحالة {{ forloop.counter }}{% else %}Case {{ forloop.counter }}{% endif %}" aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}" data-card-dot="{{ forloop.counter0 }}"></button>
                     {% endfor %}
                 </div>
@@ -97,7 +116,6 @@
     </div>
 </section>
 
-{# Phase 2 will supply owner-approved review rows and a dynamic summary. #}
 <section
     id="reviews"
     class="section home-reviews"
@@ -110,21 +128,29 @@
                 <p class="eyebrow">{% if is_arabic %}آراء معتمدة{% else %}Approved Feedback{% endif %}</p>
                 <h2 id="home-reviews-title">{% if is_arabic %}آراء المرضى{% else %}Patient Reviews{% endif %}</h2>
             </div>
-            {% if public_reviews and review_summary %}
-                <div class="home-review-summary" data-review-summary>
-                    {% if review_summary.average_rating %}<strong>{{ review_summary.average_rating }}</strong>{% endif %}
-                    {% if review_summary.review_count %}<span>{{ review_summary.review_count }}</span>{% endif %}
+            {% if review_summary %}
+                <div class="home-review-summary" data-review-summary aria-label="{% if is_arabic %}متوسط تقييم Google{% else %}Google average rating{% endif %}">
+                    <span class="review-summary-star" aria-hidden="true">★</span>
+                    <strong>{{ review_summary.average_rating }}</strong>
+                    <span>{% if is_arabic %}من 5 · {{ review_summary.review_count }} تقييم{% else %}/ 5 · {{ review_summary.review_count }} reviews{% endif %}</span>
                 </div>
             {% endif %}
         </div>
         {% if public_reviews %}
-            <div class="home-review-grid" data-review-list>
+            <div class="home-review-grid" data-review-carousel data-review-list aria-live="off">
                 {% for review in public_reviews %}
                     <article class="home-review-card" data-review-card>
+                        <div class="review-stars" aria-label="{{ review.rating }} / 5"><span aria-hidden="true">{{ review.star_text }}</span></div>
                         <blockquote>{{ review.body }}</blockquote>
-                        {% if review.reviewer_name %}<p>{{ review.reviewer_name }}</p>{% endif %}
+                        <div class="review-card-footer">
+                            <p>{{ review.reviewer_name }}</p>
+                            <span>Google</span>
+                        </div>
                     </article>
                 {% endfor %}
+            </div>
+            <div class="home-review-actions">
+                <a class="btn btn-outline-light" href="{% if is_arabic %}{% url 'reviews' %}{% else %}{% url 'reviews_en' %}{% endif %}">{% if is_arabic %}عرض المزيد{% else %}View all reviews{% endif %}</a>
             </div>
         {% else %}
             <p class="home-reviews-empty" data-review-empty role="status">
