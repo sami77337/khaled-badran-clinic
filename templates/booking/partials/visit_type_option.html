@@ -1,0 +1,15 @@
+<a class="booking-visit-option{% if selected_visit_type.id == visit_type.id %} is-selected{% endif %}" href="{{ visit_type_url }}?visit_type={{ visit_type.id }}" role="listitem" data-booking-visit-option{% if selected_visit_type.id == visit_type.id %} aria-current="true"{% endif %}>
+    <span class="booking-visit-option-copy">
+        <h3>{% if is_arabic %}{{ visit_type.name_ar }}{% else %}{{ visit_type.name_en }}{% endif %}</h3>
+        <span class="booking-visit-meta" dir="{% if is_arabic %}rtl{% else %}ltr{% endif %}">
+            {% if is_arabic %}
+                {{ visit_type.duration_minutes }} دقيقة
+            {% else %}
+                {{ visit_type.duration_minutes }} min
+            {% endif %}
+        </span>
+    </span>
+    <span class="booking-visit-action" aria-hidden="true">
+        {% if selected_visit_type.id == visit_type.id %}✓{% endif %}
+    </span>
+</a>

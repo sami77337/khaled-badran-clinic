@@ -6,7 +6,7 @@
                 {% if is_arabic %}{{ doctor.footer_summary_ar }}{% else %}{{ doctor.footer_summary_en }}{% endif %}
             </p>
             <div class="footer-actions">
-                <a class="btn btn-light" href="{{ booking_url }}">{{ labels.book }}</a>
+                <a class="btn btn-light" href="{{ footer_primary_url|default:booking_url }}">{{ footer_primary_label|default:labels.book }}</a>
                 <a class="btn btn-outline-light" href="{% if is_arabic %}{% url 'patient_portal_login' %}{% else %}{% url 'patient_portal_login_en' %}{% endif %}">{{ labels.patient_portal }}</a>
             </div>
         </div>

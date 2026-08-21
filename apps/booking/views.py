@@ -51,7 +51,7 @@ def _booking_language_switch(name, language, **query):
 
 def _context(request, language, **extra):
     language = _language(language)
-    context = _base_context(request, "booking", language)
+    context = _base_context(request, "booking", language, use_public_shell=True)
     context.update(
         {
             "page_title": "احجز موعدك" if language == "ar" else "Book Your Appointment",
@@ -59,6 +59,8 @@ def _context(request, language, **extra):
             "visit_type_url": _booking_url("booking_visit_type", language),
             "slots_url": _booking_url("booking_slots", language),
             "confirm_url": _booking_url("booking_confirm", language),
+            "footer_primary_url": context["contact_url"],
+            "footer_primary_label": context["labels"]["contact"],
             "booking_steps": [
                 ("visit_type", "الخدمة" if language == "ar" else "Service"),
                 ("slot", "التاريخ والوقت" if language == "ar" else "Date & Time"),
@@ -105,6 +107,9 @@ def select_visit_type(request, language="ar"):
         return _render_unavailable(request, language, reason)
 
     selected_visit_type = get_active_visit_type(request.GET.get("visit_type"), doctor=doctor)
+    primary_visit_types = visit_types[:4]
+    remaining_visit_types = visit_types[4:]
+    remaining_visit_type_ids = {visit_type.id for visit_type in remaining_visit_types}
 
     return render(
         request,
@@ -114,6 +119,11 @@ def select_visit_type(request, language="ar"):
             language,
             active_step="visit_type",
             visit_types=visit_types,
+            primary_visit_types=primary_visit_types,
+            remaining_visit_types=remaining_visit_types,
+            visit_types_expanded=(
+                selected_visit_type is not None and selected_visit_type.id in remaining_visit_type_ids
+            ),
             selected_visit_type=selected_visit_type,
             language_switch=_booking_language_switch(
                 "booking_visit_type",
@@ -137,19 +147,32 @@ def select_slot(request, language="ar"):
     if visit_type is None:
         return redirect(_booking_url("book", language))
 
-    selected_date = request.GET.get("date") or None
-    try:
-        slots = services.generate_available_slots(
-            visit_type=visit_type,
-            target_date=selected_date,
-            doctor=doctor,
-        )
-    except ValueError:
-        slots = []
+    requested_date = request.GET.get("date") or ""
+    slots = services.generate_available_slots(
+        visit_type=visit_type,
+        target_date=None,
+        doctor=doctor,
+    )
 
     requested_starts_at = request.GET.get("starts_at") or ""
     selected_slot = next((slot for slot in slots if slot.value == requested_starts_at), None)
     grouped_slots = services.group_slots_by_date(slots)
+    selected_date_group = None
+    if selected_slot is not None:
+        selected_date_group = next(
+            (group for group in grouped_slots if group["date"] == selected_slot.local_date),
+            None,
+        )
+    if selected_date_group is None and requested_date:
+        selected_date_group = next(
+            (group for group in grouped_slots if group["date"].isoformat() == requested_date),
+            None,
+        )
+    if selected_date_group is None and grouped_slots:
+        selected_date_group = grouped_slots[0]
+
+    selected_date = selected_date_group["date"] if selected_date_group else None
+    selected_date_slots = selected_date_group["slots"] if selected_date_group else []
     return render(
         request,
         "booking/select_slot.html",
@@ -160,12 +183,14 @@ def select_slot(request, language="ar"):
             visit_type=visit_type,
             grouped_slots=grouped_slots,
             selected_date=selected_date,
+            selected_date_group=selected_date_group,
+            selected_date_slots=selected_date_slots,
             selected_slot=selected_slot,
             language_switch=_booking_language_switch(
                 "booking_slots",
                 language,
                 visit_type=visit_type.id,
-                date=selected_date,
+                date=selected_date.isoformat() if selected_date else None,
                 starts_at=selected_slot.value if selected_slot else None,
             ),
         ),

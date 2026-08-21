@@ -1773,17 +1773,60 @@ class PublicUiFoundationTests(TestCase):
                     has_mobile_booking_cta=False,
                 )
 
-    def test_booking_routes_do_not_load_public_shell_or_mobile_booking_cta(self):
-        route_names = [
-            "book",
-            "booking_visit_type",
-            "book_en",
-            "booking_visit_type_en",
+    def test_booking_routes_use_public_shell_and_contact_footer_without_mobile_booking_cta(self):
+        route_cases = [
+            (
+                "book",
+                "contact",
+                "patient_portal_login",
+                "التواصل والموقع",
+                "بوابة المريض",
+            ),
+            (
+                "booking_visit_type",
+                "contact",
+                "patient_portal_login",
+                "التواصل والموقع",
+                "بوابة المريض",
+            ),
+            (
+                "book_en",
+                "contact_en",
+                "patient_portal_login_en",
+                "Contact &amp; Location",
+                "Patient Portal",
+            ),
+            (
+                "booking_visit_type_en",
+                "contact_en",
+                "patient_portal_login_en",
+                "Contact &amp; Location",
+                "Patient Portal",
+            ),
         ]
 
-        for route_name in route_names:
+        for route_name, contact_route, portal_route, contact_label, portal_label in route_cases:
             with self.subTest(route=route_name):
-                self.assert_non_public_shell(self.client.get(reverse(route_name)))
+                response = self.client.get(reverse(route_name))
+
+                self.assert_public_shell(response, has_mobile_booking_cta=False)
+                self.assertContains(response, '<footer class="site-footer">')
+                self.assertContains(
+                    response,
+                    (
+                        f'<a class="btn btn-light" href="{reverse(contact_route)}">'
+                        f"{contact_label}</a>"
+                    ),
+                    html=True,
+                )
+                self.assertContains(
+                    response,
+                    (
+                        f'<a class="btn btn-outline-light" href="{reverse(portal_route)}">'
+                        f"{portal_label}</a>"
+                    ),
+                    html=True,
+                )
 
     def test_patient_auth_account_and_portal_routes_do_not_load_public_shell_or_mobile_booking_cta(self):
         anonymous_route_names = [

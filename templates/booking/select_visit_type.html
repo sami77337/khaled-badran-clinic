@@ -10,15 +10,7 @@
 <section class="booking-flow" data-booking-flow>
     <div class="booking-flow-container">
         <header class="booking-flow-heading">
-            <p class="booking-kicker">{% if is_arabic %}حجز آمن ومباشر{% else %}Secure direct booking{% endif %}</p>
             <h1>{% if is_arabic %}احجز موعدك{% else %}Book Your Appointment{% endif %}</h1>
-            <p>
-                {% if is_arabic %}
-                    اختر نوع الزيارة، ثم الوقت المناسب، وراجع بياناتك قبل التأكيد.
-                {% else %}
-                    Choose a visit type, select an available time, then review your details before confirming.
-                {% endif %}
-            </p>
         </header>
 
         {% include "booking/partials/progress_steps.html" %}
@@ -26,46 +18,33 @@
         <div class="booking-card" data-booking-card>
             <div class="booking-panel">
                 <header class="booking-panel-header">
-                    <p class="booking-kicker">{% if is_arabic %}الخطوة الأولى{% else %}Step One{% endif %}</p>
                     <h2>{% if is_arabic %}اختر الخدمة{% else %}Select a Service{% endif %}</h2>
-                    <p>
-                        {% if is_arabic %}
-                            لن يتم إنشاء موعد في هذه الخطوة. اختر الخدمة، ثم اضغط على متابعة لعرض الأوقات المتاحة.
-                        {% else %}
-                            No appointment is created on this step. Select a service, then continue to its available times.
-                        {% endif %}
-                    </p>
                 </header>
 
-                <div class="booking-visit-type-list" role="list">
-                    {% for visit_type in visit_types %}
-                        <a class="booking-visit-option{% if selected_visit_type.id == visit_type.id %} is-selected{% endif %}" href="{{ visit_type_url }}?visit_type={{ visit_type.id }}" role="listitem" data-booking-visit-option{% if selected_visit_type.id == visit_type.id %} aria-current="true"{% endif %}>
-                            <span class="booking-visit-option-copy">
-                                <h3>{% if is_arabic %}{{ visit_type.name_ar }}{% else %}{{ visit_type.name_en }}{% endif %}</h3>
-                                <span class="booking-visit-meta">
-                                    <span>
-                                        {% if is_arabic %}
-                                            {{ visit_type.duration_minutes }} دقيقة تقريبًا
-                                        {% else %}
-                                            Approx. {{ visit_type.duration_minutes }} min
-                                        {% endif %}
-                                    </span>
-                                    {% if visit_type.is_price_visible_to_patient %}
-                                        <span>{{ visit_type.patient_visible_price }}</span>
-                                    {% endif %}
-                                </span>
-                                {% if is_arabic and visit_type.instructions_ar %}
-                                    <span class="booking-visit-instructions">{{ visit_type.instructions_ar }}</span>
-                                {% elif not is_arabic and visit_type.instructions_en %}
-                                    <span class="booking-visit-instructions">{{ visit_type.instructions_en }}</span>
-                                {% endif %}
-                            </span>
-                            <span class="booking-visit-action" aria-hidden="true">
-                                {% if selected_visit_type.id == visit_type.id %}✓{% elif is_arabic %}←{% else %}→{% endif %}
-                            </span>
-                        </a>
+                <div class="booking-visit-type-list" role="list" data-booking-primary-services>
+                    {% for visit_type in primary_visit_types %}
+                        {% include "booking/partials/visit_type_option.html" %}
                     {% endfor %}
                 </div>
+
+                {% if remaining_visit_types %}
+                    <details class="booking-visit-more" data-booking-service-more{% if visit_types_expanded %} open{% endif %}>
+                        <summary class="booking-visit-more-toggle">
+                            <span class="booking-visit-more-label booking-visit-more-label-open">
+                                {% if is_arabic %}عرض المزيد{% else %}Show more{% endif %}
+                            </span>
+                            <span class="booking-visit-more-label booking-visit-more-label-close">
+                                {% if is_arabic %}عرض أقل{% else %}Show less{% endif %}
+                            </span>
+                            <span class="booking-visit-more-chevron" aria-hidden="true">⌄</span>
+                        </summary>
+                        <div class="booking-visit-type-list booking-visit-type-list-more" role="list" data-booking-additional-services>
+                            {% for visit_type in remaining_visit_types %}
+                                {% include "booking/partials/visit_type_option.html" %}
+                            {% endfor %}
+                        </div>
+                    </details>
+                {% endif %}
 
                 <div class="booking-continue">
                     {% if selected_visit_type %}
