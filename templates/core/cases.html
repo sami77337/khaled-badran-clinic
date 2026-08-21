@@ -23,24 +23,26 @@
                 {% for case in case_groups %}
                     <article class="public-case-card public-case-group-card">
                         <div class="public-case-media public-case-primary-media">
-                            {% if case.primary.media_type == 'short_video' %}
-                                <video src="{{ case.primary.url }}" muted playsinline controls preload="metadata" data-public-case-video></video>
-                            {% else %}
-                                <img src="{{ case.primary.url }}" alt="{{ case.display_title }}" loading="lazy">
-                            {% endif %}
+                            <a href="{{ case.primary.url }}" aria-label="{{ case.primary.title|default:case.display_title }}">
+                                {% if case.primary.media_type == 'short_video' %}
+                                    <video src="{{ case.primary.url }}" muted playsinline controls preload="metadata" data-public-case-video></video>
+                                {% else %}
+                                    <img src="{{ case.primary.url }}" alt="{{ case.primary.title|default:case.display_title }}" loading="lazy">
+                                {% endif %}
+                            </a>
                         </div>
                         <div class="public-case-copy">
                             <p class="eyebrow">{% if is_arabic %}محتوى مصرح بعرضه{% else %}Approved public content{% endif %}</p>
-                            <h2>{{ case.display_title }}</h2>
+                            <h2>{{ case.primary.title|default:case.display_title }}</h2>
                             {% if case.description %}<p>{{ case.description }}</p>{% endif %}
                             {% if case.before and case.after %}
                                 <div class="public-case-comparison" aria-label="{% if is_arabic %}صور قبل وبعد{% else %}Before and after images{% endif %}">
                                     <figure>
-                                        <img src="{{ case.before.url }}" alt="{% if is_arabic %}قبل{% else %}Before{% endif %}" loading="lazy">
+                                        <a href="{{ case.before.url }}"><img src="{{ case.before.url }}" alt="{% if is_arabic %}قبل{% else %}Before{% endif %}" loading="lazy"></a>
                                         <figcaption>{% if is_arabic %}قبل{% else %}Before{% endif %}</figcaption>
                                     </figure>
                                     <figure>
-                                        <img src="{{ case.after.url }}" alt="{% if is_arabic %}بعد{% else %}After{% endif %}" loading="lazy">
+                                        <a href="{{ case.after.url }}"><img src="{{ case.after.url }}" alt="{% if is_arabic %}بعد{% else %}After{% endif %}" loading="lazy"></a>
                                         <figcaption>{% if is_arabic %}بعد{% else %}After{% endif %}</figcaption>
                                     </figure>
                                 </div>
