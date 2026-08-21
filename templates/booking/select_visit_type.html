@@ -1,46 +1,87 @@
 {% extends "base.html" %}
+{% load static i18n %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{% static 'css/booking.css' %}">
+{% endblock %}
 
 {% block content %}
-{% include "partials/page_hero.html" %}
-
-<section class="section">
-    <div class="container booking-layout">
-        {% include "booking/partials/progress_steps.html" %}
-
-        <div class="section-heading">
-            <p class="eyebrow">{% if is_arabic %}الخطوة الأولى{% else %}Step One{% endif %}</p>
-            <h2>{% if is_arabic %}اختر نوع الزيارة{% else %}Choose a visit type{% endif %}</h2>
+{% language language %}
+<section class="booking-flow" data-booking-flow>
+    <div class="booking-flow-container">
+        <header class="booking-flow-heading">
+            <p class="booking-kicker">{% if is_arabic %}حجز آمن ومباشر{% else %}Secure direct booking{% endif %}</p>
+            <h1>{% if is_arabic %}احجز موعدك{% else %}Book Your Appointment{% endif %}</h1>
             <p>
                 {% if is_arabic %}
-                    الموعد لا يتم إنشاؤه في هذه الخطوة. سيتم تأكيده فقط بعد اختيار الوقت وإرسال بيانات التواصل.
+                    اختر نوع الزيارة، ثم الوقت المناسب، وراجع بياناتك قبل التأكيد.
                 {% else %}
-                    No appointment is created on this step. It is confirmed only after choosing a time and submitting contact details.
+                    Choose a visit type, select an available time, then review your details before confirming.
                 {% endif %}
             </p>
-        </div>
+        </header>
 
-        <div class="service-list-grid">
-            {% for visit_type in visit_types %}
-                <article class="booking-option">
-                    <h3>{% if is_arabic %}{{ visit_type.name_ar }}{% else %}{{ visit_type.name_en }}{% endif %}</h3>
-                    <p class="muted">
+        {% include "booking/partials/progress_steps.html" %}
+
+        <div class="booking-card" data-booking-card>
+            <div class="booking-panel">
+                <header class="booking-panel-header">
+                    <p class="booking-kicker">{% if is_arabic %}الخطوة الأولى{% else %}Step One{% endif %}</p>
+                    <h2>{% if is_arabic %}اختر الخدمة{% else %}Select a Service{% endif %}</h2>
+                    <p>
                         {% if is_arabic %}
-                            مدة تقديرية: {{ visit_type.duration_minutes }} دقيقة
+                            لن يتم إنشاء موعد في هذه الخطوة. اختر الخدمة، ثم اضغط على متابعة لعرض الأوقات المتاحة.
                         {% else %}
-                            Estimated duration: {{ visit_type.duration_minutes }} minutes
+                            No appointment is created on this step. Select a service, then continue to its available times.
                         {% endif %}
                     </p>
-                    {% if is_arabic and visit_type.instructions_ar %}
-                        <p>{{ visit_type.instructions_ar }}</p>
-                    {% elif visit_type.instructions_en %}
-                        <p>{{ visit_type.instructions_en }}</p>
+                </header>
+
+                <div class="booking-visit-type-list" role="list">
+                    {% for visit_type in visit_types %}
+                        <a class="booking-visit-option{% if selected_visit_type.id == visit_type.id %} is-selected{% endif %}" href="{{ visit_type_url }}?visit_type={{ visit_type.id }}" role="listitem" data-booking-visit-option{% if selected_visit_type.id == visit_type.id %} aria-current="true"{% endif %}>
+                            <span class="booking-visit-option-copy">
+                                <h3>{% if is_arabic %}{{ visit_type.name_ar }}{% else %}{{ visit_type.name_en }}{% endif %}</h3>
+                                <span class="booking-visit-meta">
+                                    <span>
+                                        {% if is_arabic %}
+                                            {{ visit_type.duration_minutes }} دقيقة تقريبًا
+                                        {% else %}
+                                            Approx. {{ visit_type.duration_minutes }} min
+                                        {% endif %}
+                                    </span>
+                                    {% if visit_type.is_price_visible_to_patient %}
+                                        <span>{{ visit_type.patient_visible_price }}</span>
+                                    {% endif %}
+                                </span>
+                                {% if is_arabic and visit_type.instructions_ar %}
+                                    <span class="booking-visit-instructions">{{ visit_type.instructions_ar }}</span>
+                                {% elif not is_arabic and visit_type.instructions_en %}
+                                    <span class="booking-visit-instructions">{{ visit_type.instructions_en }}</span>
+                                {% endif %}
+                            </span>
+                            <span class="booking-visit-action" aria-hidden="true">
+                                {% if selected_visit_type.id == visit_type.id %}✓{% elif is_arabic %}←{% else %}→{% endif %}
+                            </span>
+                        </a>
+                    {% endfor %}
+                </div>
+
+                <div class="booking-continue">
+                    {% if selected_visit_type %}
+                        <a class="booking-primary-action booking-continue-action" href="{{ slots_url }}?visit_type={{ selected_visit_type.id }}" data-booking-continue>
+                            {% if is_arabic %}متابعة{% else %}Continue{% endif %}
+                            <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                        </a>
+                    {% else %}
+                        <span class="booking-primary-action booking-continue-action is-disabled" aria-disabled="true" data-booking-continue>
+                            {% if is_arabic %}متابعة{% else %}Continue{% endif %}
+                        </span>
                     {% endif %}
-                    <a class="btn btn-primary" href="{{ slots_url }}?visit_type={{ visit_type.id }}">
-                        {% if is_arabic %}عرض الأوقات المتاحة{% else %}View available times{% endif %}
-                    </a>
-                </article>
-            {% endfor %}
+                </div>
+            </div>
         </div>
     </div>
 </section>
+{% endlanguage %}
 {% endblock %}

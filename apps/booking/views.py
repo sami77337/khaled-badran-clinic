@@ -1,4 +1,5 @@
 from functools import wraps
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
@@ -35,19 +36,33 @@ def _booking_url(name, language, **kwargs):
     return reverse(f"{name}{suffix}", kwargs=kwargs or None)
 
 
+def _booking_language_switch(name, language, **query):
+    language = _language(language)
+    alternate_language = "en" if language == "ar" else "ar"
+    url = _booking_url(name, alternate_language)
+    preserved_query = {key: value for key, value in query.items() if value not in (None, "")}
+    if preserved_query:
+        url = f"{url}?{urlencode(preserved_query)}"
+    return {
+        "label": "English" if language == "ar" else "العربية",
+        "url": url,
+    }
+
+
 def _context(request, language, **extra):
     language = _language(language)
     context = _base_context(request, "booking", language)
     context.update(
         {
+            "page_title": "احجز موعدك" if language == "ar" else "Book Your Appointment",
             "booking_home_url": _booking_url("book", language),
             "visit_type_url": _booking_url("booking_visit_type", language),
             "slots_url": _booking_url("booking_slots", language),
             "confirm_url": _booking_url("booking_confirm", language),
             "booking_steps": [
-                ("visit_type", "نوع الزيارة" if language == "ar" else "Visit type"),
-                ("slot", "الوقت" if language == "ar" else "Time"),
-                ("confirm", "التأكيد" if language == "ar" else "Confirm"),
+                ("visit_type", "الخدمة" if language == "ar" else "Service"),
+                ("slot", "التاريخ والوقت" if language == "ar" else "Date & Time"),
+                ("confirm", "التفاصيل" if language == "ar" else "Details"),
             ],
         }
     )
@@ -89,6 +104,8 @@ def select_visit_type(request, language="ar"):
         )
         return _render_unavailable(request, language, reason)
 
+    selected_visit_type = get_active_visit_type(request.GET.get("visit_type"), doctor=doctor)
+
     return render(
         request,
         "booking/select_visit_type.html",
@@ -97,6 +114,12 @@ def select_visit_type(request, language="ar"):
             language,
             active_step="visit_type",
             visit_types=visit_types,
+            selected_visit_type=selected_visit_type,
+            language_switch=_booking_language_switch(
+                "booking_visit_type",
+                language,
+                visit_type=selected_visit_type.id if selected_visit_type else None,
+            ),
             doctor=doctor,
         ),
     )
@@ -124,6 +147,8 @@ def select_slot(request, language="ar"):
     except ValueError:
         slots = []
 
+    requested_starts_at = request.GET.get("starts_at") or ""
+    selected_slot = next((slot for slot in slots if slot.value == requested_starts_at), None)
     grouped_slots = services.group_slots_by_date(slots)
     return render(
         request,
@@ -135,6 +160,14 @@ def select_slot(request, language="ar"):
             visit_type=visit_type,
             grouped_slots=grouped_slots,
             selected_date=selected_date,
+            selected_slot=selected_slot,
+            language_switch=_booking_language_switch(
+                "booking_slots",
+                language,
+                visit_type=visit_type.id,
+                date=selected_date,
+                starts_at=selected_slot.value if selected_slot else None,
+            ),
         ),
     )
 
@@ -149,16 +182,16 @@ def confirm_booking(request, language="ar"):
         ip_limit = rate_limits.check_public_booking_ip_rate_limit(request)
         if not ip_limit.allowed:
             form.is_valid()
-            form.add_error(None, ip_limit.message)
+            form.add_error(None, form.localized_error(ip_limit.message))
         elif form.is_valid():
             phone_limit = rate_limits.check_public_booking_phone_rate_limit(form.normalized_phone)
             if not phone_limit.allowed:
-                form.add_error(None, phone_limit.message)
+                form.add_error(None, form.localized_error(phone_limit.message))
             else:
                 try:
                     appointment = form.save()
                 except ValidationError as exc:
-                    form.add_error(None, exc)
+                    form.add_error(None, form.localized_error(exc))
                 else:
                     return redirect(
                         _booking_url(
@@ -212,6 +245,13 @@ def confirm_booking(request, language="ar"):
             form=form,
             visit_type=visit_type,
             slot_display=slot_display,
+            starts_at=starts_at,
+            language_switch=_booking_language_switch(
+                "booking_confirm",
+                language,
+                visit_type=visit_type.id if visit_type else None,
+                starts_at=starts_at,
+            ),
         ),
     )
 
