@@ -91,7 +91,6 @@
                             {% if form.booking_note.errors %}<div class="booking-field-errors" role="alert">{{ form.booking_note.errors }}</div>{% endif %}
                         </div>
 
-                        <p class="booking-submit-note">{{ labels.not_emergency }}</p>
                         <button class="booking-primary-action booking-confirm-action" type="submit">
                             {% if is_arabic %}تأكيد الموعد{% else %}Confirm Booking{% endif %}
                         </button>

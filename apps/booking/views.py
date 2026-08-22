@@ -19,6 +19,7 @@ from apps.booking.forms import (
     RescheduleAppointmentForm,
     StatusNoteForm,
 )
+from apps.booking.countries import INTERNATIONAL_PHONE_COUNTRIES
 from apps.booking.models import Appointment
 from apps.booking import operations, rate_limits, services
 from apps.booking.selectors import get_active_doctor, get_active_visit_type
@@ -271,6 +272,7 @@ def confirm_booking(request, language="ar"):
             visit_type=visit_type,
             slot_display=slot_display,
             starts_at=starts_at,
+            phone_countries=INTERNATIONAL_PHONE_COUNTRIES,
             language_switch=_booking_language_switch(
                 "booking_confirm",
                 language,

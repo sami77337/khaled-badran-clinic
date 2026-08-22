@@ -51,17 +51,6 @@
                     </div>
                 </dl>
 
-                <div class="booking-success-notice">
-                    <p>{{ labels.not_emergency }}</p>
-                    <p>
-                        {% if is_arabic %}
-                            حفاظًا على الخصوصية، لا تعرض هذه الصفحة اسم المريض أو أرقام الهاتف أو الملاحظات الداخلية أو السجلات الطبية.
-                        {% else %}
-                            For privacy, this page does not display the patient name, phone numbers, internal notes, or medical records.
-                        {% endif %}
-                    </p>
-                </div>
-
                 <div class="booking-actions">
                     <a class="booking-primary-action" href="{{ booking_home_url }}">
                         {% if is_arabic %}حجز موعد آخر{% else %}Book another appointment{% endif %}

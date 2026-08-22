@@ -3,6 +3,7 @@
     data-booking-phone-control
     data-booking-phone-key="{{ control_key }}"
     data-booking-default-dial-code="+962"
+    data-booking-example-label="{% if is_arabic %}مثال محلي{% else %}Local example{% endif %}"
 >
     <div class="booking-phone-row" dir="ltr">
         <button
@@ -20,6 +21,10 @@
         </button>
         {{ field }}
     </div>
+
+    <p class="booking-phone-hint" id="booking-phone-hint-{{ control_key }}" data-booking-phone-hint>
+        {% if is_arabic %}مثال محلي: 07XXXXXXXX{% else %}Local example: 07XXXXXXXX{% endif %}
+    </p>
 
     <div class="booking-country-menu" data-booking-country-menu hidden>
         <label class="booking-country-search-label" for="booking-country-search-{{ control_key }}">
@@ -41,19 +46,24 @@
             aria-label="{% if is_arabic %}رموز الاتصال الدولية{% else %}International dialing codes{% endif %}"
             data-booking-country-options
         >
-            <button type="button" role="option" aria-selected="true" data-booking-country-option data-country-code="JO" data-country-dial="+962" data-country-flag="🇯🇴" data-country-search="Jordan الأردن +962"><span aria-hidden="true">🇯🇴</span><span>{% if is_arabic %}الأردن{% else %}Jordan{% endif %}</span><bdi>+962</bdi></button>
-            <button type="button" role="option" aria-selected="false" data-booking-country-option data-country-code="SA" data-country-dial="+966" data-country-flag="🇸🇦" data-country-search="Saudi Arabia السعودية +966"><span aria-hidden="true">🇸🇦</span><span>{% if is_arabic %}السعودية{% else %}Saudi Arabia{% endif %}</span><bdi>+966</bdi></button>
-            <button type="button" role="option" aria-selected="false" data-booking-country-option data-country-code="AE" data-country-dial="+971" data-country-flag="🇦🇪" data-country-search="United Arab Emirates UAE الإمارات +971"><span aria-hidden="true">🇦🇪</span><span>{% if is_arabic %}الإمارات{% else %}UAE{% endif %}</span><bdi>+971</bdi></button>
-            <button type="button" role="option" aria-selected="false" data-booking-country-option data-country-code="QA" data-country-dial="+974" data-country-flag="🇶🇦" data-country-search="Qatar قطر +974"><span aria-hidden="true">🇶🇦</span><span>{% if is_arabic %}قطر{% else %}Qatar{% endif %}</span><bdi>+974</bdi></button>
-            <button type="button" role="option" aria-selected="false" data-booking-country-option data-country-code="KW" data-country-dial="+965" data-country-flag="🇰🇼" data-country-search="Kuwait الكويت +965"><span aria-hidden="true">🇰🇼</span><span>{% if is_arabic %}الكويت{% else %}Kuwait{% endif %}</span><bdi>+965</bdi></button>
-            <button type="button" role="option" aria-selected="false" data-booking-country-option data-country-code="OM" data-country-dial="+968" data-country-flag="🇴🇲" data-country-search="Oman عُمان +968"><span aria-hidden="true">🇴🇲</span><span>{% if is_arabic %}عُمان{% else %}Oman{% endif %}</span><bdi>+968</bdi></button>
-            <button type="button" role="option" aria-selected="false" data-booking-country-option data-country-code="BH" data-country-dial="+973" data-country-flag="🇧🇭" data-country-search="Bahrain البحرين +973"><span aria-hidden="true">🇧🇭</span><span>{% if is_arabic %}البحرين{% else %}Bahrain{% endif %}</span><bdi>+973</bdi></button>
-            <button type="button" role="option" aria-selected="false" data-booking-country-option data-country-code="IQ" data-country-dial="+964" data-country-flag="🇮🇶" data-country-search="Iraq العراق +964"><span aria-hidden="true">🇮🇶</span><span>{% if is_arabic %}العراق{% else %}Iraq{% endif %}</span><bdi>+964</bdi></button>
-            <button type="button" role="option" aria-selected="false" data-booking-country-option data-country-code="PS" data-country-dial="+970" data-country-flag="🇵🇸" data-country-search="Palestine فلسطين +970"><span aria-hidden="true">🇵🇸</span><span>{% if is_arabic %}فلسطين{% else %}Palestine{% endif %}</span><bdi>+970</bdi></button>
-            <button type="button" role="option" aria-selected="false" data-booking-country-option data-country-code="EG" data-country-dial="+20" data-country-flag="🇪🇬" data-country-search="Egypt مصر +20"><span aria-hidden="true">🇪🇬</span><span>{% if is_arabic %}مصر{% else %}Egypt{% endif %}</span><bdi>+20</bdi></button>
-            <button type="button" role="option" aria-selected="false" data-booking-country-option data-country-code="LB" data-country-dial="+961" data-country-flag="🇱🇧" data-country-search="Lebanon لبنان +961"><span aria-hidden="true">🇱🇧</span><span>{% if is_arabic %}لبنان{% else %}Lebanon{% endif %}</span><bdi>+961</bdi></button>
-            <button type="button" role="option" aria-selected="false" data-booking-country-option data-country-code="US" data-country-dial="+1" data-country-flag="🇺🇸" data-country-search="United States US الولايات المتحدة +1"><span aria-hidden="true">🇺🇸</span><span>{% if is_arabic %}الولايات المتحدة{% else %}US{% endif %}</span><bdi>+1</bdi></button>
-            <button type="button" role="option" aria-selected="false" data-booking-country-option data-country-code="GB" data-country-dial="+44" data-country-flag="🇬🇧" data-country-search="United Kingdom UK المملكة المتحدة +44"><span aria-hidden="true">🇬🇧</span><span>{% if is_arabic %}المملكة المتحدة{% else %}UK{% endif %}</span><bdi>+44</bdi></button>
+            {% for country in phone_countries %}
+                <button
+                    type="button"
+                    role="option"
+                    aria-selected="{% if country.code == 'JO' %}true{% else %}false{% endif %}"
+                    data-booking-country-option
+                    data-country-code="{{ country.code }}"
+                    data-country-dial="{{ country.dial_code }}"
+                    data-country-flag="{{ country.flag }}"
+                    data-country-example="{{ country.example }}"
+                    data-country-national-prefix="{{ country.national_prefix }}"
+                    data-country-search="{{ country.name_en }} {{ country.name_ar }} {{ country.code }} {{ country.dial_code }}"
+                >
+                    <span aria-hidden="true">{{ country.flag }}</span>
+                    <span>{% if is_arabic %}{{ country.name_ar }}{% else %}{{ country.name_en }}{% endif %}</span>
+                    <bdi>{{ country.dial_code }}</bdi>
+                </button>
+            {% endfor %}
         </div>
         <p class="booking-country-empty" data-booking-country-empty hidden>
             {% if is_arabic %}لا توجد نتائج مطابقة.{% else %}No matching countries.{% endif %}

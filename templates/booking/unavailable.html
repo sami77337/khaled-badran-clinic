@@ -14,7 +14,6 @@
                 <p class="booking-kicker">{% if is_arabic %}تعذر متابعة الحجز{% else %}Booking status{% endif %}</p>
                 <h1>{% if is_arabic %}الحجز غير متاح حاليًا{% else %}Booking unavailable{% endif %}</h1>
                 <p>{{ reason }}</p>
-                <p>{{ labels.not_emergency }}</p>
                 <a class="booking-secondary-action" href="{{ contact_url }}">{{ labels.contact }}</a>
             </div>
         </div>

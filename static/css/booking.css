@@ -11,7 +11,7 @@ body.page-booking {
     --color-red: #8B1E28;
     --color-burgundy: #4A0F14;
     --color-white: #FFFFFF;
-    --color-muted: #6B5E5B;
+    --color-muted: #625553;
     --color-line: #E3DAC9;
     --color-soft: #F5EFE9;
     --shadow-soft: 0 18px 44px -24px rgba(74, 15, 20, 0.24);
@@ -21,14 +21,22 @@ body.page-booking {
     overflow-x: clip;
     background: var(--color-ivory);
     color: var(--color-charcoal);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
 }
 
 body.page-booking.is-rtl {
     font-family: "IBM Plex Sans Arabic", Tahoma, Arial, sans-serif;
+    font-weight: 400;
+    line-height: 1.8;
+    letter-spacing: normal;
 }
 
 body.page-booking.is-ltr {
     font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-weight: 400;
+    line-height: 1.7;
 }
 
 .page-booking main,
@@ -65,6 +73,7 @@ body.page-booking.is-ltr {
     color: var(--color-burgundy);
     font-family: "Noto Kufi Arabic", "IBM Plex Sans Arabic", Georgia, serif;
     font-weight: 600;
+    letter-spacing: normal;
 }
 
 .page-booking.is-ltr .booking-flow-heading h1,
@@ -82,7 +91,7 @@ body.page-booking.is-ltr {
 }
 
 .page-booking.is-rtl .booking-flow-heading h1 {
-    line-height: 1.6;
+    line-height: 1.55;
 }
 
 .page-booking .booking-flow-heading p {
@@ -155,7 +164,7 @@ body.page-booking.is-ltr {
     width: 2rem;
     height: 2rem;
     place-items: center;
-    border: 1px solid var(--color-line);
+    border: 1px solid rgba(139, 90, 43, 0.28);
     border-radius: 50%;
     background: var(--color-soft);
     color: var(--color-muted);
@@ -214,6 +223,10 @@ body.page-booking.is-ltr {
     line-height: 1.45;
 }
 
+.page-booking.is-rtl .booking-panel-header h2 {
+    line-height: 1.65;
+}
+
 .page-booking .booking-panel-header p:last-child {
     margin-bottom: 0;
     color: var(--color-muted);
@@ -245,7 +258,7 @@ body.page-booking.is-ltr {
     align-items: center;
     gap: 1rem;
     min-height: 5.25rem;
-    border: 1px solid var(--color-line);
+    border: 1px solid rgba(139, 90, 43, 0.28);
     border-radius: 0.5rem;
     background: var(--color-white);
     padding: 1.15rem 1.25rem;
@@ -267,7 +280,8 @@ body.page-booking.is-ltr {
     color: var(--color-charcoal);
     font-family: inherit;
     font-size: 1.08rem;
-    font-weight: 700;
+    font-weight: 600;
+    line-height: 1.55;
     overflow-wrap: anywhere;
 }
 
@@ -278,6 +292,8 @@ body.page-booking.is-ltr {
     margin: 0;
     color: var(--color-muted);
     font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1.65;
 }
 
 .page-booking .booking-visit-instructions {
@@ -309,13 +325,16 @@ body.page-booking.is-ltr {
 .page-booking .booking-visit-option.is-selected,
 .page-booking .booking-visit-option.is-selected:hover {
     border-color: var(--color-burgundy);
-    background: rgba(74, 15, 20, 0.055);
+    background: var(--color-ivory);
     color: var(--color-charcoal);
     box-shadow: 0 0 0 1px rgba(74, 15, 20, 0.3), 0 12px 24px -22px rgba(74, 15, 20, 0.7);
     transform: none;
 }
 
-.page-booking .booking-visit-option.is-selected h3,
+.page-booking .booking-visit-option.is-selected h3 {
+    color: var(--color-burgundy);
+}
+
 .page-booking .booking-visit-option.is-selected .booking-visit-meta,
 .page-booking .booking-visit-option.is-selected .booking-visit-instructions {
     color: var(--color-charcoal);
@@ -353,7 +372,9 @@ body.page-booking.is-ltr {
     color: var(--color-burgundy);
     padding: 0.55rem 1rem;
     font-size: 0.88rem;
-    font-weight: 700;
+    font-family: inherit;
+    font-weight: 600;
+    line-height: 1.6;
     cursor: pointer;
     list-style: none;
 }
@@ -416,7 +437,7 @@ body.page-booking.is-ltr {
     margin-bottom: 1.65rem;
     border: 2px solid rgba(74, 15, 20, 0.72);
     border-radius: 0.85rem;
-    background: linear-gradient(135deg, rgba(74, 15, 20, 0.08), rgba(193, 154, 107, 0.13));
+    background: linear-gradient(135deg, var(--color-ivory), rgba(193, 154, 107, 0.16));
     box-shadow: 0 10px 24px -22px rgba(74, 15, 20, 0.72);
     padding: 0.95rem 1rem;
 }
@@ -460,13 +481,16 @@ body.page-booking.is-ltr {
 .page-booking .booking-selection-value {
     margin-top: 0.2rem;
     color: var(--color-burgundy);
-    font-weight: 700;
+    font-weight: 600;
+    line-height: 1.65;
 }
 
 .page-booking .booking-selection-duration {
     margin-top: 0.12rem;
     color: var(--color-muted);
     font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.65;
 }
 
 .page-booking .booking-selection-edit {
@@ -523,11 +547,11 @@ body.page-booking.is-ltr {
 
 .page-booking .booking-slot-section > h3 {
     margin: 0 0 1rem;
-    color: var(--color-charcoal);
+    color: var(--color-wood);
     font-family: inherit;
     font-size: 1rem;
-    font-weight: 700;
-    line-height: 1.5;
+    font-weight: 600;
+    line-height: 1.65;
 }
 
 .page-booking .booking-date-list {
@@ -541,11 +565,13 @@ body.page-booking.is-ltr {
     min-width: 5.25rem;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--color-line);
+    border: 1px solid rgba(139, 90, 43, 0.3);
     border-radius: 0.5rem;
     background: var(--color-white);
     color: var(--color-charcoal);
     padding: 0.7rem 0.9rem;
+    font-family: inherit;
+    line-height: 1.45;
     text-align: center;
     transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
 }
@@ -557,12 +583,12 @@ body.page-booking.is-ltr {
 
 .page-booking .booking-date-weekday {
     font-size: 0.78rem;
-    font-weight: 600;
+    font-weight: 500;
 }
 
 .page-booking .booking-date-value {
     font-size: 0.9rem;
-    font-weight: 700;
+    font-weight: 600;
 }
 
 .page-booking .booking-date-button:hover,
@@ -579,6 +605,12 @@ body.page-booking.is-ltr {
     gap: 0.65rem;
 }
 
+.page-booking [data-booking-time-panel][hidden],
+.page-booking .booking-slot-check[hidden],
+.page-booking [data-booking-whatsapp-field][hidden] {
+    display: none;
+}
+
 .page-booking .booking-slot-button {
     display: inline-flex;
     align-items: center;
@@ -586,13 +618,14 @@ body.page-booking.is-ltr {
     gap: 0.4rem;
     min-width: 0;
     min-height: 3rem;
-    border: 1px solid var(--color-line);
+    border: 1px solid rgba(139, 90, 43, 0.3);
     border-radius: 0.65rem;
     background: var(--color-white);
     color: var(--color-charcoal);
     padding: 0.6rem 0.45rem;
+    font-family: inherit;
     font-size: 0.92rem;
-    font-weight: 700;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
     text-align: center;
     white-space: nowrap;
@@ -784,7 +817,9 @@ body.page-booking.is-ltr {
     color: var(--color-burgundy);
     font-family: "Noto Kufi Arabic", "IBM Plex Sans Arabic", Georgia, serif;
     font-size: 1.45rem;
-    line-height: 1.5;
+    font-weight: 600;
+    line-height: 1.65;
+    letter-spacing: normal;
 }
 
 .page-booking.is-ltr .booking-form-heading h2 {
@@ -810,8 +845,8 @@ body.page-booking.is-ltr {
 .page-booking .booking-form .form-field > label {
     color: var(--color-charcoal);
     font-size: 0.88rem;
-    font-weight: 600;
-    line-height: 1.5;
+    font-weight: 500;
+    line-height: 1.65;
 }
 
 .page-booking .booking-required-marker {
@@ -826,8 +861,11 @@ body.page-booking.is-ltr {
     background: rgba(255, 255, 255, 0.92);
     color: var(--color-charcoal);
     padding: 0.78rem 0.95rem;
-    font: inherit;
-    line-height: 1.5;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.65;
+    letter-spacing: normal;
     caret-color: var(--color-burgundy);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 8px 18px -20px rgba(74, 15, 20, 0.8);
     transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
@@ -900,9 +938,10 @@ body.page-booking.is-ltr {
     background: var(--color-soft);
     color: var(--color-charcoal);
     padding: 0.65rem 0.55rem;
-    font: inherit;
+    font-family: inherit;
     font-size: 0.87rem;
-    font-weight: 700;
+    font-weight: 600;
+    line-height: 1.5;
     cursor: pointer;
 }
 
@@ -976,7 +1015,10 @@ body.page-booking.is-ltr {
     background: var(--color-ivory);
     color: var(--color-charcoal);
     padding: 0.55rem 0.7rem;
-    font: inherit;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 400;
+    line-height: 1.55;
 }
 
 .page-booking .booking-country-options {
@@ -999,8 +1041,10 @@ body.page-booking.is-ltr {
     background: transparent;
     color: var(--color-charcoal);
     padding: 0.5rem 0.6rem;
-    font: inherit;
+    font-family: inherit;
     font-size: 0.84rem;
+    font-weight: 500;
+    line-height: 1.55;
     text-align: start;
     cursor: pointer;
 }
@@ -1023,6 +1067,14 @@ body.page-booking.is-ltr {
     color: var(--color-muted);
     font-size: 0.82rem;
     text-align: center;
+}
+
+.page-booking .booking-phone-hint {
+    margin: 0.38rem 0 0;
+    color: var(--color-muted);
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.6;
 }
 
 .page-booking [data-booking-whatsapp-field].is-disabled {
@@ -1108,16 +1160,6 @@ body.page-booking.is-ltr {
     list-style: none;
 }
 
-.page-booking .booking-submit-note {
-    margin: 0.25rem 0 0;
-    border: 1px solid rgba(193, 154, 107, 0.45);
-    border-radius: 0.75rem;
-    background: rgba(245, 239, 233, 0.7);
-    color: var(--color-muted);
-    padding: 0.85rem 1rem;
-    font-size: 0.86rem;
-}
-
 .page-booking .booking-primary-action,
 .page-booking .booking-secondary-action {
     display: inline-flex;
@@ -1126,8 +1168,11 @@ body.page-booking.is-ltr {
     min-height: 3rem;
     border-radius: 999px;
     padding: 0.72rem 1.65rem;
-    font-weight: 700;
-    line-height: 1.35;
+    font-family: inherit;
+    font-size: 0.98rem;
+    font-weight: 600;
+    line-height: 1.55;
+    letter-spacing: normal;
     text-align: center;
 }
 
@@ -1252,22 +1297,6 @@ body.page-booking.is-ltr {
     color: var(--color-charcoal);
     font-weight: 700;
     overflow-wrap: anywhere;
-}
-
-.page-booking .booking-success-notice {
-    max-width: 32rem;
-    margin: 0 auto 1.75rem;
-    border: 1px solid rgba(74, 15, 20, 0.16);
-    border-radius: 1rem;
-    background: #FCF4F5;
-    color: rgba(74, 15, 20, 0.9);
-    padding: 1rem 1.1rem;
-    font-size: 0.86rem;
-    text-align: start;
-}
-
-.page-booking .booking-success-notice p:last-child {
-    margin-bottom: 0;
 }
 
 .page-booking .booking-actions {

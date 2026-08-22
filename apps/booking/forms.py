@@ -101,7 +101,7 @@ class PublicBookingForm(forms.Form):
                 "autocomplete": "tel",
                 "inputmode": "tel",
                 "dir": "ltr",
-                "placeholder": "07XXXXXXXX أو +962…" if language == "ar" else "07XXXXXXXX or +962…",
+                "placeholder": "07XXXXXXXX",
             }
         )
         self.fields["whatsapp_phone"].widget.attrs.update(
@@ -110,7 +110,7 @@ class PublicBookingForm(forms.Form):
                 "autocomplete": "tel",
                 "inputmode": "tel",
                 "dir": "ltr",
-                "placeholder": "اختياري" if language == "ar" else "Optional",
+                "placeholder": "07XXXXXXXX",
             }
         )
         self.fields["booking_note"].widget.attrs.update(

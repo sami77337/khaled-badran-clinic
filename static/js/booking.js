@@ -1,6 +1,226 @@
 (() => {
     "use strict";
 
+    const relativeUrl = (url) => `${url.pathname}${url.search}${url.hash}`;
+    const buildUrl = (base, parameters) => {
+        const url = new URL(base, window.location.href);
+        Object.entries(parameters).forEach(([key, value]) => {
+            if (value === null || value === undefined || value === "") {
+                url.searchParams.delete(key);
+            } else {
+                url.searchParams.set(key, value);
+            }
+        });
+        return relativeUrl(url);
+    };
+
+    const preserveViewport = (update) => {
+        const left = window.scrollX;
+        const top = window.scrollY;
+        update();
+        window.requestAnimationFrame(() => {
+            const root = document.documentElement;
+            const previousBehavior = root.style.scrollBehavior;
+            root.style.scrollBehavior = "auto";
+            window.scrollTo(left, top);
+            root.style.scrollBehavior = previousBehavior;
+        });
+    };
+
+    const replaceHistory = (href) => {
+        if (!window.history?.replaceState) {
+            return;
+        }
+        const url = new URL(href, window.location.href);
+        window.history.replaceState(window.history.state, "", relativeUrl(url));
+    };
+
+    const syncLanguageSwitches = (parameters) => {
+        document.querySelectorAll("a[hreflang]").forEach((link) => {
+            link.setAttribute("href", buildUrl(link.href, parameters));
+        });
+    };
+
+    const setActionState = (control, href) => {
+        if (!control) {
+            return null;
+        }
+        const requiredTag = href ? "A" : "SPAN";
+        let nextControl = control;
+        if (control.tagName !== requiredTag) {
+            nextControl = document.createElement(requiredTag.toLowerCase());
+            Array.from(control.attributes).forEach((attribute) => {
+                if (attribute.name === "href" || attribute.name === "aria-disabled") {
+                    return;
+                }
+                nextControl.setAttribute(attribute.name, attribute.value);
+            });
+            nextControl.innerHTML = control.innerHTML;
+            control.replaceWith(nextControl);
+        }
+
+        nextControl.classList.toggle("is-disabled", !href);
+        if (href) {
+            nextControl.setAttribute("href", href);
+            nextControl.removeAttribute("aria-disabled");
+        } else {
+            nextControl.removeAttribute("href");
+            nextControl.setAttribute("aria-disabled", "true");
+        }
+        return nextControl;
+    };
+
+    const serviceStep = document.querySelector("[data-booking-service-step]");
+    if (serviceStep) {
+        const serviceOptions = Array.from(serviceStep.querySelectorAll("[data-booking-visit-option]"));
+        const additionalServices = serviceStep.querySelector("[data-booking-additional-services]");
+        const moreControl = serviceStep.querySelector("[data-booking-service-more]");
+        const moreToggle = moreControl?.querySelector("summary");
+        const slotsUrl = serviceStep.dataset.bookingSlotsUrl;
+        let continueControl = serviceStep.querySelector("[data-booking-continue]");
+
+        const selectedAdditionalService = () => additionalServices?.querySelector(
+            "[data-booking-visit-option].is-selected"
+        );
+
+        serviceOptions.forEach((option) => {
+            option.addEventListener("click", (event) => {
+                event.preventDefault();
+                preserveViewport(() => {
+                    serviceOptions.forEach((candidate) => {
+                        const isSelected = candidate === option;
+                        candidate.classList.toggle("is-selected", isSelected);
+                        if (isSelected) {
+                            candidate.setAttribute("aria-current", "true");
+                        } else {
+                            candidate.removeAttribute("aria-current");
+                        }
+                        const marker = candidate.querySelector(".booking-visit-action");
+                        if (marker) {
+                            marker.textContent = isSelected ? "✓" : "";
+                        }
+                    });
+
+                    if (moreControl && additionalServices?.contains(option)) {
+                        moreControl.open = true;
+                    }
+
+                    const visitType = option.dataset.bookingServiceId;
+                    continueControl = setActionState(
+                        continueControl,
+                        buildUrl(slotsUrl, { visit_type: visitType })
+                    );
+                    replaceHistory(option.href);
+                    syncLanguageSwitches({ visit_type: visitType });
+                });
+            });
+        });
+
+        moreToggle?.addEventListener("click", (event) => {
+            if (moreControl.open && selectedAdditionalService()) {
+                event.preventDefault();
+                return;
+            }
+            preserveViewport(() => {});
+        });
+
+        moreControl?.addEventListener("toggle", () => {
+            if (!moreControl.open && selectedAdditionalService()) {
+                moreControl.open = true;
+            }
+        });
+    }
+
+    const slotStep = document.querySelector("[data-booking-slot-step]");
+    if (slotStep) {
+        const dateButtons = Array.from(slotStep.querySelectorAll("[data-booking-date-group]"));
+        const timePanels = Array.from(slotStep.querySelectorAll("[data-booking-time-panel]"));
+        const slotButtons = Array.from(slotStep.querySelectorAll("[data-booking-slot]"));
+        const visitType = slotStep.dataset.bookingVisitTypeId;
+        const confirmUrl = slotStep.dataset.bookingConfirmUrl;
+        let continueControl = slotStep.querySelector("[data-booking-slot-continue]");
+
+        const clearSelectedTime = () => {
+            slotButtons.forEach((slot) => {
+                slot.classList.remove("is-selected");
+                slot.removeAttribute("aria-current");
+                slot.removeAttribute("data-booking-selected-time");
+                const check = slot.querySelector(".booking-slot-check");
+                if (check) {
+                    check.hidden = true;
+                }
+            });
+            continueControl = setActionState(continueControl, null);
+        };
+
+        dateButtons.forEach((button) => {
+            button.addEventListener("click", (event) => {
+                event.preventDefault();
+                preserveViewport(() => {
+                    const selectedDate = button.dataset.bookingDate;
+                    dateButtons.forEach((candidate) => {
+                        const isSelected = candidate === button;
+                        candidate.classList.toggle("is-selected", isSelected);
+                        candidate.toggleAttribute("data-booking-selected-date", isSelected);
+                        if (isSelected) {
+                            candidate.setAttribute("aria-current", "date");
+                        } else {
+                            candidate.removeAttribute("aria-current");
+                        }
+                    });
+                    timePanels.forEach((panel) => {
+                        panel.hidden = panel.dataset.bookingDate !== selectedDate;
+                    });
+                    clearSelectedTime();
+                    replaceHistory(button.href);
+                    syncLanguageSwitches({
+                        visit_type: visitType,
+                        date: selectedDate,
+                        starts_at: null,
+                    });
+                });
+            });
+        });
+
+        slotButtons.forEach((slot) => {
+            slot.addEventListener("click", (event) => {
+                event.preventDefault();
+                preserveViewport(() => {
+                    slotButtons.forEach((candidate) => {
+                        const isSelected = candidate === slot;
+                        candidate.classList.toggle("is-selected", isSelected);
+                        candidate.toggleAttribute("data-booking-selected-time", isSelected);
+                        if (isSelected) {
+                            candidate.setAttribute("aria-current", "time");
+                        } else {
+                            candidate.removeAttribute("aria-current");
+                        }
+                        const check = candidate.querySelector(".booking-slot-check");
+                        if (check) {
+                            check.hidden = !isSelected;
+                        }
+                    });
+
+                    const startsAt = slot.dataset.bookingSlotValue;
+                    const selectedDate = slot.closest("[data-booking-time-panel]")?.dataset.bookingDate;
+                    continueControl = setActionState(
+                        continueControl,
+                        buildUrl(confirmUrl, {
+                            visit_type: visitType,
+                            starts_at: startsAt,
+                        })
+                    );
+                    replaceHistory(slot.href);
+                    syncLanguageSwitches({
+                        visit_type: visitType,
+                        date: selectedDate,
+                        starts_at: startsAt,
+                    });
+                });
+            });
+        });
+    }
+
     const form = document.querySelector("[data-booking-patient-form]");
     if (!form) {
         return;
@@ -12,7 +232,7 @@
         .replace(/[٠-٩]/g, (digit) => String(arabicDigits.indexOf(digit)))
         .replace(/[۰-۹]/g, (digit) => String(persianDigits.indexOf(digit)));
     const compactNumber = (value) => {
-        let compact = toAsciiDigits(String(value || "").trim()).replace(/[\s\-().]/g, "");
+        let compact = toAsciiDigits(String(value || "").trim()).replace(/[\s\-()./]/g, "");
         if (compact.startsWith("00")) {
             compact = `+${compact.slice(2)}`;
         }
@@ -49,11 +269,16 @@
         const menu = control.querySelector("[data-booking-country-menu]");
         const search = control.querySelector("[data-booking-country-search]");
         const empty = control.querySelector("[data-booking-country-empty]");
+        const hint = control.querySelector("[data-booking-phone-hint]");
         const input = control.querySelector("input[type='text'], input[type='tel']");
         const options = Array.from(control.querySelectorAll("[data-booking-country-option]"));
 
         if (!trigger || !flag || !dial || !menu || !search || !input || !options.length) {
             return;
+        }
+
+        if (hint?.id) {
+            input.setAttribute("aria-describedby", hint.id);
         }
 
         const setCountry = (option) => {
@@ -62,19 +287,43 @@
             });
             control.dataset.bookingDialCode = option.dataset.countryDial;
             control.dataset.bookingCountryCode = option.dataset.countryCode;
+            control.dataset.bookingNationalPrefix = option.dataset.countryNationalPrefix || "";
             flag.textContent = option.dataset.countryFlag;
             dial.textContent = option.dataset.countryDial;
+            input.placeholder = option.dataset.countryExample || "";
+            if (hint) {
+                hint.textContent = `${control.dataset.bookingExampleLabel}: ${option.dataset.countryExample}`;
+            }
         };
 
-        const findCountry = (number) => options
-            .slice()
-            .sort((left, right) => right.dataset.countryDial.length - left.dataset.countryDial.length)
-            .find((option) => number.startsWith(option.dataset.countryDial));
+        const findCountry = (number) => {
+            const matches = options
+                .filter((option) => number.startsWith(option.dataset.countryDial))
+                .sort((left, right) => right.dataset.countryDial.length - left.dataset.countryDial.length);
+            const longestDialLength = matches[0]?.dataset.countryDial.length;
+            const longestMatches = matches.filter(
+                (option) => option.dataset.countryDial.length === longestDialLength
+            );
+            return longestMatches.find(
+                (option) => option.dataset.countryCode === control.dataset.bookingCountryCode
+            ) || longestMatches.find(
+                (option) => option.dataset.countryCode === "US"
+            ) || longestMatches.find(
+                (option) => option.dataset.countryCode === "RU"
+            ) || longestMatches[0];
+        };
+
+        const displayInternationalNumber = (number, matchingCountry) => {
+            setCountry(matchingCountry);
+            const nationalPrefix = matchingCountry.dataset.countryNationalPrefix || "";
+            const localNumber = number.slice(matchingCountry.dataset.countryDial.length);
+            input.value = `${nationalPrefix}${localNumber}`;
+        };
 
         const parseInitialValue = () => {
             let number = compactNumber(input.value);
             if (!number) {
-                setCountry(options.find((option) => option.dataset.countryDial === "+962") || options[0]);
+                setCountry(options.find((option) => option.dataset.countryCode === "JO") || options[0]);
                 return;
             }
             if (!number.startsWith("+") && number.startsWith("962")) {
@@ -82,11 +331,10 @@
             }
             const matchingCountry = number.startsWith("+") ? findCountry(number) : null;
             if (matchingCountry) {
-                setCountry(matchingCountry);
-                input.value = number.slice(matchingCountry.dataset.countryDial.length);
+                displayInternationalNumber(number, matchingCountry);
                 return;
             }
-            setCountry(options.find((option) => option.dataset.countryDial === "+962") || options[0]);
+            setCountry(options.find((option) => option.dataset.countryCode === "JO") || options[0]);
             input.value = number;
         };
 
@@ -113,6 +361,7 @@
         const chooseOption = (option) => {
             setCountry(option);
             closeControl(control, { restoreFocus: true });
+            input.focus({ preventScroll: true });
         };
 
         trigger.addEventListener("click", () => {
@@ -178,27 +427,35 @@
             const number = compactNumber(input.value);
             const matchingCountry = number.startsWith("+") ? findCountry(number) : null;
             if (matchingCountry) {
-                setCountry(matchingCountry);
-                input.value = number.slice(matchingCountry.dataset.countryDial.length);
+                displayInternationalNumber(number, matchingCountry);
+            } else {
+                input.value = number;
             }
         });
 
         control.bookingComposeNumber = () => {
-            const number = compactNumber(input.value);
+            let number = compactNumber(input.value);
             if (!number) {
                 input.value = "";
                 return;
             }
+
             if (number.startsWith("+")) {
-                input.value = number;
-                return;
+                const matchingCountry = findCountry(number);
+                if (!matchingCountry) {
+                    input.value = number;
+                    return;
+                }
+                setCountry(matchingCountry);
+                number = number.slice(matchingCountry.dataset.countryDial.length);
             }
+
             const selectedDial = control.dataset.bookingDialCode || control.dataset.bookingDefaultDialCode;
-            const selectedCountry = control.dataset.bookingCountryCode;
-            const localNumber = selectedCountry === "JO" && number.startsWith("0")
-                ? number.slice(1)
+            const nationalPrefix = control.dataset.bookingNationalPrefix || "";
+            const normalizedLocalNumber = nationalPrefix && number.startsWith(nationalPrefix)
+                ? number.slice(nationalPrefix.length)
                 : number;
-            input.value = `${selectedDial}${localNumber}`;
+            input.value = `${selectedDial}${normalizedLocalNumber}`;
         };
 
         parseInitialValue();
@@ -216,6 +473,7 @@
         }
         const isSame = sameAsPhone.checked;
         whatsappField.classList.toggle("is-disabled", isSame);
+        whatsappField.hidden = isSame;
         whatsappField.setAttribute("aria-disabled", String(isSame));
         whatsappInput.disabled = isSame;
         whatsappTrigger.disabled = isSame;

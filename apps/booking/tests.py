@@ -16,6 +16,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.booking.countries import INTERNATIONAL_PHONE_COUNTRIES
 from apps.booking.forms import PUBLIC_BOOKING_ERROR_COPY, PublicBookingForm
 from apps.booking.models import Appointment, AppointmentStatusHistory
 from apps.booking.phone import normalize_phone
@@ -980,6 +981,8 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
 
                 self.assert_bounded_booking_shell(response, direction=direction)
                 self.assertContains(response, "data-booking-progress")
+                self.assertContains(response, "data-booking-service-step", count=1)
+                self.assertContains(response, "/static/js/booking.js", count=1)
                 self.assertContains(response, "data-booking-visit-option", count=6)
                 self.assertContains(response, '<a class="booking-visit-option"', count=6)
                 self.assertContains(response, "data-booking-primary-services", count=1)
@@ -1204,6 +1207,8 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
                 else:
                     self.assertContains(response, f"{self.visit_type.duration_minutes} min")
                 self.assertContains(response, "data-booking-date-groups", count=1)
+                self.assertContains(response, "data-booking-slot-step", count=1)
+                self.assertContains(response, "/static/js/booking.js", count=1)
                 self.assertContains(response, "data-booking-selected-date", count=1)
                 self.assertContains(response, "data-booking-slot")
                 self.assertContains(response, "data-booking-slot-continue", count=1)
@@ -1420,8 +1425,19 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
                 self.assertContains(response, "data-booking-phone-control", count=2)
                 self.assertContains(response, "data-booking-country-trigger", count=2)
                 self.assertContains(response, "data-booking-country-search", count=2)
-                self.assertContains(response, " data-booking-country-option ", count=26)
+                self.assertContains(
+                    response,
+                    "data-booking-country-option\n",
+                    count=len(INTERNATIONAL_PHONE_COUNTRIES) * 2,
+                )
                 self.assertContains(response, 'data-booking-default-dial-code="+962"', count=2)
+                self.assertContains(response, 'placeholder="07XXXXXXXX"', count=2)
+                self.assertNotContains(response, "+962…")
+                self.assertNotContains(response, "or +962")
+                self.assertNotContains(response, "أو +962")
+                self.assertContains(response, 'data-country-code="JO"', count=2)
+                self.assertContains(response, 'data-country-example="07XXXXXXXX"', count=2)
+                self.assertContains(response, 'data-country-example="05XXXXXXXX"', count=2)
                 for dial_code in (
                     "+962",
                     "+966",
@@ -1440,7 +1456,13 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
                     self.assertContains(
                         response,
                         f'data-country-dial="{dial_code}"',
-                        count=2,
+                        count=(
+                            sum(
+                                country["dial_code"] == dial_code
+                                for country in INTERNATIONAL_PHONE_COUNTRIES
+                            )
+                            * 2
+                        ),
                     )
                 if route_name == "booking_confirm":
                     self.assertContains(response, "الأردن")
@@ -1448,7 +1470,7 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
                     self.assertContains(response, "ابحث عن دولة أو رمز")
                 else:
                     self.assertContains(response, "Jordan")
-                    self.assertContains(response, "UK")
+                    self.assertContains(response, "United Kingdom")
                     self.assertContains(response, "Search country or code")
 
                 invalid_response = self.client.post(
@@ -1477,14 +1499,113 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
             Path(__file__).resolve().parents[2] / "static" / "js" / "booking.js"
         ).read_text(encoding="utf-8")
         for contract_hook in (
+            "data-booking-service-step",
+            "data-booking-slot-step",
+            "event.preventDefault()",
+            "window.history.replaceState",
+            "preserveViewport",
+            "setActionState",
             "[name='same_as_phone']",
             "[name='whatsapp_phone']",
             "bookingComposeNumber",
-            'selectedCountry === "JO"',
             "bookingDialCode",
+            "bookingNationalPrefix",
+            "whatsappField.hidden = isSame",
         ):
             with self.subTest(contract_hook=contract_hook):
                 self.assertIn(contract_hook, script_source)
+
+    def test_international_phone_metadata_is_expanded_local_and_jordan_first(self):
+        self.assertGreaterEqual(len(INTERNATIONAL_PHONE_COUNTRIES), 240)
+        self.assertEqual(INTERNATIONAL_PHONE_COUNTRIES[0]["code"], "JO")
+        self.assertEqual(INTERNATIONAL_PHONE_COUNTRIES[0]["dial_code"], "+962")
+        self.assertEqual(INTERNATIONAL_PHONE_COUNTRIES[0]["example"], "07XXXXXXXX")
+
+        countries_by_code = {
+            country["code"]: country for country in INTERNATIONAL_PHONE_COUNTRIES
+        }
+        self.assertEqual(len(countries_by_code), len(INTERNATIONAL_PHONE_COUNTRIES))
+        self.assertEqual(countries_by_code["SA"]["example"], "05XXXXXXXX")
+        for country_code in ("AE", "AU", "BR", "CA", "CN", "DE", "FR", "GB", "IN", "JP", "US", "ZA"):
+            with self.subTest(country_code=country_code):
+                country = countries_by_code[country_code]
+                self.assertTrue(country["flag"])
+                self.assertTrue(country["name_ar"])
+                self.assertTrue(country["name_en"])
+                self.assertTrue(country["dial_code"].startswith("+"))
+                self.assertTrue(country["example"])
+                self.assertFalse(country["example"].startswith("+"))
+
+    def test_booking_internal_warning_boxes_are_removed_but_global_policy_remains(self):
+        templates_root = Path(__file__).resolve().parents[2] / "templates" / "booking"
+        booking_template_source = "\n".join(
+            (templates_root / template_name).read_text(encoding="utf-8")
+            for template_name in ("confirm.html", "success.html", "unavailable.html")
+        )
+        for removed_fragment in (
+            "booking-submit-note",
+            "booking-success-notice",
+            "labels.not_emergency",
+            "For privacy, this page does not display",
+            "حفاظًا على الخصوصية، لا تعرض هذه الصفحة",
+        ):
+            with self.subTest(removed_fragment=removed_fragment):
+                self.assertNotIn(removed_fragment, booking_template_source)
+
+        confirm_response = self.client.get(
+            reverse("booking_confirm"),
+            {"visit_type": self.visit_type.id, "starts_at": self.slot.value},
+        )
+        self.assertNotContains(confirm_response, 'class="booking-submit-note"')
+        self.assertContains(confirm_response, 'class="footer-emergency"', count=1)
+
+    def test_same_step_controls_keep_server_fallbacks_and_load_no_reload_hooks(self):
+        visit_type_response = self.client.get(reverse("booking_visit_type"))
+        self.assertContains(visit_type_response, "data-booking-service-step", count=1)
+        self.assertContains(visit_type_response, "/static/js/booking.js", count=1)
+        self.assertContains(
+            visit_type_response,
+            f'href="{reverse("booking_visit_type")}?visit_type={self.visit_type.id}"',
+            count=1,
+        )
+        service_template_source = (
+            Path(__file__).resolve().parents[2] / "templates" / "booking" / "select_visit_type.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("data-booking-service-more", service_template_source)
+
+        slot_response = self.client.get(
+            reverse("booking_slots"),
+            {"visit_type": self.visit_type.id},
+        )
+        self.assertContains(slot_response, "data-booking-slot-step", count=1)
+        self.assertContains(slot_response, "/static/js/booking.js", count=1)
+        for group in slot_response.context["grouped_slots"]:
+            fallback = (
+                f'{reverse("booking_slots")}?visit_type={self.visit_type.id}'
+                f'&amp;date={group["date"].isoformat()}'
+            )
+            self.assertContains(slot_response, f'href="{fallback}"', count=1)
+            for slot in group["slots"]:
+                self.assertContains(
+                    slot_response,
+                    urlencode({"starts_at": slot.value}),
+                    count=1,
+                )
+
+        script_source = (
+            Path(__file__).resolve().parents[2] / "static" / "js" / "booking.js"
+        ).read_text(encoding="utf-8")
+        for hook in (
+            'option.addEventListener("click"',
+            'button.addEventListener("click"',
+            'slot.addEventListener("click"',
+            'moreToggle?.addEventListener("click"',
+            "event.preventDefault()",
+            "window.history.replaceState",
+            "window.scrollTo(left, top)",
+        ):
+            with self.subTest(hook=hook):
+                self.assertIn(hook, script_source)
 
     def test_available_dates_switch_one_real_server_backed_time_group(self):
         for route_name in ("booking_slots", "booking_slots_en"):
@@ -1505,12 +1626,12 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
                 self.assertContains(
                     response,
                     "data-booking-time-grid",
-                    count=1,
+                    count=len(grouped_slots),
                 )
                 self.assertContains(
                     response,
-                    " data-booking-slot>",
-                    count=len(grouped_slots[0]["slots"]),
+                    " data-booking-slot data-booking-slot-value=",
+                    count=sum(len(group["slots"]) for group in grouped_slots),
                 )
                 self.assertEqual(response.context["selected_date"], grouped_slots[0]["date"])
                 self.assertEqual(response.context["selected_date_slots"], grouped_slots[0]["slots"])
@@ -1531,11 +1652,15 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
                     requested_response.context["selected_date_slots"],
                     requested_group["slots"],
                 )
-                self.assertContains(requested_response, "data-booking-time-grid", count=1)
                 self.assertContains(
                     requested_response,
-                    " data-booking-slot>",
-                    count=len(requested_group["slots"]),
+                    "data-booking-time-grid",
+                    count=len(grouped_slots),
+                )
+                self.assertContains(
+                    requested_response,
+                    " data-booking-slot data-booking-slot-value=",
+                    count=sum(len(group["slots"]) for group in grouped_slots),
                 )
                 self.assertContains(
                     requested_response,
@@ -1562,7 +1687,7 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
                 self.assert_bounded_booking_shell(response, direction=direction)
                 self.assertContains(response, 'class="booking-empty-state"', count=1)
                 self.assertContains(response, empty_heading)
-                self.assertNotContains(response, "data-booking-slot")
+                self.assertNotContains(response, " data-booking-slot data-booking-slot-value=")
 
         self.set_setting(SystemSetting.BOOKING_ENABLED, False, SystemSetting.ValueType.BOOLEAN)
         unavailable_cases = [
@@ -1687,6 +1812,10 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
             "font-variant-numeric: tabular-nums",
             "white-space: nowrap",
             "unicode-bidi: plaintext",
+            "font-synthesis: none",
+            "text-rendering: optimizeLegibility",
+            'font-family: "IBM Plex Sans Arabic"',
+            'font-family: "Noto Kufi Arabic"',
             "@media (max-width: 389px)",
             "@media (min-width: 600px)",
             "@media (min-width: 900px)",

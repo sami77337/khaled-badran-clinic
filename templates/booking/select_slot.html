@@ -3,11 +3,12 @@
 
 {% block extra_head %}
     <link rel="stylesheet" href="{% static 'css/booking.css' %}">
+    <script src="{% static 'js/booking.js' %}" defer></script>
 {% endblock %}
 
 {% block content %}
 {% language language %}
-<section class="booking-flow" data-booking-flow>
+<section class="booking-flow" data-booking-flow data-booking-slot-step data-booking-confirm-url="{{ confirm_url }}" data-booking-visit-type-id="{{ visit_type.id }}">
     <div class="booking-flow-container">
         <header class="booking-flow-heading">
             <h1>{% if is_arabic %}احجز موعدك{% else %}Book Your Appointment{% endif %}</h1>
@@ -53,12 +54,16 @@
 
                     <section class="booking-slot-section" aria-labelledby="booking-available-times">
                         <h3 id="booking-available-times">{% if is_arabic %}الأوقات المتاحة{% else %}Available Times{% endif %}</h3>
-                        <div class="booking-slot-grid" data-booking-time-grid aria-label="{% if is_arabic %}الأوقات المتاحة للتاريخ المحدد{% else %}Available times for the selected date{% endif %}">
-                            {% for slot in selected_date_slots %}
-                                <a class="booking-slot-button{% if selected_slot.value == slot.value %} is-selected{% endif %}" href="{{ slots_url }}?visit_type={{ visit_type.id }}&amp;date={{ selected_date|date:'Y-m-d' }}&amp;starts_at={{ slot.value|urlencode }}" data-booking-slot{% if selected_slot.value == slot.value %} data-booking-selected-time aria-current="time"{% endif %}>
-                                    <time datetime="{{ slot.value }}" dir="ltr">{{ slot.local_time|time:"H:i" }}</time>
-                                    {% if selected_slot.value == slot.value %}<span class="booking-slot-check" aria-hidden="true">✓</span>{% endif %}
-                                </a>
+                        <div data-booking-time-panels aria-live="polite">
+                            {% for group in grouped_slots %}
+                                <div class="booking-slot-grid" data-booking-time-grid data-booking-time-panel data-booking-date="{{ group.date|date:'Y-m-d' }}" aria-label="{% if is_arabic %}الأوقات المتاحة للتاريخ المحدد{% else %}Available times for the selected date{% endif %}"{% if group.date != selected_date %} hidden{% endif %}>
+                                    {% for slot in group.slots %}
+                                        <a class="booking-slot-button{% if selected_slot.value == slot.value %} is-selected{% endif %}" href="{{ slots_url }}?visit_type={{ visit_type.id }}&amp;date={{ group.date|date:'Y-m-d' }}&amp;starts_at={{ slot.value|urlencode }}" data-booking-slot data-booking-slot-value="{{ slot.value }}"{% if selected_slot.value == slot.value %} data-booking-selected-time aria-current="time"{% endif %}>
+                                            <time datetime="{{ slot.value }}" dir="ltr">{{ slot.local_time|time:"H:i" }}</time>
+                                            <span class="booking-slot-check" aria-hidden="true"{% if selected_slot.value != slot.value %} hidden{% endif %}>✓</span>
+                                        </a>
+                                    {% endfor %}
+                                </div>
                             {% endfor %}
                         </div>
                     </section>
@@ -66,12 +71,13 @@
                     <div class="booking-continue booking-slot-continue">
                         {% if selected_slot %}
                             <a class="booking-primary-action booking-continue-action" href="{{ confirm_url }}?visit_type={{ visit_type.id }}&amp;starts_at={{ selected_slot.value|urlencode }}" data-booking-slot-continue>
-                                {% if is_arabic %}متابعة{% else %}Continue{% endif %}
+                                <span>{% if is_arabic %}متابعة{% else %}Continue{% endif %}</span>
                                 <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
                             </a>
                         {% else %}
                             <span class="booking-primary-action booking-continue-action is-disabled" aria-disabled="true" data-booking-slot-continue>
-                                {% if is_arabic %}متابعة{% else %}Continue{% endif %}
+                                <span>{% if is_arabic %}متابعة{% else %}Continue{% endif %}</span>
+                                <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
                             </span>
                         {% endif %}
                     </div>

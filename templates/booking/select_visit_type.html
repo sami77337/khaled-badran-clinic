@@ -3,11 +3,12 @@
 
 {% block extra_head %}
     <link rel="stylesheet" href="{% static 'css/booking.css' %}">
+    <script src="{% static 'js/booking.js' %}" defer></script>
 {% endblock %}
 
 {% block content %}
 {% language language %}
-<section class="booking-flow" data-booking-flow>
+<section class="booking-flow" data-booking-flow data-booking-service-step data-booking-slots-url="{{ slots_url }}">
     <div class="booking-flow-container">
         <header class="booking-flow-heading">
             <h1>{% if is_arabic %}احجز موعدك{% else %}Book Your Appointment{% endif %}</h1>
@@ -49,12 +50,13 @@
                 <div class="booking-continue">
                     {% if selected_visit_type %}
                         <a class="booking-primary-action booking-continue-action" href="{{ slots_url }}?visit_type={{ selected_visit_type.id }}" data-booking-continue>
-                            {% if is_arabic %}متابعة{% else %}Continue{% endif %}
+                            <span>{% if is_arabic %}متابعة{% else %}Continue{% endif %}</span>
                             <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
                         </a>
                     {% else %}
                         <span class="booking-primary-action booking-continue-action is-disabled" aria-disabled="true" data-booking-continue>
-                            {% if is_arabic %}متابعة{% else %}Continue{% endif %}
+                            <span>{% if is_arabic %}متابعة{% else %}Continue{% endif %}</span>
+                            <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
                         </span>
                     {% endif %}
                 </div>
