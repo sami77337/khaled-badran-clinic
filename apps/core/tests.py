@@ -1,8 +1,11 @@
+import html as html_lib
 import json
 import os
 import re
+import subprocess
 import uuid
 from datetime import date, timedelta
+from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -19,7 +22,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.booking.models import Appointment
-from apps.clinic.models import Doctor, VisitType
+from apps.clinic.models import ClinicProfile, Doctor, VisitType
+from apps.core import views as core_views
 from apps.core.checks import production_readiness_checks
 from apps.patients.models import Patient
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
@@ -1155,8 +1159,10 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         response = self.client.get(reverse("public_cases_en"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "No approved public showcase media yet")
-        self.assertContains(response, "Approved and consented content only")
+        self.assertContains(response, "Only cases explicitly approved for public display are shown.", count=1)
+        self.assertContains(response, "No public cases are currently published.", count=1)
+        self.assertNotContains(response, "outcome guarantee")
+        self.assertNotContains(response, "Patient-visible portal media")
         self.assertNotContains(response, "<form")
         self.assertNotContains(response, "upload")
         self.assertNotContains(response, str(settings.PRIVATE_MEDIA_ROOT))
@@ -1555,3 +1561,928 @@ class PublicPageContentTests(TestCase):
 
         self.assertContains(robots_response, "Sitemap:")
         self.assertContains(sitemap_response, "<urlset", status_code=200)
+
+
+class PublicUiFoundationTests(TestCase):
+    public_stylesheet_href = f'href="{settings.STATIC_URL}css/public.css"'
+    service_dictionary_leak_markers = (
+        "('name',",
+        "('name_ar',",
+        "('name_en',",
+        "('duration_minutes',",
+        "('instructions',",
+        "('price', None)",
+        "('visible_price', None)",
+    )
+
+    def create_public_visit_type(self, *, price=None, show_price=False):
+        return VisitType.objects.create(
+            name_ar="استشارة اختبار عامة",
+            name_en="Synthetic public consultation",
+            duration_minutes=30,
+            instructions_ar="تعليمات عامة للاختبار فقط.",
+            instructions_en="Synthetic public instructions only.",
+            price=price,
+            show_price_to_patient=show_price,
+            is_active=True,
+            display_order=0,
+        )
+
+    def assert_no_service_dictionary_leak(self, response):
+        rendered_html = html_lib.unescape(response.content.decode())
+        for marker in self.service_dictionary_leak_markers:
+            with self.subTest(marker=marker):
+                self.assertNotIn(marker, rendered_html)
+        self.assertNotIn("duration_minutes", rendered_html)
+
+    def assert_public_shell(self, response, *, has_mobile_booking_cta):
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn("public-shell", html)
+        self.assertIn(self.public_stylesheet_href, html)
+        if has_mobile_booking_cta:
+            self.assertIn("data-mobile-booking-cta", html)
+        else:
+            self.assertNotIn("data-mobile-booking-cta", html)
+
+    def assert_non_public_shell(self, response):
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertNotIn("public-shell", html)
+        self.assertNotIn(self.public_stylesheet_href, html)
+        self.assertNotIn("data-mobile-booking-cta", html)
+
+    def test_public_language_direction_is_natural_for_arabic_and_english(self):
+        arabic = self.client.get(reverse("home"))
+        english = self.client.get(reverse("home_en"))
+
+        self.assertContains(arabic, '<html lang="ar" dir="rtl">')
+        self.assertContains(english, '<html lang="en" dir="ltr">')
+
+    def test_arabic_services_render_explicit_visit_type_fields_without_dictionary_leak(self):
+        self.create_public_visit_type()
+
+        response = self.client.get(reverse("services"))
+
+        self.assertContains(response, "استشارة اختبار عامة")
+        self.assertContains(response, "30 دقيقة")
+        self.assertContains(response, "تعليمات عامة للاختبار فقط.")
+        self.assertNotContains(response, "Synthetic public consultation")
+        self.assertNotContains(response, "السعر:")
+        self.assert_no_service_dictionary_leak(response)
+
+    def test_english_services_render_explicit_visit_type_fields_without_dictionary_leak(self):
+        self.create_public_visit_type()
+
+        response = self.client.get(reverse("services_en"))
+
+        self.assertContains(response, "Synthetic public consultation")
+        self.assertContains(response, "30 minutes")
+        self.assertContains(response, "Synthetic public instructions only.")
+        self.assertNotContains(response, "استشارة اختبار عامة")
+        self.assertNotContains(response, "Price:")
+        self.assert_no_service_dictionary_leak(response)
+
+    def test_home_omits_visit_type_services_while_services_routes_remain_available(self):
+        self.create_public_visit_type()
+
+        arabic_home = self.client.get(reverse("home"))
+        english_home = self.client.get(reverse("home_en"))
+        arabic_services = self.client.get(reverse("services"))
+        english_services = self.client.get(reverse("services_en"))
+
+        self.assertNotContains(arabic_home, "استشارة اختبار عامة")
+        self.assertNotContains(english_home, "Synthetic public consultation")
+        self.assertNotContains(arabic_home, 'class="section home-services"')
+        self.assertNotContains(english_home, 'class="section home-services"')
+        self.assertContains(arabic_services, "استشارة اختبار عامة")
+        self.assertContains(english_services, "Synthetic public consultation")
+        for response in [arabic_home, english_home, arabic_services, english_services]:
+            self.assert_no_service_dictionary_leak(response)
+
+    def test_visible_visit_type_price_is_rendered_only_when_intentionally_enabled(self):
+        self.create_public_visit_type(price=Decimal("25.00"), show_price=True)
+
+        arabic = self.client.get(reverse("services"))
+        english = self.client.get(reverse("services_en"))
+
+        self.assertContains(arabic, "السعر: 25.00")
+        self.assertContains(english, "Price: 25.00")
+        self.assert_no_service_dictionary_leak(arabic)
+        self.assert_no_service_dictionary_leak(english)
+
+    def test_service_cards_use_separate_explicit_template_contracts(self):
+        visit_type_template = (
+            settings.BASE_DIR / "templates" / "partials" / "service_card.html"
+        ).read_text(encoding="utf-8")
+        service_group_template = (
+            settings.BASE_DIR / "templates" / "partials" / "service_group_card.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("visit_type.localized_name", visit_type_template)
+        self.assertIn("visit_type.duration_minutes", visit_type_template)
+        self.assertIn("service_group.bullet_items", service_group_template)
+        self.assertNotIn("service.items", visit_type_template + service_group_template)
+
+    def test_contact_location_is_canonical_and_legacy_contact_routes_redirect(self):
+        self.assertEqual(reverse("contact"), "/contact-location/")
+        self.assertEqual(reverse("contact_en"), "/en/contact-location/")
+
+        arabic = self.client.get("/contact/", follow=False)
+        english = self.client.get("/en/contact/", follow=False)
+
+        self.assertEqual(arabic.status_code, 301)
+        self.assertEqual(arabic["Location"], "/contact-location/")
+        self.assertEqual(english.status_code, 301)
+        self.assertEqual(english["Location"], "/en/contact-location/")
+
+    def test_contact_location_uses_approved_map_phone_and_whatsapp_data(self):
+        ClinicProfile.objects.create(
+            official_name_ar="عيادة الدكتور خالد بدران",
+            official_name_en="Dr. Khaled Badran Clinic",
+            phone_raw="+962 7X XXX XXXX",
+            address_ar="العنوان سيضاف بعد اعتماده",
+            address_en="Address placeholder pending approval",
+            is_active=True,
+        )
+
+        response = self.client.get(reverse("contact"))
+
+        self.assertContains(response, "شارع رفيق العظم 13")
+        self.assertContains(response, "31.970276,35.8934391")
+        self.assertContains(response, "+962 7 8976 6332")
+        self.assertContains(response, 'href="tel:+962789766332"')
+        self.assertContains(response, 'href="https://wa.me/962789766332"')
+        self.assertContains(response, "تواصل مع العيادة مباشرة عبر واتساب")
+        self.assertNotContains(response, "+962 7X XXX XXXX")
+        self.assertNotContains(response, "ساعات العمل")
+        self.assertNotContains(response, "ساعات الدوام")
+
+    def test_public_shell_has_accessible_mobile_drawer_and_language_switch_outside_it(self):
+        response = self.client.get(reverse("services"))
+        html = response.content.decode()
+
+        self.assertIn('data-menu-toggle', html)
+        self.assertIn('aria-controls="mobile-navigation"', html)
+        self.assertIn('id="mobile-navigation"', html)
+        self.assertIn('class="is-active" aria-current="page">الخدمات</a>', html)
+        self.assertIn('data-mobile-booking-cta', html)
+
+        language_switch_position = html.index('class="mobile-language-switch"')
+        drawer_start = html.index('id="mobile-navigation"')
+        drawer_end = html.index('</header>')
+        drawer_html = html[drawer_start:drawer_end]
+        self.assertLess(language_switch_position, drawer_start)
+        self.assertNotIn('mobile-language-switch', drawer_html)
+
+    def test_mobile_booking_cta_is_opted_in_only_on_approved_public_marketing_routes(self):
+        approved_routes = [
+            "home",
+            "doctor",
+            "services",
+            "public_cases",
+            "contact",
+            "home_en",
+            "doctor_en",
+            "services_en",
+            "public_cases_en",
+            "contact_en",
+        ]
+        legal_routes = [
+            "privacy",
+            "terms",
+            "medical_disclaimer",
+            "whatsapp_policy",
+            "privacy_en",
+            "terms_en",
+            "medical_disclaimer_en",
+            "whatsapp_policy_en",
+        ]
+
+        for route_name in approved_routes:
+            with self.subTest(route=route_name):
+                self.assert_public_shell(
+                    self.client.get(reverse(route_name)),
+                    has_mobile_booking_cta=True,
+                )
+
+        for route_name in legal_routes:
+            with self.subTest(route=route_name):
+                self.assert_public_shell(
+                    self.client.get(reverse(route_name)),
+                    has_mobile_booking_cta=False,
+                )
+
+    def test_booking_routes_use_public_shell_and_contact_footer_without_mobile_booking_cta(self):
+        route_cases = [
+            (
+                "book",
+                "contact",
+                "patient_portal_login",
+                "التواصل والموقع",
+                "بوابة المريض",
+            ),
+            (
+                "booking_visit_type",
+                "contact",
+                "patient_portal_login",
+                "التواصل والموقع",
+                "بوابة المريض",
+            ),
+            (
+                "book_en",
+                "contact_en",
+                "patient_portal_login_en",
+                "Contact &amp; Location",
+                "Patient Portal",
+            ),
+            (
+                "booking_visit_type_en",
+                "contact_en",
+                "patient_portal_login_en",
+                "Contact &amp; Location",
+                "Patient Portal",
+            ),
+        ]
+
+        for route_name, contact_route, portal_route, contact_label, portal_label in route_cases:
+            with self.subTest(route=route_name):
+                response = self.client.get(reverse(route_name))
+
+                self.assert_public_shell(response, has_mobile_booking_cta=False)
+                self.assertContains(response, '<footer class="site-footer">')
+                self.assertContains(
+                    response,
+                    (
+                        f'<a class="btn btn-light" href="{reverse(contact_route)}">'
+                        f"{contact_label}</a>"
+                    ),
+                    html=True,
+                )
+                self.assertContains(
+                    response,
+                    (
+                        f'<a class="btn btn-outline-light" href="{reverse(portal_route)}">'
+                        f"{portal_label}</a>"
+                    ),
+                    html=True,
+                )
+
+    def test_patient_auth_account_and_portal_routes_do_not_load_public_shell_or_mobile_booking_cta(self):
+        anonymous_route_names = [
+            "patient_portal_login",
+            "patient_portal_register",
+            "patient_portal_login_en",
+            "patient_portal_register_en",
+        ]
+
+        for route_name in anonymous_route_names:
+            with self.subTest(route=route_name):
+                self.assert_non_public_shell(self.client.get(reverse(route_name)))
+
+        user = get_user_model().objects.create_user(
+            username="synthetic-batch-17-01-portal",
+        )
+        Patient.objects.create(
+            user=user,
+            full_name="Synthetic Batch 17 Portal Patient",
+            phone_raw="synthetic-phone-1701",
+            phone_e164="+000000001701",
+        )
+        self.client.force_login(user)
+
+        for route_name in [
+            "patient_portal_dashboard",
+            "patient_portal_account",
+            "patient_portal_medical_records",
+            "patient_portal_dashboard_en",
+            "patient_portal_account_en",
+            "patient_portal_medical_records_en",
+        ]:
+            with self.subTest(route=route_name):
+                self.assert_non_public_shell(self.client.get(reverse(route_name)))
+
+    def test_staff_and_dashboard_routes_do_not_load_public_shell_or_mobile_booking_cta(self):
+        staff_user = get_user_model().objects.create_user(
+            username="synthetic-batch-17-01-staff",
+            is_staff=True,
+        )
+        patient = Patient.objects.create(
+            full_name="Synthetic Batch 17 Staff Record Patient",
+            phone_raw="synthetic-phone-1702",
+            phone_e164="+000000001702",
+        )
+        self.client.force_login(staff_user)
+
+        route_requests = [
+            ("staff_appointment_list", {}),
+            ("dashboard_patient_list", {}),
+            ("dashboard_patient_record_detail", {"patient_id": patient.id}),
+        ]
+        for route_name, kwargs in route_requests:
+            with self.subTest(route=route_name):
+                self.assert_non_public_shell(self.client.get(reverse(route_name, kwargs=kwargs)))
+
+    @override_settings(DEBUG=False)
+    def test_404_uses_public_branding_without_mobile_booking_cta(self):
+        for path in ["/missing-public-shell-page/", "/en/missing-public-shell-page/"]:
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                html = response.content.decode()
+
+                self.assertEqual(response.status_code, 404)
+                self.assertIn("public-shell", html)
+                self.assertIn(self.public_stylesheet_href, html)
+                self.assertNotIn("data-mobile-booking-cta", html)
+
+    def test_public_stylesheet_does_not_override_booking_or_staff_components(self):
+        css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(encoding="utf-8")
+
+        for selector in [
+            ".booking-option",
+            ".booking-summary",
+            ".booking-form",
+            ".slot-day",
+            ".success-card",
+            ".staff-filter-panel",
+            ".staff-panel",
+            ".staff-table-wrap",
+            ".staff-messages",
+        ]:
+            with self.subTest(selector=selector):
+                self.assertNotIn(selector, css)
+
+    def test_professional_claims_render_from_central_doctor_context(self):
+        doctor = Doctor.objects.create(
+            full_name_ar="طبيب مركزي معتمد",
+            full_name_en="Central Approved Doctor",
+            title_ar="د.",
+            title_en="Dr.",
+            specialty_ar="تخصص مركزي معتمد",
+            specialty_en="Central approved specialty",
+            bio_ar="نبذة مركزية معتمدة من بيانات الطبيب.",
+            bio_en="Central approved doctor profile copy.",
+            is_active=True,
+        )
+
+        response = self.client.get(reverse("home_en"))
+        html = response.content.decode()
+        doctor_context = response.context["doctor"]
+
+        self.assertIn(doctor.specialty_en, html)
+        self.assertIn(doctor.bio_en, html)
+        self.assertIn(doctor_context["credential_label_en"].replace("&", "&amp;"), html)
+        self.assertIn(doctor_context["public_focus_en"].replace("&", "&amp;"), html)
+        self.assertIn(doctor_context["hero_summary_en"], html)
+
+        template_claims = {
+            settings.BASE_DIR / "templates" / "core" / "home.html": [
+                "European ENT Board",
+                "functional and cosmetic rhinoplasty",
+            ],
+            settings.BASE_DIR / "templates" / "partials" / "header.html": [
+                "ENT & Functional and Cosmetic Rhinoplasty",
+            ],
+            settings.BASE_DIR / "templates" / "partials" / "footer.html": [
+                "Adult and pediatric ear, nose and throat medicine and surgery",
+                "functional and cosmetic rhinoplasty",
+            ],
+        }
+        for template_path, claims in template_claims.items():
+            source = template_path.read_text(encoding="utf-8")
+            for claim in claims:
+                with self.subTest(template=template_path.name, claim=claim):
+                    self.assertNotIn(claim, source)
+
+    def test_case_carousel_uses_logical_rtl_safe_element_scrolling(self):
+        javascript = (settings.BASE_DIR / "static" / "js" / "site.js").read_text(encoding="utf-8")
+
+        self.assertIn("scrollIntoView", javascript)
+        self.assertIn('inline: "start"', javascript)
+        self.assertIn("getComputedStyle(caseCarousel).direction", javascript)
+        self.assertIn('const effectiveBehavior = reducedMotion ? "auto" : behavior;', javascript)
+        self.assertIn("behavior: effectiveBehavior", javascript)
+        self.assertNotIn("caseCarousel.scrollTo", javascript)
+        self.assertNotIn("offsetLeft", javascript)
+
+    def test_case_carousel_autoplays_across_viewports_and_preserves_motion_controls(self):
+        javascript = (settings.BASE_DIR / "static" / "js" / "site.js").read_text(encoding="utf-8")
+        css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(encoding="utf-8")
+
+        self.assertIn("!reducedMotion && !paused && cards.length > 1", javascript)
+        self.assertNotIn("window.innerWidth < 768", javascript)
+        self.assertIn('window.matchMedia("(min-width: 1024px)")', javascript)
+        self.assertIn("const rotateDesktopCards", javascript)
+        self.assertIn("const orderedCards = cards.slice(startIndex).concat", javascript)
+        self.assertIn("orderedCards.forEach((card) => caseCarousel.append(card))", javascript)
+        self.assertIn("const restoreOriginalCardOrder", javascript)
+        self.assertIn("cards.forEach((card) => caseCarousel.append(card))", javascript)
+        self.assertIn("if (desktopCaseLayout.matches)", javascript)
+        self.assertIn('caseCarousel.addEventListener("pointerenter"', javascript)
+        self.assertIn('caseCarousel.addEventListener("pointerleave"', javascript)
+        self.assertIn('caseCarousel.addEventListener("focusin"', javascript)
+        self.assertIn('caseCarousel.addEventListener("focusout"', javascript)
+        self.assertIn('pauseAutoplay("hover")', javascript)
+        self.assertIn('pauseAutoplay("focus")', javascript)
+        self.assertIn('pauseAutoplay("pointer")', javascript)
+        self.assertIn('card.classList.toggle("is-active", isActive)', javascript)
+        self.assertIn(".case-card.is-active", css)
+        reduced_motion_css = css[css.index("@media (prefers-reduced-motion: reduce)") :]
+        self.assertIn(".case-card,", reduced_motion_css)
+        self.assertIn("transition: none;", reduced_motion_css)
+
+    def test_home_sections_follow_locked_order_and_review_surface_is_empty(self):
+        arabic = self.client.get(reverse("home"))
+        english = self.client.get(reverse("home_en"))
+        html = arabic.content.decode()
+        css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(encoding="utf-8")
+        ordered_markers = [
+            '<section class="home-hero"',
+            '<section class="section home-doctor"',
+            '<section class="section home-cases"',
+            'id="reviews"',
+            '<section class="section home-contact"',
+            '<section class="section home-faq"',
+            '<footer class="site-footer"',
+        ]
+
+        positions = [html.index(marker) for marker in ordered_markers]
+        self.assertEqual(positions, sorted(positions))
+        self.assertIn('data-review-surface="empty"', html)
+        self.assertNotIn('hidden aria-hidden="true"', html)
+        self.assertContains(arabic, "آراء المرضى")
+        self.assertContains(arabic, "ستظهر تقييمات المرضى المعتمدة هنا.")
+        self.assertContains(english, "Patient Reviews")
+        self.assertContains(english, "Approved patient reviews will appear here.")
+        for response in [arabic, english]:
+            response_html = response.content.decode()
+            self.assertIn('data-review-empty', response_html)
+            self.assertNotIn('data-review-card', response_html)
+            self.assertNotIn('data-review-summary', response_html)
+            self.assertNotIn('class="section home-services"', response_html)
+            self.assertNotIn("Patient Stories", response_html)
+            self.assertNotIn("قصص المرضى", response_html)
+            self.assertNotIn("Testimonials", response_html)
+            self.assertNotIn("4.8", response_html)
+            self.assertNotIn("174", response_html)
+        self.assertIn(".home-hero-visual {\n    display: none;", css)
+        self.assertIn(".home-faq {\n    display: none;", css)
+        self.assertIn('.home-reviews[data-review-surface="empty"]', css)
+        self.assertIn(".home-reviews-empty", css)
+
+    def test_home_has_responsive_hooks_without_scale_workaround(self):
+        response = self.client.get(reverse("home_en"))
+        html = response.content.decode()
+        css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(encoding="utf-8")
+
+        self.assertIn('data-hero-carousel', html)
+        self.assertIn('class="home-hero-visual"', html)
+        self.assertIn('class="section home-reviews"', html)
+        self.assertIn('class="section home-faq"', html)
+        self.assertIn('@media (min-width: 768px)', css)
+        self.assertIn('.home-faq {\n        display: block;', css)
+        self.assertNotIn('.home-reviews[hidden]', css)
+        self.assertNotIn('.home-services', css)
+        self.assertNotIn('transform: scale(', css.casefold())
+
+    def test_doctor_page_renders_backend_identity_and_approved_owner_profile(self):
+        doctor = Doctor.objects.create(
+            full_name_ar="طبيب عربي معتمد",
+            full_name_en="Approved Backend Doctor",
+            title_ar="د.",
+            title_en="Dr.",
+            specialty_ar="تخصص معتمد من الخلفية",
+            specialty_en="Backend-approved specialty",
+            bio_ar="نبذة عربية معتمدة من الخلفية فقط.",
+            bio_en="Backend-approved profile copy only.",
+            is_active=True,
+        )
+
+        response = self.client.get(reverse("doctor_en"))
+
+        self.assertContains(response, doctor.display_name_en)
+        self.assertContains(response, doctor.specialty_en)
+        self.assertContains(response, doctor.bio_en)
+        approved_profile_copy = [
+            "Professional Profile",
+            "Professional Experience",
+            "Education & Training",
+            "Boards / Certifications",
+            "Professional Memberships",
+            "Specialties",
+            "Conditions Treated",
+            "Awards",
+            "Languages",
+            "European Board Certificate — ENT (EBC)",
+            "Jordanian Board Certificate — ENT (JBC)",
+            "FRCSI",
+            "GMC",
+            "BAO-HNS",
+            "MDU",
+            "MRCSI",
+            "Higher Specialization — University of Jordan",
+            "Bachelor of Medicine and Surgery — University of Jordan",
+            "University of Central Lancashire, United Kingdom",
+            "Monklands Hospital, United Kingdom",
+            "Four years of ENT consultant experience in a UK hospital.",
+            "Specialist registrar experience across multiple UK hospitals.",
+            "King Hussein Cancer Center Award — 2015",
+            "Presidential Candidate Award — 2011",
+            "Arabic",
+            "English",
+        ]
+        for approved_value in approved_profile_copy:
+            with self.subTest(value=approved_value):
+                self.assertContains(response, approved_value)
+
+    def test_doctor_awards_and_languages_are_inside_the_professional_composition(self):
+        response = self.client.get(reverse("doctor_en"))
+        html = response.content.decode()
+        professional_start = html.index('class="section doctor-details-section"')
+        clinical_start = html.index('class="section doctor-clinical-section"')
+        professional_html = html[professional_start:clinical_start]
+
+        ordered_headings = [
+            "Professional Experience",
+            "Education & Training",
+            "Boards / Certifications",
+            "Professional Memberships",
+            "Awards",
+            "Languages",
+        ]
+        heading_positions = [professional_html.index(heading) for heading in ordered_headings]
+        self.assertEqual(heading_positions, sorted(heading_positions))
+        self.assertIn('class="doctor-detail-card doctor-awards-card"', professional_html)
+        self.assertIn('class="doctor-detail-card doctor-languages-card"', professional_html)
+        self.assertNotIn("doctor-recognition-section", html)
+        self.assertNotIn("doctor-recognition-card", html)
+
+    def test_doctor_professional_experience_and_education_preserve_all_owner_facts(self):
+        arabic = self.client.get(reverse("doctor"))
+        english = self.client.get(reverse("doctor_en"))
+
+        expected_experience_ar = [
+            "الدكتور خالد يعمل حالياً في عيادته الخاصة في عمّان.",
+            "زمالة/تدريب في الأنف والأذن والحنجرة في مستشفى مونكلاندز، المملكة المتحدة.",
+            "عمل لمدة أربعة أعوام كمستشار في اختصاص الأنف والأذن والحنجرة في مستشفى الوادي الرابع الملكي",
+            "عمل كطبيب اختصاصي مسجل في عدد كبير من المستشفيات البريطانية.",
+        ]
+        expected_experience_en = [
+            "Dr. Khaled currently works in his private clinic in Amman.",
+            "ENT fellowship/training at Monklands Hospital, United Kingdom.",
+            "Four years of ENT consultant experience in a UK hospital.",
+            "Specialist registrar experience across multiple UK hospitals.",
+        ]
+        expected_education_ar = [
+            "بكالوريوس الطب والجراحة — الجامعة الأردنية، الأردن",
+            "ماجستير في العلوم الصحية — جامعة لانكشاير المركزية، المملكة المتحدة",
+            "زمالة — أنف وأذن وحنجرة — مستشفى مونكلاندز، المملكة المتحدة",
+            "تخصص — أنف وأذن وحنجرة — مستشفى الجامعة الأردنية، الأردن",
+            "الاختصاص العالي — الجامعة الأردنية",
+        ]
+        expected_education_en = [
+            "Bachelor of Medicine and Surgery — University of Jordan, Jordan",
+            "Master’s in Health Sciences — University of Central Lancashire, United Kingdom",
+            "ENT Fellowship — Monklands Hospital, United Kingdom",
+            "ENT Specialization — University of Jordan Hospital, Jordan",
+            "Higher Specialization — University of Jordan",
+        ]
+
+        self.assertEqual(arabic.context["doctor_profile"]["experience"], expected_experience_ar)
+        self.assertEqual(english.context["doctor_profile"]["experience"], expected_experience_en)
+        self.assertEqual(arabic.context["doctor_profile"]["education"], expected_education_ar)
+        self.assertEqual(english.context["doctor_profile"]["education"], expected_education_en)
+        for response, expected_items in [
+            (arabic, expected_experience_ar + expected_education_ar),
+            (english, expected_experience_en + expected_education_en),
+        ]:
+            for item in expected_items:
+                with self.subTest(language=response.context["language"], item=item):
+                    self.assertContains(response, item)
+
+    def test_doctor_boards_memberships_and_six_specialties_match_owner_content(self):
+        arabic = self.client.get(reverse("doctor"))
+        english = self.client.get(reverse("doctor_en"))
+
+        expected_boards_ar = [
+            "شهادة البورد الأوروبي — أنف وأذن وحنجرة (EBC)",
+            "شهادة البورد الأردني — أنف وأذن وحنجرة (JBC)",
+        ]
+        expected_boards_en = [
+            "European Board Certificate — ENT (EBC)",
+            "Jordanian Board Certificate — ENT (JBC)",
+        ]
+        expected_membership_labels_ar = [
+            "الكلية الملكية للجراحين - أيرلندا",
+            "المجلس الطبي العام البريطاني",
+            "الأكاديمية الأمريكية لجراحة الأنف والأذن والحنجرة والرأس والرقبة",
+            "اتحاد الدفاع الطبي",
+            "عضو الكلية الملكية للجراحين - أيرلندا",
+        ]
+        expected_acronyms = ["FRCSI", "GMC", "BAO-HNS", "MDU", "MRCSI"]
+        expected_specialties_ar = [
+            "أنف وأذن وحنجرة",
+            "أنف وأذن وحنجرة كبار",
+            "أنف وأذن وحنجرة أطفال",
+            "جراحة أنف وأذن وحنجرة كبار",
+            "جراحة أنف وأذن وحنجرة أطفال",
+            "جراحة تجميل الأنف",
+        ]
+        expected_specialties_en = [
+            "Ear, Nose and Throat",
+            "Adult ENT",
+            "Pediatric ENT",
+            "Adult ENT Surgery",
+            "Pediatric ENT Surgery",
+            "Rhinoplasty",
+        ]
+
+        self.assertEqual(arabic.context["doctor_profile"]["boards"], expected_boards_ar)
+        self.assertEqual(english.context["doctor_profile"]["boards"], expected_boards_en)
+        self.assertEqual(len(arabic.context["doctor_profile"]["memberships"]), 5)
+        self.assertEqual(len(english.context["doctor_profile"]["memberships"]), 5)
+        self.assertEqual(
+            [item["label"] for item in arabic.context["doctor_profile"]["memberships"]],
+            expected_membership_labels_ar,
+        )
+        self.assertEqual(
+            [item["acronym"] for item in arabic.context["doctor_profile"]["memberships"]],
+            expected_acronyms,
+        )
+        self.assertEqual(
+            [item["acronym"] for item in english.context["doctor_profile"]["memberships"]],
+            expected_acronyms,
+        )
+        self.assertEqual(arabic.context["doctor_profile"]["specialties"], expected_specialties_ar)
+        self.assertEqual(english.context["doctor_profile"]["specialties"], expected_specialties_en)
+
+        for response, expected_items in [
+            (arabic, expected_boards_ar + expected_membership_labels_ar + expected_acronyms + expected_specialties_ar),
+            (english, expected_boards_en + expected_acronyms + expected_specialties_en),
+        ]:
+            for item in expected_items:
+                with self.subTest(language=response.context["language"], item=item):
+                    self.assertContains(response, item)
+
+    def test_doctor_conditions_use_dedicated_owner_source_not_service_groups(self):
+        expected_ar = [
+            "التهاب الجيوب الأنفية المزمن",
+            "الرشح",
+            "طنين الأذن",
+            "ألم الأذن",
+            "الحالات الطارئة لأمراض الأنف والأذن والحنجرة",
+            "الشخير",
+            "التهاب الأذن",
+            "التهاب الحلق المزمن",
+            "التهاب الحنجرة",
+            "التهاب اللوزتين عند الكبار",
+            "لحمية الأنف (سليلة أنفية)",
+        ]
+        expected_en = [
+            "Chronic sinusitis",
+            "Common cold",
+            "Tinnitus",
+            "Ear pain",
+            "ENT emergencies",
+            "Snoring",
+            "Ear infection",
+            "Chronic sore throat",
+            "Laryngitis",
+            "Adult tonsillitis",
+            "Nasal polyps (nasal polyp)",
+        ]
+        arabic = self.client.get(reverse("doctor"))
+        english = self.client.get(reverse("doctor_en"))
+
+        self.assertEqual(core_views.DOCTOR_CONDITIONS["ar"], expected_ar)
+        self.assertEqual(core_views.DOCTOR_CONDITIONS["en"], expected_en)
+        self.assertEqual(arabic.context["doctor_profile"]["conditions"], expected_ar)
+        self.assertEqual(english.context["doctor_profile"]["conditions"], expected_en)
+        self.assertNotEqual(arabic.context["doctor_profile"]["conditions"], core_views.SERVICE_GROUPS["ar"])
+        self.assertNotEqual(english.context["doctor_profile"]["conditions"], core_views.SERVICE_GROUPS["en"])
+
+        views_source = (settings.BASE_DIR / "apps" / "core" / "views.py").read_text(encoding="utf-8")
+        self.assertIn('"conditions": DOCTOR_CONDITIONS[language]', views_source)
+        self.assertNotIn('"conditions": SERVICE_GROUPS[language]', views_source)
+        for response, expected_items in [(arabic, expected_ar), (english, expected_en)]:
+            for item in expected_items:
+                with self.subTest(language=response.context["language"], item=item):
+                    self.assertContains(response, item)
+
+    def test_doctor_awards_and_languages_use_approved_bilingual_content(self):
+        arabic = self.client.get(reverse("doctor"))
+        english = self.client.get(reverse("doctor_en"))
+
+        self.assertEqual(
+            arabic.context["doctor_profile"]["awards"],
+            ["جائزة مركز الحسين للسرطان — 2015", "جائزة المرشح الرئاسي — 2011"],
+        )
+        self.assertEqual(
+            english.context["doctor_profile"]["awards"],
+            ["King Hussein Cancer Center Award — 2015", "Presidential Candidate Award — 2011"],
+        )
+        self.assertEqual(arabic.context["doctor_profile"]["languages"], ["العربية", "الإنجليزية"])
+        self.assertEqual(english.context["doctor_profile"]["languages"], ["Arabic", "English"])
+        self.assertContains(arabic, "جائزة المرشح الرئاسي — 2011")
+        self.assertNotContains(arabic, "Presidential Candidate Award")
+        self.assertContains(english, "Presidential Candidate Award — 2011")
+
+    def test_public_backgrounds_share_geometry_and_exclude_placeholder_cross_motif(self):
+        css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(encoding="utf-8")
+
+        self.assertIn(".public-shell.is-rtl .home-hero", css)
+        self.assertIn(".public-shell.is-rtl .page-hero", css)
+        self.assertNotIn("clinic-placeholder.svg", css)
+        self.assertNotIn("calc(100vh", css)
+
+    def test_clinic_gallery_uses_only_approved_unique_public_asset_paths(self):
+        approved_assets = [
+            "img/clinic/clinic-interior-1.png",
+            "img/clinic/clinic-interior-2.png",
+            "img/clinic/clinic-interior-3.png",
+            "img/clinic/clinic-interior-4.webp",
+            "img/clinic/clinic-interior-5.webp",
+        ]
+        configured_assets = [
+            photo["asset_path"] for photo in core_views.APPROVED_PUBLIC_CLINIC_GALLERY
+        ]
+        contact_source = (settings.BASE_DIR / "templates" / "core" / "contact.html").read_text(
+            encoding="utf-8"
+        )
+        views_source = (settings.BASE_DIR / "apps" / "core" / "views.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertEqual(configured_assets, approved_assets)
+        self.assertEqual(len(configured_assets), 5)
+        self.assertEqual(len(set(configured_assets)), len(configured_assets))
+        self.assertEqual(
+            core_views.APPROVED_PUBLIC_CLINIC_GALLERY[0]["asset_path"],
+            "img/clinic/clinic-interior-1.png",
+        )
+        self.assertEqual(
+            core_views.APPROVED_PUBLIC_CLINIC_GALLERY[0]["alt_en"],
+            "Reception area inside Dr. Khaled Badran Clinic",
+        )
+        for asset_path in approved_assets:
+            with self.subTest(asset=asset_path):
+                self.assertTrue((settings.BASE_DIR / "static" / asset_path).is_file())
+
+        for route_name in ["contact", "contact_en"]:
+            html = self.client.get(reverse(route_name)).content.decode()
+            with self.subTest(route=route_name):
+                for asset_path in approved_assets:
+                    self.assertIn(asset_path, html)
+                gallery_html = html[html.index("data-clinic-gallery") :]
+                asset_positions = [gallery_html.index(asset_path) for asset_path in approved_assets]
+                self.assertEqual(asset_positions, sorted(asset_positions))
+                primary_marker = gallery_html.index("data-gallery-primary")
+                first_asset_position = gallery_html.index(approved_assets[0])
+                second_asset_position = gallery_html.index(approved_assets[1])
+                self.assertLess(primary_marker, first_asset_position)
+                self.assertLess(first_asset_position, second_asset_position)
+                self.assertNotIn("clinic-placeholder.svg", html)
+                self.assertNotIn("unnamed (2).webp", html)
+                self.assertNotIn("unnamed (5).webp", html)
+
+        for route_name in ["home", "home_en"]:
+            html = self.client.get(reverse(route_name)).content.decode()
+            with self.subTest(route=route_name):
+                for asset_path in approved_assets[:3]:
+                    self.assertIn(asset_path, html)
+                self.assertNotIn("clinic-placeholder.svg", html)
+
+        for excluded_source_name in ["unnamed (2).webp", "unnamed (5).webp"]:
+            with self.subTest(excluded=excluded_source_name):
+                self.assertNotIn(excluded_source_name, contact_source)
+                self.assertNotIn(excluded_source_name, views_source)
+
+    def test_clinic_gallery_responsive_contract_has_three_desktop_and_one_mobile_card(self):
+        response = self.client.get(reverse("contact_en"))
+        html = response.content.decode()
+        css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("data-clinic-gallery", html)
+        self.assertEqual(html.count("data-gallery-slide"), 5)
+        self.assertEqual(html.count("data-gallery-dot="), 5)
+        self.assertIn("data-gallery-previous", html)
+        self.assertIn("data-gallery-next", html)
+        mobile_css = css[: css.index("@media (min-width: 768px)")]
+        self.assertIn(".clinic-gallery-slide {\n    flex: 0 0 100%;", mobile_css)
+        self.assertIn(".clinic-gallery-viewport {\n    width: 100%;", mobile_css)
+        self.assertIn("overflow-x: auto", mobile_css)
+        self.assertIn("scroll-snap-type: inline mandatory", mobile_css)
+        self.assertIn("touch-action: pan-x pan-y", mobile_css)
+
+        desktop_css = css[css.index("@media (min-width: 768px)") :]
+        self.assertIn(
+            ".clinic-gallery-viewport {\n"
+            "        overflow: visible;\n"
+            "        scroll-snap-type: none;\n"
+            "        touch-action: auto;",
+            desktop_css,
+        )
+        self.assertIn(
+            ".clinic-gallery-track {\n"
+            "        display: grid;\n"
+            "        width: 100%;\n"
+            "        grid-template-columns: repeat(3, minmax(0, 1fr));",
+            desktop_css,
+        )
+        self.assertIn(
+            ".clinic-gallery-slide {\n"
+            "        width: 100%;\n"
+            "        flex: none;\n"
+            "        scroll-snap-align: none;",
+            desktop_css,
+        )
+        self.assertIn(
+            ".clinic-gallery-slide:nth-child(n + 4) {\n        display: none;",
+            desktop_css,
+        )
+        self.assertNotIn("flex-basis: calc((100% - 2rem) / 3)", desktop_css)
+        self.assertIn("max-width: 100%", css)
+        self.assertIn("min-width: 0", css)
+        self.assertIn(".clinic-gallery-viewport {\n        scroll-behavior: auto;", css)
+        self.assertNotIn("transform: scale(", css.casefold())
+
+    def test_clinic_gallery_runtime_autoplay_pause_resume_and_reduced_motion(self):
+        runtime_test = settings.BASE_DIR / "apps" / "core" / "js_tests" / "clinic_gallery_runtime_test.js"
+        site_script = settings.BASE_DIR / "static" / "js" / "site.js"
+
+        result = subprocess.run(
+            ["node", str(runtime_test), str(site_script)],
+            cwd=settings.BASE_DIR,
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=15,
+        )
+
+        self.assertEqual(
+            result.returncode,
+            0,
+            msg=f"JavaScript gallery behavior failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+        )
+        self.assertIn("clinic gallery runtime behavior passed", result.stdout)
+
+    def test_public_footer_is_concise_complete_and_uses_one_emergency_sentence(self):
+        response = self.client.get(reverse("home_en"))
+        html = response.content.decode()
+
+        self.assertContains(
+            response,
+            "Consultant Ear, Nose and Throat Surgeon · Functional and Cosmetic Rhinoplasty",
+        )
+        self.assertContains(response, "Book an Appointment")
+        self.assertContains(response, "Patient Portal")
+        self.assertContains(response, "+962 7 8976 6332")
+        self.assertContains(response, "The website and WhatsApp are not for emergencies.", count=1)
+        self.assertNotIn("For urgent symptoms, contact local emergency services immediately.", html)
+
+        footer_source = (settings.BASE_DIR / "templates" / "partials" / "footer.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("doctor.bio_", footer_source)
+
+    def test_unsupported_figma_claims_are_absent_from_public_pages(self):
+        route_names = [
+            "home",
+            "home_en",
+            "doctor",
+            "doctor_en",
+            "contact",
+            "contact_en",
+        ]
+        blocked_copy = ["world-class", "15+ years", "Dubai", "best clinic", "guaranteed"]
+
+        for route_name in route_names:
+            response_text = self.client.get(reverse(route_name)).content.decode().casefold()
+            for blocked in blocked_copy:
+                with self.subTest(route=route_name, blocked=blocked):
+                    self.assertNotIn(blocked.casefold(), response_text)
+
+    @override_settings(DEBUG=False)
+    def test_branded_404_is_bilingual_and_design_system_is_not_exposed(self):
+        arabic = self.client.get("/missing-public-page/")
+        english = self.client.get("/en/missing-public-page/")
+        design_system = self.client.get("/design-system/")
+
+        self.assertEqual(arabic.status_code, 404)
+        self.assertContains(arabic, "الصفحة غير موجودة", status_code=404)
+        self.assertContains(arabic, "عيادة الدكتور خالد بدران", status_code=404)
+        self.assertEqual(english.status_code, 404)
+        self.assertContains(english, "Page Not Found", status_code=404)
+        self.assertContains(english, "Dr. Khaled Badran Clinic", status_code=404)
+        self.assertEqual(design_system.status_code, 404)
+        self.assertNotContains(design_system, "Design System", status_code=404)
+
+    def test_sitemap_uses_contact_location_and_never_lists_design_system(self):
+        response = self.client.get(reverse("sitemap_xml"))
+        content = response.content.decode()
+
+        self.assertIn("/contact-location/", content)
+        self.assertIn("/en/contact-location/", content)
+        self.assertNotIn("/design-system", content)

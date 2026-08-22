@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AuditLog, SystemSetting
+from .models import AuditLog, PublicReview, SystemSetting
 
 
 @admin.register(SystemSetting)
@@ -24,3 +24,34 @@ class AuditLogAdmin(admin.ModelAdmin):
         "message",
     )
     readonly_fields = ("created_at",)
+
+
+@admin.register(PublicReview)
+class PublicReviewAdmin(admin.ModelAdmin):
+    list_display = (
+        "reviewer_name",
+        "rating",
+        "language",
+        "source",
+        "is_approved_for_publication",
+        "is_active",
+        "is_featured",
+        "display_order",
+        "reviewed_at",
+    )
+    list_filter = (
+        "language",
+        "source",
+        "rating",
+        "is_approved_for_publication",
+        "is_active",
+        "is_featured",
+    )
+    search_fields = ("reviewer_name", "body", "source_reference")
+    list_editable = (
+        "is_approved_for_publication",
+        "is_active",
+        "is_featured",
+        "display_order",
+    )
+    readonly_fields = ("created_at", "updated_at")

@@ -1,112 +1,212 @@
 {% extends "base.html" %}
+{% load static public_showcase %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/public-closeout.css' %}">
+<script src="{% static 'js/public-closeout.js' %}" defer></script>
+{% endblock %}
 
 {% block content %}
-<section class="home-hero">
-    <div class="container home-hero-inner">
-        <p class="eyebrow">{{ page.hero_label }}</p>
-        <h1>{{ page.headline }}</h1>
-        <p class="hero-subtitle">{{ page.subtitle }}</p>
-        <p class="bilingual-line">{% if is_arabic %}{{ clinic.name_en }}{% else %}{{ clinic.name_ar }}{% endif %}</p>
-        <div class="hero-actions">
-            <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
-            <a class="btn btn-ghost" href="{{ doctor_url }}">{{ labels.doctor }}</a>
+{% public_case_groups language 3 as public_case_teasers %}
+{% home_public_reviews 12 as public_reviews %}
+{% public_review_summary as review_summary %}
+<section class="home-hero" aria-labelledby="home-hero-title">
+    <div class="container home-hero-grid">
+        <div class="home-hero-copy">
+            <p class="credential-chip">{% if is_arabic %}{{ doctor.credential_label_ar }}{% else %}{{ doctor.credential_label_en }}{% endif %}</p>
+            <h1 id="home-hero-title">{% if is_arabic %}{{ doctor.display_name_ar }}{% else %}{{ doctor.display_name_en }}{% endif %}</h1>
+            <p class="home-hero-specialty">{% if is_arabic %}{{ doctor.specialty_ar }}{% else %}{{ doctor.specialty_en }}{% endif %}</p>
+            <p class="hero-subtitle">{% if is_arabic %}{{ doctor.hero_summary_ar }}{% else %}{{ doctor.hero_summary_en }}{% endif %}</p>
+            <div class="hero-actions">
+                <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
+                <a class="btn btn-secondary" href="{{ services_url }}">{% if is_arabic %}استكشف الخدمات{% else %}Explore Services{% endif %}</a>
+                <a class="portal-text-link" href="{% if is_arabic %}{% url 'patient_portal_login' %}{% else %}{% url 'patient_portal_login_en' %}{% endif %}">
+                    {% if is_arabic %}تسجيل الدخول إلى سجلي الطبي{% else %}Sign in to My Medical Record{% endif %}
+                </a>
+            </div>
+        </div>
+
+        <div class="home-hero-visual" data-hero-carousel aria-label="{% if is_arabic %}صور العيادة{% else %}Clinic photos{% endif %}">
+            <div class="hero-photo-frame">
+                <img class="hero-slide is-active" src="{% static 'img/clinic/clinic-interior-1.png' %}" alt="{% if is_arabic %}مساحة داخل عيادة الدكتور خالد بدران{% else %}Interior of Dr. Khaled Badran Clinic{% endif %}" data-hero-slide>
+                <img class="hero-slide" src="{% static 'img/clinic/clinic-interior-2.png' %}" alt="{% if is_arabic %}تجهيزات عيادة الدكتور خالد بدران{% else %}Equipment at Dr. Khaled Badran Clinic{% endif %}" data-hero-slide hidden>
+                <img class="hero-slide" src="{% static 'img/clinic/clinic-interior-3.png' %}" alt="{% if is_arabic %}غرفة الفحص في العيادة{% else %}Clinic examination room{% endif %}" data-hero-slide hidden>
+            </div>
+            <div class="hero-carousel-dots" role="group" aria-label="{% if is_arabic %}اختيار صورة العيادة{% else %}Choose clinic photo{% endif %}">
+                <button class="is-active" type="button" aria-label="{% if is_arabic %}الصورة الأولى{% else %}Photo one{% endif %}" aria-pressed="true" data-hero-dot="0"></button>
+                <button type="button" aria-label="{% if is_arabic %}الصورة الثانية{% else %}Photo two{% endif %}" aria-pressed="false" data-hero-dot="1"></button>
+                <button type="button" aria-label="{% if is_arabic %}الصورة الثالثة{% else %}Photo three{% endif %}" aria-pressed="false" data-hero-dot="2"></button>
+            </div>
         </div>
     </div>
 </section>
 
-<section class="section">
-    <div class="container split-layout">
-        <div>
-            <p class="eyebrow">{% if is_arabic %}عن العيادة{% else %}About the Clinic{% endif %}</p>
-            <h2>{% if is_arabic %}تجربة طبية منظمة بتفاصيل دافئة{% else %}Organized care with a warm clinic feel{% endif %}</h2>
+<section class="section home-doctor" aria-labelledby="home-doctor-title">
+    <div class="container home-doctor-grid">
+        <div class="doctor-portrait-wrap">
+            <div class="doctor-portrait-backdrop" aria-hidden="true"></div>
+            <img class="doctor-portrait" src="{% static 'img/doctor/dr-khaled-badran.png' %}" alt="{% if is_arabic %}د. خالد حسان بدران{% else %}Dr. Khaled Hassan Badran{% endif %}">
         </div>
-        <div class="prose">
-            <p>
-                {% if is_arabic %}
-                    يقدم الموقع واجهة عامة ثنائية اللغة لعيادة الدكتور خالد بدران، مع تركيز على الوضوح، سهولة الوصول، وتجهيز البنية لحجز المواعيد لاحقاً دون تنفيذ الحجز في هذه المرحلة.
-                {% else %}
-                    This public foundation presents Dr. Khaled Badran Clinic in Arabic and English, focused on clarity, accessibility, and preparation for a later booking workflow without processing booking now.
-                {% endif %}
-            </p>
-            <p class="trust-note">{{ labels.not_emergency }}</p>
+        <div class="home-doctor-copy">
+            <p class="eyebrow">{% if is_arabic %}التعرّف على الدكتور{% else %}Meet the Doctor{% endif %}</p>
+            <h2 id="home-doctor-title">{% if is_arabic %}{{ doctor.display_name_ar }}{% else %}{{ doctor.display_name_en }}{% endif %}</h2>
+            <p class="doctor-specialty">{% if is_arabic %}{{ doctor.specialty_ar }}{% else %}{{ doctor.specialty_en }}{% endif %}</p>
+            <p>{% if is_arabic %}{{ doctor.bio_ar }}{% else %}{{ doctor.bio_en }}{% endif %}</p>
+            <a class="text-link" href="{{ doctor_url }}">{% if is_arabic %}التعرّف على الدكتور{% else %}Meet the Doctor{% endif %} <span aria-hidden="true">←</span></a>
         </div>
     </div>
 </section>
 
-<section class="section section-soft">
+<section class="section home-cases" id="cases" aria-labelledby="home-cases-title">
     <div class="container">
-        <div class="section-heading">
-            <p class="eyebrow">{% if is_arabic %}الحالات والإنجازات{% else %}Cases and Achievements{% endif %}</p>
-            <h2>{% if is_arabic %}وسائط عامة معتمدة وموافق عليها{% else %}Approved public showcase media{% endif %}</h2>
-            <p class="muted">{{ case_labels.approved_only_body }}</p>
+        <div class="section-heading section-heading-row">
+            <div>
+                <p class="eyebrow">{% if is_arabic %}محتوى مصرح بعرضه{% else %}Approved Public Showcase{% endif %}</p>
+                <h2 id="home-cases-title">{% if is_arabic %}الحالات المصرح بعرضها{% else %}Authorized Case Gallery{% endif %}</h2>
+                <p>{{ case_labels.approved_only }}</p>
+            </div>
+            <a class="btn btn-secondary desktop-only-action" href="{{ cases_url }}">{{ case_labels.view_all }}</a>
         </div>
+
         {% if public_case_teasers %}
-            <div class="card-grid">
-                {% for item in public_case_teasers %}
-                    <article class="service-card">
-                        <p class="eyebrow">{{ item.media_type_label }} · {{ item.uploaded_at|date:"Y-m-d" }}</p>
-                        <h3>{% if item.title %}{{ item.title }}{% else %}{{ case_labels.untitled }}{% endif %}</h3>
-                        {% if item.description %}
-                            <p class="muted">{{ item.description }}</p>
-                        {% endif %}
-                        <a class="btn btn-secondary" href="{{ item.url }}">{{ case_labels.view_media }}</a>
+            <div class="case-card-row" data-card-carousel>
+                {% for case in public_case_teasers %}
+                    <article class="case-card">
+                        <div class="case-media">
+                            {% if case.primary.media_type == 'short_video' %}
+                                <video src="{{ case.primary.url }}" muted playsinline controls preload="metadata" data-public-case-video></video>
+                            {% else %}
+                                <img src="{{ case.primary.url }}" alt="{{ case.display_title }}" loading="lazy">
+                            {% endif %}
+                        </div>
+                        <div class="case-card-copy">
+                            <p class="eyebrow">{% if is_arabic %}حالة مصرح بعرضها{% else %}Authorized case{% endif %}</p>
+                            <h3>{{ case.display_title }}</h3>
+                            {% if case.description %}<p>{{ case.description }}</p>{% endif %}
+                            {% if case.before and case.after %}
+                                <div class="case-comparison-preview">
+                                    <figure>
+                                        <img src="{{ case.before.url }}" alt="{% if is_arabic %}قبل{% else %}Before{% endif %}" loading="lazy">
+                                        <figcaption>{% if is_arabic %}قبل{% else %}Before{% endif %}</figcaption>
+                                    </figure>
+                                    <figure>
+                                        <img src="{{ case.after.url }}" alt="{% if is_arabic %}بعد{% else %}After{% endif %}" loading="lazy">
+                                        <figcaption>{% if is_arabic %}بعد{% else %}After{% endif %}</figcaption>
+                                    </figure>
+                                </div>
+                            {% endif %}
+                        </div>
                     </article>
                 {% endfor %}
             </div>
+            {% if public_case_teasers|length > 1 %}
+                <div class="mobile-carousel-dots" role="group" aria-label="{% if is_arabic %}اختيار الحالة{% else %}Choose case{% endif %}" data-card-dots>
+                    {% for case in public_case_teasers %}
+                        <button type="button" class="{% if forloop.first %}is-active{% endif %}" aria-label="{% if is_arabic %}الحالة {{ forloop.counter }}{% else %}Case {{ forloop.counter }}{% endif %}" aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}" data-card-dot="{{ forloop.counter0 }}"></button>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-showcase" role="status">
+                <span class="privacy-mark" aria-hidden="true">✓</span>
+                <h3>{{ case_labels.empty_title }}</h3>
+            </div>
         {% endif %}
-        <div class="hero-actions">
-            <a class="btn btn-secondary" href="{{ cases_url }}">{{ case_labels.view_all }}</a>
-        </div>
+        <a class="btn btn-secondary mobile-only-action" href="{{ cases_url }}">{{ case_labels.view_all }}</a>
     </div>
 </section>
 
-<section class="section section-soft">
-    <div class="container">
-        <div class="section-heading">
-            <p class="eyebrow">{{ labels.services }}</p>
-            <h2>{% if is_arabic %}خدمات بارزة{% else %}Highlighted Services{% endif %}</h2>
+<section
+    id="reviews"
+    class="section home-reviews"
+    data-review-surface="{% if public_reviews %}populated{% else %}empty{% endif %}"
+    aria-labelledby="home-reviews-title"
+>
+    <div class="container home-reviews-panel">
+        <div class="home-reviews-heading">
+            <div>
+                <p class="eyebrow">{% if is_arabic %}آراء معتمدة{% else %}Approved Feedback{% endif %}</p>
+                <h2 id="home-reviews-title">{% if is_arabic %}آراء المرضى{% else %}Patient Reviews{% endif %}</h2>
+            </div>
+            {% if review_summary %}
+                <div class="home-review-summary" data-review-summary aria-label="{% if is_arabic %}متوسط تقييم Google{% else %}Google average rating{% endif %}">
+                    <span class="review-summary-star" aria-hidden="true">★</span>
+                    <strong>{{ review_summary.average_rating }}</strong>
+                    <span>{% if is_arabic %}من 5 · {{ review_summary.review_count }} تقييم{% else %}/ 5 · {{ review_summary.review_count }} reviews{% endif %}</span>
+                </div>
+            {% endif %}
         </div>
-        <div class="card-grid">
-            {% for service in service_highlights %}
-                {% include "partials/service_card.html" with service=service %}
-            {% endfor %}
-        </div>
+        {% if public_reviews %}
+            <div class="home-review-grid" data-review-carousel data-review-list aria-live="off">
+                {% for review in public_reviews %}
+                    <article class="home-review-card" data-review-card>
+                        <div class="review-stars" aria-label="{{ review.rating }} / 5"><span aria-hidden="true">{{ review.star_text }}</span></div>
+                        <blockquote>{{ review.body }}</blockquote>
+                        <div class="review-card-footer">
+                            <p>{{ review.reviewer_name }}</p>
+                            <span>Google</span>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+            <div class="home-review-actions">
+                <a class="btn btn-outline-light" href="{% if is_arabic %}{% url 'reviews' %}{% else %}{% url 'reviews_en' %}{% endif %}">{% if is_arabic %}عرض المزيد{% else %}View all reviews{% endif %}</a>
+            </div>
+        {% else %}
+            <p class="home-reviews-empty" data-review-empty role="status">
+                {% if is_arabic %}ستظهر تقييمات المرضى المعتمدة هنا.{% else %}Approved patient reviews will appear here.{% endif %}
+            </p>
+        {% endif %}
     </div>
 </section>
 
-<section class="section">
-    <div class="container">
-        <div class="section-heading">
-            <p class="eyebrow">{% if is_arabic %}لماذا العيادة؟{% else %}Why This Clinic{% endif %}</p>
-            <h2>{% if is_arabic %}وضوح، خصوصية، وتجربة مريحة{% else %}Clarity, privacy, and a comfortable experience{% endif %}</h2>
-        </div>
-        <div class="feature-grid">
-            <article>
-                <h3>{% if is_arabic %}هوية ثنائية اللغة{% else %}Bilingual Access{% endif %}</h3>
-                <p>{% if is_arabic %}العربية هي التجربة الافتراضية مع دعم إنجليزي واضح.{% else %}Arabic is the default experience with clean English support.{% endif %}</p>
-            </article>
-            <article>
-                <h3>{% if is_arabic %}تصميم دافئ{% else %}Warm Premium Design{% endif %}</h3>
-                <p>{% if is_arabic %}ألوان عاجية وخشبية مع لمسة حمراء هادئة مستوحاة من العيادة.{% else %}Ivory, wood, and restrained burgundy accents inspired by the clinic direction.{% endif %}</p>
-            </article>
-            <article>
-                <h3>{% if is_arabic %}سلامة وخصوصية{% else %}Safety and Privacy{% endif %}</h3>
-                <p>{% if is_arabic %}لا تشخيص عبر الموقع، ولا بيانات مرضى حقيقية ضمن المحتوى العام.{% else %}No website diagnosis and no real patient data in public content.{% endif %}</p>
-            </article>
-        </div>
-    </div>
-</section>
-
-{% include "partials/cta.html" %}
-
-<section class="section">
-    <div class="container contact-strip">
-        <div>
+<section class="section home-contact" aria-labelledby="home-contact-title">
+    <div class="container home-contact-grid">
+        <div class="home-contact-copy">
             <p class="eyebrow">{{ labels.contact }}</p>
-            <h2>{% if is_arabic %}الموقع وساعات العمل{% else %}Location and Hours{% endif %}</h2>
-            <p>{% if is_arabic %}{{ clinic.address_ar }}{% else %}{{ clinic.address_en }}{% endif %}</p>
+            <h2 id="home-contact-title">{% if is_arabic %}نحن هنا لمساعدتك{% else %}We’re here to help{% endif %}</h2>
+            <div class="contact-address-row">
+                <span class="contact-icon" aria-hidden="true">⌖</span>
+                <div>
+                    <h3>{% if is_arabic %}موقع العيادة{% else %}Clinic Location{% endif %}</h3>
+                    <p>{% if is_arabic %}{{ clinic.address_ar|linebreaksbr }}{% else %}{{ clinic.address_en|linebreaksbr }}{% endif %}</p>
+                </div>
+            </div>
+            {% if clinic.phone_e164 %}
+                <div class="contact-address-row">
+                    <span class="contact-icon" aria-hidden="true">☎</span>
+                    <div><h3>{% if is_arabic %}الهاتف{% else %}Phone{% endif %}</h3><a href="tel:{{ clinic.phone_e164 }}" dir="ltr">{{ clinic.phone_display }}</a></div>
+                </div>
+            {% endif %}
+            <div class="contact-actions">
+                <a class="btn btn-secondary" href="{{ clinic.map_url }}" target="_blank" rel="noopener noreferrer">{% if is_arabic %}الحصول على الاتجاهات{% else %}Get Directions{% endif %}</a>
+                <a class="btn btn-primary" href="{{ contact_url }}">{{ labels.contact }}</a>
+            </div>
         </div>
-        <a class="btn btn-secondary" href="{{ contact_url }}">{{ labels.contact }}</a>
+        <div class="home-map-preview">
+            <iframe src="{{ clinic.map_embed_url }}" title="{% if is_arabic %}خريطة موقع العيادة{% else %}Clinic location map{% endif %}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" tabindex="-1"></iframe>
+            <a href="{{ clinic.map_url }}" target="_blank" rel="noopener noreferrer" aria-label="{% if is_arabic %}فتح موقع العيادة على خرائط Google{% else %}Open the clinic location in Google Maps{% endif %}">{% if is_arabic %}فتح الموقع على Google Maps{% else %}Open in Google Maps{% endif %}</a>
+        </div>
+    </div>
+</section>
+
+<section class="section home-faq" aria-labelledby="home-faq-title">
+    <div class="container faq-grid">
+        <div>
+            <p class="eyebrow">{% if is_arabic %}معلومات مهمة{% else %}Useful Information{% endif %}</p>
+            <h2 id="home-faq-title">{% if is_arabic %}أسئلة شائعة{% else %}Frequently Asked Questions{% endif %}</h2>
+            <p>{% if is_arabic %}إجابات مختصرة حول الحجز ونطاق الموقع.{% else %}Short answers about booking and the website scope.{% endif %}</p>
+        </div>
+        <div class="faq-list">
+            <details>
+                <summary>{% if is_arabic %}هل يعالج الدكتور الكبار والأطفال؟{% else %}Does the doctor see adults and children?{% endif %}</summary>
+                <p>{% if is_arabic %}نعم، تشمل الرعاية المعتمدة أمراض وجراحة الأنف والأذن والحنجرة للكبار والأطفال.{% else %}Yes. The approved profile covers adult and pediatric ear, nose and throat medicine and surgery.{% endif %}</p>
+            </details>
+            <details>
+                <summary>{% if is_arabic %}هل أحتاج إلى حساب لحجز موعد؟{% else %}Do I need an account to book?{% endif %}</summary>
+                <p>{% if is_arabic %}لا. يمكن حجز الموعد من الموقع دون تسجيل الدخول.{% else %}No. An appointment can be booked from the website without signing in.{% endif %}</p>
+            </details>
+        </div>
     </div>
 </section>
 {% endblock %}

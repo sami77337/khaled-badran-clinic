@@ -1,16 +1,23 @@
 {% extends "base.html" %}
+{% load static i18n %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{% static 'css/booking.css' %}">
+{% endblock %}
 
 {% block content %}
-{% include "partials/page_hero.html" %}
-
-<section class="section">
-    <div class="container booking-layout">
-        <div class="placeholder-note">
-            <h2>{% if is_arabic %}الحجز غير متاح حالياً{% else %}Booking unavailable{% endif %}</h2>
-            <p>{{ reason }}</p>
-            <p>{{ labels.not_emergency }}</p>
-            <a class="btn btn-secondary" href="{{ contact_url }}">{{ labels.contact }}</a>
+{% language language %}
+<section class="booking-flow" data-booking-flow>
+    <div class="booking-flow-container">
+        <div class="booking-card" data-booking-card>
+            <div class="booking-unavailable-panel" role="status">
+                <p class="booking-kicker">{% if is_arabic %}تعذر متابعة الحجز{% else %}Booking status{% endif %}</p>
+                <h1>{% if is_arabic %}الحجز غير متاح حاليًا{% else %}Booking unavailable{% endif %}</h1>
+                <p>{{ reason }}</p>
+                <a class="booking-secondary-action" href="{{ contact_url }}">{{ labels.contact }}</a>
+            </div>
         </div>
     </div>
 </section>
+{% endlanguage %}
 {% endblock %}

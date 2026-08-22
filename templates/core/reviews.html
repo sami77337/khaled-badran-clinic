@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/public-closeout.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero reviews-page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">{% if is_arabic %}آراء معتمدة{% else %}Approved Feedback{% endif %}</p>
+        <h1>{{ page.headline }}</h1>
+        <p>{{ page.subtitle }}</p>
+    </div>
+</section>
+
+<section class="section home-reviews reviews-page-section" aria-labelledby="reviews-page-title">
+    <div class="container home-reviews-panel">
+        <div class="home-reviews-heading">
+            <div>
+                <p class="eyebrow">{% if is_arabic %}من Google{% else %}From Google{% endif %}</p>
+                <h2 id="reviews-page-title">{% if is_arabic %}تجارب وآراء المراجعين{% else %}Reviewer experiences and feedback{% endif %}</h2>
+            </div>
+            {% if review_summary %}
+                <div class="home-review-summary review-source-summary" aria-label="{% if is_arabic %}متوسط تقييم Google{% else %}Google average rating{% endif %}">
+                    <span class="review-summary-star" aria-hidden="true">★</span>
+                    <strong>{{ review_summary.average_rating }}</strong>
+                    <span>{% if is_arabic %}من 5 · {{ review_summary.review_count }} تقييم{% else %}/ 5 · {{ review_summary.review_count }} reviews{% endif %}</span>
+                </div>
+            {% endif %}
+        </div>
+
+        <nav class="reviews-filter" aria-label="{% if is_arabic %}تصفية الآراء حسب اللغة{% else %}Filter reviews by language{% endif %}">
+            <a class="btn btn-outline-light{% if selected_review_filter == 'all' %} is-active{% endif %}" href="?filter=all">{% if is_arabic %}الكل{% else %}All{% endif %}</a>
+            <a class="btn btn-outline-light{% if selected_review_filter == 'ar' %} is-active{% endif %}" href="?filter=ar">العربية</a>
+            <a class="btn btn-outline-light{% if selected_review_filter == 'en' %} is-active{% endif %}" href="?filter=en">English</a>
+        </nav>
+
+        {% if reviews %}
+            <div class="reviews-page-grid">
+                {% for review in reviews %}
+                    <article class="home-review-card review-card-full">
+                        <div class="review-stars" aria-label="{{ review.rating }} / 5"><span aria-hidden="true">{{ review.star_text }}</span></div>
+                        <blockquote>{{ review.body }}</blockquote>
+                        <div class="review-card-footer">
+                            <p>{{ review.reviewer_name }}</p>
+                            <span>Google</span>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="home-reviews-empty" role="status">
+                {% if is_arabic %}لا توجد آراء معتمدة ضمن هذا التصنيف حالياً.{% else %}No approved reviews are available in this filter yet.{% endif %}
+            </p>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

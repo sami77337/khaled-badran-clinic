@@ -6,7 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}{{ page_title|default:"Dr. Khaled Badran Clinic" }}{% endblock %}</title>
     <meta name="description" content="{{ meta_description|default:'Dr. Khaled Badran Clinic public website.' }}">
-    <meta name="theme-color" content="#F8F7F0">
+    {% if page_key == "not_found" %}<meta name="robots" content="noindex,follow">{% endif %}
+    <meta name="theme-color" content="#FDFBF8">
     <link rel="canonical" href="{{ canonical_url }}">
     <meta property="og:type" content="website">
     <meta property="og:title" content="{{ page_title|default:'Dr. Khaled Badran Clinic' }}">
@@ -16,15 +17,37 @@
     <link rel="manifest" href="{% static 'site.webmanifest' %}">
     <link rel="icon" href="{% static 'img/icons/site-icon.svg' %}" type="image/svg+xml">
     <link rel="stylesheet" href="{% static 'css/site.css' %}">
+    {% if use_public_shell %}<link rel="stylesheet" href="{% static 'css/public.css' %}">{% endif %}
     {% block extra_head %}{% endblock %}
 </head>
-<body class="site-shell page-{{ page_key }} {% if is_arabic %}is-rtl{% else %}is-ltr{% endif %}">
+<body class="site-shell page-{{ page_key }}{% if use_public_shell %} public-shell{% endif %}{% if show_mobile_booking_cta %} has-mobile-booking-cta{% endif %} {% if is_arabic %}is-rtl{% else %}is-ltr{% endif %}">
     <a class="skip-link" href="#main-content">{% if is_arabic %}تجاوز إلى المحتوى{% else %}Skip to content{% endif %}</a>
-    {% include "partials/header.html" %}
+    {% if use_public_shell %}
+        {% include "partials/header.html" %}
+    {% else %}
+        {% include "partials/legacy_header.html" %}
+    {% endif %}
     <main id="main-content">
         {% block content %}{% endblock %}
     </main>
-    {% include "partials/footer.html" %}
+    {% if show_mobile_booking_cta %}
+        <div class="mobile-sticky-cta" data-mobile-booking-cta>
+            <a class="btn btn-primary" href="{{ booking_url }}">
+                <span aria-hidden="true">◷</span>
+                {{ labels.book }}
+            </a>
+        </div>
+    {% endif %}
+    {% if use_public_shell and whatsapp_is_configured and whatsapp_url %}
+        <a class="whatsapp-quick-link" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ labels.whatsapp }}">
+            <span aria-hidden="true">WA</span>
+        </a>
+    {% endif %}
+    {% if use_public_shell %}
+        {% include "partials/footer.html" %}
+    {% else %}
+        {% include "partials/legacy_footer.html" %}
+    {% endif %}
     <script src="{% static 'js/site.js' %}" defer></script>
 </body>
 </html>

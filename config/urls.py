@@ -2,9 +2,10 @@
 
 from django.contrib import admin
 from django.urls import include, path
+from django.views.generic.base import RedirectView
 
 from apps.booking import views as booking_views
-from apps.core import views
+from apps.core import review_views, views
 from apps.patients import views as patient_views
 
 
@@ -13,13 +14,19 @@ urlpatterns = [
     path("doctor/", views.doctor_profile, {"language": "ar"}, name="doctor"),
     path("services/", views.services, {"language": "ar"}, name="services"),
     path("cases/", views.public_cases, {"language": "ar"}, name="public_cases"),
+    path("reviews/", review_views.reviews, {"language": "ar"}, name="reviews"),
     path(
         "cases/media/<uuid:public_id>/",
         views.public_case_media,
         {"language": "ar"},
         name="public_case_media",
     ),
-    path("contact/", views.contact, {"language": "ar"}, name="contact"),
+    path("contact-location/", views.contact, {"language": "ar"}, name="contact"),
+    path(
+        "contact/",
+        RedirectView.as_view(pattern_name="contact", permanent=True, query_string=True),
+        name="contact_legacy",
+    ),
     path("book/", booking_views.book_start, {"language": "ar"}, name="book"),
     path(
         "book/visit-type/",
@@ -58,13 +65,19 @@ urlpatterns = [
     path("en/doctor/", views.doctor_profile, {"language": "en"}, name="doctor_en"),
     path("en/services/", views.services, {"language": "en"}, name="services_en"),
     path("en/cases/", views.public_cases, {"language": "en"}, name="public_cases_en"),
+    path("en/reviews/", review_views.reviews, {"language": "en"}, name="reviews_en"),
     path(
         "en/cases/media/<uuid:public_id>/",
         views.public_case_media,
         {"language": "en"},
         name="public_case_media_en",
     ),
-    path("en/contact/", views.contact, {"language": "en"}, name="contact_en"),
+    path("en/contact-location/", views.contact, {"language": "en"}, name="contact_en"),
+    path(
+        "en/contact/",
+        RedirectView.as_view(pattern_name="contact_en", permanent=True, query_string=True),
+        name="contact_legacy_en",
+    ),
     path("en/book/", booking_views.book_start, {"language": "en"}, name="book_en"),
     path(
         "en/book/visit-type/",
@@ -237,3 +250,5 @@ urlpatterns = [
     ),
     path("admin/", admin.site.urls),
 ]
+
+handler404 = "apps.core.views.public_404"

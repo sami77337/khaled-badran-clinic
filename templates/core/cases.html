@@ -1,6 +1,13 @@
 {% extends "base.html" %}
+{% load static public_showcase %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/public-closeout.css' %}">
+<script src="{% static 'js/public-closeout.js' %}" defer></script>
+{% endblock %}
 
 {% block content %}
+{% public_case_groups language as case_groups %}
 <section class="page-hero">
     <div class="container page-hero-inner">
         <p class="eyebrow">{% if is_arabic %}الحالات والإنجازات{% else %}Cases and Achievements{% endif %}</p>
@@ -11,32 +18,45 @@
 
 <section class="section">
     <div class="container">
-        <div class="success-card">
-            <h2>{{ case_labels.approved_only }}</h2>
-            <p class="muted">{{ case_labels.approved_only_body }}</p>
-        </div>
-
-        {% if case_items %}
-            <div class="card-grid">
-                {% for item in case_items %}
-                    <article class="service-card">
-                        <p class="eyebrow">{{ item.media_type_label }} · {{ item.uploaded_at|date:"Y-m-d" }}</p>
-                        <h3>{% if item.title %}{{ item.title }}{% else %}{{ case_labels.untitled }}{% endif %}</h3>
-                        {% if item.description %}
-                            <p class="muted">{{ item.description }}</p>
-                        {% endif %}
-                        <a class="btn btn-secondary" href="{{ item.url }}">{{ case_labels.view_media }}</a>
+        {% if case_groups %}
+            <div class="public-case-grid public-case-group-grid">
+                {% for case in case_groups %}
+                    <article class="public-case-card public-case-group-card">
+                        <div class="public-case-media public-case-primary-media">
+                            <a href="{{ case.primary.url }}" aria-label="{{ case.primary.title|default:case.display_title }}">
+                                {% if case.primary.media_type == 'short_video' %}
+                                    <video src="{{ case.primary.url }}" muted playsinline controls preload="metadata" data-public-case-video></video>
+                                {% else %}
+                                    <img src="{{ case.primary.url }}" alt="{{ case.primary.title|default:case.display_title }}" loading="lazy">
+                                {% endif %}
+                            </a>
+                        </div>
+                        <div class="public-case-copy">
+                            <p class="eyebrow">{% if is_arabic %}محتوى مصرح بعرضه{% else %}Approved public content{% endif %}</p>
+                            <h2>{{ case.primary.title|default:case.display_title }}</h2>
+                            {% if case.description %}<p>{{ case.description }}</p>{% endif %}
+                            {% if case.before and case.after %}
+                                <div class="public-case-comparison" aria-label="{% if is_arabic %}صور قبل وبعد{% else %}Before and after images{% endif %}">
+                                    <figure>
+                                        <a href="{{ case.before.url }}"><img src="{{ case.before.url }}" alt="{% if is_arabic %}قبل{% else %}Before{% endif %}" loading="lazy"></a>
+                                        <figcaption>{% if is_arabic %}قبل{% else %}Before{% endif %}</figcaption>
+                                    </figure>
+                                    <figure>
+                                        <a href="{{ case.after.url }}"><img src="{{ case.after.url }}" alt="{% if is_arabic %}بعد{% else %}After{% endif %}" loading="lazy"></a>
+                                        <figcaption>{% if is_arabic %}بعد{% else %}After{% endif %}</figcaption>
+                                    </figure>
+                                </div>
+                            {% endif %}
+                        </div>
                     </article>
                 {% endfor %}
             </div>
         {% else %}
-            <div class="success-card">
+            <div class="empty-showcase public-cases-empty" role="status">
+                <span class="privacy-mark" aria-hidden="true">✓</span>
                 <h2>{{ case_labels.empty_title }}</h2>
-                <p class="muted">{{ case_labels.empty_body }}</p>
             </div>
         {% endif %}
-
-        <p class="trust-note">{{ case_labels.safety_note }}</p>
     </div>
 </section>
 

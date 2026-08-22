@@ -27,16 +27,79 @@ DOCTOR_DEFAULT = {
     "display_name_ar": "د. خالد حسان بدران",
     "display_name_en": "Dr. Khaled Hassan Badran",
     "specialty_ar": "استشاري الأنف والأذن والحنجرة",
-    "specialty_en": "ENT consultant",
+    "specialty_en": "Consultant Ear, Nose and Throat Surgeon",
+    "credential_label_ar": "البورد الأوروبي والبورد الأردني للأنف والأذن والحنجرة",
+    "credential_label_en": "European ENT Board · Jordanian ENT Board",
+    "public_focus_ar": "الأنف والأذن والحنجرة وجراحة الأنف الوظيفية والتجميلية",
+    "public_focus_en": "ENT & Functional and Cosmetic Rhinoplasty",
+    "hero_summary_ar": "رعاية متخصصة للكبار والأطفال، مع اهتمام خاص بجراحة الأنف الوظيفية والتجميلية.",
+    "hero_summary_en": "Specialized adult and pediatric ENT care, with a particular focus on functional and cosmetic rhinoplasty.",
+    "footer_summary_ar": "استشاري الأنف والأذن والحنجرة · جراحة الأنف الوظيفية والتجميلية",
+    "footer_summary_en": "Consultant Ear, Nose and Throat Surgeon · Functional and Cosmetic Rhinoplasty",
     "bio_ar": (
-        "صفحة تعريفية أولية للدكتور خالد بدران ضمن موقع العيادة. "
-        "يجب تدقيق تفاصيل المؤهلات والخبرة قبل النشر النهائي."
+        "استشاري في أمراض وجراحة الأنف والأذن والحنجرة للكبار والأطفال، "
+        "حاصل على البورد الأوروبي والبورد الأردني، مع خبرة مهنية في مستشفيات "
+        "المملكة المتحدة واهتمام خاص بجراحة الأنف الوظيفية والتجميلية."
     ),
     "bio_en": (
-        "Initial public profile for Dr. Khaled Badran. Credentials and "
-        "experience details should be verified before final publication."
+        "Consultant in adult and pediatric ear, nose and throat medicine and "
+        "surgery, certified by the European and Jordanian Boards, with "
+        "professional experience in UK hospitals and a special focus on "
+        "functional and cosmetic rhinoplasty."
     ),
 }
+
+APPROVED_CLINIC_PHONE = {
+    "display": "+962 7 8976 6332",
+    "e164": "+962789766332",
+    "whatsapp_url": "https://wa.me/962789766332",
+}
+
+APPROVED_CLINIC_LOCATION = {
+    "address_ar": (
+        "عمّان – الشميساني\n"
+        "شارع رفيق العظم 13\n"
+        "مجمع الفيحاء الطبي – الطابق الأول\n"
+        "مقابل مستشفى الشميساني وحديقة الطيور"
+    ),
+    "address_en": (
+        "Al Shmeisani, Amman\n"
+        "Rafiq Al Athem St. 13\n"
+        "Al Fayhaa Medical Complex – First Floor\n"
+        "Opposite Shmeisani Hospital and Bird Garden"
+    ),
+    "coordinates": "31.970276,35.8934391",
+    "map_url": "https://www.google.com/maps/search/?api=1&query=31.970276%2C35.8934391",
+    "map_embed_url": "https://www.google.com/maps?q=31.970276,35.8934391&z=16&output=embed",
+}
+
+APPROVED_PUBLIC_CLINIC_GALLERY = (
+    {
+        "asset_path": "img/clinic/clinic-interior-1.png",
+        "alt_ar": "منطقة الاستقبال داخل عيادة الدكتور خالد بدران",
+        "alt_en": "Reception area inside Dr. Khaled Badran Clinic",
+    },
+    {
+        "asset_path": "img/clinic/clinic-interior-2.png",
+        "alt_ar": "غرفة الفحص وتجهيزاتها داخل العيادة",
+        "alt_en": "Examination room and equipment inside the clinic",
+    },
+    {
+        "asset_path": "img/clinic/clinic-interior-3.png",
+        "alt_ar": "مساحة الاستشارة داخل عيادة الدكتور خالد بدران",
+        "alt_en": "Consultation space inside Dr. Khaled Badran Clinic",
+    },
+    {
+        "asset_path": "img/clinic/clinic-interior-4.webp",
+        "alt_ar": "إطلالة واسعة على منطقة الاستقبال والعيادة",
+        "alt_en": "Wide view of the clinic reception and interior",
+    },
+    {
+        "asset_path": "img/clinic/clinic-interior-5.webp",
+        "alt_ar": "منطقة الانتظار داخل عيادة الدكتور خالد بدران",
+        "alt_en": "Waiting area inside Dr. Khaled Badran Clinic",
+    },
+)
 
 FALLBACK_VISIT_TYPES = [
     ("كشف جديد", "New consultation", 30),
@@ -54,54 +117,167 @@ SERVICE_GROUPS = {
     "ar": [
         {
             "title": "أنف وأذن وحنجرة للبالغين",
-            "items": ["التقييم السريري", "التهابات الأذن والأنف والحنجرة", "متابعة الحالات المزمنة"],
+            "bullet_items": ["التقييم السريري", "التهابات الأذن والأنف والحنجرة", "متابعة الحالات المزمنة"],
         },
         {
             "title": "أنف وأذن وحنجرة للأطفال",
-            "items": ["التهابات الأذن المتكررة", "مشاكل اللوز واللحمية", "صعوبات التنفس الأنفي"],
+            "bullet_items": ["التهابات الأذن المتكررة", "مشاكل اللوز واللحمية", "صعوبات التنفس الأنفي"],
         },
         {
             "title": "الأنف والجيوب الأنفية",
-            "items": ["انسداد الأنف", "التهاب الجيوب", "الحساسية الأنفية"],
+            "bullet_items": ["انسداد الأنف", "التهاب الجيوب", "الحساسية الأنفية"],
         },
         {
             "title": "الأذن والسمع والتوازن",
-            "items": ["ألم الأذن", "ضعف السمع", "الدوخة ومشاكل التوازن"],
+            "bullet_items": ["ألم الأذن", "ضعف السمع", "الدوخة ومشاكل التوازن"],
         },
         {
             "title": "الحنجرة والصوت",
-            "items": ["بحة الصوت", "آلام الحلق", "مشاكل البلع الأولية"],
+            "bullet_items": ["بحة الصوت", "آلام الحلق", "مشاكل البلع الأولية"],
         },
         {
             "title": "إجراءات عيادية",
-            "items": ["إجراءات بسيطة داخل العيادة", "تفاصيل الإجراءات تحدد بعد التقييم الطبي"],
+            "bullet_items": ["إجراءات بسيطة داخل العيادة", "تفاصيل الإجراءات تحدد بعد التقييم الطبي"],
         },
     ],
     "en": [
         {
             "title": "Adult ENT",
-            "items": ["Clinical assessment", "Ear, nose, and throat infections", "Ongoing ENT follow-up"],
+            "bullet_items": ["Clinical assessment", "Ear, nose, and throat infections", "Ongoing ENT follow-up"],
         },
         {
             "title": "Pediatric ENT",
-            "items": ["Recurrent ear infections", "Tonsil and adenoid concerns", "Nasal breathing concerns"],
+            "bullet_items": ["Recurrent ear infections", "Tonsil and adenoid concerns", "Nasal breathing concerns"],
         },
         {
             "title": "Nose and Sinus",
-            "items": ["Nasal obstruction", "Sinus concerns", "Allergic rhinitis"],
+            "bullet_items": ["Nasal obstruction", "Sinus concerns", "Allergic rhinitis"],
         },
         {
             "title": "Ear, Hearing, and Balance",
-            "items": ["Ear pain", "Hearing concerns", "Dizziness and balance symptoms"],
+            "bullet_items": ["Ear pain", "Hearing concerns", "Dizziness and balance symptoms"],
         },
         {
             "title": "Throat and Voice",
-            "items": ["Hoarseness", "Sore throat", "Initial swallowing concerns"],
+            "bullet_items": ["Hoarseness", "Sore throat", "Initial swallowing concerns"],
         },
         {
             "title": "Clinic Procedures",
-            "items": ["Simple in-clinic procedures", "Procedure details are confirmed after medical assessment"],
+            "bullet_items": ["Simple in-clinic procedures", "Procedure details are confirmed after medical assessment"],
         },
+    ],
+}
+
+DOCTOR_PUBLIC_PROFILE = {
+    "ar": {
+        "experience": [
+            "الدكتور خالد يعمل حالياً في عيادته الخاصة في عمّان.",
+            "زمالة/تدريب في الأنف والأذن والحنجرة في مستشفى مونكلاندز، المملكة المتحدة.",
+            "عمل لمدة أربعة أعوام كمستشار في اختصاص الأنف والأذن والحنجرة في مستشفى الوادي الرابع الملكي",
+            "عمل كطبيب اختصاصي مسجل في عدد كبير من المستشفيات البريطانية.",
+        ],
+        "education": [
+            "بكالوريوس الطب والجراحة — الجامعة الأردنية، الأردن",
+            "ماجستير في العلوم الصحية — جامعة لانكشاير المركزية، المملكة المتحدة",
+            "زمالة — أنف وأذن وحنجرة — مستشفى مونكلاندز، المملكة المتحدة",
+            "تخصص — أنف وأذن وحنجرة — مستشفى الجامعة الأردنية، الأردن",
+            "الاختصاص العالي — الجامعة الأردنية",
+        ],
+        "boards": [
+            "شهادة البورد الأوروبي — أنف وأذن وحنجرة (EBC)",
+            "شهادة البورد الأردني — أنف وأذن وحنجرة (JBC)",
+        ],
+        "memberships": [
+            {"label": "الكلية الملكية للجراحين - أيرلندا", "acronym": "FRCSI"},
+            {"label": "المجلس الطبي العام البريطاني", "acronym": "GMC"},
+            {
+                "label": "الأكاديمية الأمريكية لجراحة الأنف والأذن والحنجرة والرأس والرقبة",
+                "acronym": "BAO-HNS",
+            },
+            {"label": "اتحاد الدفاع الطبي", "acronym": "MDU"},
+            {"label": "عضو الكلية الملكية للجراحين - أيرلندا", "acronym": "MRCSI"},
+        ],
+        "specialties": [
+            "أنف وأذن وحنجرة",
+            "أنف وأذن وحنجرة كبار",
+            "أنف وأذن وحنجرة أطفال",
+            "جراحة أنف وأذن وحنجرة كبار",
+            "جراحة أنف وأذن وحنجرة أطفال",
+            "جراحة تجميل الأنف",
+        ],
+        "awards": [
+            "جائزة مركز الحسين للسرطان — 2015",
+            "جائزة المرشح الرئاسي — 2011",
+        ],
+        "languages": ["العربية", "الإنجليزية"],
+    },
+    "en": {
+        "experience": [
+            "Dr. Khaled currently works in his private clinic in Amman.",
+            "ENT fellowship/training at Monklands Hospital, United Kingdom.",
+            "Four years of ENT consultant experience in a UK hospital.",
+            "Specialist registrar experience across multiple UK hospitals.",
+        ],
+        "education": [
+            "Bachelor of Medicine and Surgery — University of Jordan, Jordan",
+            "Master’s in Health Sciences — University of Central Lancashire, United Kingdom",
+            "ENT Fellowship — Monklands Hospital, United Kingdom",
+            "ENT Specialization — University of Jordan Hospital, Jordan",
+            "Higher Specialization — University of Jordan",
+        ],
+        "boards": [
+            "European Board Certificate — ENT (EBC)",
+            "Jordanian Board Certificate — ENT (JBC)",
+        ],
+        "memberships": [
+            {"label": "", "acronym": "FRCSI"},
+            {"label": "", "acronym": "GMC"},
+            {"label": "", "acronym": "BAO-HNS"},
+            {"label": "", "acronym": "MDU"},
+            {"label": "", "acronym": "MRCSI"},
+        ],
+        "specialties": [
+            "Ear, Nose and Throat",
+            "Adult ENT",
+            "Pediatric ENT",
+            "Adult ENT Surgery",
+            "Pediatric ENT Surgery",
+            "Rhinoplasty",
+        ],
+        "awards": [
+            "King Hussein Cancer Center Award — 2015",
+            "Presidential Candidate Award — 2011",
+        ],
+        "languages": ["Arabic", "English"],
+    },
+}
+
+DOCTOR_CONDITIONS = {
+    "ar": [
+        "التهاب الجيوب الأنفية المزمن",
+        "الرشح",
+        "طنين الأذن",
+        "ألم الأذن",
+        "الحالات الطارئة لأمراض الأنف والأذن والحنجرة",
+        "الشخير",
+        "التهاب الأذن",
+        "التهاب الحلق المزمن",
+        "التهاب الحنجرة",
+        "التهاب اللوزتين عند الكبار",
+        "لحمية الأنف (سليلة أنفية)",
+    ],
+    "en": [
+        "Chronic sinusitis",
+        "Common cold",
+        "Tinnitus",
+        "Ear pain",
+        "ENT emergencies",
+        "Snoring",
+        "Ear infection",
+        "Chronic sore throat",
+        "Laryngitis",
+        "Adult tonsillitis",
+        "Nasal polyps (nasal polyp)",
     ],
 }
 
@@ -112,7 +288,6 @@ PAGE_COPY = {
             "description": "موقع عيادة الدكتور خالد بدران، استشاري الأنف والأذن والحنجرة.",
             "hero_label": "عيادة أنف وأذن وحنجرة",
             "headline": "رعاية أنف وأذن وحنجرة بهدوء واهتمام بالتفاصيل",
-            "subtitle": "تجربة عيادية دافئة ومنظمة للدكتور خالد حسان بدران، مع تجهيز الموقع للانتقال لاحقاً إلى الحجز الإلكتروني.",
         },
         "doctor": {
             "title": "الدكتور",
@@ -130,13 +305,13 @@ PAGE_COPY = {
             "title": "الحالات والإنجازات",
             "description": "وسائط عرض عامة معتمدة وموافق عليها فقط من عيادة الدكتور خالد بدران.",
             "headline": "حالات وإنجازات معتمدة للعرض",
-            "subtitle": "هذه الصفحة تعرض وسائط تم اعتمادها صراحة للعرض العام مع تأكيد الموافقة، ولا تعرض هوية المرضى أو تفاصيل السجلات الخاصة.",
+            "subtitle": "تُعرض هنا فقط الحالات المصرّح بنشرها بموافقة صريحة.",
         },
         "contact": {
-            "title": "التواصل",
-            "description": "معلومات التواصل والموقع وساعات العمل لعيادة الدكتور خالد بدران.",
-            "headline": "تواصل مع العيادة",
-            "subtitle": "بيانات التواصل الحالية placeholders آمنة لحين اعتماد الأرقام والعنوان النهائي.",
+            "title": "التواصل والموقع",
+            "description": "معلومات التواصل والموقع المعتمد لعيادة الدكتور خالد بدران.",
+            "headline": "موقع العيادة",
+            "subtitle": "عيادة الدكتور خالد بدران في الشميساني، داخل مجمع الفيحاء الطبي، مقابل مستشفى الشميساني وحديقة الطيور.",
         },
         "privacy": {
             "title": "سياسة الخصوصية",
@@ -181,7 +356,6 @@ PAGE_COPY = {
             "description": "Public website for Dr. Khaled Badran Clinic, ENT consultant care.",
             "hero_label": "ENT Clinic",
             "headline": "Warm, focused ENT care in a calm clinic setting",
-            "subtitle": "A polished public foundation for Dr. Khaled Hassan Badran Clinic, prepared for a later online booking workflow.",
         },
         "doctor": {
             "title": "Doctor",
@@ -199,13 +373,13 @@ PAGE_COPY = {
             "title": "Cases and Achievements",
             "description": "Approved and consented public showcase media for Dr. Khaled Badran Clinic.",
             "headline": "Approved Cases and Achievements",
-            "subtitle": "This page shows only media explicitly approved for public display with confirmed consent, without patient identity or private record details.",
+            "subtitle": "Only cases explicitly approved for public display are shown.",
         },
         "contact": {
-            "title": "Contact",
-            "description": "Contact, location, and clinic hours for Dr. Khaled Badran Clinic.",
-            "headline": "Contact the Clinic",
-            "subtitle": "Current contact details are safe placeholders until final approval.",
+            "title": "Contact & Location",
+            "description": "Contact details and the approved location for Dr. Khaled Badran Clinic.",
+            "headline": "Clinic Location",
+            "subtitle": "Dr. Khaled Badran Clinic is in Al Shmeisani, inside Al Fayhaa Medical Complex, opposite Shmeisani Hospital and Bird Garden.",
         },
         "privacy": {
             "title": "Privacy Policy",
@@ -248,11 +422,11 @@ PAGE_COPY = {
 
 LABELS = {
     "ar": {
-        "book": "طلب حجز مبدئي",
+        "book": "احجز موعداً",
         "book_note": "يتم تأكيد الموعد بعد اختيار الوقت وإرسال بيانات التواصل في خطوة التأكيد.",
         "whatsapp": "واتساب العيادة",
-        "whatsapp_note": "زر واتساب placeholder ولا يرسل رسائل حالياً.",
-        "contact": "معلومات التواصل",
+        "whatsapp_note": "تواصل مع العيادة مباشرة عبر واتساب.",
+        "contact": "التواصل والموقع",
         "services": "الخدمات",
         "cases": "الحالات",
         "doctor": "الدكتور",
@@ -263,14 +437,15 @@ LABELS = {
         "whatsapp_policy": "سياسة واتساب",
         "patient_portal": "بوابة المريض",
         "not_emergency": "الموقع وواتساب غير مخصصين للطوارئ. في الحالات الطارئة اتصل بخدمات الطوارئ المحلية فوراً.",
+        "public_emergency": "الموقع وواتساب ليسا للطوارئ.",
         "verify_profile": "تحتاج تفاصيل المؤهلات والعضويات والخبرة إلى تدقيق نهائي قبل النشر العام.",
     },
     "en": {
-        "book": "Request booking",
+        "book": "Book an Appointment",
         "book_note": "Your appointment is confirmed after choosing a time and submitting the confirmation step.",
         "whatsapp": "Clinic WhatsApp",
-        "whatsapp_note": "WhatsApp is a placeholder button and does not send messages yet.",
-        "contact": "Contact Details",
+        "whatsapp_note": "Contact the clinic directly on WhatsApp.",
+        "contact": "Contact & Location",
         "services": "Services",
         "cases": "Cases",
         "doctor": "Doctor",
@@ -281,6 +456,7 @@ LABELS = {
         "whatsapp_policy": "WhatsApp Policy",
         "patient_portal": "Patient Portal",
         "not_emergency": "This website and WhatsApp are not for emergencies. For urgent symptoms, contact local emergency services immediately.",
+        "public_emergency": "The website and WhatsApp are not for emergencies.",
         "verify_profile": "Credentials, memberships, and experience details should be verified before final public publication.",
     },
 }
@@ -301,40 +477,22 @@ ROUTE_NAMES = {
 
 PUBLIC_CASE_LABELS = {
     "ar": {
-        "approved_only": "محتوى معتمد وموافق عليه فقط",
-        "approved_only_body": (
-            "الوسائط هنا مخصصة للعرض العام بعد موافقة صريحة وتأكيد موافقة. "
-            "لا تمثل تشخيصاً أو خطة علاج أو ضمان نتيجة، ولا تغني عن التقييم الطبي."
-        ),
-        "empty_title": "لا توجد وسائط عامة معتمدة حالياً",
-        "empty_body": "ستظهر هنا فقط الوسائط التي تحمل موافقة عامة مؤكدة وتبقى نشطة.",
+        "approved_only": "تُعرض هنا فقط الحالات المصرّح بنشرها بموافقة صريحة.",
+        "empty_title": "لا توجد حالات منشورة حالياً.",
         "view_media": "عرض الوسيط",
         "view_all": "عرض الحالات",
         "image": "صورة",
         "short_video": "فيديو قصير",
         "untitled": "وسيط معتمد",
-        "safety_note": (
-            "لا تعرض هذه الصفحة أسماء المرضى أو أرقام الهواتف أو تواريخ الميلاد أو الملاحظات الطبية الخاصة. "
-            "وسائط بوابة المريض لا تصبح عامة تلقائياً."
-        ),
     },
     "en": {
-        "approved_only": "Approved and consented content only",
-        "approved_only_body": (
-            "Media here is public showcase content only after explicit approval and confirmed consent. "
-            "It is not a diagnosis, treatment plan, outcome guarantee, or substitute for medical assessment."
-        ),
-        "empty_title": "No approved public showcase media yet",
-        "empty_body": "Only active media with explicit public-case approval and confirmed consent will appear here.",
+        "approved_only": "Only cases explicitly approved for public display are shown.",
+        "empty_title": "No public cases are currently published.",
         "view_media": "View media",
         "view_all": "View cases",
         "image": "Image",
         "short_video": "Short video",
         "untitled": "Approved media",
-        "safety_note": (
-            "This page does not show patient names, phone numbers, dates of birth, or private clinical notes. "
-            "Patient-visible portal media is not automatically public."
-        ),
     },
 }
 
@@ -376,16 +534,41 @@ def _active_doctor():
     return Doctor.objects.filter(is_active=True).order_by("display_order", "id").first()
 
 
+def _is_placeholder_value(value):
+    normalized = (value or "").strip().casefold()
+    placeholder_markers = ("placeholder", "pending approval", "سيضاف", "لحين اعتماد")
+    return not normalized or any(marker in normalized for marker in placeholder_markers)
+
+
 def _clinic_context():
     clinic = _active_clinic()
+    address_ar = clinic.address_ar if clinic and not _is_placeholder_value(clinic.address_ar) else ""
+    address_en = clinic.address_en if clinic and not _is_placeholder_value(clinic.address_en) else ""
     return {
         "object": clinic,
         "name_ar": clinic.official_name_ar if clinic else CLINIC_OFFICIAL_NAME_AR,
         "name_en": clinic.official_name_en if clinic else CLINIC_OFFICIAL_NAME_EN,
-        "phone_raw": clinic.phone_raw if clinic and clinic.phone_raw else "+962 7X XXX XXXX",
-        "address_ar": clinic.address_ar if clinic and clinic.address_ar else "العنوان سيضاف بعد اعتماده",
-        "address_en": clinic.address_en if clinic and clinic.address_en else "Address placeholder pending approval",
+        "phone_raw": APPROVED_CLINIC_PHONE["display"],
+        "phone_display": APPROVED_CLINIC_PHONE["display"],
+        "phone_e164": APPROVED_CLINIC_PHONE["e164"],
+        "address_ar": address_ar or APPROVED_CLINIC_LOCATION["address_ar"],
+        "address_en": address_en or APPROVED_CLINIC_LOCATION["address_en"],
+        "coordinates": APPROVED_CLINIC_LOCATION["coordinates"],
+        "map_url": APPROVED_CLINIC_LOCATION["map_url"],
+        "map_embed_url": APPROVED_CLINIC_LOCATION["map_embed_url"],
+        "whatsapp_url": APPROVED_CLINIC_PHONE["whatsapp_url"],
     }
+
+
+def _clinic_gallery(language):
+    language = _normalize_language(language)
+    return [
+        {
+            "asset_path": photo["asset_path"],
+            "alt": photo[f"alt_{language}"],
+        }
+        for photo in APPROVED_PUBLIC_CLINIC_GALLERY
+    ]
 
 
 def _doctor_context():
@@ -403,6 +586,14 @@ def _doctor_context():
         "specialty_en": doctor.specialty_en or DOCTOR_DEFAULT["specialty_en"],
         "bio_ar": doctor.bio_ar or DOCTOR_DEFAULT["bio_ar"],
         "bio_en": doctor.bio_en or DOCTOR_DEFAULT["bio_en"],
+        "credential_label_ar": DOCTOR_DEFAULT["credential_label_ar"],
+        "credential_label_en": DOCTOR_DEFAULT["credential_label_en"],
+        "public_focus_ar": DOCTOR_DEFAULT["public_focus_ar"],
+        "public_focus_en": DOCTOR_DEFAULT["public_focus_en"],
+        "hero_summary_ar": DOCTOR_DEFAULT["hero_summary_ar"],
+        "hero_summary_en": DOCTOR_DEFAULT["hero_summary_en"],
+        "footer_summary_ar": DOCTOR_DEFAULT["footer_summary_ar"],
+        "footer_summary_en": DOCTOR_DEFAULT["footer_summary_en"],
     }
 
 
@@ -410,14 +601,16 @@ def _visit_types(language):
     language = _normalize_language(language)
     rows = []
     for visit_type in VisitType.objects.filter(is_active=True).order_by("display_order", "name_en"):
+        visible_price = visit_type.patient_visible_price
         rows.append(
             {
-                "name": visit_type.name_ar if language == "ar" else visit_type.name_en,
-                "name_ar": visit_type.name_ar,
-                "name_en": visit_type.name_en,
+                "localized_name": visit_type.name_ar if language == "ar" else visit_type.name_en,
                 "duration_minutes": visit_type.duration_minutes,
-                "instructions": visit_type.instructions_ar if language == "ar" else visit_type.instructions_en,
-                "price": visit_type.patient_visible_price,
+                "public_instructions": (
+                    visit_type.instructions_ar if language == "ar" else visit_type.instructions_en
+                ),
+                "show_price": visible_price is not None,
+                "visible_price": format(visible_price, "f") if visible_price is not None else "",
             }
         )
     if rows:
@@ -425,12 +618,11 @@ def _visit_types(language):
 
     return [
         {
-            "name": item[0] if language == "ar" else item[1],
-            "name_ar": item[0],
-            "name_en": item[1],
+            "localized_name": item[0] if language == "ar" else item[1],
             "duration_minutes": item[2],
-            "instructions": "",
-            "price": None,
+            "public_instructions": "",
+            "show_price": False,
+            "visible_price": "",
         }
         for item in FALLBACK_VISIT_TYPES
     ]
@@ -485,7 +677,14 @@ def _public_case_media_items(language, limit=None):
     ]
 
 
-def _base_context(request, page_key, language):
+def _base_context(
+    request,
+    page_key,
+    language,
+    *,
+    use_public_shell=False,
+    show_mobile_booking_cta=False,
+):
     language = _normalize_language(language)
     alternate_language = "en" if language == "ar" else "ar"
     page = PAGE_COPY[language][page_key]
@@ -499,6 +698,8 @@ def _base_context(request, page_key, language):
         "direction": "rtl" if language == "ar" else "ltr",
         "page_key": page_key,
         "page": page,
+        "use_public_shell": use_public_shell,
+        "show_mobile_booking_cta": show_mobile_booking_cta,
         "page_title": page_title,
         "meta_description": page["description"],
         "clinic": clinic,
@@ -523,10 +724,12 @@ def _base_context(request, page_key, language):
             "url": _route_url(page_key, alternate_language),
         },
         "canonical_url": request.build_absolute_uri(canonical_path),
-        "og_image_url": request.build_absolute_uri(static("img/placeholders/clinic-placeholder.svg")),
+        "og_image_url": request.build_absolute_uri(static("img/clinic/clinic-interior-1.png")),
         "booking_placeholder_url": _route_url("booking", language),
         "booking_url": _route_url("booking", language),
-        "whatsapp_placeholder_url": _route_url("contact", language) + "#whatsapp-placeholder",
+        "whatsapp_placeholder_url": clinic["whatsapp_url"],
+        "whatsapp_is_configured": True,
+        "whatsapp_url": clinic["whatsapp_url"],
         "contact_url": _route_url("contact", language),
         "services_url": _route_url("services", language),
         "cases_url": _route_url("cases", language),
@@ -535,8 +738,22 @@ def _base_context(request, page_key, language):
     }
 
 
-def _render_public(request, template_name, page_key, language=DEFAULT_LANGUAGE, extra_context=None):
-    context = _base_context(request, page_key, language)
+def _render_public(
+    request,
+    template_name,
+    page_key,
+    language=DEFAULT_LANGUAGE,
+    extra_context=None,
+    *,
+    show_mobile_booking_cta=False,
+):
+    context = _base_context(
+        request,
+        page_key,
+        language,
+        use_public_shell=True,
+        show_mobile_booking_cta=show_mobile_booking_cta,
+    )
     if extra_context:
         context.update(extra_context)
     return render(request, template_name, context)
@@ -544,18 +761,18 @@ def _render_public(request, template_name, page_key, language=DEFAULT_LANGUAGE, 
 
 def home(request, language=DEFAULT_LANGUAGE):
     language = _normalize_language(language)
-    services = _visit_types(language)
     return _render_public(
         request,
         "core/home.html",
         "home",
         language,
         {
-            "service_highlights": services[:4],
-            "service_groups": SERVICE_GROUPS[language][:3],
             "public_case_teasers": _public_case_media_items(language, limit=3),
             "case_labels": PUBLIC_CASE_LABELS[language],
+            "public_reviews": (),
+            "review_summary": None,
         },
+        show_mobile_booking_cta=True,
     )
 
 
@@ -567,8 +784,12 @@ def doctor_profile(request, language=DEFAULT_LANGUAGE):
         "doctor",
         language,
         {
-            "areas_of_care": SERVICE_GROUPS[language],
+            "doctor_profile": {
+                **DOCTOR_PUBLIC_PROFILE[language],
+                "conditions": DOCTOR_CONDITIONS[language],
+            },
         },
+        show_mobile_booking_cta=True,
     )
 
 
@@ -583,6 +804,7 @@ def services(request, language=DEFAULT_LANGUAGE):
             "service_groups": SERVICE_GROUPS[language],
             "visit_types": _visit_types(language),
         },
+        show_mobile_booking_cta=True,
     )
 
 
@@ -599,6 +821,7 @@ def public_cases(request, language=DEFAULT_LANGUAGE):
             "case_items": _public_case_media_items(language),
             "case_labels": PUBLIC_CASE_LABELS[language],
         },
+        show_mobile_booking_cta=True,
     )
 
 
@@ -630,7 +853,15 @@ def public_case_media(request, public_id, language=DEFAULT_LANGUAGE):
 
 
 def contact(request, language=DEFAULT_LANGUAGE):
-    return _render_public(request, "core/contact.html", "contact", language)
+    language = _normalize_language(language)
+    return _render_public(
+        request,
+        "core/contact.html",
+        "contact",
+        language,
+        {"clinic_gallery": _clinic_gallery(language)},
+        show_mobile_booking_cta=True,
+    )
 
 
 def privacy(request, language=DEFAULT_LANGUAGE):
@@ -657,6 +888,28 @@ def whatsapp_policy(request, language=DEFAULT_LANGUAGE):
         "whatsapp_policy",
         language,
     )
+
+
+def public_404(request, exception=None):
+    language = "en" if request.path.startswith("/en/") else DEFAULT_LANGUAGE
+    context = _base_context(request, "home", language, use_public_shell=True)
+    context.update(
+        {
+            "page_key": "not_found",
+            "page_title": (
+                f"Page Not Found | {context['clinic']['name_en']}"
+                if language == "en"
+                else f"الصفحة غير موجودة | {context['clinic']['name_ar']}"
+            ),
+            "meta_description": (
+                "The requested clinic page could not be found."
+                if language == "en"
+                else "تعذر العثور على صفحة العيادة المطلوبة."
+            ),
+            "canonical_url": request.build_absolute_uri(request.path),
+        }
+    )
+    return render(request, "404.html", context, status=404)
 
 
 def robots_txt(request):

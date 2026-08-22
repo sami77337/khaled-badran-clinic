@@ -2,50 +2,110 @@
 {% load static %}
 
 {% block content %}
-{% include "partials/page_hero.html" %}
+<section class="contact-page-hero" aria-labelledby="contact-page-title">
+    <div class="container contact-page-hero-inner">
+        <p class="eyebrow">{{ labels.contact }}</p>
+        <h1 id="contact-page-title">{{ page.headline }}</h1>
+        <p>{{ page.subtitle }}</p>
+    </div>
+</section>
 
-<section class="section">
-    <div class="container contact-grid">
-        <div class="contact-panel">
-            <p class="eyebrow">{{ labels.contact }}</p>
-            <h2>{% if is_arabic %}بيانات التواصل{% else %}Contact Details{% endif %}</h2>
-            <dl class="detail-list">
+<section class="section contact-location-section">
+    <div class="container contact-location-card">
+        <div class="contact-map-panel">
+            <iframe
+                src="{{ clinic.map_embed_url }}"
+                title="{% if is_arabic %}خريطة موقع عيادة الدكتور خالد بدران{% else %}Map showing Dr. Khaled Badran Clinic{% endif %}"
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade"
+            ></iframe>
+            <a class="map-open-link" href="{{ clinic.map_url }}" target="_blank" rel="noopener noreferrer">
+                <span aria-hidden="true">⌖</span>
+                {% if is_arabic %}فتح الموقع على Google Maps{% else %}Open in Google Maps{% endif %}
+            </a>
+        </div>
+
+        <div class="contact-details-panel">
+            <dl class="contact-detail-list">
                 <div>
-                    <dt>{% if is_arabic %}الهاتف{% else %}Phone{% endif %}</dt>
-                    <dd>{{ clinic.phone_raw }}</dd>
+                    <dt><span aria-hidden="true">⌖</span> {% if is_arabic %}موقع العيادة{% else %}Clinic Location{% endif %}</dt>
+                    <dd>{% if is_arabic %}{{ clinic.address_ar|linebreaksbr }}{% else %}{{ clinic.address_en|linebreaksbr }}{% endif %}</dd>
                 </div>
-                <div id="whatsapp-placeholder">
-                    <dt>{% if is_arabic %}واتساب{% else %}WhatsApp{% endif %}</dt>
-                    <dd>{{ labels.whatsapp_note }}</dd>
-                </div>
-                <div>
-                    <dt>{% if is_arabic %}العنوان{% else %}Address{% endif %}</dt>
-                    <dd>{% if is_arabic %}{{ clinic.address_ar }}{% else %}{{ clinic.address_en }}{% endif %}</dd>
-                </div>
-                <div>
-                    <dt>{% if is_arabic %}ساعات العمل{% else %}Clinic Hours{% endif %}</dt>
-                    <dd>{% if is_arabic %}تضاف بعد اعتماد جدول الدوام.{% else %}To be added after schedule approval.{% endif %}</dd>
+                {% if clinic.phone_e164 %}
+                    <div>
+                        <dt><span aria-hidden="true">☎</span> {% if is_arabic %}الهاتف{% else %}Phone{% endif %}</dt>
+                        <dd><a href="tel:{{ clinic.phone_e164 }}" dir="ltr">{{ clinic.phone_display }}</a></dd>
+                    </div>
+                {% endif %}
+                <div class="whatsapp-status-row">
+                    <dt><span aria-hidden="true">WA</span> {{ labels.whatsapp }}</dt>
+                    <dd><a href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">{{ labels.whatsapp_note }}</a></dd>
                 </div>
             </dl>
-            <div id="booking-placeholder" class="placeholder-note">
-                <strong>{{ labels.book }}</strong>
-                <p>{{ labels.book_note }}</p>
+            <div class="contact-page-actions">
                 <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
+                <a class="btn btn-secondary" href="{{ clinic.map_url }}" target="_blank" rel="noopener noreferrer">{% if is_arabic %}الحصول على الاتجاهات{% else %}Get Directions{% endif %}</a>
             </div>
         </div>
-        <div class="map-panel">
-            <img src="{% static 'img/placeholders/map-placeholder.svg' %}" alt="{% if is_arabic %}خريطة مؤقتة لحين إضافة موقع العيادة الرسمي{% else %}Map placeholder until the official clinic location is added{% endif %}">
+    </div>
+</section>
+
+<section class="section clinic-gallery-section" aria-labelledby="clinic-gallery-title">
+    <div class="container">
+        <div class="section-heading compact-section-heading">
+            <p class="eyebrow">{% if is_arabic %}داخل العيادة{% else %}Inside the Clinic{% endif %}</p>
+            <h2 id="clinic-gallery-title">{% if is_arabic %}مساحة هادئة ومجهزة بعناية{% else %}A calm, thoughtfully equipped clinic{% endif %}</h2>
+        </div>
+        <div
+            class="clinic-gallery"
+            data-clinic-gallery
+            role="region"
+            aria-roledescription="{% if is_arabic %}عارض صور{% else %}carousel{% endif %}"
+            aria-label="{% if is_arabic %}صور عيادة الدكتور خالد بدران{% else %}Dr. Khaled Badran Clinic gallery{% endif %}"
+        >
+            <div class="clinic-gallery-viewport" data-gallery-viewport tabindex="0">
+                <div class="clinic-gallery-track">
+                    {% for photo in clinic_gallery %}
+                        <figure
+                            class="clinic-gallery-slide{% if forloop.first %} is-active{% endif %}"
+                            data-gallery-slide
+                            {% if forloop.first %}data-gallery-primary{% endif %}
+                            aria-label="{% if is_arabic %}الصورة {{ forloop.counter }} من {{ clinic_gallery|length }}{% else %}Photo {{ forloop.counter }} of {{ clinic_gallery|length }}{% endif %}"
+                        >
+                            {% static photo.asset_path as clinic_photo_url %}
+                            <img src="{{ clinic_photo_url }}" alt="{{ photo.alt }}" loading="{% if forloop.first %}eager{% else %}lazy{% endif %}" draggable="false">
+                        </figure>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% if clinic_gallery|length > 1 %}
+                <div class="clinic-gallery-controls" data-gallery-controls>
+                    <button class="clinic-gallery-arrow" type="button" data-gallery-previous aria-label="{% if is_arabic %}الصورة السابقة{% else %}Previous photo{% endif %}">
+                        <span aria-hidden="true">{% if is_arabic %}›{% else %}‹{% endif %}</span>
+                    </button>
+                    <div class="clinic-gallery-position" aria-live="polite" aria-atomic="true">
+                        <span data-gallery-current>1</span>
+                        <span aria-hidden="true">/</span>
+                        <span>{{ clinic_gallery|length }}</span>
+                    </div>
+                    <div class="clinic-gallery-dots" role="group" aria-label="{% if is_arabic %}اختيار صورة العيادة{% else %}Choose a clinic photo{% endif %}">
+                        {% for photo in clinic_gallery %}
+                            <button
+                                type="button"
+                                class="{% if forloop.first %}is-active{% endif %}"
+                                data-gallery-dot="{{ forloop.counter0 }}"
+                                aria-label="{% if is_arabic %}عرض الصورة {{ forloop.counter }}{% else %}Show photo {{ forloop.counter }}{% endif %}"
+                                aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"
+                            ></button>
+                        {% endfor %}
+                    </div>
+                    <button class="clinic-gallery-arrow" type="button" data-gallery-next aria-label="{% if is_arabic %}الصورة التالية{% else %}Next photo{% endif %}">
+                        <span aria-hidden="true">{% if is_arabic %}‹{% else %}›{% endif %}</span>
+                    </button>
+                </div>
+            {% endif %}
         </div>
     </div>
 </section>
-
-<section class="section section-soft">
-    <div class="container safety-panel">
-        <p class="eyebrow">{% if is_arabic %}تنبيه طوارئ{% else %}Emergency Notice{% endif %}</p>
-        <h2>{% if is_arabic %}هذا الموقع ليس للطوارئ{% else %}This website is not for emergencies{% endif %}</h2>
-        <p>{{ labels.not_emergency }}</p>
-    </div>
-</section>
-
-{% include "partials/cta.html" %}
 {% endblock %}

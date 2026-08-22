@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="not-found-page" aria-labelledby="not-found-title">
+    <div class="container not-found-inner">
+        <p class="not-found-code" aria-hidden="true">404</p>
+        <p class="eyebrow">{% if is_arabic %}تعذر الوصول{% else %}Unable to locate page{% endif %}</p>
+        <h1 id="not-found-title">{% if is_arabic %}الصفحة غير موجودة{% else %}Page Not Found{% endif %}</h1>
+        <p>{% if is_arabic %}عذراً، الصفحة التي تبحث عنها غير موجودة أو تم نقلها.{% else %}Sorry, the page you are looking for does not exist or has been moved.{% endif %}</p>
+        <a class="btn btn-primary" href="{{ home_url }}">{% if is_arabic %}العودة للرئيسية{% else %}Return to Homepage{% endif %}</a>
+    </div>
+</section>
+{% endblock %}

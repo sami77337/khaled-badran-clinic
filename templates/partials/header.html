@@ -1,26 +1,63 @@
+<div class="site-utility" aria-label="{% if is_arabic %}معلومات العيادة{% else %}Clinic information{% endif %}">
+    <div class="container utility-inner">
+        <span class="utility-location">
+            <span aria-hidden="true">⌖</span>
+            {% if is_arabic %}الشميساني، عمّان{% else %}Al Shmeisani, Amman{% endif %}
+        </span>
+        {% if clinic.phone_e164 %}
+            <a href="tel:{{ clinic.phone_e164 }}" dir="ltr">{{ clinic.phone_display }}</a>
+        {% endif %}
+        <a class="utility-language" href="{{ language_switch.url }}" hreflang="{% if is_arabic %}en{% else %}ar{% endif %}">
+            <span aria-hidden="true">◎</span>
+            {{ language_switch.label }}
+        </a>
+    </div>
+</div>
+
 <header class="site-header" data-site-header>
     <div class="container header-inner">
+        <button
+            class="mobile-menu-toggle"
+            type="button"
+            aria-label="{% if is_arabic %}فتح القائمة{% else %}Open menu{% endif %}"
+            aria-controls="mobile-navigation"
+            aria-expanded="false"
+            data-menu-toggle
+        >
+            <span class="menu-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+        </button>
+
         <a class="brand" href="{{ home_url }}" aria-label="{% if is_arabic %}العودة إلى الصفحة الرئيسية{% else %}Back to home{% endif %}">
-            <span class="brand-mark" aria-hidden="true">KB</span>
             <span class="brand-copy">
                 <span class="brand-name">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</span>
-                <span class="brand-subtitle">{% if is_arabic %}أنف وأذن وحنجرة{% else %}ENT Clinic{% endif %}</span>
+                <span class="brand-subtitle">
+                    {% if is_arabic %}{{ doctor.public_focus_ar }}{% else %}{{ doctor.public_focus_en }}{% endif %}
+                </span>
             </span>
         </a>
 
         <nav class="primary-nav" aria-label="{% if is_arabic %}التنقل الرئيسي{% else %}Primary navigation{% endif %}">
             {% for key, label, url in nav_items %}
-                <a href="{{ url }}" class="{% if page_key == key %}is-active{% endif %}">{{ label }}</a>
+                <a href="{{ url }}" class="{% if page_key == key %}is-active{% endif %}"{% if page_key == key %} aria-current="page"{% endif %}>{{ label }}</a>
             {% endfor %}
         </nav>
 
         <div class="header-actions">
-            <a class="language-switch" href="{{ language_switch.url }}" hreflang="{% if is_arabic %}en{% else %}ar{% endif %}">
-                {{ language_switch.label }}
-            </a>
-            <a class="btn btn-small btn-primary" href="{{ booking_url }}">
-                {{ labels.book }}
-            </a>
+            <a class="btn btn-small btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
         </div>
+
+        <a class="mobile-language-switch" href="{{ language_switch.url }}" hreflang="{% if is_arabic %}en{% else %}ar{% endif %}" aria-label="{{ language_switch.label }}">
+            {% if is_arabic %}EN{% else %}AR{% endif %}
+        </a>
     </div>
+
+    <div class="mobile-drawer" id="mobile-navigation" data-mobile-drawer hidden>
+        <nav class="mobile-nav" aria-label="{% if is_arabic %}التنقل على الهاتف{% else %}Mobile navigation{% endif %}">
+            {% for key, label, url in nav_items %}
+                <a href="{{ url }}" class="{% if page_key == key %}is-active{% endif %}"{% if page_key == key %} aria-current="page"{% endif %}>{{ label }}</a>
+            {% endfor %}
+            <a class="btn btn-primary mobile-drawer-booking" href="{{ booking_url }}">{{ labels.book }}</a>
+        </nav>
+    </div>
+    <button class="mobile-drawer-backdrop" type="button" aria-label="{% if is_arabic %}إغلاق القائمة{% else %}Close menu{% endif %}" data-menu-close hidden></button>
 </header>
