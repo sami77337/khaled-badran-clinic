@@ -1,11 +1,11 @@
 :root {
-    --auth-burgundy: #7B3F3B;
-    --auth-burgundy-deep: #63302E;
-    --auth-wood: #675A4F;
-    --auth-ink: #2E2926;
-    --auth-muted: #6F655E;
-    --auth-line: #DED6CC;
-    --auth-soft-line: #EAE4DC;
+    --auth-burgundy: #4A0F14;
+    --auth-burgundy-deep: #350A0E;
+    --auth-wood: #8B5A2B;
+    --auth-ink: #251D1A;
+    --auth-muted: #5F554E;
+    --auth-line: #CBBEAF;
+    --auth-soft-line: #DED4C9;
     --auth-ivory: #F8F5EF;
     --auth-paper: #FFFFFF;
     --auth-error: #8B302D;
@@ -32,7 +32,7 @@ body.auth-shell {
 }
 
 .auth-header {
-    border-bottom: 1px solid rgba(103, 90, 79, 0.15);
+    border-bottom: 1px solid rgba(139, 90, 43, 0.17);
     background: rgba(255, 255, 255, 0.94);
     box-shadow: 0 1px 0 rgba(46, 41, 38, 0.02);
 }
@@ -66,7 +66,7 @@ body.auth-shell {
 
 .auth-back-link:hover,
 .auth-language-switch:hover {
-    background: rgba(123, 63, 59, 0.06);
+    background: rgba(74, 15, 20, 0.07);
     color: var(--auth-burgundy);
 }
 
@@ -78,7 +78,7 @@ body.auth-shell {
 .auth-shell .booking-country-trigger:focus-visible,
 .auth-shell .booking-country-search:focus-visible,
 .auth-shell [data-booking-country-option]:focus-visible {
-    outline: 3px solid rgba(123, 63, 59, 0.23);
+    outline: 3px solid rgba(74, 15, 20, 0.26);
     outline-offset: 2px;
 }
 
@@ -112,7 +112,7 @@ body.auth-shell {
     width: 100%;
     max-width: 31.5rem;
     min-width: 0;
-    border: 1px solid rgba(103, 90, 79, 0.16);
+    border: 1px solid rgba(139, 90, 43, 0.18);
     border-radius: 1.5rem;
     background: var(--auth-paper);
     box-shadow: 0 1.25rem 3.5rem rgba(57, 44, 38, 0.09), 0 0.2rem 0.8rem rgba(57, 44, 38, 0.04);
@@ -133,7 +133,7 @@ body.auth-shell {
     height: 2.35rem;
     flex: 0 0 2.35rem;
     place-items: center;
-    border: 1px solid rgba(123, 63, 59, 0.28);
+    border: 1px solid rgba(74, 15, 20, 0.35);
     border-radius: 0.72rem;
     background: #FBF7F3;
     color: var(--auth-burgundy);
@@ -149,31 +149,8 @@ body.auth-shell {
     line-height: 1.35;
 }
 
-.auth-secure-badge {
-    display: flex;
-    width: max-content;
-    max-width: 100%;
-    align-items: center;
-    gap: 0.35rem;
-    margin: 1.2rem auto 0;
-    border: 1px solid rgba(123, 63, 59, 0.14);
-    border-radius: 999px;
-    background: rgba(123, 63, 59, 0.055);
-    color: var(--auth-burgundy);
-    font-size: 0.79rem;
-    font-weight: 700;
-    line-height: 1.35;
-    padding: 0.38rem 0.7rem;
-}
-
-.auth-secure-badge svg {
-    width: 1rem;
-    height: 1rem;
-    flex: 0 0 auto;
-}
-
 .auth-heading {
-    margin: 1.15rem auto 1.3rem;
+    margin: 0.95rem auto 1.15rem;
     text-align: center;
 }
 
@@ -191,14 +168,6 @@ body.auth-shell {
     font-family: Tahoma, Arial, sans-serif;
     font-weight: 700;
     letter-spacing: 0;
-}
-
-.auth-heading p {
-    margin: 0.5rem 0 0;
-    color: var(--auth-muted);
-    font-size: 0.9rem;
-    font-weight: 500;
-    line-height: 1.6;
 }
 
 .auth-role-tabs {
@@ -232,7 +201,7 @@ body.auth-shell {
 
 .auth-role-tab.is-selected,
 .auth-role-tab[aria-selected="true"] {
-    border-color: rgba(103, 90, 79, 0.13);
+    border-color: rgba(74, 15, 20, 0.22);
     background: var(--auth-paper);
     color: var(--auth-burgundy);
     box-shadow: 0 0.15rem 0.5rem rgba(57, 44, 38, 0.07);
@@ -246,7 +215,7 @@ body.auth-shell {
 .auth-form {
     display: grid;
     gap: 1rem;
-    margin-top: 1.35rem;
+    margin-top: 1.15rem;
 }
 
 .auth-field {
@@ -284,7 +253,7 @@ body.auth-shell {
 .auth-password-control > input:hover,
 .auth-shell .booking-phone-row:hover,
 .auth-shell .booking-country-search:hover {
-    border-color: #C8BDB1;
+    border-color: #A9927D;
 }
 
 .auth-field > input:focus,
@@ -292,7 +261,7 @@ body.auth-shell {
 .auth-shell .booking-phone-row:focus-within,
 .auth-shell .booking-country-search:focus {
     border-color: var(--auth-burgundy);
-    box-shadow: 0 0 0 3px rgba(123, 63, 59, 0.11);
+    box-shadow: 0 0 0 3px rgba(74, 15, 20, 0.14);
     outline: none;
 }
 
@@ -323,12 +292,12 @@ body.auth-shell {
     border: 0;
     border-radius: 0.6rem;
     background: transparent;
-    color: #81766E;
+    color: #655B54;
     cursor: pointer;
 }
 
 .auth-password-toggle:hover {
-    background: rgba(123, 63, 59, 0.06);
+    background: rgba(74, 15, 20, 0.07);
     color: var(--auth-burgundy);
 }
 
@@ -377,7 +346,7 @@ body.auth-shell {
     border: 1px solid var(--auth-burgundy);
     border-radius: 0.8rem;
     background: var(--auth-burgundy);
-    box-shadow: 0 0.4rem 0.9rem rgba(123, 63, 59, 0.16);
+    box-shadow: 0 0.4rem 0.9rem rgba(74, 15, 20, 0.22);
     color: #FFFFFF;
     cursor: pointer;
     font: inherit;
@@ -391,7 +360,7 @@ body.auth-shell {
 .auth-submit:hover {
     border-color: var(--auth-burgundy-deep);
     background: var(--auth-burgundy-deep);
-    box-shadow: 0 0.5rem 1rem rgba(99, 48, 46, 0.2);
+    box-shadow: 0 0.5rem 1rem rgba(53, 10, 14, 0.24);
     color: #FFFFFF;
 }
 
@@ -453,33 +422,6 @@ body.auth-shell {
     padding: 0.7rem 0.8rem;
 }
 
-.auth-privacy-note {
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 0.45rem;
-    margin-top: 1.35rem;
-    border-top: 1px solid var(--auth-soft-line);
-    color: var(--auth-muted);
-    padding-top: 1rem;
-}
-
-.auth-privacy-note svg {
-    width: 1rem;
-    height: 1rem;
-    flex: 0 0 auto;
-    margin-top: 0.16rem;
-    color: var(--auth-wood);
-}
-
-.auth-privacy-note p {
-    margin: 0;
-    font-size: 0.78rem;
-    font-weight: 500;
-    line-height: 1.55;
-    text-align: center;
-}
-
 .auth-shell .booking-phone-control {
     position: relative;
     min-width: 0;
@@ -515,7 +457,7 @@ body.auth-shell {
     justify-content: center;
     gap: 0.4rem;
     border: 0;
-    border-inline-end: 1px solid var(--auth-soft-line);
+    border-inline-end: 1px solid var(--auth-line);
     border-radius: 0.76rem 0 0 0.76rem;
     background: #FAF8F5;
     color: var(--auth-ink);
@@ -528,7 +470,7 @@ body.auth-shell {
 
 .auth-shell .booking-country-trigger:hover,
 .auth-shell .booking-phone-control.is-open .booking-country-trigger {
-    background: rgba(123, 63, 59, 0.065);
+    background: rgba(74, 15, 20, 0.075);
     color: var(--auth-burgundy);
 }
 
@@ -623,7 +565,7 @@ body.auth-shell {
 
 .auth-shell [data-booking-country-option]:hover,
 .auth-shell [data-booking-country-option][aria-selected="true"] {
-    background: rgba(123, 63, 59, 0.065);
+    background: rgba(74, 15, 20, 0.075);
     color: var(--auth-burgundy);
 }
 

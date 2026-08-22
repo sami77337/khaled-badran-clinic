@@ -3,7 +3,9 @@
     data-booking-phone-control
     data-booking-phone-key="{{ control_key }}"
     data-booking-default-dial-code="+962"
+    {% if not hide_phone_hint %}
     data-booking-example-label="{% if is_arabic %}مثال للتنسيق{% else %}Formatting example{% endif %}"
+    {% endif %}
 >
     <div class="booking-phone-row" dir="ltr">
         <button
@@ -22,9 +24,11 @@
         {{ field }}
     </div>
 
-    <p class="booking-phone-hint" id="booking-phone-hint-{{ control_key }}" data-booking-phone-hint>
-        {% if is_arabic %}مثال للتنسيق: 7XXXXXXXX{% else %}Formatting example: 7XXXXXXXX{% endif %}
-    </p>
+    {% if not hide_phone_hint %}
+        <p class="booking-phone-hint" id="booking-phone-hint-{{ control_key }}" data-booking-phone-hint>
+            {% if is_arabic %}مثال للتنسيق: 7XXXXXXXX{% else %}Formatting example: 7XXXXXXXX{% endif %}
+        </p>
+    {% endif %}
 
     <div class="booking-country-menu" data-booking-country-menu hidden>
         <label class="booking-country-search-label" for="booking-country-search-{{ control_key }}">

@@ -157,14 +157,47 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         self.assertIn('preventScroll: true', javascript)
         self.assertIn('addEventListener("formdata"', javascript)
 
-    def test_jordan_phone_ui_uses_generic_local_example_and_separate_dial_code(self):
+    def test_login_phone_ui_keeps_placeholder_and_selector_without_formatting_helper(self):
         response = self.client.get(reverse("login_en"))
 
         self.assertContains(response, ">+962</span>")
-        self.assertContains(response, "Formatting example: 7XXXXXXXX")
         self.assertContains(response, 'placeholder="7XXXXXXXX"')
+        self.assertNotContains(response, "Formatting example: 7XXXXXXXX")
+        self.assertNotContains(response, "data-booking-phone-hint")
         self.assertNotContains(response, "79XXXXXXX")
         self.assertNotContains(response, "07XXXXXXXX")
+
+    def test_unified_login_omits_owner_removed_visual_copy_in_both_languages(self):
+        arabic = self.client.get(reverse("login"))
+        english = self.client.get(reverse("login_en"))
+        stylesheet = (settings.BASE_DIR / "static" / "css" / "auth.css").read_text(encoding="utf-8")
+
+        for response in (arabic, english):
+            self.assertNotContains(response, "auth-secure-badge")
+            self.assertNotContains(response, "auth-privacy-note")
+            self.assertNotContains(response, "data-booking-example-label")
+            self.assertNotContains(response, "data-booking-phone-hint")
+
+        for removed_copy in (
+            "دخول آمن ومشفّر",
+            "سجّل الدخول للوصول إلى حسابك بأمان",
+            "مثال للتنسيق: 7XXXXXXXX",
+            "بياناتك محمية وفق ضوابط الخصوصية والأمان في العيادة.",
+        ):
+            self.assertNotContains(arabic, removed_copy)
+
+        for removed_copy in (
+            "Secure, encrypted access",
+            "Sign in to securely access your account",
+            "Formatting example: 7XXXXXXXX",
+            "Your information is protected by the clinic’s privacy and security controls.",
+        ):
+            self.assertNotContains(english, removed_copy)
+
+        self.assertNotIn(".auth-secure-badge", stylesheet)
+        self.assertNotIn(".auth-privacy-note", stylesheet)
+        self.assertIn("--auth-burgundy: #4A0F14;", stylesheet)
+        self.assertIn("--auth-wood: #8B5A2B;", stylesheet)
 
     def test_canonical_patient_login_preserves_phone_normalization(self):
         self.create_user()
