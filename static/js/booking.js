@@ -238,6 +238,11 @@
         }
         return compact;
     };
+    const stripDomesticPrefix = (number, domesticPrefix) => (
+        domesticPrefix && number.startsWith(domesticPrefix)
+            ? number.slice(domesticPrefix.length)
+            : number
+    );
 
     const controls = Array.from(form.querySelectorAll("[data-booking-phone-control]"));
     const closeControl = (control, { restoreFocus = false } = {}) => {
@@ -315,15 +320,17 @@
 
         const displayInternationalNumber = (number, matchingCountry) => {
             setCountry(matchingCountry);
-            const nationalPrefix = matchingCountry.dataset.countryNationalPrefix || "";
-            const localNumber = number.slice(matchingCountry.dataset.countryDial.length);
-            input.value = `${nationalPrefix}${localNumber}`;
+            input.value = stripDomesticPrefix(
+                number.slice(matchingCountry.dataset.countryDial.length),
+                matchingCountry.dataset.countryNationalPrefix || ""
+            );
         };
 
         const parseInitialValue = () => {
             let number = compactNumber(input.value);
+            const defaultCountry = options.find((option) => option.dataset.countryCode === "JO") || options[0];
             if (!number) {
-                setCountry(options.find((option) => option.dataset.countryCode === "JO") || options[0]);
+                setCountry(defaultCountry);
                 return;
             }
             if (!number.startsWith("+") && number.startsWith("962")) {
@@ -334,8 +341,11 @@
                 displayInternationalNumber(number, matchingCountry);
                 return;
             }
-            setCountry(options.find((option) => option.dataset.countryCode === "JO") || options[0]);
-            input.value = number;
+            setCountry(defaultCountry);
+            input.value = stripDomesticPrefix(
+                number,
+                defaultCountry.dataset.countryNationalPrefix || ""
+            );
         };
 
         const showAllOptions = () => {
@@ -360,6 +370,10 @@
 
         const chooseOption = (option) => {
             setCountry(option);
+            input.value = stripDomesticPrefix(
+                compactNumber(input.value),
+                option.dataset.countryNationalPrefix || ""
+            );
             closeControl(control, { restoreFocus: true });
             input.focus({ preventScroll: true });
         };
@@ -429,33 +443,36 @@
             if (matchingCountry) {
                 displayInternationalNumber(number, matchingCountry);
             } else {
-                input.value = number;
+                input.value = stripDomesticPrefix(
+                    number,
+                    control.dataset.bookingNationalPrefix || ""
+                );
             }
         });
 
         control.bookingComposeNumber = () => {
             let number = compactNumber(input.value);
             if (!number) {
-                input.value = "";
-                return;
+                return "";
             }
 
+            let selectedDial = control.dataset.bookingDialCode || control.dataset.bookingDefaultDialCode;
+            let domesticPrefix = control.dataset.bookingNationalPrefix || "";
             if (number.startsWith("+")) {
                 const matchingCountry = findCountry(number);
                 if (!matchingCountry) {
-                    input.value = number;
-                    return;
+                    return number;
                 }
-                setCountry(matchingCountry);
+                selectedDial = matchingCountry.dataset.countryDial;
+                domesticPrefix = matchingCountry.dataset.countryNationalPrefix || "";
                 number = number.slice(matchingCountry.dataset.countryDial.length);
             }
 
-            const selectedDial = control.dataset.bookingDialCode || control.dataset.bookingDefaultDialCode;
-            const nationalPrefix = control.dataset.bookingNationalPrefix || "";
-            const normalizedLocalNumber = nationalPrefix && number.startsWith(nationalPrefix)
-                ? number.slice(nationalPrefix.length)
-                : number;
-            input.value = `${selectedDial}${normalizedLocalNumber}`;
+            const normalizedLocalNumber = stripDomesticPrefix(
+                number,
+                domesticPrefix
+            );
+            return `${selectedDial}${normalizedLocalNumber}`;
         };
 
         parseInitialValue();
@@ -499,11 +516,15 @@
         }
     });
 
-    form.addEventListener("submit", () => {
+    form.addEventListener("formdata", (event) => {
         controls.forEach((control) => {
-            const isDisabled = control.querySelector("input")?.disabled;
-            if (!isDisabled && typeof control.bookingComposeNumber === "function") {
-                control.bookingComposeNumber();
+            const input = control.querySelector("input[type='text'], input[type='tel']");
+            if (
+                input?.name
+                && !input.disabled
+                && typeof control.bookingComposeNumber === "function"
+            ) {
+                event.formData.set(input.name, control.bookingComposeNumber());
             }
         });
     });

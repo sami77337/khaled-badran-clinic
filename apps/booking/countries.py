@@ -1,10 +1,14 @@
 """Local metadata for the progressively enhanced public-booking phone selector."""
 
 
+# Row fields: ISO code, dial code, English name, Arabic name, domestic-format
+# example, and a known domestic prefix that is safe to strip. The public
+# ``example`` value is derived below as a national subscriber number, because
+# the selector renders the international dial code separately.
 _COUNTRY_ROWS = """
-JO|+962|Jordan|الأردن|07XXXXXXXX|0
+JO|+962|Jordan|الأردن|079XXXXXXX|0
 SA|+966|Saudi Arabia|السعودية|05XXXXXXXX|0
-AE|+971|United Arab Emirates|الإمارات العربية المتحدة|05X XXX XXXX|0
+AE|+971|United Arab Emirates|الإمارات العربية المتحدة|05XXXXXXXX|0
 PS|+970|Palestine|فلسطين|05X XXX XXXX|0
 BH|+973|Bahrain|البحرين|3XXX XXXX|
 EG|+20|Egypt|مصر|01X XXXX XXXX|0
@@ -167,7 +171,7 @@ MV|+960|Maldives|المالديف|7XX XXXX|
 MW|+265|Malawi|ملاوي|099X XX XX XX|0
 MX|+52|Mexico|المكسيك|55 XXXX XXXX|
 MY|+60|Malaysia|ماليزيا|01X XXX XXXX|0
-MZ|+258|Mozambique|موزمبيق|08X XXX XXXX|0
+MZ|+258|Mozambique|موزمبيق|8X XXX XXXX|0
 NA|+264|Namibia|ناميبيا|081 XXX XXXX|0
 NC|+687|New Caledonia|كاليدونيا الجديدة|7X XX XX|
 NE|+227|Niger|النيجر|9X XX XX XX|
@@ -220,7 +224,7 @@ TD|+235|Chad|تشاد|6X XX XX XX|
 TF|+262|French Southern Territories|الأقاليم الجنوبية الفرنسية|0262 XX XX XX|0
 TG|+228|Togo|توغو|9X XX XX XX|
 TH|+66|Thailand|تايلاند|08X XXX XXXX|0
-TJ|+992|Tajikistan|طاجيكستان|09X XXX XXXX|0
+TJ|+992|Tajikistan|طاجيكستان|9X XXX XXXX|0
 TK|+690|Tokelau|توكيلاو|7XXX|
 TL|+670|Timor-Leste|تيمور الشرقية|7XX XXXX|
 TM|+993|Turkmenistan|تركمانستان|06X XXXXXX|0
@@ -234,7 +238,7 @@ UA|+380|Ukraine|أوكرانيا|0XX XXX XX XX|0
 UG|+256|Uganda|أوغندا|07XX XXX XXX|0
 US|+1|United States|الولايات المتحدة|202 555 0123|
 UY|+598|Uruguay|أوروغواي|09X XXX XXX|0
-UZ|+998|Uzbekistan|أوزبكستان|09X XXX XX XX|0
+UZ|+998|Uzbekistan|أوزبكستان|9X XXX XX XX|0
 VA|+39|Vatican City|الفاتيكان|06 698 XXXXX|
 VC|+1|Saint Vincent and the Grenadines|سانت فنسنت والغرينادين|784 430 1234|
 VE|+58|Venezuela|فنزويلا|04XX XXX XXXX|0
@@ -256,6 +260,75 @@ def _flag_for(country_code):
     return "".join(chr(127397 + ord(character)) for character in country_code)
 
 
+_DOMESTIC_PREFIX_OVERRIDES = {
+    "AG": "1",
+    "AI": "1",
+    "AR": "0",
+    "AS": "1",
+    "BB": "1",
+    "BM": "1",
+    "BO": "0",
+    "BR": "0",
+    "BS": "1",
+    "CA": "1",
+    "CG": "",
+    "CI": "",
+    "CN": "0",
+    "CO": "0",
+    "CU": "0",
+    "DM": "1",
+    "DO": "1",
+    "GA": "",
+    "GD": "1",
+    "GE": "0",
+    "GU": "1",
+    "IN": "0",
+    "JM": "1",
+    "KI": "0",
+    "KN": "1",
+    "KY": "1",
+    "LC": "1",
+    "LI": "0",
+    "MH": "1",
+    "MN": "0",
+    "MP": "1",
+    "MS": "1",
+    "MZ": "",
+    "NP": "0",
+    "PE": "0",
+    "PR": "1",
+    "SO": "0",
+    "SX": "1",
+    "TC": "1",
+    "TJ": "",
+    "TT": "1",
+    "US": "1",
+    "UZ": "",
+    "VC": "1",
+    "VG": "1",
+    "VI": "1",
+    "YE": "0",
+}
+
+
+def _domestic_prefix(country_code, stored_prefix):
+    return _DOMESTIC_PREFIX_OVERRIDES.get(country_code, stored_prefix)
+
+
+def _national_number_example(domestic_example, domestic_prefix):
+    if not domestic_prefix:
+        return domestic_example
+
+    position = 0
+    for prefix_character in domestic_prefix:
+        while position < len(domestic_example) and domestic_example[position] in " -()./":
+            position += 1
+        if position >= len(domestic_example) or domestic_example[position] != prefix_character:
+            return domestic_example
+        position += 1
+    return domestic_example[position:].lstrip(" -()./")
+
+
 INTERNATIONAL_PHONE_COUNTRIES = tuple(
     {
         "code": code,
@@ -263,8 +336,11 @@ INTERNATIONAL_PHONE_COUNTRIES = tuple(
         "flag": _flag_for(code),
         "name_en": name_en,
         "name_ar": name_ar,
-        "example": example,
-        "national_prefix": national_prefix,
+        "example": _national_number_example(
+            example,
+            _domestic_prefix(code, national_prefix),
+        ),
+        "national_prefix": _domestic_prefix(code, national_prefix),
     }
     for code, dial_code, name_en, name_ar, example, national_prefix in (
         row.split("|") for row in _COUNTRY_ROWS

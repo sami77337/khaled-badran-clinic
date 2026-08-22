@@ -1431,13 +1431,13 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
                     count=len(INTERNATIONAL_PHONE_COUNTRIES) * 2,
                 )
                 self.assertContains(response, 'data-booking-default-dial-code="+962"', count=2)
-                self.assertContains(response, 'placeholder="07XXXXXXXX"', count=2)
+                self.assertContains(response, 'placeholder="79XXXXXXX"', count=2)
                 self.assertNotContains(response, "+962…")
                 self.assertNotContains(response, "or +962")
                 self.assertNotContains(response, "أو +962")
                 self.assertContains(response, 'data-country-code="JO"', count=2)
-                self.assertContains(response, 'data-country-example="07XXXXXXXX"', count=2)
-                self.assertContains(response, 'data-country-example="05XXXXXXXX"', count=2)
+                self.assertContains(response, 'data-country-example="79XXXXXXX"', count=2)
+                self.assertContains(response, 'data-country-example="5XXXXXXXX"', count=4)
                 for dial_code in (
                     "+962",
                     "+966",
@@ -1508,33 +1508,66 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
             "[name='same_as_phone']",
             "[name='whatsapp_phone']",
             "bookingComposeNumber",
+            'form.addEventListener("formdata"',
+            "event.formData.set(input.name, control.bookingComposeNumber())",
             "bookingDialCode",
             "bookingNationalPrefix",
+            "stripDomesticPrefix",
+            "number.slice(matchingCountry.dataset.countryDial.length)",
             "whatsappField.hidden = isSame",
         ):
             with self.subTest(contract_hook=contract_hook):
                 self.assertIn(contract_hook, script_source)
+        self.assertNotIn("input.value = `${selectedDial}", script_source)
+
+        phone_field_template = (
+            Path(__file__).resolve().parents[2]
+            / "templates"
+            / "booking"
+            / "partials"
+            / "international_phone_field.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Formatting example", phone_field_template)
+        self.assertIn("مثال للتنسيق", phone_field_template)
+        self.assertNotIn("valid format", phone_field_template.lower())
+        self.assertNotIn("تنسيق صالح", phone_field_template)
 
     def test_international_phone_metadata_is_expanded_local_and_jordan_first(self):
         self.assertGreaterEqual(len(INTERNATIONAL_PHONE_COUNTRIES), 240)
         self.assertEqual(INTERNATIONAL_PHONE_COUNTRIES[0]["code"], "JO")
         self.assertEqual(INTERNATIONAL_PHONE_COUNTRIES[0]["dial_code"], "+962")
-        self.assertEqual(INTERNATIONAL_PHONE_COUNTRIES[0]["example"], "07XXXXXXXX")
+        self.assertEqual(INTERNATIONAL_PHONE_COUNTRIES[0]["example"], "79XXXXXXX")
+        self.assertEqual(INTERNATIONAL_PHONE_COUNTRIES[0]["national_prefix"], "0")
 
         countries_by_code = {
             country["code"]: country for country in INTERNATIONAL_PHONE_COUNTRIES
         }
         self.assertEqual(len(countries_by_code), len(INTERNATIONAL_PHONE_COUNTRIES))
-        self.assertEqual(countries_by_code["SA"]["example"], "05XXXXXXXX")
-        for country_code in ("AE", "AU", "BR", "CA", "CN", "DE", "FR", "GB", "IN", "JP", "US", "ZA"):
-            with self.subTest(country_code=country_code):
-                country = countries_by_code[country_code]
+        self.assertEqual(countries_by_code["SA"]["example"], "5XXXXXXXX")
+        self.assertEqual(countries_by_code["SA"]["national_prefix"], "0")
+        self.assertEqual(countries_by_code["AE"]["example"], "5XXXXXXXX")
+        self.assertEqual(countries_by_code["AE"]["national_prefix"], "0")
+        self.assertEqual(countries_by_code["GB"]["example"], "7XXX XXXXXX")
+        self.assertEqual(countries_by_code["GB"]["national_prefix"], "0")
+        self.assertEqual(countries_by_code["US"]["national_prefix"], "1")
+        for country in INTERNATIONAL_PHONE_COUNTRIES:
+            with self.subTest(country_code=country["code"]):
                 self.assertTrue(country["flag"])
                 self.assertTrue(country["name_ar"])
                 self.assertTrue(country["name_en"])
                 self.assertTrue(country["dial_code"].startswith("+"))
                 self.assertTrue(country["example"])
                 self.assertFalse(country["example"].startswith("+"))
+                compact_example = "".join(
+                    character
+                    for character in country["example"]
+                    if character not in " -()./"
+                )
+                if country["national_prefix"]:
+                    self.assertFalse(
+                        compact_example.startswith(country["national_prefix"]),
+                        msg=f'{country["code"]} example still contains its domestic prefix',
+                    )
 
     def test_booking_internal_warning_boxes_are_removed_but_global_policy_remains(self):
         templates_root = Path(__file__).resolve().parents[2] / "templates" / "booking"
