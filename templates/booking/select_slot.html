@@ -19,12 +19,12 @@
         <div class="booking-card" data-booking-card>
             <div class="booking-panel">
                 <a class="booking-back-link" href="{{ visit_type_url }}?visit_type={{ visit_type.id }}" data-booking-back>
-                    <span aria-hidden="true">{% if is_arabic %}→{% else %}←{% endif %}</span>
+                    <span class="booking-icon-arrow booking-icon-arrow-back" aria-hidden="true"></span>
                     {% if is_arabic %}رجوع{% else %}Back{% endif %}
                 </a>
 
                 <div class="booking-selection-summary is-selected" data-booking-selected-service>
-                    <span class="booking-selection-marker" aria-hidden="true">✓</span>
+                    <span class="booking-selection-marker" aria-hidden="true"><span class="booking-icon-check"></span></span>
                     <div class="booking-selection-copy">
                         <p class="booking-selection-value">{% if is_arabic %}{{ visit_type.name_ar }}{% else %}{{ visit_type.name_en }}{% endif %}</p>
                         <p class="booking-selection-duration" dir="{% if is_arabic %}rtl{% else %}ltr{% endif %}">
@@ -60,7 +60,7 @@
                                     {% for slot in group.slots %}
                                         <a class="booking-slot-button{% if selected_slot.value == slot.value %} is-selected{% endif %}" href="{{ slots_url }}?visit_type={{ visit_type.id }}&amp;date={{ group.date|date:'Y-m-d' }}&amp;starts_at={{ slot.value|urlencode }}" data-booking-slot data-booking-slot-value="{{ slot.value }}"{% if selected_slot.value == slot.value %} data-booking-selected-time aria-current="time"{% endif %}>
                                             <time datetime="{{ slot.value }}" dir="ltr">{{ slot.local_time|time:"H:i" }}</time>
-                                            <span class="booking-slot-check" aria-hidden="true"{% if selected_slot.value != slot.value %} hidden{% endif %}>✓</span>
+                                            <span class="booking-slot-check" aria-hidden="true"{% if selected_slot.value != slot.value %} hidden{% endif %}><span class="booking-icon-check"></span></span>
                                         </a>
                                     {% endfor %}
                                 </div>
@@ -72,12 +72,12 @@
                         {% if selected_slot %}
                             <a class="booking-primary-action booking-continue-action" href="{{ confirm_url }}?visit_type={{ visit_type.id }}&amp;starts_at={{ selected_slot.value|urlencode }}" data-booking-slot-continue>
                                 <span>{% if is_arabic %}متابعة{% else %}Continue{% endif %}</span>
-                                <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                                <span class="booking-icon-arrow booking-icon-arrow-forward" aria-hidden="true"></span>
                             </a>
                         {% else %}
                             <span class="booking-primary-action booking-continue-action is-disabled" aria-disabled="true" data-booking-slot-continue>
                                 <span>{% if is_arabic %}متابعة{% else %}Continue{% endif %}</span>
-                                <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                                <span class="booking-icon-arrow booking-icon-arrow-forward" aria-hidden="true"></span>
                             </span>
                         {% endif %}
                     </div>

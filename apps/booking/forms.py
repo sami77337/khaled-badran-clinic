@@ -101,7 +101,7 @@ class PublicBookingForm(forms.Form):
                 "autocomplete": "tel",
                 "inputmode": "tel",
                 "dir": "ltr",
-                "placeholder": "79XXXXXXX",
+                "placeholder": "7XXXXXXXX",
             }
         )
         self.fields["whatsapp_phone"].widget.attrs.update(
@@ -110,7 +110,7 @@ class PublicBookingForm(forms.Form):
                 "autocomplete": "tel",
                 "inputmode": "tel",
                 "dir": "ltr",
-                "placeholder": "79XXXXXXX",
+                "placeholder": "7XXXXXXXX",
             }
         )
         self.fields["booking_note"].widget.attrs.update(

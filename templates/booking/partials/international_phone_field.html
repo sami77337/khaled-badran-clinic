@@ -17,13 +17,13 @@
         >
             <span class="booking-country-flag" aria-hidden="true" data-booking-country-flag>🇯🇴</span>
             <span class="booking-country-dial" dir="ltr" data-booking-country-dial>+962</span>
-            <span class="booking-country-chevron" aria-hidden="true">⌄</span>
+            <span class="booking-icon-chevron booking-country-chevron" aria-hidden="true"></span>
         </button>
         {{ field }}
     </div>
 
     <p class="booking-phone-hint" id="booking-phone-hint-{{ control_key }}" data-booking-phone-hint>
-        {% if is_arabic %}مثال للتنسيق: 79XXXXXXX{% else %}Formatting example: 79XXXXXXX{% endif %}
+        {% if is_arabic %}مثال للتنسيق: 7XXXXXXXX{% else %}Formatting example: 7XXXXXXXX{% endif %}
     </p>
 
     <div class="booking-country-menu" data-booking-country-menu hidden>

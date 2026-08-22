@@ -37,7 +37,7 @@
                             <span class="booking-visit-more-label booking-visit-more-label-close">
                                 {% if is_arabic %}عرض أقل{% else %}Show less{% endif %}
                             </span>
-                            <span class="booking-visit-more-chevron" aria-hidden="true">⌄</span>
+                            <span class="booking-icon-chevron booking-visit-more-chevron" aria-hidden="true"></span>
                         </summary>
                         <div class="booking-visit-type-list booking-visit-type-list-more" role="list" data-booking-additional-services>
                             {% for visit_type in remaining_visit_types %}
@@ -51,12 +51,12 @@
                     {% if selected_visit_type %}
                         <a class="booking-primary-action booking-continue-action" href="{{ slots_url }}?visit_type={{ selected_visit_type.id }}" data-booking-continue>
                             <span>{% if is_arabic %}متابعة{% else %}Continue{% endif %}</span>
-                            <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                            <span class="booking-icon-arrow booking-icon-arrow-forward" aria-hidden="true"></span>
                         </a>
                     {% else %}
                         <span class="booking-primary-action booking-continue-action is-disabled" aria-disabled="true" data-booking-continue>
                             <span>{% if is_arabic %}متابعة{% else %}Continue{% endif %}</span>
-                            <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                            <span class="booking-icon-arrow booking-icon-arrow-forward" aria-hidden="true"></span>
                         </span>
                     {% endif %}
                 </div>

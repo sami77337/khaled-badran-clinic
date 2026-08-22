@@ -95,10 +95,6 @@
                         } else {
                             candidate.removeAttribute("aria-current");
                         }
-                        const marker = candidate.querySelector(".booking-visit-action");
-                        if (marker) {
-                            marker.textContent = isSelected ? "✓" : "";
-                        }
                     });
 
                     if (moreControl && additionalServices?.contains(option)) {

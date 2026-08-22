@@ -6,7 +6,7 @@
 # ``example`` value is derived below as a national subscriber number, because
 # the selector renders the international dial code separately.
 _COUNTRY_ROWS = """
-JO|+962|Jordan|الأردن|079XXXXXXX|0
+JO|+962|Jordan|الأردن|07XXXXXXXX|0
 SA|+966|Saudi Arabia|السعودية|05XXXXXXXX|0
 AE|+971|United Arab Emirates|الإمارات العربية المتحدة|05XXXXXXXX|0
 PS|+970|Palestine|فلسطين|05X XXX XXXX|0

@@ -1431,12 +1431,12 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
                     count=len(INTERNATIONAL_PHONE_COUNTRIES) * 2,
                 )
                 self.assertContains(response, 'data-booking-default-dial-code="+962"', count=2)
-                self.assertContains(response, 'placeholder="79XXXXXXX"', count=2)
+                self.assertContains(response, 'placeholder="7XXXXXXXX"', count=2)
                 self.assertNotContains(response, "+962…")
                 self.assertNotContains(response, "or +962")
                 self.assertNotContains(response, "أو +962")
                 self.assertContains(response, 'data-country-code="JO"', count=2)
-                self.assertContains(response, 'data-country-example="79XXXXXXX"', count=2)
+                self.assertContains(response, 'data-country-example="7XXXXXXXX"', count=2)
                 self.assertContains(response, 'data-country-example="5XXXXXXXX"', count=4)
                 for dial_code in (
                     "+962",
@@ -1536,7 +1536,7 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
         self.assertGreaterEqual(len(INTERNATIONAL_PHONE_COUNTRIES), 240)
         self.assertEqual(INTERNATIONAL_PHONE_COUNTRIES[0]["code"], "JO")
         self.assertEqual(INTERNATIONAL_PHONE_COUNTRIES[0]["dial_code"], "+962")
-        self.assertEqual(INTERNATIONAL_PHONE_COUNTRIES[0]["example"], "79XXXXXXX")
+        self.assertEqual(INTERNATIONAL_PHONE_COUNTRIES[0]["example"], "7XXXXXXXX")
         self.assertEqual(INTERNATIONAL_PHONE_COUNTRIES[0]["national_prefix"], "0")
 
         countries_by_code = {
@@ -1859,6 +1859,16 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
         for rule in required_rules:
             with self.subTest(rule=rule):
                 self.assertIn(rule, stylesheet)
+        for micro_ui_rule in (
+            ".page-booking .booking-icon-arrow",
+            ".page-booking .booking-icon-chevron",
+            ".page-booking .booking-icon-check",
+            ".page-booking .booking-summary-separator",
+            ".page-booking .booking-success-details > div + div",
+            "--color-control-line",
+        ):
+            with self.subTest(micro_ui_rule=micro_ui_rule):
+                self.assertIn(micro_ui_rule, stylesheet)
         self.assertNotIn("grid-template-columns: repeat(4, minmax(0, 1fr))", stylesheet)
         self.assertNotIn("position: fixed", stylesheet)
 

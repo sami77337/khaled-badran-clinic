@@ -19,7 +19,7 @@
         <div class="booking-card" data-booking-card data-booking-review>
             <div class="booking-panel">
                 <a class="booking-back-link" href="{{ slots_url }}?visit_type={{ visit_type.id }}&amp;date={{ slot_display|date:'Y-m-d' }}&amp;starts_at={{ starts_at|urlencode }}" data-booking-back>
-                    <span aria-hidden="true">{% if is_arabic %}→{% else %}←{% endif %}</span>
+                    <span class="booking-icon-arrow booking-icon-arrow-back" aria-hidden="true"></span>
                     {% if is_arabic %}رجوع{% else %}Back{% endif %}
                 </a>
 
@@ -30,7 +30,7 @@
                         </p>
                         <time class="booking-appointment-time" datetime="{{ slot_display|date:'c' }}">
                             <span>{% if is_arabic %}{{ slot_display|date:"l، j F Y" }}{% else %}{{ slot_display|date:"l, j F Y" }}{% endif %}</span>
-                            <span class="booking-summary-separator" aria-hidden="true">·</span>
+                            <span class="booking-summary-separator" aria-hidden="true"></span>
                             <span dir="ltr">{{ slot_display|time:"H:i" }}</span>
                         </time>
                     </div>
