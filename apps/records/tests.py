@@ -387,7 +387,7 @@ class PatientRecordFoundationTests(PatientRecordTestDataMixin, TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("admin:login"), response["Location"])
+        self.assertIn(f"{reverse('login')}?role=doctor&next=", response["Location"])
 
     def test_normal_non_staff_user_cannot_download_private_media(self):
         media = self.create_record_media()

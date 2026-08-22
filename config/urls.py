@@ -11,6 +11,7 @@ from apps.patients import views as patient_views
 
 urlpatterns = [
     path("", views.home, {"language": "ar"}, name="home"),
+    path("login/", patient_views.portal_login, {"language": "ar"}, name="login"),
     path("doctor/", views.doctor_profile, {"language": "ar"}, name="doctor"),
     path("services/", views.services, {"language": "ar"}, name="services"),
     path("cases/", views.public_cases, {"language": "ar"}, name="public_cases"),
@@ -62,6 +63,7 @@ urlpatterns = [
         name="whatsapp_policy",
     ),
     path("en/", views.home, {"language": "en"}, name="home_en"),
+    path("en/login/", patient_views.portal_login, {"language": "en"}, name="login_en"),
     path("en/doctor/", views.doctor_profile, {"language": "en"}, name="doctor_en"),
     path("en/services/", views.services, {"language": "en"}, name="services_en"),
     path("en/cases/", views.public_cases, {"language": "en"}, name="public_cases_en"),

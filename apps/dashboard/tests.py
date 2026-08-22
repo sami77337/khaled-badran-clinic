@@ -155,7 +155,7 @@ class DashboardRecordAccessTests(DashboardRecordWorkflowMixin, TestCase):
         response = self.client.get(reverse("dashboard_patient_list"))
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("admin:login"), response["Location"])
+        self.assertIn(f"{reverse('login')}?role=doctor&next=", response["Location"])
 
     def test_authenticated_non_staff_gets_403_for_dashboard_patient_list(self):
         self.client.force_login(self.normal_user)
@@ -180,7 +180,7 @@ class DashboardRecordAccessTests(DashboardRecordWorkflowMixin, TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("admin:login"), response["Location"])
+        self.assertIn(f"{reverse('login')}?role=doctor&next=", response["Location"])
 
     def test_non_staff_cannot_access_patient_record_detail(self):
         self.client.force_login(self.normal_user)
@@ -738,7 +738,7 @@ class DashboardRegressionTests(DashboardRecordWorkflowMixin, TestCase):
         )
 
         self.assertEqual(anonymous_response.status_code, 302)
-        self.assertIn(reverse("admin:login"), anonymous_response["Location"])
+        self.assertIn(f"{reverse('login')}?role=doctor&next=", anonymous_response["Location"])
         self.assertEqual(normal_response.status_code, 403)
 
     def test_records_root_upload_whatsapp_and_payment_routes_remain_absent(self):

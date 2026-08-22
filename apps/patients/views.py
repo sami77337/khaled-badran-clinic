@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 from django.contrib import messages
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
@@ -13,10 +15,16 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_GET
 
+from apps.booking.countries import INTERNATIONAL_PHONE_COUNTRIES
 from apps.booking.models import Appointment
 from apps.core.views import _base_context
 from apps.patients import rate_limits, services
-from apps.patients.forms import AppointmentLinkForm, PatientLoginForm, PatientRegistrationForm
+from apps.patients.forms import (
+    AppointmentLinkForm,
+    PatientLoginForm,
+    PatientRegistrationForm,
+    StaffLoginForm,
+)
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
 
 
@@ -30,6 +38,17 @@ def _route_name(name, language):
 
 def _portal_url(name, language, **kwargs):
     return reverse(_route_name(name, language), kwargs=kwargs or None)
+
+
+def _login_url(language):
+    return reverse(_route_name("login", language))
+
+
+def _login_url_with_query(language, *, role, next_url=""):
+    query = {"role": role}
+    if next_url:
+        query["next"] = next_url
+    return f"{_login_url(language)}?{urlencode(query)}"
 
 
 def _safe_next_url(request):
@@ -74,7 +93,7 @@ def _portal_context(request, language, **extra):
         {
             "page_key": "patient_portal",
             "portal_dashboard_url": _portal_url("patient_portal_dashboard", language),
-            "portal_login_url": _portal_url("patient_portal_login", language),
+            "portal_login_url": _login_url(language),
             "portal_logout_url": _portal_url("patient_portal_logout", language),
             "portal_register_url": _portal_url("patient_portal_register", language),
             "portal_link_url": _portal_url("patient_portal_link_appointment", language),
@@ -130,7 +149,7 @@ def _login_required(view_func):
         if not request.user.is_authenticated:
             return redirect_to_login(
                 request.get_full_path(),
-                login_url=_portal_url("patient_portal_login", language),
+                login_url=_login_url_with_query(language, role="patient"),
             )
         return view_func(request, *args, **kwargs)
 
@@ -191,28 +210,75 @@ def portal_login(request, language="ar"):
     language = _language(language)
     next_url = _safe_next_url(request)
     if request.user.is_authenticated:
-        return redirect(next_url or _portal_url("patient_portal_dashboard", language))
+        if request.user.is_staff:
+            return redirect("dashboard_patient_list")
+        return redirect(_portal_url("patient_portal_dashboard", language))
+
+    requested_role = request.POST.get("role") if request.method == "POST" else request.GET.get("role")
+    selected_role = "doctor" if requested_role == "doctor" else "patient"
+
+    patient_form = PatientLoginForm(request=request, language=language)
+    doctor_form = StaffLoginForm(request=request, language=language)
 
     if request.method == "POST":
-        form = PatientLoginForm(request.POST, request=request, language=language)
-        normalized_phone = rate_limits.normalized_phone_or_empty(request.POST.get("phone"))
-        attempt_limit = rate_limits.check_login_attempt_rate_limit(
-            request,
-            normalized_phone=normalized_phone,
-        )
-        form_valid = form.is_valid()
-        if not attempt_limit.allowed:
-            form.add_error(None, attempt_limit.message)
-        elif form_valid:
-            auth_login(request, form.user)
-            return redirect(next_url or _portal_url("patient_portal_dashboard", language))
-    else:
-        form = PatientLoginForm(request=request, language=language)
+        if selected_role == "doctor":
+            doctor_form = StaffLoginForm(request.POST, request=request, language=language)
+            if doctor_form.is_valid():
+                auth_login(request, doctor_form.user)
+                return redirect(next_url or reverse("dashboard_patient_list"))
+        else:
+            patient_form = PatientLoginForm(request.POST, request=request, language=language)
+            normalized_phone = rate_limits.normalized_phone_or_empty(request.POST.get("phone"))
+            attempt_limit = rate_limits.check_login_attempt_rate_limit(
+                request,
+                normalized_phone=normalized_phone,
+            )
+            form_valid = patient_form.is_valid()
+            if not attempt_limit.allowed:
+                patient_form.add_error(None, attempt_limit.message)
+            elif form_valid:
+                auth_login(request, patient_form.user)
+                return redirect(next_url or _portal_url("patient_portal_dashboard", language))
+
+    login_url = _login_url(language)
+    alternate_language = "en" if language == "ar" else "ar"
+    active_form = doctor_form if selected_role == "doctor" else patient_form
+    context = _portal_context(request, language)
+    clinic_name = context["clinic"]["name_ar" if language == "ar" else "name_en"]
+    context.update(
+        {
+            "page_key": "login",
+            "page_title": (
+                f"تسجيل الدخول | {clinic_name}" if language == "ar" else f"Sign in | {clinic_name}"
+            ),
+            "meta_description": (
+                "تسجيل دخول آمن للمرضى وأطباء العيادة."
+                if language == "ar"
+                else "Secure sign in for clinic patients and doctors."
+            ),
+            "canonical_url": request.build_absolute_uri(login_url),
+            "login_url": login_url,
+            "portal_login_url": login_url,
+            "selected_role": selected_role,
+            "patient_form": patient_form,
+            "doctor_form": doctor_form,
+            "form": active_form,
+            "next_url": next_url,
+            "patient_role_url": _login_url_with_query(language, role="patient", next_url=next_url),
+            "doctor_role_url": _login_url_with_query(language, role="doctor", next_url=next_url),
+            "auth_language_url": _login_url_with_query(
+                alternate_language,
+                role=selected_role,
+                next_url=next_url,
+            ),
+            "phone_countries": INTERNATIONAL_PHONE_COUNTRIES,
+        }
+    )
 
     return render(
         request,
         "patients/portal_login.html",
-        _portal_context(request, language, form=form, next_url=next_url),
+        context,
     )
 
 
@@ -255,7 +321,7 @@ def portal_logout(request, language="ar"):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
     auth_logout(request)
-    return redirect(_portal_url("patient_portal_login", language))
+    return redirect(_login_url(language))
 
 
 @_login_required

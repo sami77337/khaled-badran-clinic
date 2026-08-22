@@ -1,0 +1,698 @@
+:root {
+    --auth-burgundy: #7B3F3B;
+    --auth-burgundy-deep: #63302E;
+    --auth-wood: #675A4F;
+    --auth-ink: #2E2926;
+    --auth-muted: #6F655E;
+    --auth-line: #DED6CC;
+    --auth-soft-line: #EAE4DC;
+    --auth-ivory: #F8F5EF;
+    --auth-paper: #FFFFFF;
+    --auth-error: #8B302D;
+}
+
+html {
+    background: var(--auth-ivory);
+}
+
+body.auth-shell {
+    min-width: 0;
+    background:
+        radial-gradient(circle at 50% 18%, rgba(199, 182, 162, 0.16), transparent 28rem),
+        var(--auth-ivory);
+    color: var(--auth-ink);
+    font-size: 16px;
+    line-height: 1.55;
+}
+
+.auth-shell *,
+.auth-shell *::before,
+.auth-shell *::after {
+    box-sizing: border-box;
+}
+
+.auth-header {
+    border-bottom: 1px solid rgba(103, 90, 79, 0.15);
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 1px 0 rgba(46, 41, 38, 0.02);
+}
+
+.auth-header-inner {
+    display: flex;
+    width: calc(100% - 2rem);
+    max-width: 72rem;
+    min-width: 0;
+    min-height: 4rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-inline: auto;
+}
+
+.auth-back-link,
+.auth-language-switch {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: 0.75rem;
+    color: var(--auth-wood);
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.3;
+    padding: 0.55rem 0.65rem;
+    transition: color 150ms ease, background-color 150ms ease;
+}
+
+.auth-back-link:hover,
+.auth-language-switch:hover {
+    background: rgba(123, 63, 59, 0.06);
+    color: var(--auth-burgundy);
+}
+
+.auth-back-link:focus-visible,
+.auth-language-switch:focus-visible,
+.auth-role-tab:focus-visible,
+.auth-submit:focus-visible,
+.auth-password-toggle:focus-visible,
+.auth-shell .booking-country-trigger:focus-visible,
+.auth-shell .booking-country-search:focus-visible,
+.auth-shell [data-booking-country-option]:focus-visible {
+    outline: 3px solid rgba(123, 63, 59, 0.23);
+    outline-offset: 2px;
+}
+
+.auth-back-icon,
+.auth-language-switch svg {
+    width: 1.08rem;
+    height: 1.08rem;
+    flex: 0 0 auto;
+}
+
+.is-rtl .auth-back-icon,
+.is-rtl .auth-submit-arrow {
+    transform: scaleX(-1);
+}
+
+.auth-main {
+    min-width: 0;
+}
+
+.auth-page {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    min-height: calc(100vh - 4.05rem);
+    min-height: calc(100svh - 4.05rem);
+    place-items: center;
+    padding: clamp(1.25rem, 4vw, 3.25rem) 1rem;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 31.5rem;
+    min-width: 0;
+    border: 1px solid rgba(103, 90, 79, 0.16);
+    border-radius: 1.5rem;
+    background: var(--auth-paper);
+    box-shadow: 0 1.25rem 3.5rem rgba(57, 44, 38, 0.09), 0 0.2rem 0.8rem rgba(57, 44, 38, 0.04);
+    padding: clamp(1.35rem, 5vw, 2.25rem);
+}
+
+.auth-identity {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    color: var(--auth-wood);
+}
+
+.auth-monogram {
+    display: inline-grid;
+    width: 2.35rem;
+    height: 2.35rem;
+    flex: 0 0 2.35rem;
+    place-items: center;
+    border: 1px solid rgba(123, 63, 59, 0.28);
+    border-radius: 0.72rem;
+    background: #FBF7F3;
+    color: var(--auth-burgundy);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+
+.auth-clinic-name {
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.auth-secure-badge {
+    display: flex;
+    width: max-content;
+    max-width: 100%;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 1.2rem auto 0;
+    border: 1px solid rgba(123, 63, 59, 0.14);
+    border-radius: 999px;
+    background: rgba(123, 63, 59, 0.055);
+    color: var(--auth-burgundy);
+    font-size: 0.79rem;
+    font-weight: 700;
+    line-height: 1.35;
+    padding: 0.38rem 0.7rem;
+}
+
+.auth-secure-badge svg {
+    width: 1rem;
+    height: 1rem;
+    flex: 0 0 auto;
+}
+
+.auth-heading {
+    margin: 1.15rem auto 1.3rem;
+    text-align: center;
+}
+
+.auth-heading h1 {
+    margin: 0;
+    color: var(--auth-ink);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(1.8rem, 8vw, 2.25rem);
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    line-height: 1.16;
+}
+
+.is-rtl .auth-heading h1 {
+    font-family: Tahoma, Arial, sans-serif;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+.auth-heading p {
+    margin: 0.5rem 0 0;
+    color: var(--auth-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.6;
+}
+
+.auth-role-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem;
+    border: 1px solid var(--auth-soft-line);
+    border-radius: 0.85rem;
+    background: #F6F2ED;
+    padding: 0.25rem;
+}
+
+.auth-role-tab {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 0.66rem;
+    color: var(--auth-muted);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.3;
+    padding: 0.55rem 0.7rem;
+    transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.auth-role-tab:hover {
+    color: var(--auth-burgundy);
+}
+
+.auth-role-tab.is-selected,
+.auth-role-tab[aria-selected="true"] {
+    border-color: rgba(103, 90, 79, 0.13);
+    background: var(--auth-paper);
+    color: var(--auth-burgundy);
+    box-shadow: 0 0.15rem 0.5rem rgba(57, 44, 38, 0.07);
+}
+
+.auth-role-panel[hidden],
+.auth-shell [hidden] {
+    display: none !important;
+}
+
+.auth-form {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1.35rem;
+}
+
+.auth-field {
+    display: grid;
+    min-width: 0;
+    gap: 0.42rem;
+}
+
+.auth-field > label {
+    color: var(--auth-wood);
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.auth-field > input,
+.auth-password-control > input,
+.auth-shell .booking-phone-row > input,
+.auth-shell .booking-country-search {
+    width: 100%;
+    min-width: 0;
+    min-height: 3rem;
+    border: 1px solid var(--auth-line);
+    border-radius: 0.78rem;
+    background: var(--auth-paper);
+    color: var(--auth-ink);
+    font: inherit;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    padding: 0.72rem 0.88rem;
+    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.auth-field > input:hover,
+.auth-password-control > input:hover,
+.auth-shell .booking-phone-row:hover,
+.auth-shell .booking-country-search:hover {
+    border-color: #C8BDB1;
+}
+
+.auth-field > input:focus,
+.auth-password-control > input:focus,
+.auth-shell .booking-phone-row:focus-within,
+.auth-shell .booking-country-search:focus {
+    border-color: var(--auth-burgundy);
+    box-shadow: 0 0 0 3px rgba(123, 63, 59, 0.11);
+    outline: none;
+}
+
+.auth-field.has-error > input,
+.auth-field.has-error .auth-password-control > input,
+.auth-field.has-error .booking-phone-row {
+    border-color: rgba(139, 48, 45, 0.72);
+}
+
+.auth-password-control {
+    position: relative;
+    min-width: 0;
+}
+
+.auth-password-control > input {
+    padding-inline-end: 3.15rem;
+}
+
+.auth-password-toggle {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0.32rem;
+    display: inline-grid;
+    width: 2.55rem;
+    min-height: 2.55rem;
+    place-items: center;
+    align-self: center;
+    border: 0;
+    border-radius: 0.6rem;
+    background: transparent;
+    color: #81766E;
+    cursor: pointer;
+}
+
+.auth-password-toggle:hover {
+    background: rgba(123, 63, 59, 0.06);
+    color: var(--auth-burgundy);
+}
+
+.auth-password-toggle svg {
+    width: 1.16rem;
+    height: 1.16rem;
+}
+
+.auth-field-hint,
+.auth-shell .booking-phone-hint {
+    margin: 0;
+    color: var(--auth-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.auth-field-errors,
+.auth-form-errors {
+    color: var(--auth-error);
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.55;
+}
+
+.auth-field-errors ul,
+.auth-form-errors ul {
+    margin: 0;
+    padding-inline-start: 1.15rem;
+}
+
+.auth-form-errors {
+    border: 1px solid rgba(139, 48, 45, 0.2);
+    border-radius: 0.72rem;
+    background: rgba(139, 48, 45, 0.055);
+    padding: 0.7rem 0.8rem;
+}
+
+.auth-submit {
+    display: inline-flex;
+    width: 100%;
+    min-height: 3.1rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    border: 1px solid var(--auth-burgundy);
+    border-radius: 0.8rem;
+    background: var(--auth-burgundy);
+    box-shadow: 0 0.4rem 0.9rem rgba(123, 63, 59, 0.16);
+    color: #FFFFFF;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.94rem;
+    font-weight: 700;
+    line-height: 1.3;
+    padding: 0.78rem 1rem;
+    transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.auth-submit:hover {
+    border-color: var(--auth-burgundy-deep);
+    background: var(--auth-burgundy-deep);
+    box-shadow: 0 0.5rem 1rem rgba(99, 48, 46, 0.2);
+    color: #FFFFFF;
+}
+
+.auth-submit:active {
+    transform: translateY(1px);
+}
+
+.auth-submit-arrow {
+    width: 1.02rem;
+    height: 1.02rem;
+}
+
+.auth-patient-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    color: var(--auth-burgundy);
+    font-size: 0.84rem;
+    font-weight: 700;
+    line-height: 1.4;
+    text-align: center;
+}
+
+.auth-patient-actions > span {
+    width: 1px;
+    height: 1rem;
+    background: var(--auth-line);
+}
+
+.auth-patient-actions a {
+    color: inherit;
+    text-underline-offset: 0.18em;
+}
+
+.auth-patient-actions a:hover,
+.auth-mode-note a:hover {
+    text-decoration: underline;
+}
+
+.auth-mode-note {
+    margin: -0.1rem 0 0;
+    color: var(--auth-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.55;
+    text-align: center;
+}
+
+.auth-mode-note a {
+    color: var(--auth-burgundy);
+    font-weight: 700;
+}
+
+.auth-staff-note {
+    border: 1px solid var(--auth-soft-line);
+    border-radius: 0.7rem;
+    background: #FAF8F5;
+    padding: 0.7rem 0.8rem;
+}
+
+.auth-privacy-note {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.45rem;
+    margin-top: 1.35rem;
+    border-top: 1px solid var(--auth-soft-line);
+    color: var(--auth-muted);
+    padding-top: 1rem;
+}
+
+.auth-privacy-note svg {
+    width: 1rem;
+    height: 1rem;
+    flex: 0 0 auto;
+    margin-top: 0.16rem;
+    color: var(--auth-wood);
+}
+
+.auth-privacy-note p {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.55;
+    text-align: center;
+}
+
+.auth-shell .booking-phone-control {
+    position: relative;
+    min-width: 0;
+}
+
+.auth-shell .booking-phone-row {
+    display: flex;
+    min-width: 0;
+    border: 1px solid var(--auth-line);
+    border-radius: 0.78rem;
+    background: var(--auth-paper);
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.auth-shell .booking-phone-row > input {
+    min-height: 2.95rem;
+    border: 0;
+    border-radius: 0 0.76rem 0.76rem 0;
+    box-shadow: none;
+}
+
+.auth-shell .booking-phone-row > input:focus {
+    box-shadow: none;
+    outline: none;
+}
+
+.auth-shell .booking-country-trigger {
+    display: inline-flex;
+    width: 7.15rem;
+    min-width: 7.15rem;
+    min-height: 2.95rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border: 0;
+    border-inline-end: 1px solid var(--auth-soft-line);
+    border-radius: 0.76rem 0 0 0.76rem;
+    background: #FAF8F5;
+    color: var(--auth-ink);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 700;
+    padding: 0.55rem 0.65rem;
+}
+
+.auth-shell .booking-country-trigger:hover,
+.auth-shell .booking-phone-control.is-open .booking-country-trigger {
+    background: rgba(123, 63, 59, 0.065);
+    color: var(--auth-burgundy);
+}
+
+.auth-shell .booking-country-flag {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.auth-shell .booking-country-dial {
+    unicode-bidi: isolate;
+}
+
+.auth-shell .booking-icon-chevron {
+    display: inline-block;
+    width: 0.43rem;
+    height: 0.43rem;
+    border-inline-end: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-0.1rem) rotate(45deg);
+    transition: transform 150ms ease;
+}
+
+.auth-shell .booking-phone-control.is-open .booking-icon-chevron {
+    transform: translateY(0.1rem) rotate(225deg);
+}
+
+.auth-shell .booking-phone-hint {
+    margin-top: 0.36rem;
+}
+
+.auth-shell .booking-country-menu {
+    position: absolute;
+    z-index: 30;
+    inset-block-start: calc(100% + 0.48rem);
+    inset-inline-start: 0;
+    width: min(100%, 28rem);
+    max-width: calc(100vw - 3rem);
+    overflow: hidden;
+    border: 1px solid var(--auth-line);
+    border-radius: 0.85rem;
+    background: var(--auth-paper);
+    box-shadow: 0 1rem 2.4rem rgba(46, 41, 38, 0.16);
+    padding: 0.7rem;
+}
+
+.auth-shell .booking-phone-control.opens-up .booking-country-menu {
+    inset-block-start: auto;
+    inset-block-end: calc(100% + 0.48rem);
+}
+
+.auth-shell .booking-country-search-label {
+    display: block;
+    margin-bottom: 0.38rem;
+    color: var(--auth-wood);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.auth-shell .booking-country-search {
+    min-height: 2.65rem;
+    font-size: 0.88rem;
+}
+
+.auth-shell .booking-country-options {
+    display: grid;
+    max-height: min(16rem, 45vh);
+    gap: 0.12rem;
+    margin-top: 0.55rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-inline-end: 0.15rem;
+}
+
+.auth-shell [data-booking-country-option] {
+    display: grid;
+    grid-template-columns: 1.45rem minmax(0, 1fr) auto;
+    min-height: 2.65rem;
+    align-items: center;
+    gap: 0.55rem;
+    border: 0;
+    border-radius: 0.55rem;
+    background: transparent;
+    color: var(--auth-ink);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.35;
+    padding: 0.5rem 0.58rem;
+    text-align: start;
+}
+
+.auth-shell [data-booking-country-option]:hover,
+.auth-shell [data-booking-country-option][aria-selected="true"] {
+    background: rgba(123, 63, 59, 0.065);
+    color: var(--auth-burgundy);
+}
+
+.auth-shell [data-booking-country-option] bdi {
+    color: var(--auth-muted);
+    font-weight: 700;
+}
+
+.auth-shell .booking-country-empty {
+    margin: 0.7rem 0 0;
+    color: var(--auth-muted);
+    font-size: 0.82rem;
+    text-align: center;
+}
+
+@media (max-width: 389px) {
+    .auth-header-inner {
+        width: calc(100% - 1rem);
+    }
+
+    .auth-back-link,
+    .auth-language-switch {
+        font-size: 0.8rem;
+        padding-inline: 0.4rem;
+    }
+
+    .auth-page {
+        align-items: start;
+        padding: 0.9rem 0.6rem 1.25rem;
+    }
+
+    .auth-card {
+        border-radius: 1.2rem;
+        padding: 1.2rem 1rem;
+    }
+
+    .auth-clinic-name {
+        max-width: 13rem;
+    }
+
+    .auth-heading h1 {
+        font-size: 1.75rem;
+    }
+
+    .auth-shell .booking-country-trigger {
+        width: 6.55rem;
+        min-width: 6.55rem;
+        gap: 0.3rem;
+        padding-inline: 0.45rem;
+    }
+
+    .auth-patient-actions {
+        gap: 0.5rem;
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-height: 700px) and (min-width: 700px) {
+    .auth-page {
+        align-items: start;
+        padding-block: 1.25rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .auth-shell *,
+    .auth-shell *::before,
+    .auth-shell *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
+}

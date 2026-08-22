@@ -306,7 +306,10 @@ def _staff_required(view_func):
     @never_cache
     def wrapped(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect_to_login(request.get_full_path(), login_url=reverse("admin:login"))
+            return redirect_to_login(
+                request.get_full_path(),
+                login_url=f"{reverse('login')}?role=doctor",
+            )
         if not request.user.is_staff:
             return HttpResponseForbidden("Staff access required.")
         return view_func(request, *args, **kwargs)

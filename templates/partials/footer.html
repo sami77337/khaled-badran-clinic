@@ -7,7 +7,7 @@
             </p>
             <div class="footer-actions">
                 <a class="btn btn-light" href="{{ footer_primary_url|default:booking_url }}">{{ footer_primary_label|default:labels.book }}</a>
-                <a class="btn btn-outline-light" href="{% if is_arabic %}{% url 'patient_portal_login' %}{% else %}{% url 'patient_portal_login_en' %}{% endif %}">{{ labels.patient_portal }}</a>
+                <a class="btn btn-outline-light" href="{% if is_arabic %}{% url 'login' %}{% else %}{% url 'login_en' %}{% endif %}">{{ labels.patient_portal }}</a>
             </div>
         </div>
 
@@ -37,7 +37,7 @@
         <p class="footer-emergency">{{ labels.public_emergency }}</p>
         <nav class="footer-legal" aria-label="{% if is_arabic %}الروابط القانونية{% else %}Legal links{% endif %}">
             {% for label, url in legal_links %}<a href="{{ url }}">{{ label }}</a>{% endfor %}
-            <a href="{% url 'admin:login' %}">{% if is_arabic %}دخول الموظفين{% else %}Staff Login{% endif %}</a>
+            <a href="{% if is_arabic %}{% url 'login' %}{% else %}{% url 'login_en' %}{% endif %}?role=doctor">{% if is_arabic %}دخول الموظفين{% else %}Staff Login{% endif %}</a>
         </nav>
         <p class="footer-copyright">© {% now "Y" %} {% if is_arabic %}{{ clinic.name_ar }}. جميع الحقوق محفوظة.{% else %}{{ clinic.name_en }}. All rights reserved.{% endif %}</p>
     </div>

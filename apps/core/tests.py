@@ -996,7 +996,7 @@ class PortalFoundationRouteTests(TestCase):
         response = self.client.get("/portal/")
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("patient_portal_login"), response["Location"])
+        self.assertIn(reverse("login"), response["Location"])
 
     def test_upload_whatsapp_and_unscoped_medical_record_routes_remain_absent(self):
         blocked_paths = [
@@ -1021,7 +1021,7 @@ class PortalFoundationRouteTests(TestCase):
         response = self.client.get("/portal/medical-records/")
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("patient_portal_login"), response["Location"])
+        self.assertIn(reverse("login"), response["Location"])
 
 
 class PublicCasesTestDataMixin:
@@ -1432,7 +1432,7 @@ class PublicCasesRegressionBoundaryTests(PublicCasesTestDataMixin, TestCase):
         )
 
         self.assertEqual(anonymous_response.status_code, 302)
-        self.assertIn(reverse("admin:login"), anonymous_response["Location"])
+        self.assertIn(f"{reverse('login')}?role=doctor&next=", anonymous_response["Location"])
         self.assertEqual(normal_user_response.status_code, 403)
 
     def test_unlisted_and_prohibited_routes_remain_absent(self):
@@ -1778,28 +1778,28 @@ class PublicUiFoundationTests(TestCase):
             (
                 "book",
                 "contact",
-                "patient_portal_login",
+                "login",
                 "التواصل والموقع",
                 "بوابة المريض",
             ),
             (
                 "booking_visit_type",
                 "contact",
-                "patient_portal_login",
+                "login",
                 "التواصل والموقع",
                 "بوابة المريض",
             ),
             (
                 "book_en",
                 "contact_en",
-                "patient_portal_login_en",
+                "login_en",
                 "Contact &amp; Location",
                 "Patient Portal",
             ),
             (
                 "booking_visit_type_en",
                 "contact_en",
-                "patient_portal_login_en",
+                "login_en",
                 "Contact &amp; Location",
                 "Patient Portal",
             ),
@@ -1830,8 +1830,10 @@ class PublicUiFoundationTests(TestCase):
 
     def test_patient_auth_account_and_portal_routes_do_not_load_public_shell_or_mobile_booking_cta(self):
         anonymous_route_names = [
+            "login",
             "patient_portal_login",
             "patient_portal_register",
+            "login_en",
             "patient_portal_login_en",
             "patient_portal_register_en",
         ]

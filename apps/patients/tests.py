@@ -2,6 +2,7 @@
 from datetime import datetime, time, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from urllib.parse import parse_qs, urlsplit
 import uuid
 from unittest.mock import patch
 
@@ -121,11 +122,264 @@ class PatientPortalTestMixin:
 
 
 class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
+    def test_canonical_login_routes_render_with_natural_language_direction(self):
+        arabic = self.client.get(reverse("login"))
+        english = self.client.get(reverse("login_en"))
+
+        self.assertEqual(arabic.status_code, 200)
+        self.assertEqual(english.status_code, 200)
+        self.assertContains(arabic, '<html lang="ar" dir="rtl">')
+        self.assertContains(english, '<html lang="en" dir="ltr">')
+        self.assertNotContains(arabic, '<footer class="site-footer">')
+        self.assertNotContains(english, '<footer class="site-footer">')
+
+    def test_patient_is_default_and_role_selector_is_accessible_and_no_js_safe(self):
+        response = self.client.get(reverse("login"))
+
+        self.assertEqual(response.context["selected_role"], "patient")
+        self.assertContains(response, 'data-selected-role="patient"')
+        self.assertContains(response, 'data-auth-role="patient"')
+        self.assertContains(response, 'data-auth-role="doctor"')
+        self.assertContains(response, 'aria-selected="true"')
+        self.assertContains(response, f'href="{reverse("login")}?role=doctor"')
+        self.assertContains(response, 'role="tablist"')
+        self.assertContains(response, 'role="tabpanel"')
+
+    def test_login_includes_role_switching_and_phone_composition_javascript_hooks(self):
+        response = self.client.get(reverse("login"))
+        javascript = (settings.BASE_DIR / "static" / "js" / "auth-login.js").read_text(encoding="utf-8")
+
+        self.assertContains(response, f'src="{settings.STATIC_URL}js/auth-login.js"')
+        self.assertContains(response, "data-auth-role-tabs")
+        self.assertContains(response, "data-patient-login-form")
+        self.assertIn('event.preventDefault()', javascript)
+        self.assertIn('aria-selected', javascript)
+        self.assertIn('preventScroll: true', javascript)
+        self.assertIn('addEventListener("formdata"', javascript)
+
+    def test_jordan_phone_ui_uses_generic_local_example_and_separate_dial_code(self):
+        response = self.client.get(reverse("login_en"))
+
+        self.assertContains(response, ">+962</span>")
+        self.assertContains(response, "Formatting example: 7XXXXXXXX")
+        self.assertContains(response, 'placeholder="7XXXXXXXX"')
+        self.assertNotContains(response, "79XXXXXXX")
+        self.assertNotContains(response, "07XXXXXXXX")
+
+    def test_canonical_patient_login_preserves_phone_normalization(self):
+        self.create_user()
+
+        response = self.client.post(
+            reverse("login"),
+            {
+                "role": "patient",
+                "phone": "0791234567",
+                "password": TEST_PASSWORD,
+            },
+        )
+
+        self.assertRedirects(response, reverse("patient_portal_dashboard"), fetch_redirect_response=False)
+        self.assertEqual(self.client.session["_auth_user_id"], str(get_user_model().objects.get().pk))
+
+    def test_patient_login_preserves_safe_next_and_rejects_external_next(self):
+        user = self.create_user()
+        safe_destination = reverse("patient_portal_account")
+
+        safe_response = self.client.post(
+            reverse("login"),
+            {
+                "role": "patient",
+                "phone": "0791234567",
+                "password": TEST_PASSWORD,
+                "next": safe_destination,
+            },
+        )
+        self.assertRedirects(safe_response, safe_destination, fetch_redirect_response=False)
+
+        self.client.logout()
+        external_response = self.client.post(
+            reverse("login"),
+            {
+                "role": "patient",
+                "phone": "+962791234567",
+                "password": TEST_PASSWORD,
+                "next": "https://attacker.example/private",
+            },
+        )
+        self.assertRedirects(
+            external_response,
+            reverse("patient_portal_dashboard"),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(self.client.session["_auth_user_id"], str(user.pk))
+
+    def test_patient_login_failure_is_generic_and_never_reflects_password(self):
+        self.create_user()
+        submitted_password = "synthetic-secret-that-must-not-render"
+
+        response = self.client.post(
+            reverse("login"),
+            {
+                "role": "patient",
+                "phone": "0791234567",
+                "password": submitted_password,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, GENERIC_LOGIN_ERROR)
+        self.assertNotContains(response, submitted_password)
+
+    def test_login_page_does_not_expose_existing_patient_information(self):
+        user = self.create_user()
+        self.create_patient(
+            user=user,
+            full_name="Synthetic Private Login Patient",
+            phone_raw="0799999999",
+            phone_e164="+962799999999",
+        )
+
+        response = self.client.get(reverse("login"))
+
+        self.assertNotContains(response, "Synthetic Private Login Patient")
+        self.assertNotContains(response, "0799999999")
+        self.assertNotContains(response, "+962799999999")
+
+    def test_valid_staff_user_can_login_in_doctor_mode(self):
+        staff = self.create_user(username="clinic-doctor", is_staff=True)
+
+        response = self.client.post(
+            reverse("login_en"),
+            {
+                "role": "doctor",
+                "username": "clinic-doctor",
+                "password": TEST_PASSWORD,
+            },
+        )
+
+        self.assertRedirects(response, reverse("dashboard_patient_list"), fetch_redirect_response=False)
+        self.assertEqual(self.client.session["_auth_user_id"], str(staff.pk))
+
+    def test_doctor_login_rejects_external_next(self):
+        self.create_user(username="safe-clinic-doctor", is_staff=True)
+
+        response = self.client.post(
+            reverse("login"),
+            {
+                "role": "doctor",
+                "username": "safe-clinic-doctor",
+                "password": TEST_PASSWORD,
+                "next": "https://attacker.example/staff",
+            },
+        )
+
+        self.assertRedirects(response, reverse("dashboard_patient_list"), fetch_redirect_response=False)
+
+    def test_valid_non_staff_user_cannot_login_in_doctor_mode(self):
+        self.create_user(username="patient-not-staff")
+
+        response = self.client.post(
+            reverse("login"),
+            {
+                "role": "doctor",
+                "username": "patient-not-staff",
+                "password": TEST_PASSWORD,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, GENERIC_LOGIN_ERROR)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_wrong_doctor_credentials_fail_generically_without_username_disclosure(self):
+        submitted_password = "wrong-staff-secret"
+
+        response = self.client.post(
+            reverse("login"),
+            {
+                "role": "doctor",
+                "username": "missing-clinic-user",
+                "password": submitted_password,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, GENERIC_LOGIN_ERROR)
+        self.assertNotContains(response, submitted_password)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_authenticated_login_redirect_uses_real_authorization_not_requested_role(self):
+        patient = self.create_user()
+        self.client.force_login(patient)
+        patient_response = self.client.get(reverse("login"), {"role": "doctor"})
+        self.assertRedirects(
+            patient_response,
+            reverse("patient_portal_dashboard"),
+            fetch_redirect_response=False,
+        )
+
+        self.client.logout()
+        staff = self.create_user(username="authenticated-staff", is_staff=True)
+        self.client.force_login(staff)
+        staff_response = self.client.get(reverse("login_en"), {"role": "patient"})
+        self.assertRedirects(staff_response, reverse("dashboard_patient_list"), fetch_redirect_response=False)
+
+    def test_legacy_login_urls_render_same_view_and_keep_post_compatibility(self):
+        self.create_user()
+
+        arabic_get = self.client.get(reverse("patient_portal_login"))
+        english_get = self.client.get(reverse("patient_portal_login_en"))
+        post_response = self.client.post(
+            reverse("patient_portal_login"),
+            {
+                "role": "patient",
+                "phone": "0791234567",
+                "password": TEST_PASSWORD,
+            },
+        )
+
+        self.assertEqual(arabic_get.status_code, 200)
+        self.assertEqual(english_get.status_code, 200)
+        self.assertContains(arabic_get, f'<link rel="canonical" href="http://testserver{reverse("login")}">')
+        self.assertContains(
+            english_get,
+            f'<link rel="canonical" href="http://testserver{reverse("login_en")}">',
+        )
+        self.assertRedirects(post_response, reverse("patient_portal_dashboard"), fetch_redirect_response=False)
+
+    def test_patient_protected_route_redirects_to_canonical_role_aware_login(self):
+        destination = reverse("patient_portal_dashboard_en")
+
+        response = self.client.get(destination)
+        redirect = urlsplit(response["Location"])
+        query = parse_qs(redirect.query)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(redirect.path, reverse("login_en"))
+        self.assertEqual(query["role"], ["patient"])
+        self.assertEqual(query["next"], [destination])
+
+    def test_canonical_login_has_csrf_and_enforces_it(self):
+        page = self.client.get(reverse("login"))
+        csrf_client = Client(enforce_csrf_checks=True)
+        post = csrf_client.post(
+            reverse("login"),
+            {"role": "patient", "phone": "0791234567", "password": TEST_PASSWORD},
+        )
+
+        self.assertContains(page, 'name="csrfmiddlewaretoken"', count=2)
+        self.assertEqual(post.status_code, 403)
+
+    def test_django_admin_login_remains_available(self):
+        response = self.client.get(reverse("admin:login"))
+
+        self.assertEqual(response.status_code, 200)
+
     def test_anonymous_dashboard_redirects_to_portal_login(self):
         response = self.client.get(reverse("patient_portal_dashboard"))
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("patient_portal_login"), response["Location"])
+        self.assertIn(reverse("login"), response["Location"])
 
     def test_anonymous_appointment_detail_redirects_to_portal_login(self):
         appointment = self.create_appointment()
@@ -135,7 +389,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("patient_portal_login"), response["Location"])
+        self.assertIn(reverse("login"), response["Location"])
 
     def test_registration_creates_user_with_hashed_password_and_logs_in(self):
         response = self.client.post(
@@ -215,7 +469,7 @@ class PatientPortalPasswordChangeTests(PatientPortalTestMixin, TestCase):
         response = self.client.get(reverse("patient_portal_password_change"))
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("patient_portal_login"), response["Location"])
+        self.assertIn(reverse("login"), response["Location"])
 
     def test_authenticated_user_can_change_password_and_keep_session(self):
         user = self.create_user()
@@ -287,7 +541,7 @@ class PatientPortalAccountTests(PatientPortalTestMixin, TestCase):
         response = self.client.get(reverse("patient_portal_account"))
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("patient_portal_login"), response["Location"])
+        self.assertIn(reverse("login"), response["Location"])
 
     def test_authenticated_user_can_access_account_page(self):
         user = self.create_user()
@@ -384,7 +638,7 @@ class PatientPortalLinkingTests(PatientPortalTestMixin, TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("patient_portal_login"), response["Location"])
+        self.assertIn(reverse("login"), response["Location"])
 
     def test_matching_phone_links_appointment_patient_to_user(self):
         appointment = self.create_appointment()
@@ -486,8 +740,8 @@ class PatientPortalRateLimitTests(PatientPortalTestMixin, TestCase):
         self.client.logout()
         post_data = {"phone": "0791234567", "password": "wrong-password"}
 
-        self.client.post(reverse("patient_portal_login"), post_data, REMOTE_ADDR="10.0.0.2")
-        response = self.client.post(reverse("patient_portal_login"), post_data, REMOTE_ADDR="10.0.0.2")
+        self.client.post(reverse("login"), post_data, REMOTE_ADDR="10.0.0.2")
+        response = self.client.post(reverse("login"), post_data, REMOTE_ADDR="10.0.0.2")
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, rate_limits.GENERIC_PORTAL_RATE_LIMIT_MESSAGE)
@@ -541,7 +795,7 @@ class PatientPortalRateLimitTests(PatientPortalTestMixin, TestCase):
 
         with patch("apps.patients.rate_limits.cache.add", side_effect=capture_key):
             self.client.post(
-                reverse("patient_portal_login"),
+                reverse("login"),
                 {"phone": "0791234567", "password": "wrong-password"},
                 REMOTE_ADDR="10.0.0.5",
             )
@@ -682,7 +936,7 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         response = self.client.get(reverse("patient_portal_medical_records"))
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("patient_portal_login"), response["Location"])
+        self.assertIn(reverse("login"), response["Location"])
 
     def test_authenticated_user_without_linked_patient_gets_safe_empty_state(self):
         unlinked_user = self.create_user(username="+962790000303", email="unlinked@example.test")
@@ -832,7 +1086,7 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("patient_portal_login"), response["Location"])
+        self.assertIn(reverse("login"), response["Location"])
 
     def test_linked_patient_can_download_own_visible_active_media_by_public_id(self):
         media = self.create_media(
@@ -953,7 +1207,7 @@ class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
         post_response = self.client.post(reverse("patient_portal_logout"))
 
         self.assertEqual(get_response.status_code, 405)
-        self.assertRedirects(post_response, reverse("patient_portal_login"), fetch_redirect_response=False)
+        self.assertRedirects(post_response, reverse("login"), fetch_redirect_response=False)
         dashboard_response = self.client.get(reverse("patient_portal_dashboard"))
         self.assertEqual(dashboard_response.status_code, 302)
 
@@ -1203,4 +1457,4 @@ class PatientPortalPrivacyTests(PatientPortalTestMixin, TestCase):
         response = self.client.get("/portal/medical-records/")
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("patient_portal_login"), response["Location"])
+        self.assertIn(reverse("login"), response["Location"])

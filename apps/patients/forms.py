@@ -14,8 +14,27 @@ GENERIC_LINK_ERROR = "We could not link an appointment with those details. Check
 
 
 class PatientLoginForm(forms.Form):
-    phone = forms.CharField(max_length=50)
-    password = forms.CharField(widget=forms.PasswordInput)
+    phone = forms.CharField(
+        max_length=50,
+        widget=forms.TextInput(
+            attrs={
+                "autocomplete": "tel",
+                "dir": "ltr",
+                "id": "patient-phone",
+                "inputmode": "tel",
+                "placeholder": "7XXXXXXXX",
+            }
+        ),
+    )
+    password = forms.CharField(
+        widget=forms.PasswordInput(
+            attrs={
+                "autocomplete": "current-password",
+                "dir": "ltr",
+                "id": "patient-password",
+            }
+        )
+    )
 
     def __init__(self, *args, request=None, language="ar", **kwargs):
         super().__init__(*args, **kwargs)
@@ -45,6 +64,53 @@ class PatientLoginForm(forms.Form):
             password=cleaned_data.get("password"),
         )
         if self.user is None:
+            raise ValidationError(GENERIC_LOGIN_ERROR)
+        return cleaned_data
+
+
+class StaffLoginForm(forms.Form):
+    username = forms.CharField(
+        max_length=150,
+        widget=forms.TextInput(
+            attrs={
+                "autocomplete": "username",
+                "autocapitalize": "none",
+                "dir": "ltr",
+                "id": "doctor-username",
+                "spellcheck": "false",
+            }
+        ),
+    )
+    password = forms.CharField(
+        widget=forms.PasswordInput(
+            attrs={
+                "autocomplete": "current-password",
+                "dir": "ltr",
+                "id": "doctor-password",
+            }
+        )
+    )
+
+    def __init__(self, *args, request=None, language="ar", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.request = request
+        self.language = "en" if language == "en" else "ar"
+        self.user = None
+        self.fields["username"].label = "اسم المستخدم" if self.language == "ar" else "Username"
+        self.fields["password"].label = "كلمة المرور" if self.language == "ar" else "Password"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if self.errors:
+            return cleaned_data
+
+        self.user = authenticate(
+            self.request,
+            username=cleaned_data.get("username"),
+            password=cleaned_data.get("password"),
+        )
+        if self.user is None or not self.user.is_staff:
+            self.user = None
             raise ValidationError(GENERIC_LOGIN_ERROR)
         return cleaned_data
 

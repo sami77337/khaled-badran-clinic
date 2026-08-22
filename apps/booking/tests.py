@@ -869,7 +869,7 @@ class PublicBookingViewTests(BookingTestDataMixin, TestCase):
         uploads_response = self.client.get("/uploads/")
 
         self.assertEqual(portal_response.status_code, 302)
-        self.assertIn(reverse("patient_portal_login"), portal_response["Location"])
+        self.assertIn(reverse("login"), portal_response["Location"])
         self.assertEqual(uploads_response.status_code, 404)
 
     def test_booking_disabled_shows_unavailable_and_blocks_post(self):
@@ -2021,13 +2021,13 @@ class StaffAuthorizationTests(BookingTestDataMixin, TestCase):
         response = self.client.get(self.list_url)
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/admin/login/", response["Location"])
+        self.assertIn(f"{reverse('login')}?role=doctor&next=", response["Location"])
 
     def test_anonymous_cannot_access_staff_detail(self):
         response = self.client.get(self.detail_url)
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/admin/login/", response["Location"])
+        self.assertIn(f"{reverse('login')}?role=doctor&next=", response["Location"])
 
     def test_anonymous_cannot_perform_staff_operations(self):
         operation_urls = [
@@ -2043,7 +2043,7 @@ class StaffAuthorizationTests(BookingTestDataMixin, TestCase):
                 response = self.client.post(url, {"note": "staff note"})
 
                 self.assertEqual(response.status_code, 302)
-                self.assertIn("/admin/login/", response["Location"])
+                self.assertIn(f"{reverse('login')}?role=doctor&next=", response["Location"])
 
     def test_non_staff_user_cannot_access_staff_appointment_list(self):
         self.client.force_login(self.create_user())
@@ -2752,13 +2752,13 @@ class PublicPrivacyBoundaryTests(BookingTestDataMixin, TestCase):
         response = self.client.get("/portal/")
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("patient_portal_login"), response["Location"])
+        self.assertIn(reverse("login"), response["Location"])
 
     def test_patient_medical_records_route_requires_authentication(self):
         response = self.client.get("/portal/medical-records/")
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("patient_portal_login"), response["Location"])
+        self.assertIn(reverse("login"), response["Location"])
 
     def test_no_upload_route_exists(self):
         response = self.client.get("/uploads/")

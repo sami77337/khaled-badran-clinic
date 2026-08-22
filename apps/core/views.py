@@ -711,7 +711,11 @@ def _base_context(
             ("services", LABELS[language]["services"], _route_url("services", language)),
             ("cases", LABELS[language]["cases"], _route_url("cases", language)),
             ("contact", LABELS[language]["contact"], _route_url("contact", language)),
-            ("patient_portal", LABELS[language]["patient_portal"], _route_url("patient_portal", language)),
+            (
+                "patient_portal",
+                LABELS[language]["patient_portal"],
+                reverse("login" if language == "ar" else "login_en"),
+            ),
         ],
         "legal_links": [
             (LABELS[language]["privacy"], _route_url("privacy", language)),

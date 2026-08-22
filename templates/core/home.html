@@ -20,7 +20,7 @@
             <div class="hero-actions">
                 <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
                 <a class="btn btn-secondary" href="{{ services_url }}">{% if is_arabic %}استكشف الخدمات{% else %}Explore Services{% endif %}</a>
-                <a class="portal-text-link" href="{% if is_arabic %}{% url 'patient_portal_login' %}{% else %}{% url 'patient_portal_login_en' %}{% endif %}">
+                <a class="portal-text-link" href="{% if is_arabic %}{% url 'login' %}{% else %}{% url 'login_en' %}{% endif %}">
                     {% if is_arabic %}تسجيل الدخول إلى سجلي الطبي{% else %}Sign in to My Medical Record{% endif %}
                 </a>
             </div>
