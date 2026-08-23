@@ -218,6 +218,15 @@ body.auth-shell {
     margin-top: 1.15rem;
 }
 
+.auth-register-page {
+    align-items: start;
+}
+
+.auth-register-form {
+    gap: 0.9rem;
+    margin-top: 0;
+}
+
 .auth-field {
     display: grid;
     min-width: 0;
@@ -397,8 +406,24 @@ body.auth-shell {
 }
 
 .auth-patient-actions a:hover,
-.auth-mode-note a:hover {
+.auth-mode-note a:hover,
+.auth-register-return a:hover {
     text-decoration: underline;
+}
+
+.auth-register-return {
+    margin: -0.05rem 0 0;
+    color: var(--auth-muted);
+    font-size: 0.84rem;
+    font-weight: 500;
+    line-height: 1.55;
+    text-align: center;
+}
+
+.auth-register-return a {
+    color: var(--auth-burgundy);
+    font-weight: 700;
+    text-underline-offset: 0.18em;
 }
 
 .auth-mode-note {
@@ -627,6 +652,12 @@ body.auth-shell {
     .auth-page {
         align-items: start;
         padding-block: 1.25rem;
+    }
+}
+
+@media (min-height: 900px) {
+    .auth-register-page {
+        align-items: center;
     }
 }
 

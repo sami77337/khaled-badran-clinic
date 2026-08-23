@@ -17,7 +17,12 @@ from django.utils import timezone
 from apps.booking.models import Appointment, AppointmentStatusHistory
 from apps.clinic.models import Doctor, VisitType
 from apps.core.models import AuditLog
-from apps.patients.forms import GENERIC_LINK_ERROR, GENERIC_LOGIN_ERROR, GENERIC_REGISTRATION_ERROR
+from apps.patients.forms import (
+    GENERIC_LINK_ERROR,
+    GENERIC_LOGIN_ERROR,
+    GENERIC_REGISTRATION_ERROR,
+    PatientRegistrationForm,
+)
 from apps.patients import rate_limits
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
 from .models import Patient
@@ -198,6 +203,134 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         self.assertNotIn(".auth-privacy-note", stylesheet)
         self.assertIn("--auth-burgundy: #4A0F14;", stylesheet)
         self.assertIn("--auth-wood: #8B5A2B;", stylesheet)
+
+    def test_registration_routes_use_the_approved_auth_shell_in_both_languages(self):
+        route_cases = [
+            ("patient_portal_register", "ar", "rtl", "إنشاء حساب", "login"),
+            ("patient_portal_register_en", "en", "ltr", "Create your account", "login_en"),
+        ]
+
+        for route_name, language, direction, heading, login_route in route_cases:
+            with self.subTest(route=route_name):
+                response = self.client.get(reverse(route_name))
+
+                self.assertEqual(response.status_code, 200)
+                self.assertTemplateUsed(response, "auth/base.html")
+                self.assertTemplateNotUsed(response, "base.html")
+                self.assertContains(response, f'<html lang="{language}" dir="{direction}">')
+                self.assertContains(response, 'class="auth-shell page-register')
+                self.assertContains(response, 'class="auth-card auth-register-card"')
+                self.assertContains(response, f'<h1 id="auth-title">{heading}</h1>')
+                self.assertContains(response, f'href="{reverse(login_route)}"')
+                self.assertContains(response, f'src="{settings.STATIC_URL}js/auth-login.js"')
+                self.assertNotContains(response, '<footer class="site-footer">')
+                self.assertNotContains(response, "data-mobile-booking-cta")
+                self.assertNotContains(response, 'class="page-hero"')
+                self.assertNotContains(response, 'class="container booking-layout"')
+
+    def test_registration_preserves_the_exact_field_contract_and_accessible_controls(self):
+        response = self.client.get(reverse("patient_portal_register_en"))
+        form = response.context["form"]
+
+        self.assertEqual(
+            list(form.fields),
+            ["full_name", "phone", "email", "password1", "password2"],
+        )
+        self.assertFalse(form.fields["email"].required)
+        self.assertEqual(form.fields["email"].label, "Email (optional)")
+        self.assertContains(response, 'name="full_name"', count=1)
+        self.assertContains(response, 'autocomplete="name"', count=1)
+        self.assertContains(response, 'name="phone"', count=1)
+        self.assertContains(response, 'name="email"', count=1)
+        self.assertContains(response, 'type="email"', count=1)
+        self.assertContains(response, 'autocomplete="email"', count=1)
+        self.assertContains(response, 'name="password1"', count=1)
+        self.assertContains(response, 'name="password2"', count=1)
+        self.assertContains(response, 'autocomplete="new-password"', count=2)
+        self.assertContains(response, "data-password-toggle", count=2)
+        self.assertContains(response, 'name="csrfmiddlewaretoken"', count=1)
+        self.assertNotContains(response, 'name="first_name"')
+        self.assertNotContains(response, 'name="last_name"')
+
+    def test_registration_reuses_the_full_searchable_international_phone_selector(self):
+        response = self.client.get(reverse("patient_portal_register_en"))
+        javascript = (settings.BASE_DIR / "static" / "js" / "auth-login.js").read_text(encoding="utf-8")
+
+        self.assertContains(response, ">+962</span>")
+        self.assertContains(response, 'placeholder="7XXXXXXXX"')
+        self.assertNotContains(response, "07XXXXXXXX")
+        self.assertNotContains(response, "79XXXXXXX")
+        self.assertContains(response, "data-booking-phone-control")
+        self.assertContains(response, "data-booking-country-trigger")
+        self.assertContains(response, "data-booking-country-search")
+        self.assertContains(response, "data-booking-country-options")
+        self.assertContains(
+            response,
+            'role="option"',
+            count=len(response.context["phone_countries"]),
+        )
+        self.assertContains(response, "data-patient-register-form")
+        self.assertNotContains(response, "data-booking-phone-hint")
+        self.assertIn("[data-patient-register-form]", javascript)
+        self.assertIn('addEventListener("formdata"', javascript)
+        self.assertIn("event.formData.set", javascript)
+
+    def test_registration_omits_legacy_copy_and_keeps_the_auth_visual_contract(self):
+        arabic = self.client.get(reverse("patient_portal_register"))
+        english = self.client.get(reverse("patient_portal_register_en"))
+        stylesheet = (settings.BASE_DIR / "static" / "css" / "auth.css").read_text(encoding="utf-8")
+
+        for removed_copy in (
+            "حساب اختياري",
+            "الموقع وواتساب غير مخصصين للطوارئ. في الحالات الطارئة اتصل بخدمات الطوارئ المحلية فوراً.",
+            "بعد إنشاء الحساب، اربط موعدك باستخدام رمز التأكيد",
+        ):
+            self.assertNotContains(arabic, removed_copy)
+
+        for removed_copy in (
+            "Optional Account",
+            "This website and WhatsApp are not for emergencies.",
+            "After creating an account, link your appointment",
+            "Account recovery",
+        ):
+            self.assertNotContains(english, removed_copy)
+
+        self.assertNotContains(arabic, "trust-note")
+        self.assertNotContains(english, "trust-note")
+        self.assertIn("--auth-burgundy: #4A0F14;", stylesheet)
+        self.assertIn("--auth-wood: #8B5A2B;", stylesheet)
+        self.assertIn(".auth-register-page", stylesheet)
+        self.assertIn("align-items: start;", stylesheet)
+
+    def test_registration_form_keeps_phone_normalization_and_django_password_validation(self):
+        composed_phone_form = PatientRegistrationForm(
+            {
+                "full_name": "Portal Patient",
+                "phone": "+962791234568",
+                "email": "",
+                "password1": TEST_PASSWORD,
+                "password2": TEST_PASSWORD,
+            },
+            language="en",
+        )
+
+        self.assertTrue(composed_phone_form.is_valid(), composed_phone_form.errors.as_json())
+        self.assertEqual(composed_phone_form.normalized_phone, "+962791234568")
+
+        weak_password_form = PatientRegistrationForm(
+            {
+                "full_name": "Portal Patient",
+                "phone": "+962791234569",
+                "email": "",
+                "password1": "short",
+                "password2": "short",
+            },
+            language="en",
+        )
+
+        self.assertFalse(weak_password_form.is_valid())
+        self.assertIn("__all__", weak_password_form.errors)
+        self.assertIn("too short", weak_password_form.errors["__all__"][0])
 
     def test_canonical_patient_login_preserves_phone_normalization(self):
         self.create_user()
@@ -438,9 +571,66 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
 
         self.assertRedirects(response, reverse("patient_portal_dashboard"), fetch_redirect_response=False)
         user = get_user_model().objects.get(username="+962791234567")
+        self.assertEqual(get_user_model().objects.count(), 1)
         self.assertTrue(user.check_password(TEST_PASSWORD))
         self.assertNotEqual(user.password, TEST_PASSWORD)
         self.assertEqual(user.email, "patient@example.test")
+        self.assertEqual(self.client.session["_auth_user_id"], str(user.pk))
+
+    def test_registration_preserves_safe_next_and_rejects_external_next(self):
+        safe_destination = reverse("patient_portal_account")
+
+        safe_response = self.client.post(
+            reverse("patient_portal_register"),
+            {
+                "full_name": "Safe Next Patient",
+                "phone": "+962791234568",
+                "email": "",
+                "password1": TEST_PASSWORD,
+                "password2": TEST_PASSWORD,
+                "next": safe_destination,
+            },
+        )
+        self.assertRedirects(safe_response, safe_destination, fetch_redirect_response=False)
+
+        self.client.logout()
+        external_response = self.client.post(
+            reverse("patient_portal_register"),
+            {
+                "full_name": "External Next Patient",
+                "phone": "+962791234569",
+                "email": "",
+                "password1": TEST_PASSWORD,
+                "password2": TEST_PASSWORD,
+                "next": "https://attacker.example/private",
+            },
+        )
+        self.assertRedirects(
+            external_response,
+            reverse("patient_portal_dashboard"),
+            fetch_redirect_response=False,
+        )
+
+    def test_registration_errors_are_inline_and_never_reflect_passwords(self):
+        submitted_password = "SyntheticSecret123!DoNotReflect"
+
+        response = self.client.post(
+            reverse("patient_portal_register_en"),
+            {
+                "full_name": "",
+                "phone": "+962791234570",
+                "email": "not-an-email",
+                "password1": submitted_password,
+                "password2": "different-password",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "auth-field has-error")
+        self.assertContains(response, "auth-field-errors")
+        self.assertContains(response, 'role="alert"')
+        self.assertNotContains(response, submitted_password)
+        self.assertNotContains(response, "different-password")
 
     def test_duplicate_phone_registration_uses_generic_error(self):
         self.create_user()
@@ -458,6 +648,8 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, GENERIC_REGISTRATION_ERROR)
+        self.assertContains(response, "auth-form-errors")
+        self.assertNotContains(response, TEST_PASSWORD)
         self.assertEqual(get_user_model().objects.count(), 1)
 
     def test_login_uses_phone_and_password(self):

@@ -116,11 +116,55 @@ class StaffLoginForm(forms.Form):
 
 
 class PatientRegistrationForm(forms.Form):
-    full_name = forms.CharField(max_length=255)
-    phone = forms.CharField(max_length=50)
-    email = forms.EmailField(required=False)
-    password1 = forms.CharField(widget=forms.PasswordInput)
-    password2 = forms.CharField(widget=forms.PasswordInput)
+    full_name = forms.CharField(
+        max_length=255,
+        widget=forms.TextInput(
+            attrs={
+                "autocomplete": "name",
+                "id": "register-full-name",
+            }
+        ),
+    )
+    phone = forms.CharField(
+        max_length=50,
+        widget=forms.TextInput(
+            attrs={
+                "autocomplete": "tel",
+                "dir": "ltr",
+                "id": "register-phone",
+                "inputmode": "tel",
+                "placeholder": "7XXXXXXXX",
+            }
+        ),
+    )
+    email = forms.EmailField(
+        required=False,
+        widget=forms.EmailInput(
+            attrs={
+                "autocomplete": "email",
+                "dir": "ltr",
+                "id": "register-email",
+            }
+        ),
+    )
+    password1 = forms.CharField(
+        widget=forms.PasswordInput(
+            attrs={
+                "autocomplete": "new-password",
+                "dir": "ltr",
+                "id": "register-password1",
+            }
+        )
+    )
+    password2 = forms.CharField(
+        widget=forms.PasswordInput(
+            attrs={
+                "autocomplete": "new-password",
+                "dir": "ltr",
+                "id": "register-password2",
+            }
+        )
+    )
 
     def __init__(self, *args, language="ar", **kwargs):
         super().__init__(*args, **kwargs)
@@ -128,7 +172,9 @@ class PatientRegistrationForm(forms.Form):
         self.normalized_phone = ""
         self.fields["full_name"].label = "الاسم الكامل" if self.language == "ar" else "Full name"
         self.fields["phone"].label = "رقم الهاتف" if self.language == "ar" else "Phone number"
-        self.fields["email"].label = "البريد الإلكتروني اختياري" if self.language == "ar" else "Email, optional"
+        self.fields["email"].label = (
+            "البريد الإلكتروني (اختياري)" if self.language == "ar" else "Email (optional)"
+        )
         self.fields["password1"].label = "كلمة المرور" if self.language == "ar" else "Password"
         self.fields["password2"].label = "تأكيد كلمة المرور" if self.language == "ar" else "Confirm password"
 

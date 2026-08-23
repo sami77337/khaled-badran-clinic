@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="{% static 'css/site.css' %}">
     <link rel="stylesheet" href="{% static 'css/auth.css' %}">
 </head>
-<body class="auth-shell page-login {% if is_arabic %}is-rtl{% else %}is-ltr{% endif %}">
+<body class="auth-shell page-{{ page_key|default:'login' }} {% if is_arabic %}is-rtl{% else %}is-ltr{% endif %}">
     <a class="skip-link" href="#main-content">{% if is_arabic %}تجاوز إلى المحتوى{% else %}Skip to content{% endif %}</a>
     <header class="auth-header">
         <div class="auth-header-inner">

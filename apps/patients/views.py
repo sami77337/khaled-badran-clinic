@@ -308,10 +308,37 @@ def portal_register(request, language="ar"):
     else:
         form = PatientRegistrationForm(language=language)
 
+    register_url = _portal_url("patient_portal_register", language)
+    alternate_language = "en" if language == "ar" else "ar"
+    auth_language_url = _portal_url("patient_portal_register", alternate_language)
+    if next_url:
+        auth_language_url = f"{auth_language_url}?{urlencode({'next': next_url})}"
+
+    context = _portal_context(request, language, form=form, next_url=next_url)
+    clinic_name = context["clinic"]["name_ar" if language == "ar" else "name_en"]
+    context.update(
+        {
+            "page_key": "register",
+            "page_title": (
+                f"إنشاء حساب | {clinic_name}"
+                if language == "ar"
+                else f"Create your account | {clinic_name}"
+            ),
+            "meta_description": (
+                "إنشاء حساب المريض في العيادة."
+                if language == "ar"
+                else "Create your clinic patient account."
+            ),
+            "canonical_url": request.build_absolute_uri(register_url),
+            "auth_language_url": auth_language_url,
+            "phone_countries": INTERNATIONAL_PHONE_COUNTRIES,
+        }
+    )
+
     return render(
         request,
         "patients/portal_register.html",
-        _portal_context(request, language, form=form, next_url=next_url),
+        context,
     )
 
 

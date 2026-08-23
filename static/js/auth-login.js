@@ -1,7 +1,7 @@
 (() => {
     "use strict";
 
-    const root = document.querySelector("[data-auth-login]");
+    const root = document.querySelector("[data-auth-login], [data-auth-register]");
     if (!root) {
         return;
     }
@@ -77,7 +77,7 @@
         });
     });
 
-    const patientForm = root.querySelector("[data-patient-login-form]");
+    const patientForm = root.querySelector("[data-patient-login-form], [data-patient-register-form]");
     if (!patientForm) {
         return;
     }
