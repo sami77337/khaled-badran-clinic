@@ -1,0 +1,105 @@
+{% load static %}
+<!doctype html>
+<html lang="{{ language|default:'ar' }}" dir="{{ direction|default:'rtl' }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ page_title|default:"Clinic Portal" }}</title>
+    <meta name="description" content="{{ meta_description }}">
+    <meta name="robots" content="noindex,nofollow">
+    <meta name="theme-color" content="#4A0F14">
+    <link rel="canonical" href="{{ canonical_url }}">
+    <link rel="icon" href="{% static 'img/icons/site-icon.svg' %}" type="image/svg+xml">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+</head>
+<body class="dashboard-shell {% if is_arabic %}is-rtl{% else %}is-ltr{% endif %}">
+    <a class="dashboard-skip-link" href="#dashboard-main">
+        {% if is_arabic %}تجاوز إلى المحتوى{% else %}Skip to content{% endif %}
+    </a>
+
+    <header class="dashboard-mobile-header">
+        <a class="dashboard-mobile-brand" href="{{ dashboard_home_url }}">
+            <span class="dashboard-mobile-monogram" aria-hidden="true">{{ dashboard_doctor_initials }}</span>
+            <span>{% if is_arabic %}بوابة العيادة{% else %}Clinic Portal{% endif %}</span>
+        </a>
+        <button
+            class="dashboard-menu-button"
+            type="button"
+            aria-controls="dashboard-sidebar"
+            aria-expanded="false"
+            data-dashboard-menu
+        >
+            <span class="dashboard-menu-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+            <span>{% if is_arabic %}القائمة{% else %}Menu{% endif %}</span>
+        </button>
+    </header>
+
+    <aside
+        class="dashboard-sidebar"
+        id="dashboard-sidebar"
+        aria-label="{% if is_arabic %}التنقل في بوابة العيادة{% else %}Clinic portal navigation{% endif %}"
+        data-dashboard-sidebar
+    >
+        <div class="dashboard-sidebar-top">
+            <div class="dashboard-sidebar-heading">
+                <a class="dashboard-brand" href="{{ dashboard_home_url }}">
+                    <span class="dashboard-brand-mark" aria-hidden="true">{{ dashboard_doctor_initials }}</span>
+                    <span class="dashboard-brand-copy">
+                        <strong>{% if is_arabic %}بوابة العيادة{% else %}Clinic Portal{% endif %}</strong>
+                        <small>{% if is_arabic %}وصول الموظفين{% else %}Staff Access{% endif %}</small>
+                    </span>
+                </a>
+                <button class="dashboard-drawer-close" type="button" data-dashboard-close>
+                    <span aria-hidden="true">×</span>
+                    <span class="dashboard-sr-only">{% if is_arabic %}إغلاق القائمة{% else %}Close menu{% endif %}</span>
+                </button>
+            </div>
+
+            <nav class="dashboard-nav" aria-label="{% if is_arabic %}أقسام لوحة التحكم{% else %}Dashboard sections{% endif %}">
+                {% for item in dashboard_nav_items %}
+                    <a
+                        class="dashboard-nav-link{% if active_dashboard_nav == item.key %} is-active{% endif %}"
+                        href="{{ item.url }}"
+                        {% if active_dashboard_nav == item.key %}aria-current="page"{% endif %}
+                    >
+                        <span class="dashboard-nav-indicator" aria-hidden="true"></span>
+                        <span>{{ item.label }}</span>
+                    </a>
+                {% endfor %}
+            </nav>
+        </div>
+
+        <div class="dashboard-sidebar-footer">
+            <a
+                class="dashboard-language-switch"
+                href="{{ dashboard_language_switch_url }}"
+                hreflang="{% if is_arabic %}en{% else %}ar{% endif %}"
+            >
+                <span aria-hidden="true">{% if is_arabic %}EN{% else %}ع{% endif %}</span>
+                <span>{{ dashboard_language_switch_label }}</span>
+            </a>
+            <form class="dashboard-logout-form" method="post" action="{{ dashboard_logout_url }}">
+                {% csrf_token %}
+                <button type="submit">
+                    <span>{% if is_arabic %}تسجيل الخروج{% else %}Sign Out{% endif %}</span>
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <button
+        class="dashboard-drawer-overlay"
+        type="button"
+        tabindex="-1"
+        aria-label="{% if is_arabic %}إغلاق القائمة{% else %}Close menu{% endif %}"
+        data-dashboard-overlay
+        hidden
+    ></button>
+
+    <main class="dashboard-main" id="dashboard-main" tabindex="-1">
+        {% block dashboard_content %}{% endblock %}
+    </main>
+
+    <script src="{% static 'js/dashboard.js' %}" defer></script>
+</body>
+</html>

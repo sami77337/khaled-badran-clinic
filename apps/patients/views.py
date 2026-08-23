@@ -45,6 +45,11 @@ def _login_url(language):
     return reverse(_route_name("login", language))
 
 
+def _doctor_dashboard_url(language):
+    dashboard_url = reverse("dashboard_home")
+    return f"{dashboard_url}?lang=en" if _language(language) == "en" else dashboard_url
+
+
 def _login_url_with_query(language, *, role, next_url=""):
     query = {"role": role}
     if next_url:
@@ -212,7 +217,7 @@ def portal_login(request, language="ar"):
     next_url = _safe_next_url(request)
     if request.user.is_authenticated:
         if request.user.is_staff:
-            return redirect("dashboard_patient_list")
+            return redirect(next_url or _doctor_dashboard_url(language))
         return redirect(_portal_url("patient_portal_dashboard", language))
 
     requested_role = request.POST.get("role") if request.method == "POST" else request.GET.get("role")
@@ -226,7 +231,7 @@ def portal_login(request, language="ar"):
             doctor_form = StaffLoginForm(request.POST, request=request, language=language)
             if doctor_form.is_valid():
                 auth_login(request, doctor_form.user)
-                return redirect(next_url or reverse("dashboard_patient_list"))
+                return redirect(next_url or _doctor_dashboard_url(language))
         else:
             patient_form = PatientLoginForm(request.POST, request=request, language=language)
             normalized_phone = rate_limits.normalized_phone_or_empty(request.POST.get("phone"))

@@ -1,14 +1,17 @@
+from datetime import timedelta
 from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import HttpResponseForbidden, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
+from apps.booking.models import Appointment
 from apps.core.views import _base_context
 from apps.patients.models import Patient
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
@@ -27,21 +30,228 @@ VISIBILITY_LABELS = {
     RecordMedia.Visibility.APPROVED_PUBLIC_CASE: "حالة عامة بموافقة",
 }
 
+DASHBOARD_EXCLUDED_TODAY_STATUSES = (
+    Appointment.Status.CANCELLED,
+    Appointment.Status.RESCHEDULED,
+)
+DASHBOARD_UPCOMING_STATUSES = (
+    Appointment.Status.CONFIRMED,
+    Appointment.Status.ARRIVED,
+)
+DASHBOARD_STATUS_LABELS = {
+    "ar": {
+        Appointment.Status.CONFIRMED: "مؤكد",
+        Appointment.Status.ARRIVED: "وصل",
+        Appointment.Status.COMPLETED: "مكتمل",
+        Appointment.Status.NO_SHOW: "لم يحضر",
+    },
+    "en": {
+        Appointment.Status.CONFIRMED: "Confirmed",
+        Appointment.Status.ARRIVED: "Arrived",
+        Appointment.Status.COMPLETED: "Completed",
+        Appointment.Status.NO_SHOW: "No-show",
+    },
+}
+
+
+def _dashboard_language(request):
+    return "en" if request.GET.get("lang") == "en" else "ar"
+
+
+def _dashboard_home_url(language):
+    url = reverse("dashboard_home")
+    return f"{url}?lang=en" if language == "en" else url
+
 
 def _staff_required(view_func):
     @wraps(view_func)
     @never_cache
     def wrapped(request, *args, **kwargs):
         if not request.user.is_authenticated:
+            language = _dashboard_language(request)
+            login_route = "login_en" if language == "en" else "login"
             return redirect_to_login(
                 request.get_full_path(),
-                login_url=f"{reverse('login')}?role=doctor",
+                login_url=f"{reverse(login_route)}?role=doctor",
             )
         if not request.user.is_staff:
             return HttpResponseForbidden("Staff access required.")
         return view_func(request, *args, **kwargs)
 
     return wrapped
+
+
+def _dashboard_home_context(request, *, language, metrics, schedule_items):
+    context = _base_context(request, "booking", language)
+    alternate_language = "en" if language == "ar" else "ar"
+    doctor_name = (context["doctor"].get(f"full_name_{language}") or "").strip()
+    doctor_first_name = (
+        doctor_name.split()[0]
+        if doctor_name
+        else ("خالد" if language == "ar" else "Khaled")
+    )
+    english_name_parts = (context["doctor"].get("full_name_en") or "Khaled Badran").split()
+    doctor_initials = (
+        f"{english_name_parts[0][0]}{english_name_parts[-1][0]}".upper()
+        if english_name_parts
+        else "KB"
+    )
+    dashboard_url = _dashboard_home_url(language)
+    labels = {
+        "ar": {
+            "overview": "نظرة عامة",
+            "appointments": "المواعيد",
+            "patients": "المرضى",
+        },
+        "en": {
+            "overview": "Overview",
+            "appointments": "Appointments",
+            "patients": "Patients",
+        },
+    }[language]
+    context.update(
+        {
+            "page_key": "dashboard_home",
+            "page_title": (
+                f"نظرة عامة | {context['clinic']['name_ar']}"
+                if language == "ar"
+                else f"Dashboard Overview | {context['clinic']['name_en']}"
+            ),
+            "meta_description": (
+                "نظرة تشغيلية آمنة ومختصرة لفريق العيادة."
+                if language == "ar"
+                else "A secure operational overview for clinic staff."
+            ),
+            "canonical_url": request.build_absolute_uri(dashboard_url),
+            "dashboard_home_url": dashboard_url,
+            "dashboard_language_switch_url": _dashboard_home_url(alternate_language),
+            "dashboard_language_switch_label": "English" if language == "ar" else "العربية",
+            "dashboard_doctor_first_name": doctor_first_name,
+            "dashboard_doctor_initials": doctor_initials,
+            "dashboard_logout_url": reverse(
+                "patient_portal_logout_en" if language == "en" else "patient_portal_logout"
+            ),
+            "dashboard_nav_items": [
+                {
+                    "key": "overview",
+                    "label": labels["overview"],
+                    "url": dashboard_url,
+                },
+                {
+                    "key": "appointments",
+                    "label": labels["appointments"],
+                    "url": reverse("staff_appointment_list"),
+                },
+                {
+                    "key": "patients",
+                    "label": labels["patients"],
+                    "url": reverse("dashboard_patient_list"),
+                },
+            ],
+            "active_dashboard_nav": "overview",
+            "staff_appointments_url": reverse("staff_appointment_list"),
+            "dashboard_patients_url": reverse("dashboard_patient_list"),
+            "dashboard_metrics": metrics,
+            "schedule_items": schedule_items,
+        }
+    )
+    return context
+
+
+@_staff_required
+@require_GET
+def dashboard_home(request):
+    language = _dashboard_language(request)
+    now = timezone.now()
+    today = timezone.localdate(now)
+    today_appointments = Appointment.objects.filter(starts_at__date=today)
+    today_metrics = today_appointments.aggregate(
+        appointments=Count(
+            "pk",
+            filter=~Q(status__in=DASHBOARD_EXCLUDED_TODAY_STATUSES),
+        ),
+        completed=Count("pk", filter=Q(status=Appointment.Status.COMPLETED)),
+        no_show=Count("pk", filter=Q(status=Appointment.Status.NO_SHOW)),
+    )
+    upcoming = Appointment.objects.filter(
+        starts_at__gt=now,
+        starts_at__lte=now + timedelta(days=7),
+        status__in=DASHBOARD_UPCOMING_STATUSES,
+    ).count()
+    total_patients = Patient.objects.count()
+
+    schedule = (
+        today_appointments.exclude(status__in=DASHBOARD_EXCLUDED_TODAY_STATUSES)
+        .select_related("patient", "visit_type", "doctor")
+        .order_by("starts_at", "id")[:6]
+    )
+    schedule_items = [
+        {
+            "appointment": appointment,
+            "visit_type_label": (
+                appointment.visit_type.name_ar
+                if language == "ar" and appointment.visit_type
+                else appointment.visit_type.name_en
+                if appointment.visit_type
+                else "—"
+            ),
+            "status_label": DASHBOARD_STATUS_LABELS[language].get(
+                appointment.status,
+                appointment.get_status_display(),
+            ),
+            "status_class": appointment.status,
+        }
+        for appointment in schedule
+    ]
+
+    metrics = {
+        "today": today_metrics["appointments"],
+        "upcoming": upcoming,
+        "patients": total_patients,
+        "completed": today_metrics["completed"],
+        "no_show": today_metrics["no_show"],
+    }
+    metric_cards = [
+        {
+            "key": "today",
+            "label": "مواعيد اليوم" if language == "ar" else "Today's appointments",
+            "value": metrics["today"],
+            "sublabel": "",
+        },
+        {
+            "key": "upcoming",
+            "label": "المواعيد القادمة" if language == "ar" else "Upcoming appointments",
+            "value": metrics["upcoming"],
+            "sublabel": "الأيام السبعة القادمة" if language == "ar" else "Next 7 days",
+        },
+        {
+            "key": "patients",
+            "label": "إجمالي المرضى" if language == "ar" else "Total patients",
+            "value": metrics["patients"],
+            "sublabel": "",
+        },
+        {
+            "key": "completed",
+            "label": "المكتملة اليوم" if language == "ar" else "Completed today",
+            "value": metrics["completed"],
+            "sublabel": "",
+        },
+        {
+            "key": "no_show",
+            "label": "حالات عدم الحضور اليوم" if language == "ar" else "No-shows today",
+            "value": metrics["no_show"],
+            "sublabel": "",
+        },
+    ]
+
+    context = _dashboard_home_context(
+        request,
+        language=language,
+        metrics=metrics,
+        schedule_items=schedule_items,
+    )
+    context["metric_cards"] = metric_cards
+    return render(request, "dashboard/home.html", context)
 
 
 def _method_allowed(request, methods):

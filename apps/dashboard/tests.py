@@ -1,13 +1,17 @@
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from urllib.parse import parse_qs, urlsplit
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import Client, TestCase, override_settings
+from django.db import connection
+from django.test import Client, RequestFactory, TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.dashboard import views as dashboard_views
 from apps.booking.models import Appointment
 from apps.clinic.models import Doctor, VisitType
 from apps.patients.models import Patient
@@ -758,3 +762,360 @@ class DashboardRegressionTests(DashboardRecordWorkflowMixin, TestCase):
                 response = self.client.get(path)
 
                 self.assertEqual(response.status_code, 404)
+
+
+class DashboardOverviewTests(DashboardRecordWorkflowMixin, TestCase):
+    def setUp(self):
+        self.staff = self.create_staff()
+        self.doctor = Doctor.objects.create(
+            full_name_ar="خالد بدران",
+            full_name_en="Khaled Badran",
+            title_ar="د.",
+            title_en="Dr.",
+            specialty_ar="استشاري الأنف والأذن والحنجرة",
+            specialty_en="ENT Consultant",
+            is_active=True,
+        )
+        self.visit_type = VisitType.objects.create(
+            doctor=self.doctor,
+            name_ar="استشارة الأنف والأذن والحنجرة",
+            name_en="Ear, nose and throat consultation",
+            duration_minutes=30,
+            is_active=True,
+        )
+
+    def local_datetime(self, *, day_offset=0, hour=10, minute=0):
+        local_date = timezone.localdate() + timedelta(days=day_offset)
+        naive = datetime.combine(local_date, time(hour=hour, minute=minute))
+        return timezone.make_aware(naive, timezone.get_current_timezone())
+
+    def create_overview_patient(self, index=0, *, full_name=None):
+        return self.create_patient(
+            full_name=full_name or f"Overview Patient {index}",
+            phone_raw=f"+96270000{index:04d}",
+            phone_e164=f"+96270000{index:04d}",
+        )
+
+    def create_overview_appointment(
+        self,
+        starts_at,
+        *,
+        status=Appointment.Status.CONFIRMED,
+        patient=None,
+        booking_note="",
+    ):
+        patient = patient or self.create_overview_patient(
+            Patient.objects.count() + 1
+        )
+        return Appointment.objects.create(
+            doctor=self.doctor,
+            patient=patient,
+            visit_type=self.visit_type,
+            starts_at=starts_at,
+            ends_at=starts_at + timedelta(minutes=self.visit_type.duration_minutes),
+            status=status,
+            booking_note=booking_note,
+        )
+
+    def dashboard(self, *, language="ar"):
+        self.client.force_login(self.staff)
+        query = {"lang": "en"} if language == "en" else {}
+        return self.client.get(reverse("dashboard_home"), query)
+
+    def test_dashboard_home_route_uses_staff_boundary_and_never_cache(self):
+        route = reverse("dashboard_home")
+
+        anonymous_ar = self.client.get(route)
+        ar_location = urlsplit(anonymous_ar["Location"])
+        ar_query = parse_qs(ar_location.query)
+        self.assertEqual(anonymous_ar.status_code, 302)
+        self.assertEqual(ar_location.path, reverse("login"))
+        self.assertEqual(ar_query["role"], ["doctor"])
+        self.assertEqual(ar_query["next"], [route])
+
+        anonymous_en = self.client.get(route, {"lang": "en"})
+        en_location = urlsplit(anonymous_en["Location"])
+        en_query = parse_qs(en_location.query)
+        self.assertEqual(anonymous_en.status_code, 302)
+        self.assertEqual(en_location.path, reverse("login_en"))
+        self.assertEqual(en_query["role"], ["doctor"])
+        self.assertEqual(en_query["next"], [f"{route}?lang=en"])
+
+        normal_user = self.create_user(username="overview-non-staff")
+        self.client.force_login(normal_user)
+        forbidden = self.client.get(route)
+        self.assertEqual(forbidden.status_code, 403)
+
+        response = self.dashboard()
+        self.assertEqual(response.status_code, 200)
+        self.assert_no_cache(response)
+
+    def test_dashboard_home_renders_arabic_rtl_english_ltr_and_language_switch(self):
+        arabic = self.dashboard(language="ar")
+        english = self.dashboard(language="en")
+
+        self.assertContains(arabic, '<html lang="ar" dir="rtl">')
+        self.assertContains(arabic, "مرحباً مجدداً، د. خالد")
+        self.assertContains(arabic, f'href="{reverse("dashboard_home")}?lang=en"')
+        self.assertContains(english, '<html lang="en" dir="ltr">')
+        self.assertContains(english, "Welcome back, Dr. Khaled")
+        self.assertContains(english, f'href="{reverse("dashboard_home")}"')
+
+    def test_dashboard_metrics_count_real_statuses_and_exclude_inactive_today(self):
+        status_hours = (
+            (Appointment.Status.CONFIRMED, 8),
+            (Appointment.Status.ARRIVED, 9),
+            (Appointment.Status.COMPLETED, 10),
+            (Appointment.Status.NO_SHOW, 11),
+            (Appointment.Status.CANCELLED, 12),
+            (Appointment.Status.RESCHEDULED, 13),
+        )
+        for status, hour in status_hours:
+            self.create_overview_appointment(
+                self.local_datetime(hour=hour),
+                status=status,
+            )
+
+        response = self.dashboard()
+
+        metrics = response.context["dashboard_metrics"]
+        self.assertEqual(metrics["today"], 4)
+        self.assertEqual(metrics["patients"], 6)
+        self.assertEqual(metrics["completed"], 1)
+        self.assertEqual(metrics["no_show"], 1)
+        self.assertNotContains(response, "+2 from yesterday")
+        self.assertNotContains(response, "+12 this month")
+        self.assertNotContains(response, "1,204")
+
+    def test_upcoming_metric_uses_after_now_through_seven_days_and_active_statuses(self):
+        patient = self.create_overview_patient(1)
+        now = timezone.now()
+        cases = (
+            (now + timedelta(hours=1), Appointment.Status.CONFIRMED),
+            (now + timedelta(days=6), Appointment.Status.ARRIVED),
+            (now + timedelta(days=7, minutes=-1), Appointment.Status.CONFIRMED),
+            (now - timedelta(hours=1), Appointment.Status.CONFIRMED),
+            (now + timedelta(days=7, minutes=5), Appointment.Status.CONFIRMED),
+            (now + timedelta(days=2), Appointment.Status.COMPLETED),
+            (now + timedelta(days=3), Appointment.Status.NO_SHOW),
+            (now + timedelta(days=4), Appointment.Status.CANCELLED),
+            (now + timedelta(days=5), Appointment.Status.RESCHEDULED),
+        )
+        for starts_at, status in cases:
+            self.create_overview_appointment(
+                starts_at,
+                status=status,
+                patient=patient,
+            )
+
+        response = self.dashboard(language="en")
+
+        self.assertEqual(response.context["dashboard_metrics"]["upcoming"], 3)
+        self.assertContains(response, "Next 7 days")
+
+    def test_total_patient_metric_uses_patient_count(self):
+        for index in range(3):
+            self.create_overview_patient(index)
+
+        response = self.dashboard()
+
+        self.assertEqual(response.context["dashboard_metrics"]["patients"], 3)
+
+    def test_today_schedule_is_chronological_bounded_and_excludes_inactive_rows(self):
+        included_names = []
+        for index, hour in enumerate(range(7, 15)):
+            patient_name = (
+                "A very long operational patient name that must wrap safely without horizontal overflow"
+                if index == 0
+                else f"Scheduled Patient {index}"
+            )
+            patient = self.create_overview_patient(index, full_name=patient_name)
+            included_names.append(patient_name)
+            self.create_overview_appointment(
+                self.local_datetime(hour=hour),
+                patient=patient,
+                status=(
+                    Appointment.Status.COMPLETED
+                    if index == 1
+                    else Appointment.Status.NO_SHOW
+                    if index == 2
+                    else Appointment.Status.CONFIRMED
+                ),
+            )
+        cancelled_patient = self.create_overview_patient(20, full_name="Cancelled Overview Patient")
+        rescheduled_patient = self.create_overview_patient(21, full_name="Rescheduled Overview Patient")
+        self.create_overview_appointment(
+            self.local_datetime(hour=16),
+            patient=cancelled_patient,
+            status=Appointment.Status.CANCELLED,
+        )
+        self.create_overview_appointment(
+            self.local_datetime(hour=17),
+            patient=rescheduled_patient,
+            status=Appointment.Status.RESCHEDULED,
+        )
+
+        response = self.dashboard(language="en")
+        schedule = response.context["schedule_items"]
+
+        self.assertEqual(len(schedule), 6)
+        self.assertEqual(
+            [item["appointment"].patient.full_name for item in schedule],
+            included_names[:6],
+        )
+        for patient_name in included_names[:6]:
+            self.assertContains(response, patient_name)
+        self.assertNotContains(response, included_names[6])
+        self.assertNotContains(response, included_names[7])
+        self.assertNotContains(response, cancelled_patient.full_name)
+        self.assertNotContains(response, rescheduled_patient.full_name)
+        self.assertContains(response, self.visit_type.name_en)
+        self.assertContains(response, "Completed")
+        self.assertContains(response, "No-show")
+
+    def test_today_schedule_related_data_does_not_add_per_row_queries(self):
+        patient = self.create_overview_patient(30)
+        for index, hour in enumerate(range(8, 14)):
+            self.create_overview_appointment(
+                self.local_datetime(hour=hour, minute=index),
+                patient=patient,
+            )
+        request = RequestFactory().get(reverse("dashboard_home"))
+        request.user = self.staff
+
+        with CaptureQueriesContext(connection) as captured_queries:
+            response = dashboard_views.dashboard_home(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(captured_queries), 6)
+
+    def test_today_schedule_empty_state_is_bilingual_and_has_no_fake_rows(self):
+        arabic = self.dashboard(language="ar")
+        english = self.dashboard(language="en")
+
+        self.assertContains(arabic, "لا توجد مواعيد لليوم.")
+        self.assertContains(english, "No appointments scheduled for today.")
+        self.assertNotContains(arabic, "Synthetic Patient A")
+        self.assertNotContains(english, "Synthetic Patient B")
+
+    def test_overview_omits_private_patient_and_record_fields(self):
+        patient_user = self.create_user(username="overview-private-patient-user")
+        patient_user.email = "overview-private-email@example.test"
+        patient_user.save(update_fields=["email"])
+        patient = Patient.objects.create(
+            id=938475,
+            user=patient_user,
+            full_name="Operational Patient Name",
+            phone_raw="0791234987",
+            phone_e164="+962791234987",
+            notes="OVERVIEW-PRIVATE-PATIENT-NOTES",
+        )
+        appointment = self.create_overview_appointment(
+            self.local_datetime(hour=14),
+            patient=patient,
+            booking_note="OVERVIEW-PRIVATE-BOOKING-NOTE",
+        )
+        visit = self.create_visit(
+            patient=patient,
+            appointment=appointment,
+            doctor_notes="OVERVIEW-PRIVATE-DOCTOR-NOTES",
+        )
+        self.create_note(
+            patient=patient,
+            visit=visit,
+            body="OVERVIEW-PRIVATE-CLINICAL-NOTE",
+        )
+        media = self.create_media(
+            patient=patient,
+            file=self.synthetic_image_file(name="overview-private-media.jpg"),
+            title="OVERVIEW-PRIVATE-MEDIA-TITLE",
+        )
+
+        response = self.dashboard()
+        page = response.content.decode()
+        head = page.split("</head>", 1)[0]
+
+        self.assertContains(response, patient.full_name)
+        self.assertNotIn(patient.full_name, head)
+        for private_value in (
+            patient.phone_raw,
+            patient.phone_e164,
+            patient_user.email,
+            patient.notes,
+            appointment.booking_note,
+            visit.doctor_notes,
+            "OVERVIEW-PRIVATE-CLINICAL-NOTE",
+            media.title,
+            str(media.public_id),
+            str(appointment.public_token),
+            "overview-private-media.jpg",
+            str(patient.id),
+        ):
+            self.assertNotContains(response, private_value)
+
+    def test_dashboard_navigation_has_only_current_real_routes(self):
+        response = self.dashboard(language="en")
+
+        self.assertContains(response, f'href="{reverse("dashboard_home")}?lang=en"')
+        self.assertContains(response, f'href="{reverse("staff_appointment_list")}"')
+        self.assertContains(response, f'href="{reverse("dashboard_patient_list")}"')
+        for unavailable_label in (
+            "Medical Records",
+            "Scheduling",
+            "Clinic Settings",
+            "Content",
+            "Reviews",
+            "New Patient",
+            "Edit Clinic Schedule",
+            "Update Website Content",
+        ):
+            self.assertNotContains(response, unavailable_label)
+
+    def test_mobile_drawer_has_accessible_rtl_ltr_controls_and_keyboard_close(self):
+        response = self.dashboard()
+        project_root = Path(__file__).resolve().parents[2]
+        javascript = (project_root / "static" / "js" / "dashboard.js").read_text(
+            encoding="utf-8"
+        )
+        stylesheet = (project_root / "static" / "css" / "dashboard.css").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertContains(response, 'aria-controls="dashboard-sidebar"')
+        self.assertContains(response, 'aria-expanded="false"')
+        self.assertContains(response, 'id="dashboard-sidebar"')
+        self.assertContains(response, "data-dashboard-overlay")
+        self.assertIn('event.key === "Escape"', javascript)
+        self.assertIn('document.body.classList.add("dashboard-drawer-open")', javascript)
+        self.assertIn('sidebar.querySelectorAll("a[href]")', javascript)
+        self.assertIn('[dir="rtl"] .dashboard-sidebar', stylesheet)
+        self.assertIn('[dir="ltr"] .dashboard-sidebar', stylesheet)
+        self.assertIn("transform: translateX(105%);", stylesheet)
+        self.assertIn("transform: translateX(-105%);", stylesheet)
+
+    def test_dashboard_logout_is_language_correct_post_only_and_csrf_protected(self):
+        response = self.dashboard(language="en")
+        english_logout_url = reverse("patient_portal_logout_en")
+
+        self.assertContains(
+            response,
+            f'<form class="dashboard-logout-form" method="post" action="{english_logout_url}">',
+        )
+        self.assertContains(response, 'name="csrfmiddlewaretoken"')
+        self.assertEqual(self.client.get(english_logout_url).status_code, 405)
+
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.staff)
+        self.assertEqual(csrf_client.post(english_logout_url).status_code, 403)
+
+        english_logout = self.client.post(english_logout_url)
+        self.assertRedirects(english_logout, reverse("login_en"), fetch_redirect_response=False)
+
+        arabic = self.dashboard(language="ar")
+        arabic_logout_url = reverse("patient_portal_logout")
+        self.assertContains(
+            arabic,
+            f'<form class="dashboard-logout-form" method="post" action="{arabic_logout_url}">',
+        )
+        arabic_logout = self.client.post(arabic_logout_url)
+        self.assertRedirects(arabic_logout, reverse("login"), fetch_redirect_response=False)

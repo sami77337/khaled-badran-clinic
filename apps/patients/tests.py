@@ -554,8 +554,42 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
             },
         )
 
-        self.assertRedirects(response, reverse("dashboard_patient_list"), fetch_redirect_response=False)
+        self.assertRedirects(
+            response,
+            f"{reverse('dashboard_home')}?lang=en",
+            fetch_redirect_response=False,
+        )
         self.assertEqual(self.client.session["_auth_user_id"], str(staff.pk))
+
+    def test_arabic_doctor_login_defaults_to_dashboard_home(self):
+        self.create_user(username="arabic-clinic-doctor", is_staff=True)
+
+        response = self.client.post(
+            reverse("login"),
+            {
+                "role": "doctor",
+                "username": "arabic-clinic-doctor",
+                "password": TEST_PASSWORD,
+            },
+        )
+
+        self.assertRedirects(response, reverse("dashboard_home"), fetch_redirect_response=False)
+
+    def test_doctor_login_preserves_valid_safe_next(self):
+        self.create_user(username="next-clinic-doctor", is_staff=True)
+        destination = reverse("staff_appointment_list")
+
+        response = self.client.post(
+            reverse("login_en"),
+            {
+                "role": "doctor",
+                "username": "next-clinic-doctor",
+                "password": TEST_PASSWORD,
+                "next": destination,
+            },
+        )
+
+        self.assertRedirects(response, destination, fetch_redirect_response=False)
 
     def test_doctor_login_rejects_external_next(self):
         self.create_user(username="safe-clinic-doctor", is_staff=True)
@@ -570,7 +604,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
             },
         )
 
-        self.assertRedirects(response, reverse("dashboard_patient_list"), fetch_redirect_response=False)
+        self.assertRedirects(response, reverse("dashboard_home"), fetch_redirect_response=False)
 
     def test_valid_non_staff_user_cannot_login_in_doctor_mode(self):
         self.create_user(username="patient-not-staff")
@@ -619,7 +653,11 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         staff = self.create_user(username="authenticated-staff", is_staff=True)
         self.client.force_login(staff)
         staff_response = self.client.get(reverse("login_en"), {"role": "patient"})
-        self.assertRedirects(staff_response, reverse("dashboard_patient_list"), fetch_redirect_response=False)
+        self.assertRedirects(
+            staff_response,
+            f"{reverse('dashboard_home')}?lang=en",
+            fetch_redirect_response=False,
+        )
 
     def test_legacy_login_urls_render_same_view_and_keep_post_compatibility(self):
         self.create_user()
