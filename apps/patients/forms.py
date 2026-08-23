@@ -4,13 +4,75 @@ from django import forms
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 
 from apps.booking.phone import normalize_phone
 
 
 GENERIC_LOGIN_ERROR = "We could not sign you in with those details."
-GENERIC_REGISTRATION_ERROR = "We could not create an account with those details."
+GENERIC_REGISTRATION_ERROR = (
+    "We could not create an account with these details. Check the information, or "
+    "sign in / recover your account if you may already have one."
+)
 GENERIC_LINK_ERROR = "We could not link an appointment with those details. Check the confirmation link and phone number."
+
+
+AUTH_ERROR_MESSAGES = {
+    "ar": {
+        "email_invalid": "أدخل بريدًا إلكترونيًا صالحًا.",
+        "full_name_required": "الاسم الكامل مطلوب.",
+        "login_generic": "تعذّر تسجيل الدخول بهذه البيانات.",
+        "password_confirmation_required": "تأكيد كلمة المرور مطلوب.",
+        "password_mismatch": "كلمتا المرور غير متطابقتين.",
+        "password_required": "كلمة المرور مطلوبة.",
+        "phone_invalid": "أدخل رقم هاتف صالحًا.",
+        "phone_required": "رقم الهاتف مطلوب.",
+        "rate_limit": "عدد المحاولات كبير. حاول مرة أخرى لاحقًا.",
+        "registration_generic": (
+            "تعذّر إنشاء الحساب بهذه البيانات. تحقق من البيانات، وإذا كان لديك حساب بالفعل "
+            "فجرّب تسجيل الدخول أو استعادة الحساب."
+        ),
+        "username_required": "اسم المستخدم مطلوب.",
+    },
+    "en": {
+        "email_invalid": "Enter a valid email address.",
+        "full_name_required": "Full name is required.",
+        "login_generic": GENERIC_LOGIN_ERROR,
+        "password_confirmation_required": "Password confirmation is required.",
+        "password_mismatch": "Passwords do not match.",
+        "password_required": "Password is required.",
+        "phone_invalid": "Enter a valid phone number.",
+        "phone_required": "Phone number is required.",
+        "rate_limit": "Too many attempts. Please try again later.",
+        "registration_generic": GENERIC_REGISTRATION_ERROR,
+        "username_required": "Username is required.",
+    },
+}
+
+
+def auth_error_message(key, language="ar"):
+    language = "en" if language == "en" else "ar"
+    return AUTH_ERROR_MESSAGES[language][key]
+
+
+def _localized_password_error(error, language):
+    if language != "ar":
+        return error
+
+    code = error.code
+    if code == "password_too_short":
+        min_length = (error.params or {}).get("min_length", 8)
+        message = f"كلمة المرور قصيرة جدًا. يجب أن تتكون من {min_length} أحرف على الأقل."
+    else:
+        message = {
+            "password_entirely_numeric": "لا يمكن أن تتكون كلمة المرور من أرقام فقط.",
+            "password_too_common": "كلمة المرور شائعة جدًا. اختر كلمة مرور أقوى.",
+            "password_too_similar": "كلمة المرور مشابهة جدًا لبياناتك الشخصية.",
+        }.get(code)
+
+    if message is None:
+        return error
+    return ValidationError(message, code=code, params=error.params)
 
 
 class PatientLoginForm(forms.Form):
@@ -44,13 +106,22 @@ class PatientLoginForm(forms.Form):
         self.normalized_phone = ""
         self.fields["phone"].label = "رقم الهاتف" if self.language == "ar" else "Phone number"
         self.fields["password"].label = "كلمة المرور" if self.language == "ar" else "Password"
+        self.fields["phone"].error_messages["required"] = auth_error_message(
+            "phone_required", self.language
+        )
+        self.fields["password"].error_messages["required"] = auth_error_message(
+            "password_required", self.language
+        )
 
     def clean_phone(self):
         raw_phone = self.cleaned_data["phone"]
         try:
             self.normalized_phone = normalize_phone(raw_phone)
         except ValidationError as exc:
-            raise ValidationError(exc.messages)
+            raise ValidationError(
+                auth_error_message("phone_invalid", self.language),
+                code="invalid",
+            ) from exc
         return raw_phone.strip()
 
     def clean(self):
@@ -64,7 +135,7 @@ class PatientLoginForm(forms.Form):
             password=cleaned_data.get("password"),
         )
         if self.user is None:
-            raise ValidationError(GENERIC_LOGIN_ERROR)
+            raise ValidationError(auth_error_message("login_generic", self.language))
         return cleaned_data
 
 
@@ -98,6 +169,12 @@ class StaffLoginForm(forms.Form):
         self.user = None
         self.fields["username"].label = "اسم المستخدم" if self.language == "ar" else "Username"
         self.fields["password"].label = "كلمة المرور" if self.language == "ar" else "Password"
+        self.fields["username"].error_messages["required"] = auth_error_message(
+            "username_required", self.language
+        )
+        self.fields["password"].error_messages["required"] = auth_error_message(
+            "password_required", self.language
+        )
 
     def clean(self):
         cleaned_data = super().clean()
@@ -111,7 +188,7 @@ class StaffLoginForm(forms.Form):
         )
         if self.user is None or not self.user.is_staff:
             self.user = None
-            raise ValidationError(GENERIC_LOGIN_ERROR)
+            raise ValidationError(auth_error_message("login_generic", self.language))
         return cleaned_data
 
 
@@ -177,11 +254,26 @@ class PatientRegistrationForm(forms.Form):
         )
         self.fields["password1"].label = "كلمة المرور" if self.language == "ar" else "Password"
         self.fields["password2"].label = "تأكيد كلمة المرور" if self.language == "ar" else "Confirm password"
+        self.fields["full_name"].error_messages["required"] = auth_error_message(
+            "full_name_required", self.language
+        )
+        self.fields["phone"].error_messages["required"] = auth_error_message(
+            "phone_required", self.language
+        )
+        self.fields["email"].error_messages["invalid"] = auth_error_message(
+            "email_invalid", self.language
+        )
+        self.fields["password1"].error_messages["required"] = auth_error_message(
+            "password_required", self.language
+        )
+        self.fields["password2"].error_messages["required"] = auth_error_message(
+            "password_confirmation_required", self.language
+        )
 
     def clean_full_name(self):
         value = self.cleaned_data["full_name"].strip()
         if not value:
-            raise ValidationError("Full name is required.")
+            raise ValidationError(auth_error_message("full_name_required", self.language))
         return value
 
     def clean_phone(self):
@@ -189,7 +281,10 @@ class PatientRegistrationForm(forms.Form):
         try:
             self.normalized_phone = normalize_phone(raw_phone)
         except ValidationError as exc:
-            raise ValidationError(exc.messages)
+            raise ValidationError(
+                auth_error_message("phone_invalid", self.language),
+                code="invalid",
+            ) from exc
         return raw_phone.strip()
 
     def clean_email(self):
@@ -201,10 +296,16 @@ class PatientRegistrationForm(forms.Form):
         password2 = cleaned_data.get("password2")
 
         if password1 and password2 and password1 != password2:
-            self.add_error("password2", "Passwords do not match.")
+            self.add_error(
+                "password2",
+                ValidationError(
+                    auth_error_message("password_mismatch", self.language),
+                    code="password_mismatch",
+                ),
+            )
 
         if self.normalized_phone and get_user_model().objects.filter(username=self.normalized_phone).exists():
-            raise ValidationError(GENERIC_REGISTRATION_ERROR)
+            raise ValidationError(auth_error_message("registration_generic", self.language))
 
         if password1:
             user_model = get_user_model()
@@ -213,7 +314,14 @@ class PatientRegistrationForm(forms.Form):
                 email=cleaned_data.get("email") or "",
                 first_name=(cleaned_data.get("full_name") or "")[:150],
             )
-            validate_password(password1, user=candidate)
+            try:
+                validate_password(password1, user=candidate)
+            except ValidationError as exc:
+                for error in exc.error_list:
+                    self.add_error(
+                        "password1",
+                        _localized_password_error(error, self.language),
+                    )
 
         return cleaned_data
 
@@ -221,12 +329,19 @@ class PatientRegistrationForm(forms.Form):
         if not self.is_valid():
             raise ValueError("Cannot save an invalid registration form.")
 
-        return get_user_model().objects.create_user(
-            username=self.normalized_phone,
-            email=self.cleaned_data.get("email") or "",
-            password=self.cleaned_data["password1"],
-            first_name=self.cleaned_data["full_name"][:150],
-        )
+        try:
+            with transaction.atomic():
+                return get_user_model().objects.create_user(
+                    username=self.normalized_phone,
+                    email=self.cleaned_data.get("email") or "",
+                    password=self.cleaned_data["password1"],
+                    first_name=self.cleaned_data["full_name"][:150],
+                )
+        except IntegrityError:
+            if get_user_model().objects.filter(username=self.normalized_phone).exists():
+                self.add_error(None, auth_error_message("registration_generic", self.language))
+                return None
+            raise
 
 
 class AppointmentLinkForm(forms.Form):

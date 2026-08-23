@@ -24,6 +24,7 @@ from apps.patients.forms import (
     PatientLoginForm,
     PatientRegistrationForm,
     StaffLoginForm,
+    auth_error_message,
 )
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
 
@@ -235,7 +236,7 @@ def portal_login(request, language="ar"):
             )
             form_valid = patient_form.is_valid()
             if not attempt_limit.allowed:
-                patient_form.add_error(None, attempt_limit.message)
+                patient_form.add_error(None, auth_error_message("rate_limit", language))
             elif form_valid:
                 auth_login(request, patient_form.user)
                 return redirect(next_url or _portal_url("patient_portal_dashboard", language))
@@ -299,12 +300,13 @@ def portal_register(request, language="ar"):
         )
         form_valid = form.is_valid()
         if not attempt_limit.allowed:
-            form.add_error(None, attempt_limit.message)
+            form.add_error(None, auth_error_message("rate_limit", language))
         elif form_valid:
             user = form.save()
-            auth_login(request, user)
-            messages.success(request, "Your patient portal account has been created.")
-            return redirect(next_url or _portal_url("patient_portal_dashboard", language))
+            if user is not None:
+                auth_login(request, user)
+                messages.success(request, "Your patient portal account has been created.")
+                return redirect(next_url or _portal_url("patient_portal_dashboard", language))
     else:
         form = PatientRegistrationForm(language=language)
 

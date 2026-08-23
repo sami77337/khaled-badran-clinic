@@ -22,6 +22,7 @@ from apps.patients.forms import (
     GENERIC_LOGIN_ERROR,
     GENERIC_REGISTRATION_ERROR,
     PatientRegistrationForm,
+    auth_error_message,
 )
 from apps.patients import rate_limits
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
@@ -124,6 +125,29 @@ class PatientPortalTestMixin:
         cache_control = response.headers.get("Cache-Control", "")
         self.assertIn("no-cache", cache_control)
         self.assertIn("no-store", cache_control)
+
+    def assert_form_errors_hide_database_details(self, form):
+        rendered_errors = " ".join(
+            message
+            for error_list in form.errors.values()
+            for message in error_list
+        ).lower()
+        for marker in (
+            "sql syntax",
+            "auth_user",
+            "integrityerror",
+            "databaseerror",
+            "sqlite",
+            "postgres",
+            "mysql",
+            "traceback",
+            "select ",
+            "insert ",
+            "delete from",
+            "drop table",
+        ):
+            with self.subTest(database_detail=marker):
+                self.assertNotIn(marker, rendered_errors)
 
 
 class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
@@ -329,8 +353,113 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         )
 
         self.assertFalse(weak_password_form.is_valid())
-        self.assertIn("__all__", weak_password_form.errors)
-        self.assertIn("too short", weak_password_form.errors["__all__"][0])
+        self.assertIn("password1", weak_password_form.errors)
+        self.assertNotIn("__all__", weak_password_form.errors)
+        self.assertIn("too short", weak_password_form.errors["password1"][0])
+        self.assertEqual(
+            weak_password_form.errors.as_data()["password1"][0].code,
+            "password_too_short",
+        )
+
+        arabic_weak_password_form = PatientRegistrationForm(
+            {
+                "full_name": "مريض البوابة",
+                "phone": "+962791234570",
+                "email": "",
+                "password1": "short",
+                "password2": "short",
+            },
+            language="ar",
+        )
+
+        self.assertFalse(arabic_weak_password_form.is_valid())
+        self.assertEqual(
+            list(arabic_weak_password_form.errors["password1"]),
+            ["كلمة المرور قصيرة جدًا. يجب أن تتكون من 8 أحرف على الأقل."],
+        )
+        self.assertNotIn("__all__", arabic_weak_password_form.errors)
+        self.assertEqual(
+            arabic_weak_password_form.errors.as_data()["password1"][0].code,
+            "password_too_short",
+        )
+
+    def test_registration_required_and_invalid_field_errors_are_localized(self):
+        cases = (
+            (
+                "patient_portal_register",
+                "10.20.0.1",
+                {
+                    "full_name": "الاسم الكامل مطلوب.",
+                    "phone": "أدخل رقم هاتف صالحًا.",
+                    "email": "أدخل بريدًا إلكترونيًا صالحًا.",
+                    "password1": "كلمة المرور مطلوبة.",
+                    "password2": "تأكيد كلمة المرور مطلوب.",
+                },
+            ),
+            (
+                "patient_portal_register_en",
+                "10.20.0.2",
+                {
+                    "full_name": "Full name is required.",
+                    "phone": "Enter a valid phone number.",
+                    "email": "Enter a valid email address.",
+                    "password1": "Password is required.",
+                    "password2": "Password confirmation is required.",
+                },
+            ),
+        )
+
+        for route_name, remote_addr, expected_errors in cases:
+            with self.subTest(route=route_name):
+                response = self.client.post(
+                    reverse(route_name),
+                    {
+                        "full_name": "",
+                        "phone": "' OR 1=1 --",
+                        "email": "not-an-email",
+                        "password1": "",
+                        "password2": "",
+                    },
+                    REMOTE_ADDR=remote_addr,
+                )
+
+                self.assertEqual(response.status_code, 200)
+                form = response.context["form"]
+                self.assertNotIn("__all__", form.errors)
+                for field_name, expected_message in expected_errors.items():
+                    with self.subTest(route=route_name, field=field_name):
+                        self.assertEqual(list(form.errors[field_name]), [expected_message])
+                        self.assertContains(response, expected_message)
+
+    def test_registration_password_mismatch_is_localized_beside_confirmation(self):
+        cases = (
+            ("patient_portal_register", "ar", "كلمتا المرور غير متطابقتين.", "10.20.0.3"),
+            ("patient_portal_register_en", "en", "Passwords do not match.", "10.20.0.4"),
+        )
+
+        for route_name, language, expected_message, remote_addr in cases:
+            with self.subTest(language=language):
+                response = self.client.post(
+                    reverse(route_name),
+                    {
+                        "full_name": "Portal Patient",
+                        "phone": "+962791234580",
+                        "email": "",
+                        "password1": TEST_PASSWORD,
+                        "password2": NEW_TEST_PASSWORD,
+                    },
+                    REMOTE_ADDR=remote_addr,
+                )
+
+                self.assertEqual(response.status_code, 200)
+                form = response.context["form"]
+                self.assertEqual(list(form.errors["password2"]), [expected_message])
+                self.assertEqual(
+                    form.errors.as_data()["password2"][0].code,
+                    "password_mismatch",
+                )
+                self.assertNotIn("__all__", form.errors)
+                self.assertContains(response, expected_message)
 
     def test_canonical_patient_login_preserves_phone_normalization(self):
         self.create_user()
@@ -393,7 +522,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, GENERIC_LOGIN_ERROR)
+        self.assertContains(response, auth_error_message("login_generic", "ar"))
         self.assertNotContains(response, submitted_password)
 
     def test_login_page_does_not_expose_existing_patient_information(self):
@@ -454,7 +583,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, GENERIC_LOGIN_ERROR)
+        self.assertContains(response, auth_error_message("login_generic", "ar"))
         self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_wrong_doctor_credentials_fail_generically_without_username_disclosure(self):
@@ -470,7 +599,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, GENERIC_LOGIN_ERROR)
+        self.assertContains(response, auth_error_message("login_generic", "ar"))
         self.assertNotContains(response, submitted_password)
         self.assertNotIn("_auth_user_id", self.client.session)
 
@@ -632,25 +761,236 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         self.assertNotContains(response, submitted_password)
         self.assertNotContains(response, "different-password")
 
-    def test_duplicate_phone_registration_uses_generic_error(self):
+    def test_duplicate_phone_registration_uses_localized_non_enumerating_error(self):
         self.create_user()
 
-        response = self.client.post(
-            reverse("patient_portal_register"),
+        cases = (
+            ("patient_portal_register", "ar", "10.20.0.5"),
+            ("patient_portal_register_en", "en", "10.20.0.6"),
+        )
+        for route_name, language, remote_addr in cases:
+            with self.subTest(language=language):
+                response = self.client.post(
+                    reverse(route_name),
+                    {
+                        "full_name": "Portal Patient",
+                        "phone": "0791234567",
+                        "email": "patient@example.test",
+                        "password1": TEST_PASSWORD,
+                        "password2": TEST_PASSWORD,
+                    },
+                    REMOTE_ADDR=remote_addr,
+                )
+
+                expected_message = auth_error_message("registration_generic", language)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    list(response.context["form"].non_field_errors()),
+                    [expected_message],
+                )
+                self.assertContains(response, expected_message)
+                self.assertContains(response, "auth-form-errors")
+                self.assertNotContains(response, "This phone number already has an account.")
+                self.assertNotContains(response, "+962791234567")
+                self.assertNotContains(response, TEST_PASSWORD)
+                self.assertNotIn("_auth_user_id", self.client.session)
+        self.assertEqual(get_user_model().objects.count(), 1)
+
+    def test_registration_create_race_uses_the_same_controlled_generic_error(self):
+        form = PatientRegistrationForm(
             {
-                "full_name": "Portal Patient",
-                "phone": "0791234567",
-                "email": "patient@example.test",
+                "full_name": "Race-safe Patient",
+                "phone": "+962791234581",
+                "email": "race@example.test",
                 "password1": TEST_PASSWORD,
                 "password2": TEST_PASSWORD,
             },
+            language="en",
+        )
+        self.assertTrue(form.is_valid(), form.errors.as_json())
+
+        existing = self.create_user(username="+962791234581")
+        existing_password_hash = existing.password
+        created_user = form.save()
+
+        self.assertIsNone(created_user)
+        self.assertEqual(list(form.non_field_errors()), [GENERIC_REGISTRATION_ERROR])
+        self.assert_form_errors_hide_database_details(form)
+        self.assertEqual(get_user_model().objects.count(), 1)
+        existing.refresh_from_db()
+        self.assertEqual(existing.password, existing_password_hash)
+
+    def test_registration_sql_like_values_cannot_bypass_duplicate_lookup(self):
+        cases = (
+            ("'; DROP TABLE auth_user; --", "+962791234582", "admin'--@example.test"),
+            ("' OR 1=1 --", "+962791234583", "sql.payload@example.test"),
+            ('" OR "1"="1', "+962791234584", "quoted.payload@example.test"),
+        )
+        existing_users = [
+            self.create_user(username=phone, email=f"existing{index}@example.test")
+            for index, (_, phone, _) in enumerate(cases)
+        ]
+        original_state = {
+            user.pk: (user.username, user.email, user.password, user.is_staff)
+            for user in existing_users
+        }
+
+        for index, (full_name, phone, email) in enumerate(cases):
+            with self.subTest(full_name=full_name, email=email):
+                response = self.client.post(
+                    reverse("patient_portal_register_en"),
+                    {
+                        "full_name": full_name,
+                        "phone": phone,
+                        "email": email,
+                        "password1": TEST_PASSWORD,
+                        "password2": TEST_PASSWORD,
+                    },
+                    REMOTE_ADDR=f"10.21.0.{index + 1}",
+                )
+
+                self.assertEqual(response.status_code, 200)
+                form = response.context["form"]
+                self.assertNotIn("full_name", form.errors)
+                self.assertNotIn("email", form.errors)
+                self.assertEqual(
+                    list(form.non_field_errors()),
+                    [GENERIC_REGISTRATION_ERROR],
+                )
+                self.assert_form_errors_hide_database_details(form)
+                self.assertNotIn("_auth_user_id", self.client.session)
+                self.assertEqual(get_user_model().objects.count(), len(cases))
+
+        for user in existing_users:
+            user.refresh_from_db()
+            self.assertEqual(
+                (user.username, user.email, user.password, user.is_staff),
+                original_state[user.pk],
+            )
+
+    def test_registration_sql_like_phone_payloads_are_rejected_without_creating_users(self):
+        payloads = (
+            "' OR 1=1 --",
+            '" OR "1"="1',
+            "'; DROP TABLE auth_user; --",
+            "admin'--",
         )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, GENERIC_REGISTRATION_ERROR)
-        self.assertContains(response, "auth-form-errors")
-        self.assertNotContains(response, TEST_PASSWORD)
-        self.assertEqual(get_user_model().objects.count(), 1)
+        for index, payload in enumerate(payloads):
+            with self.subTest(payload=payload):
+                response = self.client.post(
+                    reverse("patient_portal_register_en"),
+                    {
+                        "full_name": "Injection Regression Patient",
+                        "phone": payload,
+                        "email": "patient@example.test",
+                        "password1": TEST_PASSWORD,
+                        "password2": TEST_PASSWORD,
+                    },
+                    REMOTE_ADDR=f"10.22.0.{index + 1}",
+                )
+
+                self.assertEqual(response.status_code, 200)
+                form = response.context["form"]
+                self.assertEqual(
+                    list(form.errors["phone"]),
+                    ["Enter a valid phone number."],
+                )
+                self.assert_form_errors_hide_database_details(form)
+                self.assertNotIn("_auth_user_id", self.client.session)
+                self.assertEqual(get_user_model().objects.count(), 0)
+
+    def test_patient_login_sql_like_phone_payloads_never_authenticate(self):
+        existing = self.create_user()
+        original_state = (existing.username, existing.email, existing.password, existing.is_staff)
+        payloads = (
+            "' OR 1=1 --",
+            '" OR "1"="1',
+            "'; DROP TABLE auth_user; --",
+            "admin'--",
+        )
+
+        for index, payload in enumerate(payloads):
+            with self.subTest(payload=payload):
+                response = self.client.post(
+                    reverse("login_en"),
+                    {
+                        "role": "patient",
+                        "phone": payload,
+                        "password": TEST_PASSWORD,
+                    },
+                    REMOTE_ADDR=f"10.23.0.{index + 1}",
+                )
+
+                self.assertEqual(response.status_code, 200)
+                form = response.context["patient_form"]
+                self.assertEqual(
+                    list(form.errors["phone"]),
+                    ["Enter a valid phone number."],
+                )
+                self.assert_form_errors_hide_database_details(form)
+                self.assertNotIn("_auth_user_id", self.client.session)
+                self.assertEqual(get_user_model().objects.count(), 1)
+
+        existing.refresh_from_db()
+        self.assertEqual(
+            (existing.username, existing.email, existing.password, existing.is_staff),
+            original_state,
+        )
+
+    def test_doctor_login_sql_like_usernames_never_bypass_staff_authorization(self):
+        staff = self.create_user(username="admin", is_staff=True)
+        patient = self.create_user(username="ordinary-patient")
+        original_state = {
+            user.pk: (user.username, user.email, user.password, user.is_staff)
+            for user in (staff, patient)
+        }
+        payloads = (
+            "' OR 1=1 --",
+            '" OR "1"="1',
+            "'; DROP TABLE auth_user; --",
+            "admin'--",
+        )
+
+        for payload in payloads:
+            with self.subTest(payload=payload):
+                response = self.client.post(
+                    reverse("login_en"),
+                    {
+                        "role": "doctor",
+                        "username": payload,
+                        "password": TEST_PASSWORD,
+                    },
+                )
+
+                self.assertEqual(response.status_code, 200)
+                form = response.context["doctor_form"]
+                self.assertEqual(list(form.non_field_errors()), [GENERIC_LOGIN_ERROR])
+                self.assert_form_errors_hide_database_details(form)
+                self.assertNotIn("_auth_user_id", self.client.session)
+                self.assertEqual(get_user_model().objects.count(), 2)
+
+        for user in (staff, patient):
+            user.refresh_from_db()
+            self.assertEqual(
+                (user.username, user.email, user.password, user.is_staff),
+                original_state[user.pk],
+            )
+
+    def test_registration_and_login_paths_do_not_use_raw_sql_apis(self):
+        forbidden_fragments = (
+            "connection.cursor(",
+            "cursor.execute(",
+            ".raw(",
+            "RawSQL(",
+            ".extra(",
+        )
+
+        for relative_path in ("apps/patients/forms.py", "apps/patients/views.py"):
+            source = (settings.BASE_DIR / relative_path).read_text(encoding="utf-8")
+            for fragment in forbidden_fragments:
+                with self.subTest(path=relative_path, forbidden=fragment):
+                    self.assertNotIn(fragment, source)
 
     def test_login_uses_phone_and_password(self):
         self.create_user()
@@ -677,7 +1017,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, GENERIC_LOGIN_ERROR)
+        self.assertContains(response, auth_error_message("login_generic", "ar"))
 
     def test_registered_patient_can_access_dashboard(self):
         user = self.create_user()
@@ -961,19 +1301,24 @@ class PatientPortalRateLimitTests(PatientPortalTestMixin, TestCase):
         self.assertContains(response, rate_limits.GENERIC_LINK_RATE_LIMIT_MESSAGE)
 
     @override_settings(PATIENT_PORTAL_LOGIN_IP_ATTEMPTS_PER_WINDOW=1)
-    def test_login_rate_limit_uses_generic_error_without_password_leakage(self):
+    def test_login_rate_limit_is_localized_without_password_leakage(self):
         self.client.logout()
         post_data = {"phone": "0791234567", "password": "wrong-password"}
 
-        self.client.post(reverse("login"), post_data, REMOTE_ADDR="10.0.0.2")
-        response = self.client.post(reverse("login"), post_data, REMOTE_ADDR="10.0.0.2")
+        for route_name, language, remote_addr in (
+            ("login", "ar", "10.0.0.2"),
+            ("login_en", "en", "10.0.0.12"),
+        ):
+            with self.subTest(language=language):
+                self.client.post(reverse(route_name), post_data, REMOTE_ADDR=remote_addr)
+                response = self.client.post(reverse(route_name), post_data, REMOTE_ADDR=remote_addr)
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, rate_limits.GENERIC_PORTAL_RATE_LIMIT_MESSAGE)
-        self.assertNotContains(response, "wrong-password")
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, auth_error_message("rate_limit", language))
+                self.assertNotContains(response, "wrong-password")
 
     @override_settings(PATIENT_PORTAL_REGISTRATION_IP_ATTEMPTS_PER_HOUR=1)
-    def test_registration_rate_limit_uses_generic_error_without_password_leakage(self):
+    def test_registration_rate_limit_is_localized_without_password_leakage(self):
         self.client.logout()
         post_data = {
             "full_name": "",
@@ -983,12 +1328,17 @@ class PatientPortalRateLimitTests(PatientPortalTestMixin, TestCase):
             "password2": TEST_PASSWORD,
         }
 
-        self.client.post(reverse("patient_portal_register"), post_data, REMOTE_ADDR="10.0.0.3")
-        response = self.client.post(reverse("patient_portal_register"), post_data, REMOTE_ADDR="10.0.0.3")
+        for route_name, language, remote_addr in (
+            ("patient_portal_register", "ar", "10.0.0.3"),
+            ("patient_portal_register_en", "en", "10.0.0.13"),
+        ):
+            with self.subTest(language=language):
+                self.client.post(reverse(route_name), post_data, REMOTE_ADDR=remote_addr)
+                response = self.client.post(reverse(route_name), post_data, REMOTE_ADDR=remote_addr)
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, rate_limits.GENERIC_PORTAL_RATE_LIMIT_MESSAGE)
-        self.assertNotContains(response, TEST_PASSWORD)
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, auth_error_message("rate_limit", language))
+                self.assertNotContains(response, TEST_PASSWORD)
 
     def test_rate_limit_cache_keys_do_not_include_raw_phone_or_token(self):
         appointment = self.create_appointment()
