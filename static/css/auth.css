@@ -74,6 +74,7 @@ body.auth-shell {
 .auth-language-switch:focus-visible,
 .auth-role-tab:focus-visible,
 .auth-submit:focus-visible,
+.auth-recovery-secondary:focus-visible,
 .auth-password-toggle:focus-visible,
 .auth-shell .booking-country-trigger:focus-visible,
 .auth-shell .booking-country-search:focus-visible,
@@ -424,6 +425,71 @@ body.auth-shell {
     color: var(--auth-burgundy);
     font-weight: 700;
     text-underline-offset: 0.18em;
+}
+
+.auth-recovery-card {
+    max-width: 29rem;
+}
+
+.auth-recovery-heading {
+    margin-bottom: 0.9rem;
+}
+
+.auth-recovery-content {
+    display: grid;
+    gap: 1rem;
+    text-align: center;
+}
+
+.auth-recovery-explanation,
+.auth-recovery-privacy {
+    margin: 0;
+}
+
+.auth-recovery-explanation {
+    color: var(--auth-ink);
+    font-size: 0.94rem;
+    font-weight: 500;
+    line-height: 1.75;
+}
+
+.auth-recovery-privacy {
+    border: 1px solid var(--auth-soft-line);
+    border-radius: 0.75rem;
+    background: #FAF8F5;
+    color: #514842;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.65;
+    padding: 0.72rem 0.8rem;
+}
+
+.auth-recovery-actions {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.auth-recovery-secondary {
+    display: inline-flex;
+    width: 100%;
+    min-height: 3rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(139, 90, 43, 0.48);
+    border-radius: 0.8rem;
+    background: var(--auth-paper);
+    color: var(--auth-wood);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.3;
+    padding: 0.75rem 1rem;
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.auth-recovery-secondary:hover {
+    border-color: var(--auth-burgundy);
+    background: rgba(74, 15, 20, 0.055);
+    color: var(--auth-burgundy);
 }
 
 .auth-mode-note {

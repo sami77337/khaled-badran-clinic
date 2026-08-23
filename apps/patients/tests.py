@@ -10,7 +10,9 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import connection
 from django.test import Client, TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -1172,20 +1174,152 @@ class PatientPortalAccountTests(PatientPortalTestMixin, TestCase):
         self.assertContains(response, f'href="{reverse("patient_portal_password_change_en")}"')
         self.assertContains(response, f'href="{reverse("patient_portal_account_recovery_en")}"')
 
-    def test_account_recovery_page_is_static_and_does_not_collect_sensitive_data(self):
-        response = self.client.get(reverse("patient_portal_account_recovery_en"))
+    def test_account_recovery_routes_use_the_approved_auth_shell_in_both_languages(self):
+        route_cases = [
+            (
+                "patient_portal_account_recovery",
+                "ar",
+                "rtl",
+                "استعادة الحساب",
+                "التواصل مع العيادة",
+                "العودة لتسجيل الدخول",
+                "contact",
+                "login",
+                "patient_portal_account_recovery_en",
+            ),
+            (
+                "patient_portal_account_recovery_en",
+                "en",
+                "ltr",
+                "Account recovery",
+                "Contact the clinic",
+                "Back to sign in",
+                "contact_en",
+                "login_en",
+                "patient_portal_account_recovery",
+            ),
+        ]
+
+        for (
+            route_name,
+            language,
+            direction,
+            heading,
+            contact_label,
+            login_label,
+            contact_route,
+            login_route,
+            language_route,
+        ) in route_cases:
+            with self.subTest(route=route_name):
+                response = self.client.get(reverse(route_name))
+
+                self.assertEqual(response.status_code, 200)
+                self.assertTemplateUsed(response, "auth/base.html")
+                self.assertTemplateNotUsed(response, "base.html")
+                self.assertContains(response, f'<html lang="{language}" dir="{direction}">')
+                self.assertContains(response, 'class="auth-shell page-account-recovery')
+                self.assertContains(response, 'class="auth-card auth-recovery-card"')
+                self.assertContains(response, f'<h1 id="auth-title">{heading}</h1>')
+                self.assertContains(
+                    response,
+                    f'<a class="auth-submit" href="{reverse(contact_route)}">',
+                )
+                self.assertContains(response, contact_label)
+                self.assertContains(
+                    response,
+                    f'<a class="auth-recovery-secondary" href="{reverse(login_route)}">',
+                )
+                self.assertContains(response, login_label)
+                self.assertContains(
+                    response,
+                    f'href="{reverse(language_route)}" hreflang=',
+                )
+                self.assertIn("no-store", response["Cache-Control"])
+                self.assertNotContains(response, '<footer class="site-footer">')
+                self.assertNotContains(response, "data-mobile-booking-cta")
+                self.assertNotContains(response, 'class="page-hero"')
+                self.assertNotContains(response, 'class="container booking-layout"')
+                self.assertNotContains(response, 'class="success-card"')
+                self.assertNotContains(response, "trust-note")
+
+    def test_account_recovery_is_concise_and_does_not_collect_sensitive_data(self):
+        arabic = self.client.get(reverse("patient_portal_account_recovery"))
+        english = self.client.get(reverse("patient_portal_account_recovery_en"))
+
+        self.assertContains(
+            arabic,
+            "لاستعادة حسابك، تواصل مع العيادة للتحقق من هويتك ومساعدتك في الوصول إلى حسابك.",
+        )
+        self.assertContains(
+            arabic,
+            "لن تؤكد هذه الصفحة ما إذا كان رقم هاتف أو بريد إلكتروني مسجلًا لدينا.",
+        )
+        self.assertContains(
+            english,
+            "To recover your account, contact the clinic so your identity can be verified and access can be restored safely.",
+        )
+        self.assertContains(
+            english,
+            "This page does not confirm whether a phone number or email address is registered.",
+        )
+
+        for response in (arabic, english):
+            self.assertNotContains(response, "<form")
+            self.assertNotContains(response, "<input")
+            self.assertNotContains(response, 'type="password"')
+            self.assertNotContains(response, "csrfmiddlewaretoken")
+            self.assertNotContains(response, "reset token")
+            self.assertNotContains(response, "magic link")
+            self.assertNotIn("form", response.context)
+
+        for removed_copy in (
+            "لا توجد استعادة كلمة مرور عبر البريد الإلكتروني أو واتساب",
+            "لا ترسل تشخيصا أو صورا أو تقارير طبية",
+            "لا ترسل بريدا، لا ترسل واتساب، ولا تنشئ تذاكر دعم",
+        ):
+            self.assertNotContains(arabic, removed_copy)
+
+        for removed_copy in (
+            "Email password reset and WhatsApp reset are not available",
+            "Do not send diagnoses, photos, reports, or sensitive medical details",
+            "send email, send WhatsApp messages, or create support tickets",
+            "Book Without an Account",
+        ):
+            self.assertNotContains(english, removed_copy)
+
+    def test_account_recovery_ignores_identifiers_without_account_lookups(self):
+        supplied_values = {
+            "phone": "0799999999",
+            "email": "private-patient@example.com",
+            "username": "private-patient-user",
+            "user_id": "78421",
+        }
+
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(
+                reverse("patient_portal_account_recovery_en"),
+                supplied_values,
+            )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "clinic-assisted")
-        self.assertContains(response, "does not confirm")
-        self.assertNotContains(response, "<form")
-        self.assertNotContains(response, 'name="phone"')
-        self.assertNotContains(response, 'name="email"')
+        self.assertEqual(len(queries), 2)
+        self.assertTrue(all('FROM "clinic_' in query["sql"] for query in queries))
+        for value in supplied_values.values():
+            self.assertNotContains(response, value)
 
-    def test_account_recovery_rejects_post(self):
-        response = self.client.post(reverse("patient_portal_account_recovery"), {"phone": "0791234567"})
+    def test_account_recovery_rejects_post_in_both_languages(self):
+        for route_name in (
+            "patient_portal_account_recovery",
+            "patient_portal_account_recovery_en",
+        ):
+            with self.subTest(route=route_name):
+                response = self.client.post(
+                    reverse(route_name),
+                    {"phone": "0791234567", "email": "patient@example.com"},
+                )
 
-        self.assertEqual(response.status_code, 405)
+                self.assertEqual(response.status_code, 405)
 
 
 class PatientPortalLinkingTests(PatientPortalTestMixin, TestCase):

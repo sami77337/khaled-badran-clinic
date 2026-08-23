@@ -397,10 +397,34 @@ def portal_password_change(request, language="ar"):
 @never_cache
 def portal_account_recovery(request, language="ar"):
     language = _language(language)
+    recovery_url = _portal_url("patient_portal_account_recovery", language)
+    alternate_language = "en" if language == "ar" else "ar"
+    context = _portal_context(request, language, portal_section="account_recovery")
+    clinic_name = context["clinic"]["name_ar" if language == "ar" else "name_en"]
+    context.update(
+        {
+            "page_key": "account-recovery",
+            "page_title": (
+                f"استعادة الحساب | {clinic_name}"
+                if language == "ar"
+                else f"Account recovery | {clinic_name}"
+            ),
+            "meta_description": (
+                "تواصل مع العيادة للتحقق من هويتك واستعادة الوصول إلى حسابك."
+                if language == "ar"
+                else "Contact the clinic to verify your identity and restore account access."
+            ),
+            "canonical_url": request.build_absolute_uri(recovery_url),
+            "auth_language_url": _portal_url(
+                "patient_portal_account_recovery",
+                alternate_language,
+            ),
+        }
+    )
     return render(
         request,
         "patients/account_recovery.html",
-        _portal_context(request, language, portal_section="account_recovery"),
+        context,
     )
 
 

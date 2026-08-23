@@ -1,63 +1,46 @@
-{% extends "base.html" %}
+{% extends "auth/base.html" %}
 
 {% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">{% if is_arabic %}استعادة آمنة{% else %}Safe Recovery{% endif %}</p>
-        <h1>{% if is_arabic %}استعادة حساب البوابة{% else %}Portal Account Recovery{% endif %}</h1>
-        <p>{{ labels.not_emergency }}</p>
-    </div>
-</section>
+<section class="auth-page auth-recovery-page" aria-labelledby="auth-title">
+    <div class="auth-card auth-recovery-card">
+        <div class="auth-identity" aria-label="{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}">
+            <span class="auth-monogram" aria-hidden="true">KB</span>
+            <span class="auth-clinic-name">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</span>
+        </div>
 
-<section class="section">
-    <div class="container booking-layout">
-        {% if request.user.is_authenticated %}
-            {% include "patients/_portal_nav.html" %}
-        {% endif %}
+        <div class="auth-heading auth-recovery-heading">
+            <h1 id="auth-title">{% if is_arabic %}استعادة الحساب{% else %}Account recovery{% endif %}</h1>
+        </div>
 
-        <div class="success-card">
-            <h2>{% if is_arabic %}سياسة الاستعادة الحالية{% else %}Current Recovery Policy{% endif %}</h2>
-            <p class="muted">
+        <div class="auth-recovery-content">
+            <p class="auth-recovery-explanation">
                 {% if is_arabic %}
-                    استعادة الحساب تتم بمساعدة العيادة حاليا. لا توجد استعادة كلمة مرور عبر البريد الإلكتروني أو واتساب في هذه النسخة.
+                    لاستعادة حسابك، تواصل مع العيادة للتحقق من هويتك ومساعدتك في الوصول إلى حسابك.
                 {% else %}
-                    Account recovery is clinic-assisted for now. Email password reset and WhatsApp reset are not available in this version.
+                    To recover your account, contact the clinic so your identity can be verified and access can be restored safely.
                 {% endif %}
             </p>
-            <p class="muted">
+
+            <p class="auth-recovery-privacy">
                 {% if is_arabic %}
-                    عند التواصل مع العيادة، لا ترسل تشخيصا أو صورا أو تقارير طبية عبر هذه الصفحة. ستتحقق العيادة من الهوية خارج البوابة قبل أي تغيير.
+                    لن تؤكد هذه الصفحة ما إذا كان رقم هاتف أو بريد إلكتروني مسجلًا لدينا.
                 {% else %}
-                    Do not send diagnoses, photos, reports, or sensitive medical details through this page. The clinic must verify identity outside the portal before account changes.
+                    This page does not confirm whether a phone number or email address is registered.
                 {% endif %}
             </p>
-            <p class="muted">
-                {% if is_arabic %}
-                    حفاظا على الخصوصية، لا تؤكد البوابة من هذه الصفحة ما إذا كان رقم أو بريد معين يملك حسابا.
-                {% else %}
-                    For privacy, this page does not confirm whether any phone number or email address has a portal account.
-                {% endif %}
-            </p>
-            <div class="hero-actions">
-                <a class="btn btn-primary" href="{{ portal_login_url }}">
-                    {% if is_arabic %}تسجيل الدخول{% else %}Sign In{% endif %}
+
+            <div class="auth-recovery-actions">
+                <a class="auth-submit" href="{{ contact_url }}">
+                    <span>{% if is_arabic %}التواصل مع العيادة{% else %}Contact the clinic{% endif %}</span>
+                    <svg class="auth-submit-arrow" aria-hidden="true" viewBox="0 0 20 20" fill="none">
+                        <path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                 </a>
-                <a class="btn btn-secondary" href="{{ contact_url }}">
-                    {% if is_arabic %}معلومات التواصل{% else %}Contact Details{% endif %}
-                </a>
-                <a class="btn btn-secondary" href="{{ booking_url }}">
-                    {% if is_arabic %}حجز موعد بدون حساب{% else %}Book Without an Account{% endif %}
+                <a class="auth-recovery-secondary" href="{{ portal_login_url }}">
+                    {% if is_arabic %}العودة لتسجيل الدخول{% else %}Back to sign in{% endif %}
                 </a>
             </div>
         </div>
-
-        <p class="trust-note">
-            {% if is_arabic %}
-                هذه الصفحة معلوماتية فقط: لا تجمع بيانات، لا ترسل بريدا، لا ترسل واتساب، ولا تنشئ تذاكر دعم.
-            {% else %}
-                This page is informational only: it does not collect data, send email, send WhatsApp messages, or create support tickets.
-            {% endif %}
-        </p>
     </div>
 </section>
 {% endblock %}
