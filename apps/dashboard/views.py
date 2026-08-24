@@ -1,5 +1,8 @@
-from datetime import timedelta
+import calendar
+import re
+from datetime import date, datetime, time, timedelta
 from functools import wraps
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
@@ -11,7 +14,10 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
+from apps.booking import services as booking_services
 from apps.booking.models import Appointment
+from apps.booking.selectors import get_active_doctor, get_active_visit_types
+from apps.clinic.models import ClosedDay, DoctorSchedule
 from apps.core.views import _base_context
 from apps.patients.models import Patient
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
@@ -44,13 +50,69 @@ DASHBOARD_STATUS_LABELS = {
         Appointment.Status.ARRIVED: "وصل",
         Appointment.Status.COMPLETED: "مكتمل",
         Appointment.Status.NO_SHOW: "لم يحضر",
+        Appointment.Status.CANCELLED: "ملغي",
+        Appointment.Status.RESCHEDULED: "أعيدت جدولته",
     },
     "en": {
         Appointment.Status.CONFIRMED: "Confirmed",
         Appointment.Status.ARRIVED: "Arrived",
         Appointment.Status.COMPLETED: "Completed",
         Appointment.Status.NO_SHOW: "No-show",
+        Appointment.Status.CANCELLED: "Cancelled",
+        Appointment.Status.RESCHEDULED: "Rescheduled",
     },
+}
+
+SCHEDULING_VIEW_NAMES = ("day", "week", "month")
+SCHEDULING_WEEKDAY_LABELS = {
+    "ar": (
+        ("الاثنين", "اث"),
+        ("الثلاثاء", "ثل"),
+        ("الأربعاء", "أر"),
+        ("الخميس", "خم"),
+        ("الجمعة", "جم"),
+        ("السبت", "سب"),
+        ("الأحد", "أح"),
+    ),
+    "en": (
+        ("Monday", "Mon"),
+        ("Tuesday", "Tue"),
+        ("Wednesday", "Wed"),
+        ("Thursday", "Thu"),
+        ("Friday", "Fri"),
+        ("Saturday", "Sat"),
+        ("Sunday", "Sun"),
+    ),
+}
+SCHEDULING_MONTH_LABELS = {
+    "ar": (
+        "يناير",
+        "فبراير",
+        "مارس",
+        "أبريل",
+        "مايو",
+        "يونيو",
+        "يوليو",
+        "أغسطس",
+        "سبتمبر",
+        "أكتوبر",
+        "نوفمبر",
+        "ديسمبر",
+    ),
+    "en": (
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ),
 }
 
 
@@ -61,6 +123,21 @@ def _dashboard_language(request):
 def _dashboard_home_url(language):
     url = reverse("dashboard_home")
     return f"{url}?lang=en" if language == "en" else url
+
+
+def _scheduling_url(language, *, view=None, selected_date=None, visit_type=None):
+    params = {}
+    if language == "en":
+        params["lang"] = "en"
+    if view:
+        params["view"] = view
+    if selected_date:
+        params["date"] = selected_date.isoformat()
+    if visit_type:
+        params["visit_type"] = visit_type.pk
+    query = urlencode(params)
+    route = reverse("dashboard_scheduling")
+    return f"{route}?{query}" if query else route
 
 
 def _staff_required(view_func):
@@ -102,11 +179,13 @@ def _dashboard_home_context(request, *, language, metrics, schedule_items):
             "overview": "نظرة عامة",
             "appointments": "المواعيد",
             "patients": "المرضى",
+            "scheduling": "الجدولة",
         },
         "en": {
             "overview": "Overview",
             "appointments": "Appointments",
             "patients": "Patients",
+            "scheduling": "Scheduling",
         },
     }[language]
     context.update(
@@ -146,6 +225,11 @@ def _dashboard_home_context(request, *, language, metrics, schedule_items):
                     "key": "patients",
                     "label": labels["patients"],
                     "url": reverse("dashboard_patient_list"),
+                },
+                {
+                    "key": "scheduling",
+                    "label": labels["scheduling"],
+                    "url": _scheduling_url(language),
                 },
             ],
             "active_dashboard_nav": "overview",
@@ -252,6 +336,422 @@ def dashboard_home(request):
     )
     context["metric_cards"] = metric_cards
     return render(request, "dashboard/home.html", context)
+
+
+def _parse_scheduling_view(raw_view):
+    return raw_view if raw_view in SCHEDULING_VIEW_NAMES else "week"
+
+
+def _parse_scheduling_date(raw_date, today):
+    if not raw_date or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw_date):
+        return today
+    try:
+        parsed_date = date.fromisoformat(raw_date)
+    except ValueError:
+        return today
+    if parsed_date.year in {date.min.year, date.max.year}:
+        return today
+    return parsed_date
+
+
+def _shift_month(selected_date, offset):
+    month_index = selected_date.year * 12 + selected_date.month - 1 + offset
+    year, zero_based_month = divmod(month_index, 12)
+    month = zero_based_month + 1
+    day = min(selected_date.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def _scheduling_dates(selected_date, view):
+    if view == "day":
+        return [selected_date]
+    if view == "week":
+        week_start = selected_date - timedelta(days=selected_date.weekday())
+        return [week_start + timedelta(days=offset) for offset in range(7)]
+    month_weeks = calendar.Calendar(firstweekday=0).monthdatescalendar(
+        selected_date.year,
+        selected_date.month,
+    )
+    return [day for week in month_weeks for day in week]
+
+
+def _local_day_bounds(day):
+    current_timezone = timezone.get_current_timezone()
+    starts_at = timezone.make_aware(datetime.combine(day, time.min), current_timezone)
+    ends_at = timezone.make_aware(
+        datetime.combine(day + timedelta(days=1), time.min),
+        current_timezone,
+    )
+    return starts_at, ends_at
+
+
+def _localized_visit_type_name(visit_type, language):
+    if visit_type is None:
+        return "—"
+    primary = visit_type.name_ar if language == "ar" else visit_type.name_en
+    fallback = visit_type.name_en if language == "ar" else visit_type.name_ar
+    return primary or fallback or "—"
+
+
+def _scheduling_appointment_item(appointment, language):
+    local_start = timezone.localtime(appointment.starts_at)
+    local_end = timezone.localtime(appointment.ends_at)
+    duration_minutes = max(
+        1,
+        int((appointment.ends_at - appointment.starts_at).total_seconds() // 60),
+    )
+    return {
+        "start_time": local_start.strftime("%H:%M"),
+        "end_time": local_end.strftime("%H:%M"),
+        "duration_minutes": duration_minutes,
+        "patient_name": appointment.patient.full_name,
+        "visit_type_name": _localized_visit_type_name(appointment.visit_type, language),
+        "status_label": DASHBOARD_STATUS_LABELS[language].get(
+            appointment.status,
+            appointment.get_status_display(),
+        ),
+        "status_class": appointment.status,
+        "detail_url": reverse(
+            "staff_appointment_detail",
+            kwargs={"appointment_id": appointment.pk},
+        ),
+    }
+
+
+def _scheduling_day_item(
+    day,
+    *,
+    language,
+    selected_date,
+    today,
+    selected_month,
+    schedules_by_weekday,
+    closures_by_date,
+    appointments_by_date,
+):
+    weekday_full, weekday_short = SCHEDULING_WEEKDAY_LABELS[language][day.weekday()]
+    periods = [
+        {
+            "start": schedule.start_time.strftime("%H:%M"),
+            "end": schedule.end_time.strftime("%H:%M"),
+        }
+        for schedule in schedules_by_weekday.get(day.weekday(), [])
+    ]
+    closures = closures_by_date.get(day, [])
+    appointment_items = appointments_by_date.get(day, [])
+    return {
+        "date": day,
+        "iso_date": day.isoformat(),
+        "day_number": day.day,
+        "weekday_full": weekday_full,
+        "weekday_short": weekday_short,
+        "month_name": SCHEDULING_MONTH_LABELS[language][day.month - 1],
+        "is_today": day == today,
+        "is_selected": day == selected_date,
+        "is_current_month": (day.year, day.month) == selected_month,
+        "working_periods": periods,
+        "closures": closures,
+        "is_closed": bool(closures),
+        "appointments": appointment_items,
+        "appointment_count": len(appointment_items),
+        "available_slots": [],
+    }
+
+
+def _scheduling_navigation_date(selected_date, view, direction):
+    if view == "day":
+        return selected_date + timedelta(days=direction)
+    if view == "week":
+        return selected_date + timedelta(days=7 * direction)
+    return _shift_month(selected_date, direction)
+
+
+def _scheduling_period_label(language, view, selected_day, visible_dates):
+    selected_date = selected_day["date"]
+    if view == "day":
+        if language == "ar":
+            return (
+                f"{selected_day['weekday_full']}، {selected_date.day} "
+                f"{selected_day['month_name']} {selected_date.year}"
+            )
+        return (
+            f"{selected_day['weekday_full']}, {selected_day['month_name']} "
+            f"{selected_date.day}, {selected_date.year}"
+        )
+    if view == "month":
+        return f"{selected_day['month_name']} {selected_date.year}"
+
+    week_start = visible_dates[0]
+    week_end = visible_dates[-1]
+    start_month = SCHEDULING_MONTH_LABELS[language][week_start.month - 1]
+    end_month = SCHEDULING_MONTH_LABELS[language][week_end.month - 1]
+    if week_start.year == week_end.year and week_start.month == week_end.month:
+        return f"{week_start.day}–{week_end.day} {end_month} {week_end.year}"
+    if week_start.year == week_end.year:
+        return (
+            f"{week_start.day} {start_month} – "
+            f"{week_end.day} {end_month} {week_end.year}"
+        )
+    return (
+        f"{week_start.day} {start_month} {week_start.year} – "
+        f"{week_end.day} {end_month} {week_end.year}"
+    )
+
+
+def _scheduling_context(
+    request,
+    *,
+    language,
+    view,
+    selected_date,
+    active_doctor,
+    visit_types,
+    selected_visit_type,
+):
+    today = timezone.localdate()
+    if selected_visit_type and selected_visit_type not in visit_types:
+        selected_visit_type = None
+
+    visible_dates = _scheduling_dates(selected_date, view)
+    visible_start, _ = _local_day_bounds(visible_dates[0])
+    _, visible_end = _local_day_bounds(visible_dates[-1])
+
+    schedules_by_weekday = {}
+    closures_by_date = {}
+    appointments_by_date = {}
+    if active_doctor:
+        schedules = DoctorSchedule.objects.filter(
+            doctor=active_doctor,
+            is_active=True,
+        ).order_by("weekday", "start_time", "id")
+        for schedule in schedules:
+            schedules_by_weekday.setdefault(schedule.weekday, []).append(schedule)
+
+        closures = (
+            ClosedDay.objects.filter(
+                is_active=True,
+                date__range=(visible_dates[0], visible_dates[-1]),
+            )
+            .filter(Q(doctor=active_doctor) | Q(doctor__isnull=True))
+            .order_by("date", "id")
+        )
+        for closure in closures:
+            reason = closure.reason_ar if language == "ar" else closure.reason_en
+            if not reason:
+                reason = closure.reason_en if language == "ar" else closure.reason_ar
+            closures_by_date.setdefault(closure.date, []).append(reason)
+
+        appointments = (
+            Appointment.objects.filter(
+                doctor=active_doctor,
+                starts_at__lt=visible_end,
+                ends_at__gt=visible_start,
+            )
+            .select_related("patient", "visit_type", "doctor")
+            .order_by("starts_at", "id")
+        )
+        for appointment in appointments:
+            local_date = timezone.localtime(appointment.starts_at).date()
+            appointments_by_date.setdefault(local_date, []).append(
+                _scheduling_appointment_item(appointment, language)
+            )
+
+    day_items = [
+        _scheduling_day_item(
+            day,
+            language=language,
+            selected_date=selected_date,
+            today=today,
+            selected_month=(selected_date.year, selected_date.month),
+            schedules_by_weekday=schedules_by_weekday,
+            closures_by_date=closures_by_date,
+            appointments_by_date=appointments_by_date,
+        )
+        for day in visible_dates
+    ]
+    day_items_by_date = {item["date"]: item for item in day_items}
+    selected_day = day_items_by_date.get(selected_date)
+    if selected_day is None:
+        selected_day = _scheduling_day_item(
+            selected_date,
+            language=language,
+            selected_date=selected_date,
+            today=today,
+            selected_month=(selected_date.year, selected_date.month),
+            schedules_by_weekday=schedules_by_weekday,
+            closures_by_date=closures_by_date,
+            appointments_by_date=appointments_by_date,
+        )
+
+    if active_doctor and selected_visit_type:
+        settings = booking_services.get_booking_settings()
+        now = timezone.localtime(timezone.now())
+        availability_days = day_items if view == "week" else [selected_day]
+        for day_item in availability_days:
+            slots = booking_services.generate_available_slots(
+                visit_type=selected_visit_type,
+                target_date=day_item["date"],
+                now=now,
+                settings=settings,
+                doctor=active_doctor,
+            )
+            day_item["available_slots"] = [
+                {
+                    "start": timezone.localtime(slot.starts_at).strftime("%H:%M"),
+                    "end": timezone.localtime(slot.ends_at).strftime("%H:%M"),
+                }
+                for slot in slots
+            ]
+
+    alternate_language = "en" if language == "ar" else "ar"
+    shell_context = _dashboard_home_context(
+        request,
+        language=language,
+        metrics={},
+        schedule_items=[],
+    )
+    previous_date = _scheduling_navigation_date(selected_date, view, -1)
+    next_date = _scheduling_navigation_date(selected_date, view, 1)
+    view_labels = {
+        "ar": {"day": "اليوم", "week": "الأسبوع", "month": "الشهر"},
+        "en": {"day": "Day", "week": "Week", "month": "Month"},
+    }[language]
+    for day_item in day_items:
+        day_item["day_view_url"] = _scheduling_url(
+            language,
+            view="day",
+            selected_date=day_item["date"],
+            visit_type=selected_visit_type,
+        )
+
+    appointments_query = urlencode(
+        {
+            "scope": "all",
+            "date_from": selected_date.isoformat(),
+            "date_to": selected_date.isoformat(),
+            **({"visit_type": selected_visit_type.pk} if selected_visit_type else {}),
+        }
+    )
+    shell_context.update(
+        {
+            "page_key": "dashboard_scheduling",
+            "page_title": (
+                f"مركز الجدولة | {shell_context['clinic']['name_ar']}"
+                if language == "ar"
+                else f"Scheduling Center | {shell_context['clinic']['name_en']}"
+            ),
+            "meta_description": (
+                "عرض تشغيلي للجدول والمواعيد والتوافر الفعلي للعيادة."
+                if language == "ar"
+                else "An operational view of clinic hours, appointments, and real availability."
+            ),
+            "canonical_url": request.build_absolute_uri(
+                _scheduling_url(
+                    language,
+                    view=view,
+                    selected_date=selected_date,
+                    visit_type=selected_visit_type,
+                )
+            ),
+            "active_dashboard_nav": "scheduling",
+            "dashboard_language_switch_url": _scheduling_url(
+                alternate_language,
+                view=view,
+                selected_date=selected_date,
+                visit_type=selected_visit_type,
+            ),
+            "scheduling_view": view,
+            "scheduling_selected_date": selected_date,
+            "scheduling_today": today,
+            "scheduling_timezone": timezone.get_current_timezone_name(),
+            "scheduling_doctor": active_doctor,
+            "scheduling_visit_types": visit_types,
+            "scheduling_selected_visit_type": selected_visit_type,
+            "scheduling_days": day_items,
+            "scheduling_month_weeks": [
+                day_items[index : index + 7]
+                for index in range(0, len(day_items), 7)
+            ],
+            "scheduling_selected_day": selected_day,
+            "scheduling_previous_url": _scheduling_url(
+                language,
+                view=view,
+                selected_date=previous_date,
+                visit_type=selected_visit_type,
+            ),
+            "scheduling_today_url": _scheduling_url(
+                language,
+                view=view,
+                selected_date=today,
+                visit_type=selected_visit_type,
+            ),
+            "scheduling_next_url": _scheduling_url(
+                language,
+                view=view,
+                selected_date=next_date,
+                visit_type=selected_visit_type,
+            ),
+            "scheduling_view_tabs": [
+                {
+                    "key": view_name,
+                    "label": view_labels[view_name],
+                    "url": _scheduling_url(
+                        language,
+                        view=view_name,
+                        selected_date=selected_date,
+                        visit_type=selected_visit_type,
+                    ),
+                }
+                for view_name in SCHEDULING_VIEW_NAMES
+            ],
+            "scheduling_period_label": _scheduling_period_label(
+                language,
+                view,
+                selected_day,
+                visible_dates,
+            ),
+            "scheduling_appointments_url": (
+                f"{reverse('staff_appointment_list')}?{appointments_query}"
+            ),
+        }
+    )
+    return shell_context
+
+
+@_staff_required
+@require_GET
+def dashboard_scheduling(request):
+    language = _dashboard_language(request)
+    view = _parse_scheduling_view(request.GET.get("view"))
+    selected_date = _parse_scheduling_date(
+        request.GET.get("date"),
+        timezone.localdate(),
+    )
+    active_doctor = get_active_doctor()
+    visit_types = list(get_active_visit_types(doctor=active_doctor)) if active_doctor else []
+    selected_visit_type = None
+    raw_visit_type = request.GET.get("visit_type")
+    if active_doctor and raw_visit_type:
+        try:
+            visit_type_id = int(raw_visit_type)
+        except (TypeError, ValueError):
+            visit_type_id = None
+        if visit_type_id is not None:
+            selected_visit_type = next(
+                (visit_type for visit_type in visit_types if visit_type.pk == visit_type_id),
+                None,
+            )
+
+    context = _scheduling_context(
+        request,
+        language=language,
+        view=view,
+        selected_date=selected_date,
+        active_doctor=active_doctor,
+        visit_types=visit_types,
+        selected_visit_type=selected_visit_type,
+    )
+    return render(request, "dashboard/scheduling.html", context)
 
 
 def _method_allowed(request, methods):

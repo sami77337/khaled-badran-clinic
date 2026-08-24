@@ -11,6 +11,7 @@
     <link rel="canonical" href="{{ canonical_url }}">
     <link rel="icon" href="{% static 'img/icons/site-icon.svg' %}" type="image/svg+xml">
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    {% block dashboard_styles %}{% endblock %}
 </head>
 <body class="dashboard-shell {% if is_arabic %}is-rtl{% else %}is-ltr{% endif %}">
     <a class="dashboard-skip-link" href="#dashboard-main">
@@ -101,5 +102,6 @@
     </main>
 
     <script src="{% static 'js/dashboard.js' %}" defer></script>
+    {% block dashboard_scripts %}{% endblock %}
 </body>
 </html>

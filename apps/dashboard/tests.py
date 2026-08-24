@@ -1,7 +1,8 @@
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -11,9 +12,11 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.dashboard import views as dashboard_views
+from apps.booking import services as booking_services
 from apps.booking.models import Appointment
-from apps.clinic.models import Doctor, VisitType
+from apps.clinic.models import ClosedDay, Doctor, DoctorSchedule, VisitType
+from apps.core.models import SystemSetting
+from apps.dashboard import views as dashboard_views
 from apps.patients.models import Patient
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
 
@@ -1059,9 +1062,9 @@ class DashboardOverviewTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertContains(response, f'href="{reverse("dashboard_home")}?lang=en"')
         self.assertContains(response, f'href="{reverse("staff_appointment_list")}"')
         self.assertContains(response, f'href="{reverse("dashboard_patient_list")}"')
+        self.assertContains(response, f'href="{reverse("dashboard_scheduling")}?lang=en"')
         for unavailable_label in (
             "Medical Records",
-            "Scheduling",
             "Clinic Settings",
             "Content",
             "Reviews",
@@ -1119,3 +1122,556 @@ class DashboardOverviewTests(DashboardRecordWorkflowMixin, TestCase):
         )
         arabic_logout = self.client.post(arabic_logout_url)
         self.assertRedirects(arabic_logout, reverse("login"), fetch_redirect_response=False)
+
+
+class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
+    def setUp(self):
+        self.staff = self.create_staff()
+        self.normal_user = self.create_user(username="synthetic-scheduling-non-staff")
+        self.doctor = Doctor.objects.create(
+            full_name_ar="طبيب الجدولة التجريبي",
+            full_name_en="Synthetic Scheduling Doctor",
+            title_ar="د.",
+            title_en="Dr.",
+            is_active=True,
+        )
+        self.short_visit = VisitType.objects.create(
+            doctor=self.doctor,
+            name_ar="خدمة قصيرة تجريبية",
+            name_en="Synthetic short service",
+            duration_minutes=15,
+            is_active=True,
+        )
+        self.long_visit = VisitType.objects.create(
+            doctor=self.doctor,
+            name_ar="خدمة طويلة تجريبية",
+            name_en="Synthetic long service",
+            duration_minutes=60,
+            is_active=True,
+        )
+        self.set_booking_setting(SystemSetting.BOOKING_ENABLED, "true")
+        self.set_booking_setting(SystemSetting.BOOKING_MIN_LEAD_MINUTES, "0")
+        self.set_booking_setting(SystemSetting.BOOKING_MAX_DAYS_AHEAD, "30")
+        self.set_booking_setting(SystemSetting.BOOKING_SLOT_INTERVAL_MINUTES, "15")
+
+    def set_booking_setting(self, key, value):
+        SystemSetting.objects.update_or_create(
+            key=key,
+            defaults={"value": str(value)},
+        )
+
+    def scheduling_url(self, **params):
+        route = reverse("dashboard_scheduling")
+        if not params:
+            return route
+        return f"{route}?{urlencode(params)}"
+
+    def scheduling(self, **params):
+        return self.client.get(self.scheduling_url(**params))
+
+    def future_date(self, offset=2):
+        return timezone.localdate() + timedelta(days=offset)
+
+    def create_schedule(self, day, start=time(9, 0), end=time(11, 0)):
+        return DoctorSchedule.objects.create(
+            doctor=self.doctor,
+            weekday=day.weekday(),
+            start_time=start,
+            end_time=end,
+            is_active=True,
+        )
+
+    def aware_datetime(self, day, value):
+        return timezone.make_aware(
+            datetime.combine(day, value),
+            timezone.get_current_timezone(),
+        )
+
+    def create_scheduling_appointment(
+        self,
+        day,
+        *,
+        start=time(9, 0),
+        duration=30,
+        patient_name="Synthetic Scheduling Patient",
+        visit_type=None,
+        doctor=None,
+        **kwargs,
+    ):
+        patient = self.create_patient(full_name=patient_name)
+        starts_at = self.aware_datetime(day, start)
+        return Appointment.objects.create(
+            doctor=doctor or self.doctor,
+            patient=patient,
+            visit_type=visit_type or self.short_visit,
+            starts_at=starts_at,
+            ends_at=starts_at + timedelta(minutes=duration),
+            **kwargs,
+        )
+
+    def assert_no_cache_headers(self, response):
+        cache_control = response.headers.get("Cache-Control", "")
+        self.assertIn("no-cache", cache_control)
+        self.assertIn("no-store", cache_control)
+
+    def test_staff_access_boundary_get_only_and_never_cache(self):
+        arabic_url = self.scheduling_url(view="day")
+        arabic = self.client.get(arabic_url)
+        self.assertEqual(arabic.status_code, 302)
+        self.assertTrue(arabic["Location"].startswith(f"{reverse('login')}?role=doctor&next="))
+        self.assertEqual(parse_qs(urlsplit(arabic["Location"]).query)["next"], [arabic_url])
+
+        english_url = self.scheduling_url(lang="en", view="month")
+        english = self.client.get(english_url)
+        self.assertEqual(english.status_code, 302)
+        self.assertTrue(english["Location"].startswith(f"{reverse('login_en')}?role=doctor&next="))
+        self.assertEqual(parse_qs(urlsplit(english["Location"]).query)["next"], [english_url])
+
+        self.client.force_login(self.normal_user)
+        self.assertEqual(self.client.get(reverse("dashboard_scheduling")).status_code, 403)
+
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("dashboard_scheduling"))
+        self.assertEqual(response.status_code, 200)
+        self.assert_no_cache_headers(response)
+        post_response = self.client.post(reverse("dashboard_scheduling"), {"date": "2030-01-01"})
+        self.assertEqual(post_response.status_code, 405)
+        self.assert_no_cache_headers(post_response)
+
+    def test_language_direction_labels_and_switch_preserve_context(self):
+        self.client.force_login(self.staff)
+        selected_date = self.future_date()
+        arabic = self.scheduling(
+            view="month",
+            date=selected_date.isoformat(),
+            visit_type=self.short_visit.pk,
+        )
+        self.assertContains(arabic, '<html lang="ar" dir="rtl">')
+        self.assertContains(arabic, "مركز الجدولة")
+        self.assertContains(arabic, "الجدولة")
+        self.assertContains(arabic, "اليوم")
+        self.assertContains(arabic, "الأسبوع")
+        self.assertContains(arabic, "الشهر")
+        switch_query = parse_qs(
+            urlsplit(arabic.context["dashboard_language_switch_url"]).query
+        )
+        self.assertEqual(switch_query["lang"], ["en"])
+        self.assertEqual(switch_query["view"], ["month"])
+        self.assertEqual(switch_query["date"], [selected_date.isoformat()])
+        self.assertEqual(switch_query["visit_type"], [str(self.short_visit.pk)])
+
+        english = self.scheduling(
+            lang="en",
+            view="day",
+            date=selected_date.isoformat(),
+            visit_type=self.short_visit.pk,
+        )
+        self.assertContains(english, '<html lang="en" dir="ltr">')
+        self.assertContains(english, "Scheduling Center")
+        self.assertContains(english, "Working hours ≠ final availability")
+        self.assertContains(english, "Synthetic short service")
+
+    def test_view_date_and_visit_type_parameters_are_validated_safely(self):
+        self.client.force_login(self.staff)
+        selected_date = self.future_date()
+        for view in ("day", "week", "month"):
+            with self.subTest(view=view):
+                response = self.scheduling(view=view, date=selected_date.isoformat())
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context["scheduling_view"], view)
+                self.assertEqual(response.context["scheduling_selected_date"], selected_date)
+
+        invalid = self.scheduling(
+            view="agenda",
+            date="2026-02-31",
+            visit_type="not-an-id",
+        )
+        self.assertEqual(invalid.status_code, 200)
+        self.assertEqual(invalid.context["scheduling_view"], "week")
+        self.assertEqual(invalid.context["scheduling_selected_date"], timezone.localdate())
+        self.assertIsNone(invalid.context["scheduling_selected_visit_type"])
+
+        boundary_date = self.scheduling(view="week", date="9999-12-31")
+        self.assertEqual(boundary_date.status_code, 200)
+        self.assertEqual(
+            boundary_date.context["scheduling_selected_date"],
+            timezone.localdate(),
+        )
+
+        other_doctor = Doctor.objects.create(
+            full_name_ar="طبيب آخر",
+            full_name_en="Other doctor",
+            is_active=True,
+            display_order=20,
+        )
+        incompatible = VisitType.objects.create(
+            doctor=other_doctor,
+            name_ar="خدمة لطبيب آخر",
+            name_en="Other doctor service",
+            duration_minutes=30,
+            is_active=True,
+        )
+        ignored = self.scheduling(visit_type=incompatible.pk)
+        self.assertEqual(ignored.status_code, 200)
+        self.assertIsNone(ignored.context["scheduling_selected_visit_type"])
+        self.assertNotContains(ignored, incompatible.name_en)
+
+        inactive = VisitType.objects.create(
+            doctor=self.doctor,
+            name_ar="خدمة غير نشطة",
+            name_en="Inactive service",
+            duration_minutes=30,
+            is_active=False,
+        )
+        ignored_inactive = self.scheduling(visit_type=inactive.pk)
+        self.assertIsNone(ignored_inactive.context["scheduling_selected_visit_type"])
+
+        clinic_wide = VisitType.objects.create(
+            doctor=None,
+            name_ar="خدمة عيادة عامة",
+            name_en="Clinic-wide service",
+            duration_minutes=30,
+            is_active=True,
+        )
+        accepted_global = self.scheduling(visit_type=clinic_wide.pk)
+        self.assertEqual(
+            accepted_global.context["scheduling_selected_visit_type"],
+            clinic_wide,
+        )
+
+    def test_no_active_doctor_renders_safe_bilingual_unavailable_state(self):
+        self.doctor.is_active = False
+        self.doctor.save(update_fields=["is_active"])
+        self.client.force_login(self.staff)
+
+        arabic = self.scheduling()
+        english = self.scheduling(lang="en")
+
+        self.assertEqual(arabic.status_code, 200)
+        self.assertContains(arabic, "الجدولة غير متاحة حالياً")
+        self.assertContains(english, "Scheduling is currently unavailable")
+        self.assertEqual(english.context["scheduling_visit_types"], [])
+
+    def test_multiple_working_periods_closed_day_and_no_schedule_states_render(self):
+        selected_date = self.future_date()
+        self.create_schedule(selected_date, time(9, 0), time(13, 0))
+        self.create_schedule(selected_date, time(16, 0), time(19, 0))
+        self.client.force_login(self.staff)
+
+        response = self.scheduling(lang="en", view="day", date=selected_date.isoformat())
+        periods = response.context["scheduling_selected_day"]["working_periods"]
+        self.assertEqual(periods, [{"start": "09:00", "end": "13:00"}, {"start": "16:00", "end": "19:00"}])
+        self.assertContains(response, "09:00")
+        self.assertContains(response, "16:00")
+
+        ClosedDay.objects.create(
+            date=selected_date,
+            doctor=self.doctor,
+            reason_en="Synthetic doctor closure",
+            reason_ar="إغلاق طبيب تجريبي",
+            is_active=True,
+        )
+        ClosedDay.objects.create(
+            date=selected_date,
+            doctor=None,
+            reason_en="Synthetic clinic closure",
+            reason_ar="إغلاق عيادة تجريبي",
+            is_active=True,
+        )
+        closed = self.scheduling(lang="en", view="day", date=selected_date.isoformat())
+        self.assertTrue(closed.context["scheduling_selected_day"]["is_closed"])
+        self.assertContains(closed, "Closed")
+        self.assertContains(closed, "Synthetic doctor closure")
+        self.assertContains(closed, "Synthetic clinic closure")
+
+        DoctorSchedule.objects.all().delete()
+        ClosedDay.objects.all().delete()
+        no_schedule = self.scheduling(lang="en", view="day", date=selected_date.isoformat())
+        self.assertContains(no_schedule, "No recurring working hours for this day.")
+
+    def test_appointments_are_range_bounded_chronological_and_use_existing_detail_route(self):
+        selected_date = self.future_date()
+        late = self.create_scheduling_appointment(
+            selected_date,
+            start=time(11, 0),
+            patient_name="Long English Scheduling Patient Name That Must Wrap Without Overflow",
+        )
+        early = self.create_scheduling_appointment(
+            selected_date,
+            start=time(9, 0),
+            patient_name="اسم مريض عربي تجريبي طويل جداً لاختبار الالتفاف الآمن",
+        )
+        outside = self.create_scheduling_appointment(
+            selected_date + timedelta(days=1),
+            start=time(9, 0),
+            patient_name="Outside visible day patient",
+        )
+        other_doctor = Doctor.objects.create(
+            full_name_ar="طبيب نطاق آخر",
+            full_name_en="Other range doctor",
+            is_active=True,
+            display_order=50,
+        )
+        other_visit = VisitType.objects.create(
+            doctor=other_doctor,
+            name_ar="زيارة أخرى",
+            name_en="Other visit",
+            duration_minutes=30,
+        )
+        other = self.create_scheduling_appointment(
+            selected_date,
+            start=time(10, 0),
+            patient_name="Other doctor patient",
+            doctor=other_doctor,
+            visit_type=other_visit,
+        )
+        self.client.force_login(self.staff)
+
+        response = self.scheduling(lang="en", view="day", date=selected_date.isoformat())
+        appointment_items = response.context["scheduling_selected_day"]["appointments"]
+        self.assertEqual(
+            [item["patient_name"] for item in appointment_items],
+            [early.patient.full_name, late.patient.full_name],
+        )
+        self.assertContains(response, early.patient.full_name)
+        self.assertContains(response, late.patient.full_name)
+        self.assertContains(
+            response,
+            reverse("staff_appointment_detail", kwargs={"appointment_id": early.pk}),
+        )
+        self.assertNotContains(response, outside.patient.full_name)
+        self.assertNotContains(response, other.patient.full_name)
+
+    def test_month_view_uses_counts_without_patient_names_and_one_bounded_joined_query(self):
+        selected_date = self.future_date()
+        appointment = self.create_scheduling_appointment(
+            selected_date,
+            patient_name="Month view hidden patient name",
+        )
+        self.client.force_login(self.staff)
+
+        with CaptureQueriesContext(connection) as captured:
+            response = self.scheduling(
+                lang="en",
+                view="month",
+                date=selected_date.isoformat(),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, appointment.patient.full_name)
+        self.assertContains(response, "1 appt.")
+        appointment_queries = [
+            query["sql"]
+            for query in captured.captured_queries
+            if 'FROM "booking_appointment"' in query["sql"]
+        ]
+        self.assertEqual(len(appointment_queries), 1)
+        self.assertIn('JOIN "patients_patient"', appointment_queries[0])
+        self.assertIn('JOIN "clinic_doctor"', appointment_queries[0])
+        self.assertIn('LEFT OUTER JOIN "clinic_visittype"', appointment_queries[0])
+
+    def test_scheduling_response_omits_private_patient_and_record_data(self):
+        selected_date = self.future_date()
+        patient_user = self.create_user(username="scheduling-private-user")
+        patient_user.email = "scheduling-private@example.test"
+        patient_user.save(update_fields=["email"])
+        patient = Patient.objects.create(
+            user=patient_user,
+            full_name="Scheduling Operational Name",
+            phone_raw="0798888111",
+            phone_e164="+962798888111",
+            notes="SCHEDULING-PRIVATE-PATIENT-NOTES",
+        )
+        starts_at = self.aware_datetime(selected_date, time(9, 0))
+        appointment = Appointment.objects.create(
+            doctor=self.doctor,
+            patient=patient,
+            visit_type=self.short_visit,
+            starts_at=starts_at,
+            ends_at=starts_at + timedelta(minutes=30),
+            booking_note="SCHEDULING-PRIVATE-BOOKING-NOTE",
+        )
+        visit = self.create_visit(
+            patient=patient,
+            appointment=appointment,
+            doctor_notes="SCHEDULING-PRIVATE-DOCTOR-NOTES",
+            diagnosis_plan="SCHEDULING-PRIVATE-DIAGNOSIS",
+        )
+        self.create_note(
+            patient=patient,
+            visit=visit,
+            body="SCHEDULING-PRIVATE-CLINICAL-NOTE",
+        )
+        media = self.create_media(
+            patient=patient,
+            title="SCHEDULING-PRIVATE-MEDIA",
+        )
+        self.client.force_login(self.staff)
+
+        response = self.scheduling(view="day", date=selected_date.isoformat())
+        self.assertContains(response, patient.full_name)
+        for private_value in (
+            patient.phone_raw,
+            patient.phone_e164,
+            patient_user.email,
+            patient.notes,
+            appointment.booking_note,
+            str(appointment.public_token),
+            visit.doctor_notes,
+            visit.diagnosis_plan,
+            "SCHEDULING-PRIVATE-CLINICAL-NOTE",
+            media.title,
+            str(media.public_id),
+            media.file.name,
+        ):
+            self.assertNotContains(response, private_value)
+
+    def test_selected_service_availability_reuses_booking_engine_for_schedule_collision_and_closure(self):
+        selected_date = self.future_date()
+        self.create_schedule(selected_date, time(9, 0), time(11, 0))
+        self.client.force_login(self.staff)
+        params = {
+            "lang": "en",
+            "view": "day",
+            "date": selected_date.isoformat(),
+            "visit_type": self.short_visit.pk,
+        }
+
+        with patch(
+            "apps.dashboard.views.booking_services.generate_available_slots",
+            wraps=booking_services.generate_available_slots,
+        ) as generator:
+            normal = self.scheduling(**params)
+        self.assertEqual(generator.call_count, 1)
+        self.assertTrue(normal.context["scheduling_selected_day"]["available_slots"])
+
+        self.create_scheduling_appointment(
+            selected_date,
+            start=time(9, 0),
+            duration=30,
+            visit_type=self.short_visit,
+        )
+        collision = self.scheduling(**params)
+        collision_starts = [
+            slot["start"]
+            for slot in collision.context["scheduling_selected_day"]["available_slots"]
+        ]
+        self.assertNotIn("09:00", collision_starts)
+        self.assertNotIn("09:15", collision_starts)
+        self.assertIn("09:30", collision_starts)
+
+        ClosedDay.objects.create(
+            doctor=self.doctor,
+            date=selected_date,
+            reason_en="Closed for controlled availability test",
+        )
+        closed = self.scheduling(**params)
+        self.assertEqual(closed.context["scheduling_selected_day"]["available_slots"], [])
+
+    def test_service_duration_minimum_lead_and_horizon_change_real_availability(self):
+        selected_date = self.future_date()
+        self.create_schedule(selected_date, time(9, 0), time(10, 0))
+        self.client.force_login(self.staff)
+
+        short = self.scheduling(
+            view="day",
+            date=selected_date.isoformat(),
+            visit_type=self.short_visit.pk,
+        )
+        long = self.scheduling(
+            view="day",
+            date=selected_date.isoformat(),
+            visit_type=self.long_visit.pk,
+        )
+        self.assertEqual(len(short.context["scheduling_selected_day"]["available_slots"]), 4)
+        self.assertEqual(len(long.context["scheduling_selected_day"]["available_slots"]), 1)
+
+        self.set_booking_setting(SystemSetting.BOOKING_MIN_LEAD_MINUTES, "4320")
+        lead_limited = self.scheduling(
+            view="day",
+            date=selected_date.isoformat(),
+            visit_type=self.short_visit.pk,
+        )
+        self.assertEqual(lead_limited.context["scheduling_selected_day"]["available_slots"], [])
+
+        self.set_booking_setting(SystemSetting.BOOKING_MIN_LEAD_MINUTES, "0")
+        self.set_booking_setting(SystemSetting.BOOKING_MAX_DAYS_AHEAD, "1")
+        horizon_limited = self.scheduling(
+            view="day",
+            date=selected_date.isoformat(),
+            visit_type=self.short_visit.pk,
+        )
+        self.assertEqual(horizon_limited.context["scheduling_selected_day"]["available_slots"], [])
+
+    def test_availability_call_count_is_zero_for_all_services_and_bounded_by_view(self):
+        selected_date = self.future_date()
+        for offset in range(7):
+            day = selected_date - timedelta(days=selected_date.weekday()) + timedelta(days=offset)
+            self.create_schedule(day, time(9, 0), time(10, 0))
+        self.client.force_login(self.staff)
+
+        with patch(
+            "apps.dashboard.views.booking_services.generate_available_slots",
+            wraps=booking_services.generate_available_slots,
+        ) as generator:
+            self.scheduling(view="week", date=selected_date.isoformat())
+            self.assertEqual(generator.call_count, 0)
+
+        for view, expected_calls in (("day", 1), ("week", 7), ("month", 1)):
+            with self.subTest(view=view), patch(
+                "apps.dashboard.views.booking_services.generate_available_slots",
+                wraps=booking_services.generate_available_slots,
+            ) as generator:
+                response = self.scheduling(
+                    view=view,
+                    date=selected_date.isoformat(),
+                    visit_type=self.short_visit.pk,
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(generator.call_count, expected_calls)
+
+    def test_navigation_preserves_context_and_mobile_progressive_default_is_safe(self):
+        selected_date = self.future_date()
+        self.client.force_login(self.staff)
+        response = self.scheduling(
+            lang="en",
+            view="week",
+            date=selected_date.isoformat(),
+            visit_type=self.short_visit.pk,
+        )
+        for context_key in (
+            "scheduling_previous_url",
+            "scheduling_today_url",
+            "scheduling_next_url",
+        ):
+            query = parse_qs(urlsplit(response.context[context_key]).query)
+            self.assertEqual(query["lang"], ["en"])
+            self.assertEqual(query["view"], ["week"])
+            self.assertEqual(query["visit_type"], [str(self.short_visit.pk)])
+
+        project_root = Path(__file__).resolve().parents[2]
+        javascript = (project_root / "static" / "js" / "dashboard-scheduling.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('searchParams.has("view")', javascript)
+        self.assertIn('matchMedia("(max-width: 35rem)")', javascript)
+        self.assertIn('searchParams.set("view", "day")', javascript)
+        self.assertIn("window.location.replace", javascript)
+
+    def test_scheduling_is_strictly_read_only_and_has_no_management_controls(self):
+        self.client.force_login(self.staff)
+        response = self.scheduling(lang="en")
+
+        self.assertContains(response, "Read only")
+        for prohibited_label in (
+            "Close Day",
+            "Edit Hours",
+            "Special Hours",
+            "Save Schedule",
+            "Drag",
+            "Medical Records",
+            "Clinic Settings",
+            "Content",
+            "Reviews",
+        ):
+            self.assertNotContains(response, prohibited_label)
