@@ -1,14 +1,14 @@
-<section class="scheduling-management" aria-labelledby="booking-rules-title">
+<section class="scheduling-management" id="booking-rules" aria-labelledby="booking-rules-title">
     <header class="scheduling-management-header">
         <div>
-            <p>{% if is_arabic %}قواعد الحجز الحالية{% else %}Existing booking settings{% endif %}</p>
+            <p>{% if is_arabic %}إعدادات الحجز العام{% else %}Public Booking settings{% endif %}</p>
             <h2 id="booking-rules-title">{% if is_arabic %}قواعد الحجز{% else %}Booking Rules{% endif %}</h2>
         </div>
         <p>
             {% if is_arabic %}
-                تستخدم صفحة الحجز العامة هذه القيم مباشرة. لا تتضمن هذه الصفحة إعدادات تحديد المعدل.
+                تتحكم هذه القواعد مباشرة في الأوقات التي يستطيع المريض حجزها.
             {% else %}
-                Public Booking consumes these values directly. Rate-limit settings are not exposed here.
+                These rules directly control the times patients can book.
             {% endif %}
         </p>
     </header>

@@ -79,7 +79,7 @@
 
 .scheduling-toolbar {
     display: grid;
-    grid-template-columns: auto minmax(15rem, 1fr) minmax(18rem, auto);
+    grid-template-columns: auto minmax(15rem, 1fr);
     align-items: end;
     gap: 0.85rem 1rem;
     padding: 0.9rem;
@@ -872,6 +872,78 @@
     background: var(--dashboard-burgundy-deep);
 }
 
+.dashboard-shell .scheduling-appointments-link,
+.dashboard-shell .scheduling-appointments-link:hover,
+.dashboard-shell .scheduling-appointments-link:focus-visible,
+.dashboard-shell .scheduling-appointments-link:active {
+    color: var(--dashboard-white);
+}
+
+.scheduling-availability-form {
+    display: grid;
+    min-width: 0;
+    gap: 0.55rem;
+    border-block-end: 1px solid var(--dashboard-line);
+    padding: 0.9rem 1rem;
+}
+
+.scheduling-availability-form label {
+    color: var(--dashboard-ink);
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.scheduling-availability-form select {
+    width: 100%;
+    min-width: 0;
+    min-height: 2.85rem;
+    border: 1px solid rgba(139, 90, 43, 0.42);
+    border-radius: 0.68rem;
+    background: var(--dashboard-white);
+    color: var(--dashboard-ink);
+    padding: 0.55rem 0.68rem;
+    font: inherit;
+}
+
+.scheduling-availability-form select:focus-visible {
+    outline: 3px solid rgba(159, 111, 74, 0.34);
+    outline-offset: 2px;
+}
+
+.scheduling-availability-results {
+    border-block-end: 1px solid var(--dashboard-line);
+}
+
+.scheduling-availability-results > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem 0;
+}
+
+.scheduling-availability-results h3 {
+    margin: 0;
+    color: var(--dashboard-ink);
+    font-size: 0.92rem;
+}
+
+.scheduling-availability-results > header span {
+    color: var(--dashboard-burgundy);
+    font-family: var(--dashboard-font-en);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.scheduling-availability-prompt {
+    margin: 0;
+    border-block-end: 1px solid var(--dashboard-line);
+    color: var(--dashboard-muted);
+    padding: 0.8rem 1rem;
+    font-size: 0.86rem;
+    line-height: 1.55;
+}
+
 @media (min-width: 112rem) {
     .scheduling-layout {
         grid-template-columns: minmax(0, 1fr) 20rem;
@@ -1102,8 +1174,10 @@
 .scheduling-service-card > div > p,
 .scheduling-conflict-warning > header > p:first-child {
     margin: 0;
-    color: var(--dashboard-muted);
+    color: var(--dashboard-ink);
     font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.55;
 }
 
 .scheduling-management-header > div > p,
@@ -1139,7 +1213,7 @@
 .scheduling-conflict-warning,
 .scheduling-management-empty {
     min-width: 0;
-    border: 1px solid var(--dashboard-line);
+    border: 1px solid rgba(139, 90, 43, 0.3);
     border-radius: var(--dashboard-radius);
     background: var(--dashboard-white);
     box-shadow: var(--dashboard-shadow);
@@ -1176,7 +1250,8 @@
 
 .scheduling-weekday-card > header span {
     color: var(--dashboard-muted);
-    font-size: 0.82rem;
+    font-size: 0.86rem;
+    font-weight: 600;
 }
 
 .scheduling-period-editor {
@@ -1184,7 +1259,7 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
     gap: 0.65rem;
-    border-block-start: 1px solid var(--dashboard-line);
+    border-block-start: 1px solid rgba(139, 90, 43, 0.24);
     padding-block: 0.8rem;
 }
 
@@ -1197,7 +1272,8 @@
 }
 
 .scheduling-add-form {
-    margin-block-start: 0.25rem;
+    margin-block-start: 0.65rem;
+    border: 1px dashed rgba(139, 90, 43, 0.42);
     border-radius: 0.8rem;
     background: var(--dashboard-ivory);
     padding: 0.8rem;
@@ -1214,8 +1290,8 @@
 
 .scheduling-field label {
     color: var(--dashboard-ink);
-    font-size: 0.82rem;
-    font-weight: 600;
+    font-size: 0.86rem;
+    font-weight: 700;
 }
 
 .scheduling-field input,
@@ -1223,7 +1299,7 @@
     width: 100%;
     min-width: 0;
     min-height: 2.75rem;
-    border: 1px solid var(--dashboard-line);
+    border: 1px solid rgba(139, 90, 43, 0.42);
     border-radius: 0.68rem;
     background: var(--dashboard-white);
     color: var(--dashboard-ink);
@@ -1242,7 +1318,9 @@
 .scheduling-field-help {
     margin: 0;
     color: var(--dashboard-muted);
-    font-size: 0.76rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.5;
 }
 
 .scheduling-field .errorlist,
@@ -1278,6 +1356,7 @@
 
 .scheduling-button:hover {
     background: var(--dashboard-burgundy-deep);
+    color: var(--dashboard-white);
 }
 
 .scheduling-button.is-secondary {
@@ -1297,13 +1376,78 @@
 
 .scheduling-button.is-danger:hover {
     background: rgba(138, 32, 41, 0.08);
+    color: var(--dashboard-burgundy);
+}
+
+.scheduling-button.is-danger.is-destructive {
+    background: var(--dashboard-burgundy);
+    color: var(--dashboard-white);
+}
+
+.scheduling-button.is-danger.is-destructive:hover {
+    background: var(--dashboard-burgundy-deep);
+    color: var(--dashboard-white);
 }
 
 .scheduling-service-card {
     display: grid;
-    grid-template-columns: minmax(12rem, 1fr) minmax(18rem, 1.2fr);
+    grid-template-columns: minmax(12rem, 1fr) minmax(18rem, 1.2fr) auto;
     align-items: end;
     gap: 1rem;
+}
+
+.scheduling-service-card.is-inactive {
+    background: var(--dashboard-ivory);
+}
+
+.scheduling-service-summary,
+.scheduling-service-form-heading {
+    min-width: 0;
+}
+
+.scheduling-service-summary h3,
+.scheduling-service-form-heading h3 {
+    margin: 0.25rem 0 0;
+}
+
+.scheduling-state-label {
+    display: inline-flex;
+    width: fit-content;
+    border: 1px solid rgba(139, 90, 43, 0.3);
+    border-radius: 999px;
+    background: var(--dashboard-soft-wood);
+    color: var(--dashboard-wood);
+    padding: 0.22rem 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.scheduling-service-card.is-inactive .scheduling-state-label {
+    border-color: var(--dashboard-line);
+    background: var(--dashboard-white);
+    color: var(--dashboard-muted);
+}
+
+.scheduling-service-create-form {
+    display: grid;
+    gap: 1rem;
+}
+
+.scheduling-service-form-heading p {
+    margin: 0.25rem 0 0;
+    color: var(--dashboard-muted);
+    font-size: 0.86rem;
+}
+
+.scheduling-service-create-fields {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+.scheduling-service-state-form {
+    margin: 0;
 }
 
 .scheduling-service-card h3 {
@@ -1382,7 +1526,7 @@
     display: grid;
     gap: 1rem;
     border-color: rgba(138, 32, 41, 0.36);
-    background: #fffaf7;
+    background: var(--dashboard-ivory);
 }
 
 .scheduling-conflict-warning > header > p:last-child {
@@ -1435,6 +1579,54 @@
     text-underline-offset: 0.2rem;
 }
 
+.scheduling-day-mode-actions {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+.scheduling-day-mode-actions form {
+    min-width: 0;
+    margin: 0;
+}
+
+.scheduling-mode-action {
+    display: flex;
+    width: 100%;
+    min-height: 3rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(139, 90, 43, 0.42);
+    border-radius: 0.75rem;
+    background: var(--dashboard-white);
+    color: var(--dashboard-burgundy);
+    padding: 0.6rem 0.8rem;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1.35;
+    text-align: center;
+    cursor: pointer;
+}
+
+.scheduling-mode-action:hover,
+.scheduling-mode-action:focus-visible {
+    border-color: var(--dashboard-burgundy);
+    background: var(--dashboard-soft-burgundy);
+    color: var(--dashboard-burgundy);
+}
+
+.scheduling-mode-action.is-current {
+    border-color: var(--dashboard-burgundy);
+    background: var(--dashboard-burgundy);
+    color: var(--dashboard-white);
+}
+
+.scheduling-mode-action.is-danger {
+    border-color: rgba(74, 15, 20, 0.45);
+}
+
 .scheduling-source-badge {
     display: inline-flex;
     width: fit-content;
@@ -1459,6 +1651,39 @@
     margin-block-start: 0.25rem;
     border-block-start: 1px solid var(--dashboard-line);
     padding-block-start: 1rem;
+}
+
+#calendar-toolbar,
+#calendar,
+#availability-check,
+#day-management,
+#weekly-hours-title,
+#services-title,
+#booking-rules,
+#closures-title,
+#closure-form,
+#closures-list,
+#add-service,
+#service-warning,
+.scheduling-weekday-card[id],
+.scheduling-service-card[id] {
+    scroll-margin-block-start: 1rem;
+}
+
+.is-rtl .scheduling-management-header p,
+.is-rtl .scheduling-field label,
+.is-rtl .scheduling-field-help,
+.is-rtl .scheduling-weekday-card > header span,
+.is-rtl .scheduling-service-form-heading p,
+.is-rtl .scheduling-availability-prompt,
+.is-rtl .scheduling-conflict-warning p,
+.is-rtl .scheduling-conflict-item,
+.is-rtl .scheduling-special-form-heading p,
+.is-rtl .scheduling-special-list-heading p,
+.is-rtl .scheduling-empty-copy {
+    font-size: max(0.86rem, 13.5px);
+    font-weight: 600;
+    line-height: 1.65;
 }
 
 .scheduling-special-reference-grid {
@@ -1549,6 +1774,10 @@
         grid-template-columns: minmax(0, 1fr);
     }
 
+    .scheduling-service-create-fields {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .scheduling-closure-fields {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -1564,7 +1793,9 @@
 
 @media (max-width: 47.999rem) {
     .scheduling-rules-grid,
-    .scheduling-closure-fields {
+    .scheduling-closure-fields,
+    .scheduling-service-create-fields,
+    .scheduling-day-mode-actions {
         grid-template-columns: minmax(0, 1fr);
     }
 
@@ -1588,14 +1819,20 @@
 
 @media (max-width: 35rem) {
     .scheduling-section-tabs {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        display: flex;
+        flex-wrap: nowrap;
+        max-width: 100%;
+        overflow-x: auto;
+        overscroll-behavior-inline: contain;
+        scrollbar-gutter: stable;
+        padding-block-end: 0.35rem;
     }
 
     .scheduling-section-tab {
-        width: 100%;
-        padding-inline: 0.55rem;
-        font-size: 0.8rem;
+        width: auto;
+        flex: 0 0 auto;
+        padding-inline: 0.75rem;
+        font-size: 0.84rem;
     }
 
     .scheduling-management-header {
@@ -1613,11 +1850,21 @@
     }
 
     .scheduling-period-editor,
-    .scheduling-inline-form,
-    .scheduling-add-form,
     .scheduling-service-duration-form,
     .scheduling-closure-item {
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .scheduling-inline-form,
+    .scheduling-add-form {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .scheduling-inline-form .scheduling-button,
+    .scheduling-add-form .scheduling-button,
+    .scheduling-inline-form > .errorlist,
+    .scheduling-add-form > .errorlist {
+        grid-column: 1 / -1;
     }
 
     .scheduling-period-editor,
@@ -1644,6 +1891,35 @@
 
     .scheduling-confirm-form {
         display: grid;
+    }
+
+    .scheduling-closure-choice-form .scheduling-button,
+    .scheduling-closure-choice-form .scheduling-cancel-link,
+    .scheduling-service-state-form .scheduling-button,
+    .scheduling-availability-form .scheduling-button,
+    .scheduling-mode-action {
+        width: 100%;
+    }
+
+    .scheduling-cancel-link {
+        min-height: 2.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .scheduling-weekday-card {
+        padding: 0.9rem;
+    }
+
+    .scheduling-current-periods {
+        gap: 0.65rem;
+    }
+
+    .scheduling-period-editor {
+        border: 1px solid rgba(139, 90, 43, 0.24);
+        border-radius: 0.75rem;
+        padding: 0.75rem;
     }
 
     .scheduling-special-fields {

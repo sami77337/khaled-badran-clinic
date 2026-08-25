@@ -6,9 +6,9 @@
         </div>
         <p>
             {% if is_arabic %}
-                أضف أكثر من فترة لليوم نفسه عند الحاجة. تؤثر الفترات النشطة مباشرة في أوقات الحجز المتاحة.
+                عدّل فترات الدوام المتكرر لكل يوم.
             {% else %}
-                Add multiple periods to the same weekday when needed. Active periods directly affect booking availability.
+                Manage the recurring working periods for each weekday.
             {% endif %}
         </p>
     </header>
@@ -24,20 +24,20 @@
     {% else %}
         <div class="scheduling-weekly-list">
             {% for day in scheduling_weekly_days %}
-                <article class="scheduling-management-card scheduling-weekday-card">
+                <article class="scheduling-management-card scheduling-weekday-card" id="{{ day.anchor }}">
                     <header>
                         <h3>{{ day.label }}</h3>
                         <span>
                             {% if day.periods %}
                                 {{ day.periods|length }} {% if is_arabic %}فترة نشطة{% else %}active period{{ day.periods|length|pluralize }}{% endif %}
                             {% else %}
-                                {% if is_arabic %}مغلق — لا توجد فترات نشطة{% else %}Closed — no active periods{% endif %}
+                                {% if is_arabic %}لا توجد ساعات أسبوعية{% else %}No weekly hours{% endif %}
                             {% endif %}
                         </span>
                     </header>
 
                     {% if day.periods %}
-                        <div class="scheduling-period-editor-list">
+                        <div class="scheduling-period-editor-list scheduling-current-periods">
                             {% for item in day.periods %}
                                 <div class="scheduling-period-editor">
                                     <form method="post" action="{{ item.update_url }}" class="scheduling-inline-form">
@@ -68,7 +68,7 @@
                         </div>
                     {% endif %}
 
-                    <form method="post" action="{{ scheduling_weekly_create_url }}" class="scheduling-add-form">
+                    <form method="post" action="{{ day.create_url }}" class="scheduling-add-form">
                         {% csrf_token %}
                         {{ day.create_form.non_field_errors }}
                         {{ day.create_form.weekday }}

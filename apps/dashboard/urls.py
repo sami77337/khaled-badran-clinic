@@ -52,9 +52,24 @@ urlpatterns = [
         name="dashboard_scheduling_closure_deactivate",
     ),
     path(
+        "scheduling/services/create/",
+        views.dashboard_scheduling_service_create,
+        name="dashboard_scheduling_service_create",
+    ),
+    path(
         "scheduling/services/<int:visit_type_id>/duration/",
         views.dashboard_scheduling_service_duration,
         name="dashboard_scheduling_service_duration",
+    ),
+    path(
+        "scheduling/services/<int:visit_type_id>/deactivate/",
+        views.dashboard_scheduling_service_deactivate,
+        name="dashboard_scheduling_service_deactivate",
+    ),
+    path(
+        "scheduling/services/<int:visit_type_id>/reactivate/",
+        views.dashboard_scheduling_service_reactivate,
+        name="dashboard_scheduling_service_reactivate",
     ),
     path(
         "scheduling/rules/update/",

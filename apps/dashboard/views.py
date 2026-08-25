@@ -15,6 +15,7 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
+from apps.booking import operations as booking_operations
 from apps.booking import services as booking_services
 from apps.booking.models import Appointment
 from apps.booking.selectors import get_active_doctor, get_active_visit_types
@@ -39,6 +40,7 @@ from .forms import (
     StaffRecordMediaCreateForm,
     StaffRecordMediaUpdateForm,
     StaffVisitRecordForm,
+    VisitTypeCreateForm,
     VisitTypeDurationForm,
     WeeklyPeriodCreateForm,
     WeeklyPeriodUpdateForm,
@@ -80,6 +82,24 @@ DASHBOARD_STATUS_LABELS = {
 
 SCHEDULING_VIEW_NAMES = ("day", "week", "month")
 SCHEDULING_SECTION_NAMES = ("calendar", "weekly", "services", "rules", "closures")
+SCHEDULING_WEEKDAY_DISPLAY_ORDER = (
+    DoctorSchedule.Weekday.SUNDAY,
+    DoctorSchedule.Weekday.MONDAY,
+    DoctorSchedule.Weekday.TUESDAY,
+    DoctorSchedule.Weekday.WEDNESDAY,
+    DoctorSchedule.Weekday.THURSDAY,
+    DoctorSchedule.Weekday.FRIDAY,
+    DoctorSchedule.Weekday.SATURDAY,
+)
+SCHEDULING_WEEKDAY_ANCHORS = {
+    DoctorSchedule.Weekday.MONDAY: "weekday-monday",
+    DoctorSchedule.Weekday.TUESDAY: "weekday-tuesday",
+    DoctorSchedule.Weekday.WEDNESDAY: "weekday-wednesday",
+    DoctorSchedule.Weekday.THURSDAY: "weekday-thursday",
+    DoctorSchedule.Weekday.FRIDAY: "weekday-friday",
+    DoctorSchedule.Weekday.SATURDAY: "weekday-saturday",
+    DoctorSchedule.Weekday.SUNDAY: "weekday-sunday",
+}
 SCHEDULING_SETTING_FIELDS = {
     "booking_enabled": {
         "key": SystemSetting.BOOKING_ENABLED,
@@ -175,6 +195,7 @@ def _scheduling_url(
     view=None,
     selected_date=None,
     visit_type=None,
+    fragment=None,
 ):
     params = {}
     if language == "en":
@@ -189,7 +210,8 @@ def _scheduling_url(
         params["visit_type"] = visit_type.pk
     query = urlencode(params)
     route = reverse("dashboard_scheduling")
-    return f"{route}?{query}" if query else route
+    url = f"{route}?{query}" if query else route
+    return f"{url}#{fragment}" if fragment else url
 
 
 def _staff_required(view_func):
@@ -511,12 +533,12 @@ def _scheduling_day_item(
     source_labels = {
         "ar": {
             booking_services.WORKING_PERIOD_SOURCE_CLOSED: "مغلق",
-            booking_services.WORKING_PERIOD_SOURCE_SPECIAL: "ساعات خاصة",
+            booking_services.WORKING_PERIOD_SOURCE_SPECIAL: "ساعات مخصصة",
             booking_services.WORKING_PERIOD_SOURCE_WEEKLY: "الجدول الأسبوعي",
         },
         "en": {
             booking_services.WORKING_PERIOD_SOURCE_CLOSED: "Closed",
-            booking_services.WORKING_PERIOD_SOURCE_SPECIAL: "Special hours",
+            booking_services.WORKING_PERIOD_SOURCE_SPECIAL: "Customized hours",
             booking_services.WORKING_PERIOD_SOURCE_WEEKLY: "Weekly schedule",
         },
     }
@@ -755,6 +777,7 @@ def _scheduling_context(
             view="day",
             selected_date=day_item["date"],
             visit_type=selected_visit_type,
+            fragment="calendar",
         )
 
     appointments_query = urlencode(
@@ -807,6 +830,13 @@ def _scheduling_context(
                         view=view if section_name == "calendar" else None,
                         selected_date=selected_date if section_name == "calendar" else None,
                         visit_type=selected_visit_type if section_name == "calendar" else None,
+                        fragment={
+                            "calendar": "calendar-toolbar",
+                            "weekly": "weekly-hours-title",
+                            "services": "services-title",
+                            "rules": "booking-rules",
+                            "closures": "closures-title",
+                        }[section_name],
                     ),
                 }
                 for section_name in SCHEDULING_SECTION_NAMES
@@ -823,6 +853,7 @@ def _scheduling_context(
                 view=view,
                 selected_date=selected_date,
                 visit_type=selected_visit_type,
+                fragment="day-management",
             ),
             "scheduling_days": day_items,
             "scheduling_month_weeks": [
@@ -835,18 +866,21 @@ def _scheduling_context(
                 view=view,
                 selected_date=previous_date,
                 visit_type=selected_visit_type,
+                fragment="calendar",
             ),
             "scheduling_today_url": _scheduling_url(
                 language,
                 view=view,
                 selected_date=today,
                 visit_type=selected_visit_type,
+                fragment="calendar",
             ),
             "scheduling_next_url": _scheduling_url(
                 language,
                 view=view,
                 selected_date=next_date,
                 visit_type=selected_visit_type,
+                fragment="calendar",
             ),
             "scheduling_view_tabs": [
                 {
@@ -857,6 +891,7 @@ def _scheduling_context(
                         view=view_name,
                         selected_date=selected_date,
                         visit_type=selected_visit_type,
+                        fragment="calendar-toolbar",
                     ),
                 }
                 for view_name in SCHEDULING_VIEW_NAMES
@@ -875,9 +910,10 @@ def _scheduling_context(
     return shell_context
 
 
-def _localized_post_url(route_name, language, **kwargs):
+def _localized_post_url(route_name, language, *, fragment=None, **kwargs):
     url = reverse(route_name, kwargs=kwargs or None)
-    return f"{url}?lang=en" if language == "en" else url
+    url = f"{url}?lang=en" if language == "en" else url
+    return f"{url}#{fragment}" if fragment else url
 
 
 def _special_hours_post_url(
@@ -894,7 +930,10 @@ def _special_hours_post_url(
         params["lang"] = "en"
     if visit_type is not None:
         params["visit_type"] = visit_type.pk
-    return f"{reverse(route_name, kwargs=kwargs or None)}?{urlencode(params)}"
+    return (
+        f"{reverse(route_name, kwargs=kwargs or None)}?{urlencode(params)}"
+        "#day-management"
+    )
 
 
 def _booking_rules_initial():
@@ -922,6 +961,10 @@ def _scheduling_management_context(
     bound_weekly_update_period_id=None,
     closure_form=None,
     closure_conflicts=None,
+    closure_stage=None,
+    service_create_form=None,
+    service_conflicts=None,
+    service_confirmation=None,
     duration_form=None,
     duration_visit_type_id=None,
     booking_rules_form=None,
@@ -934,6 +977,7 @@ def _scheduling_management_context(
     periods_by_weekday = {}
     closures = []
     special_periods = []
+    managed_visit_types = []
     if active_doctor:
         for period in DoctorSchedule.objects.filter(
             doctor=active_doctor,
@@ -955,9 +999,18 @@ def _scheduling_management_context(
                 is_active=True,
             ).order_by("start_time", "id")
         )
+        managed_visit_types = list(
+            VisitType.objects.filter(Q(doctor=active_doctor) | Q(doctor__isnull=True)).order_by(
+                "-is_active",
+                "display_order",
+                "name_en",
+                "id",
+            )
+        )
 
     weekly_days = []
-    for weekday, english_label in DoctorSchedule.Weekday.choices:
+    for weekday in SCHEDULING_WEEKDAY_DISPLAY_ORDER:
+        weekday_anchor = SCHEDULING_WEEKDAY_ANCHORS[weekday]
         create_form = (
             bound_weekly_create_form
             if bound_weekly_create_form is not None and bound_weekly_create_weekday == weekday
@@ -989,11 +1042,13 @@ def _scheduling_management_context(
                     "update_url": _localized_post_url(
                         "dashboard_scheduling_weekly_update",
                         language,
+                        fragment=weekday_anchor,
                         period_id=period.pk,
                     ),
                     "deactivate_url": _localized_post_url(
                         "dashboard_scheduling_weekly_deactivate",
                         language,
+                        fragment=weekday_anchor,
                         period_id=period.pk,
                     ),
                 }
@@ -1001,18 +1056,20 @@ def _scheduling_management_context(
         weekly_days.append(
             {
                 "weekday": weekday,
-                "label": (
-                    SCHEDULING_WEEKDAY_LABELS[language][weekday][0]
-                    if language == "ar"
-                    else english_label
-                ),
+                "anchor": weekday_anchor,
+                "label": SCHEDULING_WEEKDAY_LABELS[language][weekday][0],
                 "periods": period_items,
                 "create_form": create_form,
+                "create_url": _localized_post_url(
+                    "dashboard_scheduling_weekly_create",
+                    language,
+                    fragment=weekday_anchor,
+                ),
             }
         )
 
     service_items = []
-    for visit_type in visit_types:
+    for visit_type in managed_visit_types:
         item_form = (
             duration_form
             if duration_form is not None and duration_visit_type_id == visit_type.pk
@@ -1029,6 +1086,19 @@ def _scheduling_management_context(
                 "update_url": _localized_post_url(
                     "dashboard_scheduling_service_duration",
                     language,
+                    fragment=f"service-{visit_type.pk}",
+                    visit_type_id=visit_type.pk,
+                ),
+                "deactivate_url": _localized_post_url(
+                    "dashboard_scheduling_service_deactivate",
+                    language,
+                    fragment="service-warning",
+                    visit_type_id=visit_type.pk,
+                ),
+                "reactivate_url": _localized_post_url(
+                    "dashboard_scheduling_service_reactivate",
+                    language,
+                    fragment=f"service-{visit_type.pk}",
                     visit_type_id=visit_type.pk,
                 ),
             }
@@ -1040,6 +1110,7 @@ def _scheduling_management_context(
             "deactivate_url": _localized_post_url(
                 "dashboard_scheduling_closure_deactivate",
                 language,
+                fragment="closures-list",
                 closure_id=item.pk,
             ),
         }
@@ -1083,15 +1154,32 @@ def _scheduling_management_context(
     return {
         "scheduling_weekly_days": weekly_days,
         "scheduling_weekly_create_url": _localized_post_url(
-            "dashboard_scheduling_weekly_create", language
+            "dashboard_scheduling_weekly_create", language, fragment="weekly-hours-title"
         ),
         "scheduling_service_items": service_items,
+        "scheduling_service_create_form": (
+            service_create_form
+            if service_create_form is not None
+            else VisitTypeCreateForm(
+                language=language,
+                doctor=active_doctor,
+                auto_id="id_service_create_%s",
+            )
+        ),
+        "scheduling_service_create_url": _localized_post_url(
+            "dashboard_scheduling_service_create", language, fragment="add-service"
+        ),
+        "scheduling_service_conflicts": service_conflicts or [],
+        "scheduling_service_confirmation": service_confirmation,
         "scheduling_closure_form": (
-            closure_form if closure_form is not None else ClosureCreateForm(language=language)
+            closure_form
+            if closure_form is not None
+            else ClosureCreateForm(language=language, initial={"date": selected_date})
         ),
         "scheduling_closure_conflicts": closure_conflicts or [],
+        "scheduling_closure_stage": closure_stage,
         "scheduling_closure_create_url": _localized_post_url(
-            "dashboard_scheduling_closure_create", language
+            "dashboard_scheduling_closure_create", language, fragment="closure-form"
         ),
         "scheduling_closure_items": closure_items,
         "scheduling_booking_rules_form": (
@@ -1100,7 +1188,7 @@ def _scheduling_management_context(
             else BookingRulesForm(language=language, initial=_booking_rules_initial())
         ),
         "scheduling_booking_rules_url": _localized_post_url(
-            "dashboard_scheduling_rules_update", language
+            "dashboard_scheduling_rules_update", language, fragment="booking-rules"
         ),
         "scheduling_special_create_form": (
             special_create_form
@@ -1108,7 +1196,18 @@ def _scheduling_management_context(
             else SpecialHoursForm(
                 language=language,
                 doctor=active_doctor,
-                initial={"date": selected_date},
+                initial={
+                    "date": selected_date,
+                    **(
+                        {
+                            "start_time": periods_by_weekday[selected_date.weekday()][0].start_time,
+                            "end_time": periods_by_weekday[selected_date.weekday()][0].end_time,
+                        }
+                        if not special_periods
+                        and periods_by_weekday.get(selected_date.weekday())
+                        else {}
+                    ),
+                },
                 auto_id="id_special_create_%s",
             )
         ),
@@ -1128,6 +1227,12 @@ def _scheduling_management_context(
             selected_date,
             view=view,
             visit_type=selected_visit_type,
+        ),
+        "scheduling_close_selected_day_url": _scheduling_url(
+            language,
+            section="closures",
+            selected_date=selected_date,
+            fragment="closure-form",
         ),
     }
 
@@ -1233,13 +1338,21 @@ def _scheduling_unavailable_response(request, section):
     return _render_scheduling_section(request, section, status=409)
 
 
-def _scheduling_redirect(language, section, *, selected_date=None, view=None):
+def _scheduling_redirect(
+    language,
+    section,
+    *,
+    selected_date=None,
+    view=None,
+    fragment=None,
+):
     return redirect(
         _scheduling_url(
             language,
             section=section,
             selected_date=selected_date,
             view=view,
+            fragment=fragment,
         )
     )
 
@@ -1255,7 +1368,9 @@ def _special_hours_redirect(request, language, selected_date):
     raw_visit_type = request.GET.get("visit_type")
     if raw_visit_type and raw_visit_type.isdigit():
         params["visit_type"] = raw_visit_type
-    return redirect(f"{reverse('dashboard_scheduling')}?{urlencode(params)}")
+    return redirect(
+        f"{reverse('dashboard_scheduling')}?{urlencode(params)}#day-management"
+    )
 
 
 @_staff_required
@@ -1320,7 +1435,11 @@ def dashboard_scheduling_weekly_create(request):
         request,
         "Working period added." if language == "en" else "تمت إضافة فترة العمل.",
     )
-    return _scheduling_redirect(language, "weekly")
+    return _scheduling_redirect(
+        language,
+        "weekly",
+        fragment=SCHEDULING_WEEKDAY_ANCHORS[weekday],
+    )
 
 
 @_staff_required
@@ -1386,7 +1505,11 @@ def dashboard_scheduling_weekly_update(request, period_id):
         request,
         "Working period updated." if language == "en" else "تم تحديث فترة العمل.",
     )
-    return _scheduling_redirect(language, "weekly")
+    return _scheduling_redirect(
+        language,
+        "weekly",
+        fragment=SCHEDULING_WEEKDAY_ANCHORS[period.weekday],
+    )
 
 
 @_staff_required
@@ -1428,7 +1551,11 @@ def dashboard_scheduling_weekly_deactivate(request, period_id):
         if language == "en"
         else "تم إيقاف فترة العمل.",
     )
-    return _scheduling_redirect(language, "weekly")
+    return _scheduling_redirect(
+        language,
+        "weekly",
+        fragment=SCHEDULING_WEEKDAY_ANCHORS[period.weekday],
+    )
 
 
 def _special_hours_period_bounds(day, periods):
@@ -1501,20 +1628,20 @@ def _special_hours_confirmation(
 ):
     operation_labels = {
         "ar": {
-            "create": "إضافة الساعات الخاصة رغم التعارضات",
-            "update": "حفظ تعديل الساعات الخاصة رغم التعارضات",
-            "deactivate": "إيقاف الساعات الخاصة رغم التعارضات",
-            "use_weekly": "العودة للجدول الأسبوعي رغم التعارضات",
+            "create": "إضافة الساعات المخصصة رغم التعارضات",
+            "update": "حفظ الساعات المخصصة رغم التعارضات",
+            "deactivate": "إيقاف الفترة المخصصة رغم التعارضات",
+            "use_weekly": "استخدام الدوام الأسبوعي رغم التعارضات",
         },
         "en": {
-            "create": "Add Special Hours despite conflicts",
-            "update": "Save Special Hours despite conflicts",
-            "deactivate": "Deactivate Special Hours despite conflicts",
+            "create": "Add customized hours despite conflicts",
+            "update": "Save customized hours despite conflicts",
+            "deactivate": "Deactivate customized period despite conflicts",
             "use_weekly": "Use weekly schedule despite conflicts",
         },
     }
     return {
-        "action_url": request.get_full_path(),
+        "action_url": f"{request.get_full_path()}#day-management",
         "operation": operation,
         "operation_label": operation_labels[language][operation],
         "date": day,
@@ -1941,7 +2068,8 @@ def dashboard_scheduling_closure_create(request):
             closure_form=form,
         )
 
-    confirmed = request.POST.get("confirm_closure") == "yes"
+    closure_action = request.POST.get("closure_action")
+    confirm_cancellation = request.POST.get("confirm_cancellation") == "yes"
     with transaction.atomic():
         doctor = _locked_active_doctor(active_doctor)
         if doctor is None:
@@ -1966,16 +2094,30 @@ def dashboard_scheduling_closure_create(request):
                 closure_form=form,
             )
 
-        # This query intentionally runs for both the initial and confirmed POST.
-        # Confirmation never trusts the conflict count shown by the first response.
-        conflicts = list(_closure_conflict_queryset(doctor, closure_date))
-        if conflicts and not confirmed:
-            return _render_scheduling_section(
-                request,
-                "closures",
-                closure_form=form,
-                closure_conflicts=_closure_conflict_items(conflicts, language),
-            )
+        # Every choice and final confirmation uses the current blocking rows.
+        # The final destructive step locks the rows before calling the existing
+        # cancellation operation, so it never trusts a previously rendered count.
+        conflict_queryset = _closure_conflict_queryset(doctor, closure_date)
+        if closure_action == "cancel" and confirm_cancellation:
+            conflict_queryset = conflict_queryset.select_for_update()
+        conflicts = list(conflict_queryset)
+        if conflicts:
+            if closure_action == "cancel" and not confirm_cancellation:
+                return _render_scheduling_section(
+                    request,
+                    "closures",
+                    closure_form=form,
+                    closure_conflicts=_closure_conflict_items(conflicts, language),
+                    closure_stage="cancel_confirmation",
+                )
+            if closure_action not in {"keep", "cancel"}:
+                return _render_scheduling_section(
+                    request,
+                    "closures",
+                    closure_form=form,
+                    closure_conflicts=_closure_conflict_items(conflicts, language),
+                    closure_stage="choices",
+                )
 
         closure = ClosedDay(
             doctor=doctor,
@@ -1996,13 +2138,45 @@ def dashboard_scheduling_closure_create(request):
                 "active": True,
                 "reason_ar": closure.reason_ar,
                 "reason_en": closure.reason_en,
+                "operation": (
+                    "close_and_cancel_appointments"
+                    if closure_action == "cancel" and confirm_cancellation
+                    else "close_and_keep_appointments"
+                ),
+                "cancelled_appointment_count": (
+                    len(conflicts)
+                    if closure_action == "cancel" and confirm_cancellation
+                    else 0
+                ),
             },
         )
+        if closure_action == "cancel" and confirm_cancellation:
+            for appointment in conflicts:
+                booking_operations.cancel_appointment(
+                    appointment.pk,
+                    actor=request.user,
+                    note="Clinic date closed through Scheduling Center.",
+                )
     messages.success(
         request,
-        "Full-day closure added." if language == "en" else "تمت إضافة إغلاق اليوم بالكامل.",
+        (
+            f"Full-day closure added and {len(conflicts)} affected appointment(s) cancelled."
+            if language == "en"
+            else f"تم إغلاق اليوم وإلغاء {len(conflicts)} من المواعيد المتأثرة."
+        )
+        if closure_action == "cancel" and confirm_cancellation
+        else (
+            "Full-day closure added. Existing appointments were kept unchanged."
+            if language == "en"
+            else "تم إغلاق اليوم مع إبقاء المواعيد الموجودة دون تغيير."
+        ),
     )
-    return _scheduling_redirect(language, "closures")
+    return _scheduling_redirect(
+        language,
+        "closures",
+        selected_date=closure_date,
+        fragment="closures-list",
+    )
 
 
 @_staff_required
@@ -2041,7 +2215,186 @@ def dashboard_scheduling_closure_deactivate(request, closure_id):
         request,
         "Closure deactivated." if language == "en" else "تم إلغاء تفعيل الإغلاق.",
     )
-    return _scheduling_redirect(language, "closures")
+    return _scheduling_redirect(
+        language,
+        "closures",
+        selected_date=closure.date,
+        fragment="closures-list",
+    )
+
+
+@_staff_required
+@require_POST
+def dashboard_scheduling_service_create(request):
+    language = _dashboard_language(request)
+    active_doctor = get_active_doctor()
+    if active_doctor is None:
+        return _scheduling_unavailable_response(request, "services")
+    form = VisitTypeCreateForm(
+        request.POST,
+        language=language,
+        doctor=active_doctor,
+    )
+    if not form.is_valid():
+        return _render_scheduling_section(
+            request,
+            "services",
+            status=400,
+            service_create_form=form,
+        )
+
+    with transaction.atomic():
+        doctor = _locked_active_doctor(active_doctor)
+        if doctor is None:
+            return _scheduling_unavailable_response(request, "services")
+        form = VisitTypeCreateForm(request.POST, language=language, doctor=doctor)
+        if not form.is_valid():
+            return _render_scheduling_section(
+                request,
+                "services",
+                status=400,
+                service_create_form=form,
+            )
+        visit_type = form.save(commit=False)
+        visit_type.doctor = doctor
+        visit_type.is_active = True
+        visit_type.full_clean()
+        visit_type.save()
+        _configuration_audit(
+            user=request.user,
+            action=AuditLog.Action.CREATE,
+            instance=visit_type,
+            message="Created scheduling visit type.",
+            metadata={
+                "name_ar": visit_type.name_ar,
+                "name_en": visit_type.name_en,
+                "duration_minutes": visit_type.duration_minutes,
+                "active": True,
+            },
+        )
+    messages.success(
+        request,
+        "Service added." if language == "en" else "تمت إضافة الخدمة.",
+    )
+    return _scheduling_redirect(
+        language,
+        "services",
+        fragment=f"service-{visit_type.pk}",
+    )
+
+
+def _service_future_conflict_queryset(doctor, visit_type):
+    return (
+        Appointment.objects.filter(
+            doctor=doctor,
+            visit_type=visit_type,
+            status__in=booking_services.BLOCKING_APPOINTMENT_STATUSES,
+            starts_at__gte=timezone.now(),
+        )
+        .select_related("patient", "visit_type")
+        .order_by("starts_at", "id")
+    )
+
+
+@_staff_required
+@require_POST
+def dashboard_scheduling_service_deactivate(request, visit_type_id):
+    language = _dashboard_language(request)
+    active_doctor = get_active_doctor()
+    if active_doctor is None:
+        return _scheduling_unavailable_response(request, "services")
+    confirmed = request.POST.get("confirm_service_deactivation") == "yes"
+    with transaction.atomic():
+        doctor = _locked_active_doctor(active_doctor)
+        if doctor is None:
+            return _scheduling_unavailable_response(request, "services")
+        visit_type = get_object_or_404(
+            VisitType.objects.select_for_update().filter(
+                Q(doctor=doctor) | Q(doctor__isnull=True)
+            ),
+            pk=visit_type_id,
+            is_active=True,
+        )
+        conflicts = list(_service_future_conflict_queryset(doctor, visit_type))
+        if conflicts and not confirmed:
+            return _render_scheduling_section(
+                request,
+                "services",
+                service_conflicts=_closure_conflict_items(conflicts, language),
+                service_confirmation={
+                    "visit_type": visit_type,
+                    "action_url": _localized_post_url(
+                        "dashboard_scheduling_service_deactivate",
+                        language,
+                        fragment="service-warning",
+                        visit_type_id=visit_type.pk,
+                    ),
+                    "cancel_url": _scheduling_url(
+                        language,
+                        section="services",
+                        fragment=f"service-{visit_type.pk}",
+                    ),
+                },
+            )
+        visit_type.is_active = False
+        visit_type.save(update_fields=["is_active", "updated_at"])
+        _configuration_audit(
+            user=request.user,
+            action=AuditLog.Action.UPDATE,
+            instance=visit_type,
+            message="Deactivated scheduling visit type.",
+            metadata={"old_active": True, "new_active": False},
+        )
+    messages.success(
+        request,
+        "Service deactivated. Existing appointments were not changed."
+        if language == "en"
+        else "تم إيقاف الخدمة دون تغيير المواعيد الموجودة.",
+    )
+    return _scheduling_redirect(
+        language,
+        "services",
+        fragment=f"service-{visit_type.pk}",
+    )
+
+
+@_staff_required
+@require_POST
+def dashboard_scheduling_service_reactivate(request, visit_type_id):
+    language = _dashboard_language(request)
+    active_doctor = get_active_doctor()
+    if active_doctor is None:
+        return _scheduling_unavailable_response(request, "services")
+    with transaction.atomic():
+        doctor = _locked_active_doctor(active_doctor)
+        if doctor is None:
+            return _scheduling_unavailable_response(request, "services")
+        visit_type = get_object_or_404(
+            VisitType.objects.select_for_update().filter(
+                Q(doctor=doctor) | Q(doctor__isnull=True)
+            ),
+            pk=visit_type_id,
+            is_active=False,
+        )
+        visit_type.is_active = True
+        visit_type.full_clean()
+        visit_type.save(update_fields=["is_active", "updated_at"])
+        _configuration_audit(
+            user=request.user,
+            action=AuditLog.Action.UPDATE,
+            instance=visit_type,
+            message="Reactivated scheduling visit type.",
+            metadata={"old_active": False, "new_active": True},
+        )
+    messages.success(
+        request,
+        "Service reactivated." if language == "en" else "تمت إعادة تفعيل الخدمة.",
+    )
+    return _scheduling_redirect(
+        language,
+        "services",
+        fragment=f"service-{visit_type.pk}",
+    )
 
 
 @_staff_required
@@ -2070,7 +2423,6 @@ def dashboard_scheduling_service_duration(request, visit_type_id):
                 Q(doctor=doctor) | Q(doctor__isnull=True)
             ),
             pk=visit_type_id,
-            is_active=True,
         )
         old_duration = visit_type.duration_minutes
         visit_type.duration_minutes = form.cleaned_data["duration_minutes"]
@@ -2090,7 +2442,11 @@ def dashboard_scheduling_service_duration(request, visit_type_id):
         request,
         "Service duration updated." if language == "en" else "تم تحديث مدة الخدمة.",
     )
-    return _scheduling_redirect(language, "services")
+    return _scheduling_redirect(
+        language,
+        "services",
+        fragment=f"service-{visit_type.pk}",
+    )
 
 
 def _booking_rule_storage_value(field_name, cleaned_value):
@@ -2162,7 +2518,7 @@ def dashboard_scheduling_rules_update(request):
         request,
         "Booking rules updated." if language == "en" else "تم تحديث قواعد الحجز.",
     )
-    return _scheduling_redirect(language, "rules")
+    return _scheduling_redirect(language, "rules", fragment="booking-rules")
 
 
 def _method_allowed(request, methods):

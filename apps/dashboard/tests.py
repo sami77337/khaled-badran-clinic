@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.booking import services as booking_services
-from apps.booking.models import Appointment
+from apps.booking.models import Appointment, AppointmentStatusHistory
 from apps.clinic.models import (
     ClosedDay,
     Doctor,
@@ -1295,7 +1295,8 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         )
         self.assertContains(english, '<html lang="en" dir="ltr">')
         self.assertContains(english, "Scheduling Center")
-        self.assertContains(english, "Working hours ≠ final availability")
+        self.assertContains(english, "Check available times")
+        self.assertNotContains(english, "Working hours ≠ final availability")
         self.assertContains(english, "Synthetic short service")
 
     def test_view_date_and_visit_type_parameters_are_validated_safely(self):
@@ -1690,7 +1691,18 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         response = self.scheduling(lang="en")
 
         self.assertContains(response, "Effective hours")
-        self.assertContains(response, "Special hours for this date")
+        self.assertContains(response, "Customize this day")
+        self.assertContains(response, "Check available times")
+        self.assertContains(response, "Select service")
+        self.assertIsNone(response.context["scheduling_selected_visit_type"])
+        self.assertNotContains(response, 'class="scheduling-inspector-slots"')
+        rendered = response.content.decode()
+        toolbar = rendered.split('<section class="scheduling-toolbar"', 1)[1].split(
+            "</section>", 1
+        )[0]
+        self.assertNotIn("visit_type", toolbar)
+        self.assertNotIn("All services", rendered)
+        self.assertNotIn("Working hours ≠ final availability", rendered)
         for prohibited_label in (
             "Close Day",
             "Edit Hours",
@@ -1702,6 +1714,25 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             "Reviews",
         ):
             self.assertNotContains(response, prohibited_label)
+
+    def test_customize_day_starts_from_weekly_reference_and_exposes_three_clear_states(self):
+        target_date = self.future_date(11)
+        self.create_schedule(target_date, time(9), time(17))
+        self.client.force_login(self.staff)
+
+        response = self.scheduling(lang="en", view="day", date=target_date.isoformat())
+        create_form = response.context["scheduling_special_create_form"]
+        self.assertEqual(create_form.initial["start_time"], time(9))
+        self.assertEqual(create_form.initial["end_time"], time(17))
+        self.assertContains(response, "Using weekly schedule")
+        self.assertContains(response, "Customize this day")
+        self.assertContains(response, "Close full day")
+        self.assertContains(response, "Use separate periods to represent time off between them")
+
+        self.create_schedule_override(target_date, time(10), time(12))
+        customized = self.scheduling(lang="en", view="day", date=target_date.isoformat())
+        self.assertContains(customized, "Use weekly schedule")
+        self.assertContains(customized, "Customized hours")
 
     def rules_payload(self, **overrides):
         payload = {
@@ -1954,7 +1985,7 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         ) as conflict_query:
             warning = self.client.post(create_url, payload)
             self.assertEqual(warning.status_code, 200)
-            self.assertContains(warning, "Existing appointments fall outside the proposed effective hours")
+            self.assertContains(warning, "An appointment is outside the new working hours")
             self.assertContains(warning, "Visible Special Conflict Name")
             self.assertContains(warning, "10:00–10:30")
             self.assertFalse(
@@ -2192,13 +2223,13 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             [item["start"] for item in selected["available_slots"]],
             [slot.local_time.strftime("%H:%M") for slot in production_slots],
         )
-        self.assertContains(day, "Effective source")
-        self.assertContains(day, "Special hours")
+        self.assertContains(day, "Current source")
+        self.assertContains(day, "Customized hours")
 
         week = self.scheduling(lang="en", view="week", date=target_date.isoformat())
         week_day = next(item for item in week.context["scheduling_days"] if item["date"] == target_date)
         self.assertEqual(week_day["working_periods"], [{"start": "12:00", "end": "15:00"}])
-        self.assertContains(week, "Special hours")
+        self.assertContains(week, "Customized")
         self.assertContains(week, 'class="scheduling-week-hours"')
 
         neighboring_date = target_date + timedelta(days=7)
@@ -2220,7 +2251,7 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         )
         month_day = next(item for item in month.context["scheduling_days"] if item["date"] == target_date)
         self.assertTrue(month_day["has_special_hours"])
-        self.assertContains(month, ">Special<")
+        self.assertContains(month, ">Customized<")
         self.assertContains(month, 'class="scheduling-month" tabindex="0"')
         action_query = parse_qs(
             urlsplit(month.context["scheduling_special_create_url"]).query
@@ -2253,8 +2284,8 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertTrue(closed_day["special_periods"])
         self.assertContains(
             closed,
-            "This date is closed. Special hours are preserved but ignored while the closure is active.",
-            count=2,
+            "This date is closed. Customized hours are preserved but ignored while the closure is active.",
+            count=1,
         )
 
     def test_weekly_period_create_validation_deactivation_audit_and_real_availability(self):
@@ -2366,6 +2397,55 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             {"weekday": inactive_weekday, "start_time": "08:30", "end_time": "09:30"},
         )
         self.assertEqual(inactive_does_not_block.status_code, 302)
+
+    def test_weekly_management_is_sunday_first_uses_full_names_and_keeps_backend_mapping(self):
+        self.client.force_login(self.staff)
+
+        english = self.scheduling(lang="en", section="weekly")
+        english_days = english.context["scheduling_weekly_days"]
+        self.assertEqual(
+            [item["weekday"] for item in english_days],
+            [
+                DoctorSchedule.Weekday.SUNDAY,
+                DoctorSchedule.Weekday.MONDAY,
+                DoctorSchedule.Weekday.TUESDAY,
+                DoctorSchedule.Weekday.WEDNESDAY,
+                DoctorSchedule.Weekday.THURSDAY,
+                DoctorSchedule.Weekday.FRIDAY,
+                DoctorSchedule.Weekday.SATURDAY,
+            ],
+        )
+        self.assertEqual(
+            [item["label"] for item in english_days],
+            ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+        )
+        arabic = self.scheduling(section="weekly")
+        self.assertEqual(
+            [item["label"] for item in arabic.context["scheduling_weekly_days"]],
+            ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"],
+        )
+
+        sunday = self.future_date()
+        sunday += timedelta(days=(DoctorSchedule.Weekday.SUNDAY - sunday.weekday()) % 7)
+        if sunday <= timezone.localdate():
+            sunday += timedelta(days=7)
+        created = self.client.post(
+            self.action_url("dashboard_scheduling_weekly_create", language="en"),
+            {"weekday": DoctorSchedule.Weekday.SUNDAY, "start_time": "09:00", "end_time": "10:00"},
+        )
+        self.assertEqual(created.status_code, 302)
+        destination = urlsplit(created["Location"])
+        self.assertEqual(parse_qs(destination.query)["section"], ["weekly"])
+        self.assertEqual(destination.fragment, "weekday-sunday")
+        period = DoctorSchedule.objects.get(doctor=self.doctor, start_time=time(9))
+        self.assertEqual(period.weekday, 6)
+        self.assertTrue(
+            booking_services.generate_available_slots(
+                self.short_visit,
+                target_date=sunday,
+                doctor=self.doctor,
+            )
+        )
 
     def test_weekly_update_excludes_itself_rejects_other_overlap_and_enforces_active_doctor(self):
         period = DoctorSchedule.objects.create(
@@ -2516,7 +2596,11 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         ) as conflict_query:
             warning = self.client.post(create_url, payload)
             self.assertEqual(warning.status_code, 200)
-            self.assertContains(warning, "Existing appointments conflict with closing this day")
+            self.assertContains(warning, "There are 1 booked appointment on this date")
+            self.assertEqual(
+                urlsplit(warning.context["scheduling_closure_create_url"]).fragment,
+                "closure-form",
+            )
             self.assertContains(warning, "Allowed Conflict Summary Name")
             self.assertContains(warning, "Synthetic short service")
             self.assertContains(warning, "Confirmed")
@@ -2532,7 +2616,7 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
                 warning,
                 (
                     f'href="{reverse("dashboard_scheduling")}?section=calendar&amp;'
-                    f'view=day&amp;date={target_date.isoformat()}&amp;lang=en"'
+                    f'view=day&amp;date={target_date.isoformat()}&amp;lang=en#day-management"'
                 ),
             )
             self.assertFalse(ClosedDay.objects.filter(doctor=self.doctor, date=target_date).exists())
@@ -2553,7 +2637,7 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             )
             confirmed = self.client.post(
                 create_url,
-                {**payload, "confirm_closure": "yes"},
+                {**payload, "closure_action": "keep"},
             )
             self.assertEqual(confirmed.status_code, 302)
             self.assertEqual(conflict_query.call_count, 2)
@@ -2574,6 +2658,102 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertNotIn("Allowed Conflict Summary Name", metadata_text)
         self.assertNotIn("Second Requeried Conflict", metadata_text)
         self.assertNotIn("SENSITIVE", metadata_text)
+
+    def test_closure_cancel_choice_requires_second_confirmation_and_requeries_current_conflicts(self):
+        target_date = self.future_date(8)
+        first = self.create_scheduling_appointment(
+            target_date,
+            patient_name="First Cancellation Summary",
+            status=Appointment.Status.CONFIRMED,
+            booking_note="PRIVATE-CANCELLATION-NOTE",
+        )
+        unrelated = self.create_scheduling_appointment(
+            target_date + timedelta(days=1),
+            patient_name="Unrelated Date Appointment",
+            status=Appointment.Status.CONFIRMED,
+        )
+        nonblocking = self.create_scheduling_appointment(
+            target_date,
+            start=time(11),
+            patient_name="Already Cancelled Appointment",
+            status=Appointment.Status.CANCELLED,
+        )
+        create_url = self.action_url("dashboard_scheduling_closure_create", language="en")
+        payload = {
+            "date": target_date.isoformat(),
+            "reason_ar": "",
+            "reason_en": "Cancel affected appointments",
+        }
+        self.client.force_login(self.staff)
+
+        first_screen = self.client.post(create_url, payload)
+        self.assertEqual(first_screen.status_code, 200)
+        self.assertContains(first_screen, "There are 1 booked appointment on this date")
+        self.assertContains(first_screen, "Close day and keep appointments")
+        self.assertContains(first_screen, "Close day and cancel affected appointments")
+        self.assertFalse(ClosedDay.objects.filter(doctor=self.doctor, date=target_date).exists())
+
+        second_screen = self.client.post(create_url, {**payload, "closure_action": "cancel"})
+        self.assertEqual(second_screen.status_code, 200)
+        self.assertContains(second_screen, "Confirm cancellation of 1 appointment")
+        self.assertContains(second_screen, "will be cancelled immediately")
+        self.assertContains(second_screen, "Patient records will not be deleted")
+        self.assertNotContains(second_screen, "PRIVATE-CANCELLATION-NOTE")
+        self.assertNotContains(second_screen, str(first.public_token))
+        first.refresh_from_db()
+        self.assertEqual(first.status, Appointment.Status.CONFIRMED)
+        self.assertFalse(ClosedDay.objects.filter(doctor=self.doctor, date=target_date).exists())
+
+        second = self.create_scheduling_appointment(
+            target_date,
+            start=time(10),
+            patient_name="New Current Conflict",
+            status=Appointment.Status.ARRIVED,
+        )
+        with patch(
+            "apps.dashboard.views.booking_operations.cancel_appointment",
+            wraps=dashboard_views.booking_operations.cancel_appointment,
+        ) as cancel_operation:
+            final = self.client.post(
+                create_url,
+                {
+                    **payload,
+                    "closure_action": "cancel",
+                    "confirm_cancellation": "yes",
+                },
+            )
+            self.assertEqual(final.status_code, 302)
+            self.assertEqual(cancel_operation.call_count, 2)
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+        unrelated.refresh_from_db()
+        nonblocking.refresh_from_db()
+        self.assertEqual(first.status, Appointment.Status.CANCELLED)
+        self.assertEqual(second.status, Appointment.Status.CANCELLED)
+        self.assertEqual(unrelated.status, Appointment.Status.CONFIRMED)
+        self.assertEqual(nonblocking.status, Appointment.Status.CANCELLED)
+        self.assertEqual(
+            AppointmentStatusHistory.objects.filter(
+                appointment__in=[first, second],
+                new_status=Appointment.Status.CANCELLED,
+                changed_by=self.staff,
+            ).count(),
+            2,
+        )
+        closure = ClosedDay.objects.get(doctor=self.doctor, date=target_date, is_active=True)
+        audit = AuditLog.objects.get(
+            action=AuditLog.Action.CREATE,
+            model_name="ClosedDay",
+            object_id=str(closure.pk),
+        )
+        self.assertEqual(audit.metadata["operation"], "close_and_cancel_appointments")
+        self.assertEqual(audit.metadata["cancelled_appointment_count"], 2)
+        metadata_text = str(audit.metadata)
+        self.assertNotIn("First Cancellation Summary", metadata_text)
+        self.assertNotIn("New Current Conflict", metadata_text)
+        self.assertNotIn("PRIVATE-CANCELLATION-NOTE", metadata_text)
+        self.assertEqual(urlsplit(final["Location"]).fragment, "closures-list")
 
     def test_nonblocking_appointment_does_not_trigger_closure_confirmation(self):
         target_date = self.future_date(6)
@@ -2656,6 +2836,196 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         )
         self.assertEqual(audit.metadata["old_duration_minutes"], 15)
         self.assertEqual(audit.metadata["new_duration_minutes"], 60)
+
+    def test_service_create_deactivate_warning_reactivate_public_visibility_and_audit(self):
+        self.client.force_login(self.staff)
+        create_url = self.action_url("dashboard_scheduling_service_create", language="en")
+
+        for payload in (
+            {"name_ar": "", "name_en": "New service", "duration_minutes": "30"},
+            {"name_ar": "خدمة جديدة", "name_en": "", "duration_minutes": "30"},
+            {"name_ar": "خدمة جديدة", "name_en": "New service", "duration_minutes": "0"},
+            {"name_ar": "خدمة جديدة", "name_en": "New service", "duration_minutes": "invalid"},
+        ):
+            with self.subTest(payload=payload):
+                self.assertEqual(self.client.post(create_url, payload).status_code, 400)
+
+        created = self.client.post(
+            create_url,
+            {
+                "name_ar": "خدمة مضافة تجريبية",
+                "name_en": "Synthetic added service",
+                "duration_minutes": "25",
+            },
+        )
+        self.assertEqual(created.status_code, 302)
+        service = VisitType.objects.get(name_en="Synthetic added service")
+        self.assertEqual(service.doctor, self.doctor)
+        self.assertTrue(service.is_active)
+        self.assertEqual(service.duration_minutes, 25)
+        self.assertEqual(urlsplit(created["Location"]).fragment, f"service-{service.pk}")
+        self.assertContains(self.client.get(reverse("book_en")), service.name_en)
+        create_audit = AuditLog.objects.get(
+            action=AuditLog.Action.CREATE,
+            model_name="VisitType",
+            object_id=str(service.pk),
+        )
+        self.assertEqual(create_audit.metadata["active"], True)
+
+        appointment_day = self.future_date(9)
+        appointment = self.create_scheduling_appointment(
+            appointment_day,
+            visit_type=service,
+            patient_name="Safe Service Conflict Name",
+            status=Appointment.Status.CONFIRMED,
+            booking_note="PRIVATE-SERVICE-BOOKING-NOTE",
+        )
+        appointment.patient.phone_raw = "+962799999988"
+        appointment.patient.phone_e164 = "+962799999988"
+        appointment.patient.save(update_fields=["phone_raw", "phone_e164"])
+        deactivate_url = self.action_url(
+            "dashboard_scheduling_service_deactivate",
+            language="en",
+            visit_type_id=service.pk,
+        )
+        warning = self.client.post(deactivate_url)
+        self.assertEqual(warning.status_code, 200)
+        self.assertContains(warning, "Future appointments use this service")
+        self.assertEqual(
+            urlsplit(warning.context["scheduling_service_confirmation"]["action_url"]).fragment,
+            "service-warning",
+        )
+        self.assertContains(warning, "Safe Service Conflict Name")
+        self.assertNotContains(warning, "+962799999988")
+        self.assertNotContains(warning, "PRIVATE-SERVICE-BOOKING-NOTE")
+        self.assertNotContains(warning, str(appointment.public_token))
+        service.refresh_from_db()
+        self.assertTrue(service.is_active)
+
+        deactivated = self.client.post(
+            deactivate_url,
+            {"confirm_service_deactivation": "yes"},
+        )
+        self.assertEqual(deactivated.status_code, 302)
+        service.refresh_from_db()
+        appointment.refresh_from_db()
+        self.assertFalse(service.is_active)
+        self.assertEqual(appointment.status, Appointment.Status.CONFIRMED)
+        self.assertTrue(Appointment.objects.filter(pk=appointment.pk).exists())
+        self.assertNotContains(self.client.get(reverse("book_en")), service.name_en)
+        deactivate_audit = AuditLog.objects.filter(
+            action=AuditLog.Action.UPDATE,
+            model_name="VisitType",
+            object_id=str(service.pk),
+        ).latest("created_at")
+        self.assertEqual(deactivate_audit.metadata, {"old_active": True, "new_active": False})
+        self.assertEqual(
+            self.client.post(f"/dashboard/scheduling/services/{service.pk}/delete/").status_code,
+            404,
+        )
+
+        reactivated = self.client.post(
+            self.action_url(
+                "dashboard_scheduling_service_reactivate",
+                language="en",
+                visit_type_id=service.pk,
+            )
+        )
+        self.assertEqual(reactivated.status_code, 302)
+        service.refresh_from_db()
+        self.assertTrue(service.is_active)
+        self.assertContains(self.client.get(reverse("book_en")), service.name_en)
+        reactivate_audit = AuditLog.objects.filter(
+            action=AuditLog.Action.UPDATE,
+            model_name="VisitType",
+            object_id=str(service.pk),
+        ).latest("created_at")
+        self.assertEqual(reactivate_audit.metadata, {"old_active": False, "new_active": True})
+
+    def test_booking_rule_copy_is_clear_and_slot_interval_minimum_is_unchanged(self):
+        self.client.force_login(self.staff)
+        english = self.scheduling(lang="en", section="rules")
+        self.assertContains(english, "Allow booking up to")
+        self.assertContains(english, "Days in advance")
+        self.assertContains(english, "Appointment slots start every")
+        self.assertNotContains(english, "Buffer")
+        arabic = self.scheduling(section="rules")
+        self.assertContains(arabic, "السماح بالحجز حتى")
+        self.assertContains(arabic, "يوماً مقدماً")
+        self.assertContains(arabic, "تبدأ أوقات الحجز كل")
+
+        url = self.action_url("dashboard_scheduling_rules_update", language="en")
+        rejected = self.client.post(
+            url,
+            self.rules_payload(booking_slot_interval_minutes="0"),
+        )
+        self.assertEqual(rejected.status_code, 400)
+        accepted = self.client.post(
+            url,
+            self.rules_payload(booking_slot_interval_minutes="1"),
+        )
+        self.assertEqual(accepted.status_code, 302)
+        self.assertEqual(booking_services.get_booking_settings().slot_interval_minutes, 1)
+        self.assertEqual(urlsplit(accepted["Location"]).fragment, "booking-rules")
+
+    def test_same_page_navigation_preserves_workflow_context_and_fragments(self):
+        target_date = self.future_date(10)
+        self.client.force_login(self.staff)
+        calendar = self.scheduling(
+            lang="en",
+            section="calendar",
+            view="month",
+            date=target_date.isoformat(),
+            visit_type=self.short_visit.pk,
+        )
+        for context_key, fragment in (
+            ("scheduling_previous_url", "calendar"),
+            ("scheduling_today_url", "calendar"),
+            ("scheduling_next_url", "calendar"),
+            ("scheduling_current_url", "day-management"),
+        ):
+            destination = urlsplit(calendar.context[context_key])
+            query = parse_qs(destination.query)
+            self.assertEqual(query["lang"], ["en"])
+            self.assertEqual(query["view"], ["month"])
+            self.assertEqual(query["visit_type"], [str(self.short_visit.pk)])
+            self.assertEqual(destination.fragment, fragment)
+        for tab in calendar.context["scheduling_view_tabs"]:
+            self.assertEqual(urlsplit(tab["url"]).fragment, "calendar-toolbar")
+
+        duration = self.client.post(
+            self.action_url(
+                "dashboard_scheduling_service_duration",
+                language="en",
+                visit_type_id=self.short_visit.pk,
+            ),
+            {"duration_minutes": "20"},
+        )
+        self.assertEqual(urlsplit(duration["Location"]).fragment, f"service-{self.short_visit.pk}")
+        self.assertEqual(
+            parse_qs(urlsplit(duration["Location"]).query)["section"],
+            ["services"],
+        )
+
+        special = self.client.post(
+            self.special_action_url(
+                "dashboard_scheduling_special_create",
+                target_date,
+            ),
+            {
+                "date": target_date.isoformat(),
+                "start_time": "12:00",
+                "end_time": "13:00",
+                "reason_ar": "",
+                "reason_en": "Context preservation",
+            },
+        )
+        special_destination = urlsplit(special["Location"])
+        special_query = parse_qs(special_destination.query)
+        self.assertEqual(special_query["lang"], ["en"])
+        self.assertEqual(special_query["view"], ["day"])
+        self.assertEqual(special_query["date"], [target_date.isoformat()])
+        self.assertEqual(special_destination.fragment, "day-management")
 
     def test_booking_rules_update_existing_and_missing_rows_validation_types_and_audit(self):
         reminder_key = SystemSetting.APPOINTMENT_REMINDER_OFFSET_MINUTES
@@ -2906,6 +3276,13 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             time(14),
             time(15),
         )
+        inactive_security_service = VisitType.objects.create(
+            doctor=self.doctor,
+            name_ar="خدمة أمنية متوقفة",
+            name_en="Inactive security service",
+            duration_minutes=20,
+            is_active=False,
+        )
         cases = [
             (
                 "weekly-create",
@@ -2995,6 +3372,33 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
                     visit_type_id=self.long_visit.pk,
                 ),
                 {"duration_minutes": "50"},
+            ),
+            (
+                "service-create",
+                self.action_url("dashboard_scheduling_service_create", language="en"),
+                {
+                    "name_ar": "خدمة اختبار أمني",
+                    "name_en": "Security route service",
+                    "duration_minutes": "25",
+                },
+            ),
+            (
+                "service-deactivate",
+                self.action_url(
+                    "dashboard_scheduling_service_deactivate",
+                    language="en",
+                    visit_type_id=self.long_visit.pk,
+                ),
+                {},
+            ),
+            (
+                "service-reactivate",
+                self.action_url(
+                    "dashboard_scheduling_service_reactivate",
+                    language="en",
+                    visit_type_id=inactive_security_service.pk,
+                ),
+                {},
             ),
             (
                 "booking-rules",
@@ -3140,12 +3544,18 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             ".scheduling-period-editor",
             ".scheduling-conflict-warning",
             ".scheduling-rules-grid",
+            ".scheduling-day-mode-actions",
+            ".scheduling-availability-form",
+            ".scheduling-service-create-fields",
+            ".dashboard-shell .scheduling-appointments-link",
             "@media (max-width: 63.999rem)",
             "@media (max-width: 47.999rem)",
             "@media (max-width: 35rem)",
             ":focus-visible",
             "min-width: 0",
             "overflow-wrap: anywhere",
+            "overflow-x: auto",
+            "13.5px",
         ):
             self.assertIn(contract, stylesheet)
         self.assertIn(

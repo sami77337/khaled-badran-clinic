@@ -1,7 +1,7 @@
 from django import forms
 
 from apps.booking.models import Appointment
-from apps.clinic.models import ClosedDay, DoctorSchedule, DoctorScheduleOverride
+from apps.clinic.models import ClosedDay, DoctorSchedule, DoctorScheduleOverride, VisitType
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
 
 
@@ -289,6 +289,62 @@ class VisitTypeDurationForm(forms.Form):
         )
 
 
+class VisitTypeCreateForm(forms.ModelForm):
+    duration_minutes = forms.IntegerField(
+        min_value=1,
+        max_value=MAX_VISIT_DURATION_MINUTES,
+        widget=forms.NumberInput(attrs={"min": "1", "max": str(MAX_VISIT_DURATION_MINUTES)}),
+    )
+
+    class Meta:
+        model = VisitType
+        fields = ["name_ar", "name_en", "duration_minutes"]
+
+    def __init__(self, *args, language="ar", doctor=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.doctor = doctor
+        if doctor is not None:
+            self.instance.doctor = doctor
+        labels = {
+            "name_ar": ("اسم الخدمة بالعربية", "Arabic service name"),
+            "name_en": ("اسم الخدمة بالإنجليزية", "English service name"),
+            "duration_minutes": ("مدة الخدمة بالدقائق", "Service duration in minutes"),
+        }
+        for name, (arabic, english) in labels.items():
+            self.fields[name].label = _scheduling_copy(language, arabic, english)
+            self.fields[name].error_messages["required"] = _scheduling_copy(
+                language,
+                "هذا الحقل مطلوب.",
+                "This field is required.",
+            )
+        duration = self.fields["duration_minutes"]
+        duration.error_messages.update(
+            {
+                "invalid": _scheduling_copy(
+                    language, "أدخل عدداً صحيحاً صالحاً.", "Enter a valid whole number."
+                ),
+                "min_value": _scheduling_copy(
+                    language,
+                    "يجب أن تكون المدة دقيقة واحدة على الأقل.",
+                    "Duration must be at least 1 minute.",
+                ),
+                "max_value": _scheduling_copy(
+                    language,
+                    "تتجاوز المدة الحد الذي يدعمه حقل الخدمة.",
+                    "Duration exceeds the service field's supported limit.",
+                ),
+            }
+        )
+
+    def save(self, commit=True):
+        visit_type = super().save(commit=False)
+        visit_type.doctor = self.doctor
+        visit_type.is_active = True
+        if commit:
+            visit_type.save()
+        return visit_type
+
+
 class BookingRulesForm(forms.Form):
     booking_enabled = forms.TypedChoiceField(
         choices=(("true", "Enabled"), ("false", "Disabled")),
@@ -321,8 +377,11 @@ class BookingRulesForm(forms.Form):
         labels = {
             "booking_enabled": ("الحجز الإلكتروني مفعل", "Online booking enabled"),
             "booking_min_lead_minutes": ("الحد الأدنى قبل الموعد", "Minimum booking lead time"),
-            "booking_max_days_ahead": ("أقصى مدة للحجز المسبق", "Maximum booking horizon"),
-            "booking_slot_interval_minutes": ("الفاصل بين أوقات الحجز", "Slot interval"),
+            "booking_max_days_ahead": ("السماح بالحجز حتى", "Allow booking up to"),
+            "booking_slot_interval_minutes": (
+                "تبدأ أوقات الحجز كل",
+                "Appointment slots start every",
+            ),
             "appointment_reminder_offset_minutes": (
                 "وقت التذكير قبل الموعد",
                 "Appointment reminder lead time",
@@ -331,8 +390,8 @@ class BookingRulesForm(forms.Form):
         units = {
             "booking_enabled": ("مفعل أو غير مفعل", "Enabled or disabled"),
             "booking_min_lead_minutes": ("بالدقائق", "Minutes"),
-            "booking_max_days_ahead": ("بالأيام", "Days"),
-            "booking_slot_interval_minutes": ("بالدقائق", "Minutes"),
+            "booking_max_days_ahead": ("يوماً مقدماً", "Days in advance"),
+            "booking_slot_interval_minutes": ("دقيقة", "Minutes"),
             "appointment_reminder_offset_minutes": ("بالدقائق", "Minutes"),
         }
         for name, (arabic, english) in labels.items():
