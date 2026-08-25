@@ -6,27 +6,34 @@ from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
+from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponseForbidden, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from apps.booking import services as booking_services
 from apps.booking.models import Appointment
 from apps.booking.selectors import get_active_doctor, get_active_visit_types
-from apps.clinic.models import ClosedDay, DoctorSchedule
+from apps.clinic.models import ClosedDay, Doctor, DoctorSchedule, VisitType
+from apps.core.models import AuditLog, SystemSetting
 from apps.core.views import _base_context
 from apps.patients.models import Patient
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
 
 from .forms import (
+    BookingRulesForm,
+    ClosureCreateForm,
     StaffClinicalNoteForm,
     StaffRecordMediaCreateForm,
     StaffRecordMediaUpdateForm,
     StaffVisitRecordForm,
+    VisitTypeDurationForm,
+    WeeklyPeriodCreateForm,
+    WeeklyPeriodUpdateForm,
 )
 
 
@@ -64,6 +71,34 @@ DASHBOARD_STATUS_LABELS = {
 }
 
 SCHEDULING_VIEW_NAMES = ("day", "week", "month")
+SCHEDULING_SECTION_NAMES = ("calendar", "weekly", "services", "rules", "closures")
+SCHEDULING_SETTING_FIELDS = {
+    "booking_enabled": {
+        "key": SystemSetting.BOOKING_ENABLED,
+        "value_type": SystemSetting.ValueType.BOOLEAN,
+        "description": "Enable public booking.",
+    },
+    "booking_min_lead_minutes": {
+        "key": SystemSetting.BOOKING_MIN_LEAD_MINUTES,
+        "value_type": SystemSetting.ValueType.INTEGER,
+        "description": "Minimum lead time before a public booking.",
+    },
+    "booking_max_days_ahead": {
+        "key": SystemSetting.BOOKING_MAX_DAYS_AHEAD,
+        "value_type": SystemSetting.ValueType.INTEGER,
+        "description": "Maximum public booking window in days.",
+    },
+    "booking_slot_interval_minutes": {
+        "key": SystemSetting.BOOKING_SLOT_INTERVAL_MINUTES,
+        "value_type": SystemSetting.ValueType.INTEGER,
+        "description": "Public booking slot interval.",
+    },
+    "appointment_reminder_offset_minutes": {
+        "key": SystemSetting.APPOINTMENT_REMINDER_OFFSET_MINUTES,
+        "value_type": SystemSetting.ValueType.DURATION_MINUTES,
+        "description": "Default appointment reminder offset.",
+    },
+}
 SCHEDULING_WEEKDAY_LABELS = {
     "ar": (
         ("الاثنين", "اث"),
@@ -125,10 +160,19 @@ def _dashboard_home_url(language):
     return f"{url}?lang=en" if language == "en" else url
 
 
-def _scheduling_url(language, *, view=None, selected_date=None, visit_type=None):
+def _scheduling_url(
+    language,
+    *,
+    section=None,
+    view=None,
+    selected_date=None,
+    visit_type=None,
+):
     params = {}
     if language == "en":
         params["lang"] = "en"
+    if section:
+        params["section"] = section
     if view:
         params["view"] = view
     if selected_date:
@@ -342,6 +386,10 @@ def _parse_scheduling_view(raw_view):
     return raw_view if raw_view in SCHEDULING_VIEW_NAMES else "week"
 
 
+def _parse_scheduling_section(raw_section):
+    return raw_section if raw_section in SCHEDULING_SECTION_NAMES else "calendar"
+
+
 def _parse_scheduling_date(raw_date, today):
     if not raw_date or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw_date):
         return today
@@ -502,6 +550,7 @@ def _scheduling_context(
     request,
     *,
     language,
+    section,
     view,
     selected_date,
     active_doctor,
@@ -616,6 +665,22 @@ def _scheduling_context(
         "ar": {"day": "اليوم", "week": "الأسبوع", "month": "الشهر"},
         "en": {"day": "Day", "week": "Week", "month": "Month"},
     }[language]
+    section_labels = {
+        "ar": {
+            "calendar": "التقويم",
+            "weekly": "ساعات العمل الأسبوعية",
+            "services": "الخدمات",
+            "rules": "قواعد الحجز",
+            "closures": "الإغلاقات",
+        },
+        "en": {
+            "calendar": "Calendar",
+            "weekly": "Weekly Hours",
+            "services": "Services",
+            "rules": "Booking Rules",
+            "closures": "Closures",
+        },
+    }[language]
     for day_item in day_items:
         day_item["day_view_url"] = _scheduling_url(
             language,
@@ -648,6 +713,7 @@ def _scheduling_context(
             "canonical_url": request.build_absolute_uri(
                 _scheduling_url(
                     language,
+                    section=section,
                     view=view,
                     selected_date=selected_date,
                     visit_type=selected_visit_type,
@@ -656,11 +722,27 @@ def _scheduling_context(
             "active_dashboard_nav": "scheduling",
             "dashboard_language_switch_url": _scheduling_url(
                 alternate_language,
+                section=section,
                 view=view,
                 selected_date=selected_date,
                 visit_type=selected_visit_type,
             ),
             "scheduling_view": view,
+            "scheduling_section": section,
+            "scheduling_sections": [
+                {
+                    "key": section_name,
+                    "label": section_labels[section_name],
+                    "url": _scheduling_url(
+                        language,
+                        section=section_name,
+                        view=view if section_name == "calendar" else None,
+                        selected_date=selected_date if section_name == "calendar" else None,
+                        visit_type=selected_visit_type if section_name == "calendar" else None,
+                    ),
+                }
+                for section_name in SCHEDULING_SECTION_NAMES
+            ],
             "scheduling_selected_date": selected_date,
             "scheduling_today": today,
             "scheduling_timezone": timezone.get_current_timezone_name(),
@@ -718,10 +800,171 @@ def _scheduling_context(
     return shell_context
 
 
-@_staff_required
-@require_GET
-def dashboard_scheduling(request):
+def _localized_post_url(route_name, language, **kwargs):
+    url = reverse(route_name, kwargs=kwargs or None)
+    return f"{url}?lang=en" if language == "en" else url
+
+
+def _booking_rules_initial():
+    settings = booking_services.get_booking_settings()
+    return {
+        "booking_enabled": "true" if settings.enabled else "false",
+        "booking_min_lead_minutes": settings.min_lead_minutes,
+        "booking_max_days_ahead": settings.max_days_ahead,
+        "booking_slot_interval_minutes": settings.slot_interval_minutes,
+        "appointment_reminder_offset_minutes": settings.reminder_offset_minutes,
+    }
+
+
+def _scheduling_management_context(
+    *,
+    language,
+    active_doctor,
+    visit_types,
+    bound_weekly_create_form=None,
+    bound_weekly_create_weekday=None,
+    bound_weekly_update_form=None,
+    bound_weekly_update_period_id=None,
+    closure_form=None,
+    closure_conflicts=None,
+    duration_form=None,
+    duration_visit_type_id=None,
+    booking_rules_form=None,
+):
+    periods_by_weekday = {}
+    closures = []
+    if active_doctor:
+        for period in DoctorSchedule.objects.filter(
+            doctor=active_doctor,
+            is_active=True,
+        ).order_by("weekday", "start_time", "id"):
+            periods_by_weekday.setdefault(period.weekday, []).append(period)
+        closures = list(
+            ClosedDay.objects.filter(
+                is_active=True,
+                date__gte=timezone.localdate(),
+            )
+            .filter(Q(doctor=active_doctor) | Q(doctor__isnull=True))
+            .order_by("date", "id")
+        )
+
+    weekly_days = []
+    for weekday, english_label in DoctorSchedule.Weekday.choices:
+        create_form = (
+            bound_weekly_create_form
+            if bound_weekly_create_form is not None and bound_weekly_create_weekday == weekday
+            else WeeklyPeriodCreateForm(
+                language=language,
+                initial={"weekday": weekday},
+                auto_id=f"id_weekday_{weekday}_%s",
+            )
+        )
+        period_items = []
+        for period in periods_by_weekday.get(weekday, []):
+            update_form = (
+                bound_weekly_update_form
+                if bound_weekly_update_form is not None
+                and bound_weekly_update_period_id == period.pk
+                else WeeklyPeriodUpdateForm(
+                    language=language,
+                    initial={
+                        "start_time": period.start_time.strftime("%H:%M"),
+                        "end_time": period.end_time.strftime("%H:%M"),
+                    },
+                    auto_id=f"id_period_{period.pk}_%s",
+                )
+            )
+            period_items.append(
+                {
+                    "period": period,
+                    "update_form": update_form,
+                    "update_url": _localized_post_url(
+                        "dashboard_scheduling_weekly_update",
+                        language,
+                        period_id=period.pk,
+                    ),
+                    "deactivate_url": _localized_post_url(
+                        "dashboard_scheduling_weekly_deactivate",
+                        language,
+                        period_id=period.pk,
+                    ),
+                }
+            )
+        weekly_days.append(
+            {
+                "weekday": weekday,
+                "label": (
+                    SCHEDULING_WEEKDAY_LABELS[language][weekday][0]
+                    if language == "ar"
+                    else english_label
+                ),
+                "periods": period_items,
+                "create_form": create_form,
+            }
+        )
+
+    service_items = []
+    for visit_type in visit_types:
+        item_form = (
+            duration_form
+            if duration_form is not None and duration_visit_type_id == visit_type.pk
+            else VisitTypeDurationForm(
+                language=language,
+                initial={"duration_minutes": visit_type.duration_minutes},
+                auto_id=f"id_visit_type_{visit_type.pk}_%s",
+            )
+        )
+        service_items.append(
+            {
+                "visit_type": visit_type,
+                "form": item_form,
+                "update_url": _localized_post_url(
+                    "dashboard_scheduling_service_duration",
+                    language,
+                    visit_type_id=visit_type.pk,
+                ),
+            }
+        )
+
+    closure_items = [
+        {
+            "closure": item,
+            "deactivate_url": _localized_post_url(
+                "dashboard_scheduling_closure_deactivate",
+                language,
+                closure_id=item.pk,
+            ),
+        }
+        for item in closures
+    ]
+    return {
+        "scheduling_weekly_days": weekly_days,
+        "scheduling_weekly_create_url": _localized_post_url(
+            "dashboard_scheduling_weekly_create", language
+        ),
+        "scheduling_service_items": service_items,
+        "scheduling_closure_form": (
+            closure_form if closure_form is not None else ClosureCreateForm(language=language)
+        ),
+        "scheduling_closure_conflicts": closure_conflicts or [],
+        "scheduling_closure_create_url": _localized_post_url(
+            "dashboard_scheduling_closure_create", language
+        ),
+        "scheduling_closure_items": closure_items,
+        "scheduling_booking_rules_form": (
+            booking_rules_form
+            if booking_rules_form is not None
+            else BookingRulesForm(language=language, initial=_booking_rules_initial())
+        ),
+        "scheduling_booking_rules_url": _localized_post_url(
+            "dashboard_scheduling_rules_update", language
+        ),
+    }
+
+
+def _scheduling_page_context(request, *, section=None, **management_overrides):
     language = _dashboard_language(request)
+    section = _parse_scheduling_section(section or request.GET.get("section"))
     view = _parse_scheduling_view(request.GET.get("view"))
     selected_date = _parse_scheduling_date(
         request.GET.get("date"),
@@ -745,13 +988,522 @@ def dashboard_scheduling(request):
     context = _scheduling_context(
         request,
         language=language,
+        section=section,
         view=view,
         selected_date=selected_date,
         active_doctor=active_doctor,
         visit_types=visit_types,
         selected_visit_type=selected_visit_type,
     )
+    context.update(
+        _scheduling_management_context(
+            language=language,
+            active_doctor=active_doctor,
+            visit_types=visit_types,
+            **management_overrides,
+        )
+    )
+    return context
+
+
+def _render_scheduling_section(request, section, *, status=200, **management_overrides):
+    return render(
+        request,
+        "dashboard/scheduling.html",
+        _scheduling_page_context(
+            request,
+            section=section,
+            **management_overrides,
+        ),
+        status=status,
+    )
+
+
+@_staff_required
+@require_GET
+def dashboard_scheduling(request):
+    context = _scheduling_page_context(request)
     return render(request, "dashboard/scheduling.html", context)
+
+
+def _configuration_audit(
+    *,
+    user,
+    action,
+    instance,
+    message,
+    metadata,
+):
+    AuditLog.objects.create(
+        user=user,
+        action=action,
+        app_label=instance._meta.app_label,
+        model_name=instance.__class__.__name__,
+        object_id=str(instance.pk),
+        object_repr=str(instance)[:255],
+        message=message,
+        metadata=metadata,
+    )
+
+
+def _locked_active_doctor(active_doctor):
+    if active_doctor is None:
+        return None
+    return (
+        Doctor.objects.select_for_update()
+        .filter(pk=active_doctor.pk, is_active=True)
+        .first()
+    )
+
+
+def _scheduling_unavailable_response(request, section):
+    return _render_scheduling_section(request, section, status=409)
+
+
+def _scheduling_redirect(language, section):
+    return redirect(_scheduling_url(language, section=section))
+
+
+@_staff_required
+@require_POST
+def dashboard_scheduling_weekly_create(request):
+    language = _dashboard_language(request)
+    form = WeeklyPeriodCreateForm(request.POST, language=language)
+    active_doctor = get_active_doctor()
+    if active_doctor is None:
+        return _scheduling_unavailable_response(request, "weekly")
+    if not form.is_valid():
+        raw_weekday = request.POST.get("weekday")
+        try:
+            form_weekday = int(raw_weekday)
+        except (TypeError, ValueError):
+            form_weekday = 0
+        if form_weekday not in range(7):
+            form_weekday = 0
+        return _render_scheduling_section(
+            request,
+            "weekly",
+            status=400,
+            bound_weekly_create_form=form,
+            bound_weekly_create_weekday=form_weekday,
+        )
+
+    with transaction.atomic():
+        doctor = _locked_active_doctor(active_doctor)
+        if doctor is None:
+            return _scheduling_unavailable_response(request, "weekly")
+        weekday = form.cleaned_data["weekday"]
+        if not form.validate_no_overlap(doctor=doctor, weekday=weekday):
+            return _render_scheduling_section(
+                request,
+                "weekly",
+                status=400,
+                bound_weekly_create_form=form,
+                bound_weekly_create_weekday=weekday,
+            )
+        period = DoctorSchedule(
+            doctor=doctor,
+            weekday=weekday,
+            start_time=form.cleaned_data["start_time"],
+            end_time=form.cleaned_data["end_time"],
+            is_active=True,
+        )
+        period.full_clean()
+        period.save()
+        _configuration_audit(
+            user=request.user,
+            action=AuditLog.Action.CREATE,
+            instance=period,
+            message="Created recurring weekly working period.",
+            metadata={
+                "weekday": weekday,
+                "new_start": period.start_time.strftime("%H:%M"),
+                "new_end": period.end_time.strftime("%H:%M"),
+                "active": True,
+            },
+        )
+    messages.success(
+        request,
+        "Working period added." if language == "en" else "تمت إضافة فترة العمل.",
+    )
+    return _scheduling_redirect(language, "weekly")
+
+
+@_staff_required
+@require_POST
+def dashboard_scheduling_weekly_update(request, period_id):
+    language = _dashboard_language(request)
+    form = WeeklyPeriodUpdateForm(request.POST, language=language)
+    active_doctor = get_active_doctor()
+    if active_doctor is None:
+        return _scheduling_unavailable_response(request, "weekly")
+    if not form.is_valid():
+        return _render_scheduling_section(
+            request,
+            "weekly",
+            status=400,
+            bound_weekly_update_form=form,
+            bound_weekly_update_period_id=period_id,
+        )
+
+    with transaction.atomic():
+        doctor = _locked_active_doctor(active_doctor)
+        if doctor is None:
+            return _scheduling_unavailable_response(request, "weekly")
+        period = get_object_or_404(
+            DoctorSchedule.objects.select_for_update(),
+            pk=period_id,
+            doctor=doctor,
+            is_active=True,
+        )
+        if not form.validate_no_overlap(
+            doctor=doctor,
+            weekday=period.weekday,
+            exclude_period_id=period.pk,
+        ):
+            return _render_scheduling_section(
+                request,
+                "weekly",
+                status=400,
+                bound_weekly_update_form=form,
+                bound_weekly_update_period_id=period_id,
+            )
+        old_start = period.start_time.strftime("%H:%M")
+        old_end = period.end_time.strftime("%H:%M")
+        period.start_time = form.cleaned_data["start_time"]
+        period.end_time = form.cleaned_data["end_time"]
+        period.full_clean()
+        period.save(update_fields=["start_time", "end_time", "updated_at"])
+        _configuration_audit(
+            user=request.user,
+            action=AuditLog.Action.UPDATE,
+            instance=period,
+            message="Updated recurring weekly working period.",
+            metadata={
+                "weekday": period.weekday,
+                "old_start": old_start,
+                "old_end": old_end,
+                "new_start": period.start_time.strftime("%H:%M"),
+                "new_end": period.end_time.strftime("%H:%M"),
+                "active": True,
+            },
+        )
+    messages.success(
+        request,
+        "Working period updated." if language == "en" else "تم تحديث فترة العمل.",
+    )
+    return _scheduling_redirect(language, "weekly")
+
+
+@_staff_required
+@require_POST
+def dashboard_scheduling_weekly_deactivate(request, period_id):
+    language = _dashboard_language(request)
+    active_doctor = get_active_doctor()
+    if active_doctor is None:
+        return _scheduling_unavailable_response(request, "weekly")
+    with transaction.atomic():
+        doctor = _locked_active_doctor(active_doctor)
+        if doctor is None:
+            return _scheduling_unavailable_response(request, "weekly")
+        period = get_object_or_404(
+            DoctorSchedule.objects.select_for_update(),
+            pk=period_id,
+            doctor=doctor,
+            is_active=True,
+        )
+        old_start = period.start_time.strftime("%H:%M")
+        old_end = period.end_time.strftime("%H:%M")
+        period.is_active = False
+        period.save(update_fields=["is_active", "updated_at"])
+        _configuration_audit(
+            user=request.user,
+            action=AuditLog.Action.UPDATE,
+            instance=period,
+            message="Deactivated recurring weekly working period.",
+            metadata={
+                "weekday": period.weekday,
+                "old_start": old_start,
+                "old_end": old_end,
+                "active": False,
+            },
+        )
+    messages.success(
+        request,
+        "Working period deactivated."
+        if language == "en"
+        else "تم إيقاف فترة العمل.",
+    )
+    return _scheduling_redirect(language, "weekly")
+
+
+def _closure_conflict_queryset(doctor, closure_date):
+    day_start, day_end = _local_day_bounds(closure_date)
+    return (
+        Appointment.objects.filter(
+            doctor=doctor,
+            status__in=booking_services.BLOCKING_APPOINTMENT_STATUSES,
+            starts_at__lt=day_end,
+            ends_at__gt=day_start,
+        )
+        .select_related("patient", "visit_type")
+        .order_by("starts_at", "id")
+    )
+
+
+def _closure_conflict_items(appointments, language):
+    return [
+        {
+            "time": timezone.localtime(appointment.starts_at).strftime("%H:%M"),
+            "patient_name": appointment.patient.full_name,
+            "service": _localized_visit_type_name(appointment.visit_type, language),
+            "status": DASHBOARD_STATUS_LABELS[language].get(
+                appointment.status,
+                appointment.get_status_display(),
+            ),
+        }
+        for appointment in appointments
+    ]
+
+
+@_staff_required
+@require_POST
+def dashboard_scheduling_closure_create(request):
+    language = _dashboard_language(request)
+    form = ClosureCreateForm(request.POST, language=language)
+    active_doctor = get_active_doctor()
+    if active_doctor is None:
+        return _scheduling_unavailable_response(request, "closures")
+    if not form.is_valid():
+        return _render_scheduling_section(
+            request,
+            "closures",
+            status=400,
+            closure_form=form,
+        )
+
+    confirmed = request.POST.get("confirm_closure") == "yes"
+    with transaction.atomic():
+        doctor = _locked_active_doctor(active_doctor)
+        if doctor is None:
+            return _scheduling_unavailable_response(request, "closures")
+        closure_date = form.cleaned_data["date"]
+        existing = (
+            ClosedDay.objects.select_for_update()
+            .filter(is_active=True, date=closure_date)
+            .filter(Q(doctor=doctor) | Q(doctor__isnull=True))
+        )
+        if existing.exists():
+            form.add_error(
+                "date",
+                "This date is already closed."
+                if language == "en"
+                else "هذا التاريخ مغلق بالفعل.",
+            )
+            return _render_scheduling_section(
+                request,
+                "closures",
+                status=400,
+                closure_form=form,
+            )
+
+        # This query intentionally runs for both the initial and confirmed POST.
+        # Confirmation never trusts the conflict count shown by the first response.
+        conflicts = list(_closure_conflict_queryset(doctor, closure_date))
+        if conflicts and not confirmed:
+            return _render_scheduling_section(
+                request,
+                "closures",
+                closure_form=form,
+                closure_conflicts=_closure_conflict_items(conflicts, language),
+            )
+
+        closure = ClosedDay(
+            doctor=doctor,
+            date=closure_date,
+            reason_ar=form.cleaned_data.get("reason_ar", ""),
+            reason_en=form.cleaned_data.get("reason_en", ""),
+            is_active=True,
+        )
+        closure.full_clean()
+        closure.save()
+        _configuration_audit(
+            user=request.user,
+            action=AuditLog.Action.CREATE,
+            instance=closure,
+            message="Created full-day clinic closure.",
+            metadata={
+                "date": closure.date.isoformat(),
+                "active": True,
+                "reason_ar": closure.reason_ar,
+                "reason_en": closure.reason_en,
+            },
+        )
+    messages.success(
+        request,
+        "Full-day closure added." if language == "en" else "تمت إضافة إغلاق اليوم بالكامل.",
+    )
+    return _scheduling_redirect(language, "closures")
+
+
+@_staff_required
+@require_POST
+def dashboard_scheduling_closure_deactivate(request, closure_id):
+    language = _dashboard_language(request)
+    active_doctor = get_active_doctor()
+    if active_doctor is None:
+        return _scheduling_unavailable_response(request, "closures")
+    with transaction.atomic():
+        doctor = _locked_active_doctor(active_doctor)
+        if doctor is None:
+            return _scheduling_unavailable_response(request, "closures")
+        closure = get_object_or_404(
+            ClosedDay.objects.select_for_update().filter(
+                Q(doctor=doctor) | Q(doctor__isnull=True)
+            ),
+            pk=closure_id,
+            is_active=True,
+        )
+        closure.is_active = False
+        closure.save(update_fields=["is_active", "updated_at"])
+        _configuration_audit(
+            user=request.user,
+            action=AuditLog.Action.UPDATE,
+            instance=closure,
+            message="Deactivated full-day clinic closure.",
+            metadata={
+                "date": closure.date.isoformat(),
+                "active": False,
+                "reason_ar": closure.reason_ar,
+                "reason_en": closure.reason_en,
+            },
+        )
+    messages.success(
+        request,
+        "Closure deactivated." if language == "en" else "تم إلغاء تفعيل الإغلاق.",
+    )
+    return _scheduling_redirect(language, "closures")
+
+
+@_staff_required
+@require_POST
+def dashboard_scheduling_service_duration(request, visit_type_id):
+    language = _dashboard_language(request)
+    form = VisitTypeDurationForm(request.POST, language=language)
+    active_doctor = get_active_doctor()
+    if active_doctor is None:
+        return _scheduling_unavailable_response(request, "services")
+    if not form.is_valid():
+        return _render_scheduling_section(
+            request,
+            "services",
+            status=400,
+            duration_form=form,
+            duration_visit_type_id=visit_type_id,
+        )
+
+    with transaction.atomic():
+        doctor = _locked_active_doctor(active_doctor)
+        if doctor is None:
+            return _scheduling_unavailable_response(request, "services")
+        visit_type = get_object_or_404(
+            VisitType.objects.select_for_update().filter(
+                Q(doctor=doctor) | Q(doctor__isnull=True)
+            ),
+            pk=visit_type_id,
+            is_active=True,
+        )
+        old_duration = visit_type.duration_minutes
+        visit_type.duration_minutes = form.cleaned_data["duration_minutes"]
+        visit_type.full_clean()
+        visit_type.save(update_fields=["duration_minutes", "updated_at"])
+        _configuration_audit(
+            user=request.user,
+            action=AuditLog.Action.UPDATE,
+            instance=visit_type,
+            message="Updated visit type scheduling duration.",
+            metadata={
+                "old_duration_minutes": old_duration,
+                "new_duration_minutes": visit_type.duration_minutes,
+            },
+        )
+    messages.success(
+        request,
+        "Service duration updated." if language == "en" else "تم تحديث مدة الخدمة.",
+    )
+    return _scheduling_redirect(language, "services")
+
+
+def _booking_rule_storage_value(field_name, cleaned_value):
+    if field_name == "booking_enabled":
+        return "true" if cleaned_value else "false"
+    return str(cleaned_value)
+
+
+@_staff_required
+@require_POST
+def dashboard_scheduling_rules_update(request):
+    language = _dashboard_language(request)
+    form = BookingRulesForm(request.POST, language=language)
+    active_doctor = get_active_doctor()
+    if active_doctor is None:
+        return _scheduling_unavailable_response(request, "rules")
+    if not form.is_valid():
+        return _render_scheduling_section(
+            request,
+            "rules",
+            status=400,
+            booking_rules_form=form,
+        )
+
+    with transaction.atomic():
+        doctor = _locked_active_doctor(active_doctor)
+        if doctor is None:
+            return _scheduling_unavailable_response(request, "rules")
+        allowed_keys = [spec["key"] for spec in SCHEDULING_SETTING_FIELDS.values()]
+        existing_settings = {
+            setting.key: setting
+            for setting in SystemSetting.objects.select_for_update().filter(key__in=allowed_keys)
+        }
+        for field_name, spec in SCHEDULING_SETTING_FIELDS.items():
+            new_value = _booking_rule_storage_value(
+                field_name,
+                form.cleaned_data[field_name],
+            )
+            setting = existing_settings.get(spec["key"])
+            old_value = setting.value if setting is not None else None
+            if setting is None:
+                setting = SystemSetting.objects.create(
+                    key=spec["key"],
+                    value=new_value,
+                    value_type=spec["value_type"],
+                    description=spec["description"],
+                )
+                changed = True
+            else:
+                changed = setting.value != new_value or setting.value_type != spec["value_type"]
+                setting.value = new_value
+                if setting.value_type != spec["value_type"]:
+                    setting.value_type = spec["value_type"]
+                if changed:
+                    setting.save(update_fields=["value", "value_type", "updated_at"])
+            if changed:
+                _configuration_audit(
+                    user=request.user,
+                    action=AuditLog.Action.SETTINGS_CHANGE,
+                    instance=setting,
+                    message="Updated scheduling booking rule.",
+                    metadata={
+                        "key": spec["key"],
+                        "old_value": old_value,
+                        "new_value": new_value,
+                    },
+                )
+    messages.success(
+        request,
+        "Booking rules updated." if language == "en" else "تم تحديث قواعد الحجز.",
+    )
+    return _scheduling_redirect(language, "rules")
 
 
 def _method_allowed(request, methods):

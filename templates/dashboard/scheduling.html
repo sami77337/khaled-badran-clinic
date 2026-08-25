@@ -6,7 +6,7 @@
 {% endblock %}
 
 {% block dashboard_content %}
-<div class="dashboard-content scheduling-content" data-scheduling-default-view>
+<div class="dashboard-content scheduling-content"{% if scheduling_section == "calendar" %} data-scheduling-default-view{% endif %}>
     <header class="scheduling-page-header">
         <div>
             <p class="scheduling-eyebrow">{% if is_arabic %}عمليات العيادة{% else %}Clinic Operations{% endif %}</p>
@@ -25,6 +25,23 @@
         </p>
     </header>
 
+    <nav class="scheduling-section-tabs" aria-label="{% if is_arabic %}أقسام مركز الجدولة{% else %}Scheduling Center sections{% endif %}">
+        {% for item in scheduling_sections %}
+            <a
+                class="scheduling-section-tab{% if scheduling_section == item.key %} is-active{% endif %}"
+                href="{{ item.url }}"
+                {% if scheduling_section == item.key %}aria-current="page"{% endif %}
+            >{{ item.label }}</a>
+        {% endfor %}
+    </nav>
+
+    {% if messages %}
+        <div class="scheduling-messages" aria-live="polite">
+            {% for message in messages %}<p class="scheduling-message">{{ message }}</p>{% endfor %}
+        </div>
+    {% endif %}
+
+    {% if scheduling_section == "calendar" %}
     <section class="scheduling-toolbar" aria-label="{% if is_arabic %}أدوات عرض التقويم{% else %}Calendar view controls{% endif %}">
         <nav class="scheduling-view-tabs" aria-label="{% if is_arabic %}طريقة العرض{% else %}Calendar view{% endif %}">
             {% for tab in scheduling_view_tabs %}
@@ -330,6 +347,15 @@
                 </a>
             </aside>
         </div>
+    {% endif %}
+    {% elif scheduling_section == "weekly" %}
+        {% include "dashboard/scheduling/_weekly.html" %}
+    {% elif scheduling_section == "services" %}
+        {% include "dashboard/scheduling/_services.html" %}
+    {% elif scheduling_section == "rules" %}
+        {% include "dashboard/scheduling/_rules.html" %}
+    {% elif scheduling_section == "closures" %}
+        {% include "dashboard/scheduling/_closures.html" %}
     {% endif %}
 </div>
 {% endblock %}

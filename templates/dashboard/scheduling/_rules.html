@@ -1,0 +1,45 @@
+<section class="scheduling-management" aria-labelledby="booking-rules-title">
+    <header class="scheduling-management-header">
+        <div>
+            <p>{% if is_arabic %}قواعد الحجز الحالية{% else %}Existing booking settings{% endif %}</p>
+            <h2 id="booking-rules-title">{% if is_arabic %}قواعد الحجز{% else %}Booking Rules{% endif %}</h2>
+        </div>
+        <p>
+            {% if is_arabic %}
+                تستخدم صفحة الحجز العامة هذه القيم مباشرة. لا تتضمن هذه الصفحة إعدادات تحديد المعدل.
+            {% else %}
+                Public Booking consumes these values directly. Rate-limit settings are not exposed here.
+            {% endif %}
+        </p>
+    </header>
+
+    {% if not scheduling_doctor %}
+        <div class="scheduling-unavailable" role="status">
+            <span aria-hidden="true">—</span>
+            <div>
+                <h2>{% if is_arabic %}الإدارة غير متاحة حالياً{% else %}Management is currently unavailable{% endif %}</h2>
+                <p>{% if is_arabic %}يجب توفر طبيب نشط قبل تعديل قواعد حجز العيادة.{% else %}An active doctor is required before clinic booking rules can be changed.{% endif %}</p>
+            </div>
+        </div>
+    {% else %}
+        <form method="post" action="{{ scheduling_booking_rules_url }}" class="scheduling-management-card scheduling-rules-form">
+            {% csrf_token %}
+            {{ scheduling_booking_rules_form.non_field_errors }}
+            <div class="scheduling-rules-grid">
+                {% for field in scheduling_booking_rules_form.visible_fields %}
+                    <div class="scheduling-field">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<p class="scheduling-field-help">{{ field.help_text }}</p>{% endif %}
+                        {{ field.errors }}
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="scheduling-form-actions">
+                <button class="scheduling-button" type="submit">
+                    {% if is_arabic %}حفظ قواعد الحجز{% else %}Save booking rules{% endif %}
+                </button>
+            </div>
+        </form>
+    {% endif %}
+</section>

@@ -15,7 +15,7 @@ from django.utils import timezone
 from apps.booking import services as booking_services
 from apps.booking.models import Appointment
 from apps.clinic.models import ClosedDay, Doctor, DoctorSchedule, VisitType
-from apps.core.models import SystemSetting
+from apps.core.models import AuditLog, SystemSetting
 from apps.dashboard import views as dashboard_views
 from apps.patients.models import Patient
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
@@ -1675,3 +1675,844 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             "Reviews",
         ):
             self.assertNotContains(response, prohibited_label)
+
+    def rules_payload(self, **overrides):
+        payload = {
+            "booking_enabled": "true",
+            "booking_min_lead_minutes": "0",
+            "booking_max_days_ahead": "30",
+            "booking_slot_interval_minutes": "15",
+            "appointment_reminder_offset_minutes": "180",
+        }
+        payload.update(overrides)
+        return payload
+
+    def action_url(self, name, *, language=None, **kwargs):
+        url = reverse(name, kwargs=kwargs or None)
+        return f"{url}?lang=en" if language == "en" else url
+
+    def test_management_sections_are_allowlisted_bilingual_and_keep_calendar_default(self):
+        self.client.force_login(self.staff)
+        response = self.scheduling(lang="en", section="weekly")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["scheduling_section"], "weekly")
+        self.assertEqual(len(response.context["scheduling_weekly_days"]), 7)
+        for label in ("Calendar", "Weekly Hours", "Services", "Booking Rules", "Closures"):
+            self.assertContains(response, label)
+        self.assertContains(response, 'dir="ltr"')
+        self.assertNotContains(response, "Special Hours")
+
+        arabic = self.scheduling(section="closures")
+        for label in ("التقويم", "ساعات العمل الأسبوعية", "الخدمات", "قواعد الحجز", "الإغلاقات"):
+            self.assertContains(arabic, label)
+        self.assertContains(arabic, 'dir="rtl"')
+
+        invalid = self.scheduling(section="not-a-real-section")
+        self.assertEqual(invalid.context["scheduling_section"], "calendar")
+        self.assertContains(invalid, "عرض فقط")
+
+    def test_weekly_period_create_validation_deactivation_audit_and_real_availability(self):
+        target_date = self.future_date(3)
+        weekday = target_date.weekday()
+        create_url = self.action_url("dashboard_scheduling_weekly_create", language="en")
+        self.client.force_login(self.staff)
+
+        malformed = self.client.post(
+            create_url,
+            {"weekday": weekday, "start_time": "not-a-time", "end_time": "11:00"},
+        )
+        self.assertEqual(malformed.status_code, 400)
+        equal = self.client.post(
+            create_url,
+            {"weekday": weekday, "start_time": "09:00", "end_time": "09:00"},
+        )
+        self.assertEqual(equal.status_code, 400)
+        reversed_time = self.client.post(
+            create_url,
+            {"weekday": weekday, "start_time": "11:00", "end_time": "09:00"},
+        )
+        self.assertEqual(reversed_time.status_code, 400)
+        self.assertFalse(DoctorSchedule.objects.filter(doctor=self.doctor, weekday=weekday).exists())
+
+        first = self.client.post(
+            create_url,
+            {"weekday": weekday, "start_time": "09:00", "end_time": "10:00"},
+        )
+        self.assertEqual(first.status_code, 302)
+        self.assertEqual(parse_qs(urlsplit(first["Location"]).query)["section"], ["weekly"])
+        self.assertEqual(parse_qs(urlsplit(first["Location"]).query)["lang"], ["en"])
+        period = DoctorSchedule.objects.get(
+            doctor=self.doctor,
+            weekday=weekday,
+            start_time=time(9, 0),
+        )
+        create_audit = AuditLog.objects.get(
+            action=AuditLog.Action.CREATE,
+            model_name="DoctorSchedule",
+            object_id=str(period.pk),
+        )
+        self.assertEqual(create_audit.metadata["weekday"], weekday)
+        self.assertEqual(create_audit.metadata["new_start"], "09:00")
+
+        second = self.client.post(
+            create_url,
+            {"weekday": weekday, "start_time": "12:00", "end_time": "13:00"},
+        )
+        self.assertEqual(second.status_code, 302)
+        overlapping = self.client.post(
+            create_url,
+            {"weekday": weekday, "start_time": "09:30", "end_time": "12:30"},
+        )
+        self.assertEqual(overlapping.status_code, 400)
+        self.assertContains(overlapping, "overlaps an active working period", status_code=400)
+        self.assertEqual(
+            DoctorSchedule.objects.filter(doctor=self.doctor, weekday=weekday, is_active=True).count(),
+            2,
+        )
+
+        available = booking_services.generate_available_slots(
+            self.short_visit,
+            target_date=target_date,
+            doctor=self.doctor,
+        )
+        self.assertTrue(available)
+        deactivate = self.client.post(
+            self.action_url(
+                "dashboard_scheduling_weekly_deactivate",
+                language="en",
+                period_id=period.pk,
+            )
+        )
+        self.assertEqual(deactivate.status_code, 302)
+        period.refresh_from_db()
+        self.assertFalse(period.is_active)
+        deactivate_audit = AuditLog.objects.filter(
+            action=AuditLog.Action.UPDATE,
+            model_name="DoctorSchedule",
+            object_id=str(period.pk),
+        ).latest("created_at")
+        self.assertFalse(deactivate_audit.metadata["active"])
+
+        DoctorSchedule.objects.filter(
+            doctor=self.doctor,
+            weekday=weekday,
+            start_time=time(12, 0),
+        ).update(is_active=False)
+        self.assertEqual(
+            booking_services.generate_available_slots(
+                self.short_visit,
+                target_date=target_date,
+                doctor=self.doctor,
+            ),
+            [],
+        )
+
+        inactive_weekday = (weekday + 1) % 7
+        DoctorSchedule.objects.create(
+            doctor=self.doctor,
+            weekday=inactive_weekday,
+            start_time=time(8, 0),
+            end_time=time(10, 0),
+            is_active=False,
+        )
+        inactive_does_not_block = self.client.post(
+            create_url,
+            {"weekday": inactive_weekday, "start_time": "08:30", "end_time": "09:30"},
+        )
+        self.assertEqual(inactive_does_not_block.status_code, 302)
+
+    def test_weekly_update_excludes_itself_rejects_other_overlap_and_enforces_active_doctor(self):
+        period = DoctorSchedule.objects.create(
+            doctor=self.doctor,
+            weekday=DoctorSchedule.Weekday.MONDAY,
+            start_time=time(9, 0),
+            end_time=time(11, 0),
+        )
+        DoctorSchedule.objects.create(
+            doctor=self.doctor,
+            weekday=DoctorSchedule.Weekday.MONDAY,
+            start_time=time(13, 0),
+            end_time=time(15, 0),
+        )
+        self.client.force_login(self.staff)
+        update_url = self.action_url(
+            "dashboard_scheduling_weekly_update",
+            language="en",
+            period_id=period.pk,
+        )
+        self.assertEqual(
+            self.client.post(update_url, {"start_time": "09:00", "end_time": "11:00"}).status_code,
+            302,
+        )
+        update_audit = AuditLog.objects.filter(
+            action=AuditLog.Action.UPDATE,
+            model_name="DoctorSchedule",
+            object_id=str(period.pk),
+        ).latest("created_at")
+        self.assertTrue(update_audit.metadata["active"])
+        self.assertEqual(update_audit.metadata["old_start"], "09:00")
+        self.assertEqual(update_audit.metadata["new_end"], "11:00")
+        overlap = self.client.post(
+            update_url,
+            {"start_time": "12:30", "end_time": "14:00"},
+        )
+        self.assertEqual(overlap.status_code, 400)
+        period.refresh_from_db()
+        self.assertEqual((period.start_time, period.end_time), (time(9, 0), time(11, 0)))
+
+        other_doctor = Doctor.objects.create(
+            full_name_ar="طبيب آخر",
+            full_name_en="Other synthetic doctor",
+            is_active=True,
+            display_order=10,
+        )
+        other_period = DoctorSchedule.objects.create(
+            doctor=other_doctor,
+            weekday=DoctorSchedule.Weekday.TUESDAY,
+            start_time=time(9, 0),
+            end_time=time(10, 0),
+        )
+        wrong_doctor = self.client.post(
+            self.action_url(
+                "dashboard_scheduling_weekly_update",
+                period_id=other_period.pk,
+            ),
+            {"start_time": "10:00", "end_time": "11:00"},
+        )
+        self.assertEqual(wrong_doctor.status_code, 404)
+        other_period.refresh_from_db()
+        self.assertEqual(other_period.start_time, time(9, 0))
+
+    def test_closure_create_deactivate_audit_and_booking_engine_effect(self):
+        target_date = self.future_date(4)
+        self.create_schedule(target_date, time(9, 0), time(10, 0))
+        self.client.force_login(self.staff)
+        before = booking_services.generate_available_slots(
+            self.short_visit,
+            target_date=target_date,
+            doctor=self.doctor,
+        )
+        self.assertTrue(before)
+
+        created = self.client.post(
+            self.action_url("dashboard_scheduling_closure_create", language="en"),
+            {
+                "date": target_date.isoformat(),
+                "reason_ar": "إغلاق تجريبي",
+                "reason_en": "Synthetic closure",
+            },
+        )
+        self.assertEqual(created.status_code, 302)
+        closure = ClosedDay.objects.get(doctor=self.doctor, date=target_date, is_active=True)
+        self.assertEqual(
+            booking_services.generate_available_slots(
+                self.short_visit,
+                target_date=target_date,
+                doctor=self.doctor,
+            ),
+            [],
+        )
+        create_audit = AuditLog.objects.get(
+            action=AuditLog.Action.CREATE,
+            model_name="ClosedDay",
+            object_id=str(closure.pk),
+        )
+        self.assertEqual(create_audit.metadata["date"], target_date.isoformat())
+        self.assertNotIn("patient", str(create_audit.metadata).lower())
+
+        deactivated = self.client.post(
+            self.action_url(
+                "dashboard_scheduling_closure_deactivate",
+                language="en",
+                closure_id=closure.pk,
+            )
+        )
+        self.assertEqual(deactivated.status_code, 302)
+        closure.refresh_from_db()
+        self.assertFalse(closure.is_active)
+        self.assertTrue(
+            booking_services.generate_available_slots(
+                self.short_visit,
+                target_date=target_date,
+                doctor=self.doctor,
+            )
+        )
+        audit = AuditLog.objects.filter(
+            action=AuditLog.Action.UPDATE,
+            model_name="ClosedDay",
+            object_id=str(closure.pk),
+        ).latest("created_at")
+        self.assertFalse(audit.metadata["active"])
+
+    def test_closure_conflict_requires_confirmation_requeries_and_keeps_appointments_private_intact(self):
+        target_date = self.future_date(5)
+        appointment = self.create_scheduling_appointment(
+            target_date,
+            patient_name="Allowed Conflict Summary Name",
+            status=Appointment.Status.CONFIRMED,
+            booking_note="SENSITIVE-BOOKING-NOTE-NEVER-RENDER",
+        )
+        appointment.patient.phone_raw = "+962799999991"
+        appointment.patient.phone_e164 = "+962799999991"
+        appointment.patient.save(update_fields=["phone_raw", "phone_e164"])
+        original_status = appointment.status
+        create_url = self.action_url("dashboard_scheduling_closure_create", language="en")
+        payload = {
+            "date": target_date.isoformat(),
+            "reason_ar": "",
+            "reason_en": "Conflict-confirmed closure",
+        }
+        self.client.force_login(self.staff)
+
+        with patch(
+            "apps.dashboard.views._closure_conflict_queryset",
+            wraps=dashboard_views._closure_conflict_queryset,
+        ) as conflict_query:
+            warning = self.client.post(create_url, payload)
+            self.assertEqual(warning.status_code, 200)
+            self.assertContains(warning, "Existing appointments conflict with closing this day")
+            self.assertContains(warning, "Allowed Conflict Summary Name")
+            self.assertContains(warning, "Synthetic short service")
+            self.assertContains(warning, "Confirmed")
+            self.assertFalse(ClosedDay.objects.filter(doctor=self.doctor, date=target_date).exists())
+            for private_value in (
+                "+962799999991",
+                "SENSITIVE-BOOKING-NOTE-NEVER-RENDER",
+                str(appointment.public_token),
+                "diagnosis",
+                "private-media",
+            ):
+                self.assertNotContains(warning, private_value)
+
+            second_conflict = self.create_scheduling_appointment(
+                target_date,
+                start=time(10, 0),
+                patient_name="Second Requeried Conflict",
+                status=Appointment.Status.ARRIVED,
+            )
+            confirmed = self.client.post(
+                create_url,
+                {**payload, "confirm_closure": "yes"},
+            )
+            self.assertEqual(confirmed.status_code, 302)
+            self.assertEqual(conflict_query.call_count, 2)
+
+        closure = ClosedDay.objects.get(doctor=self.doctor, date=target_date, is_active=True)
+        appointment.refresh_from_db()
+        second_conflict.refresh_from_db()
+        self.assertEqual(appointment.status, original_status)
+        self.assertEqual(second_conflict.status, Appointment.Status.ARRIVED)
+        self.assertTrue(Appointment.objects.filter(pk=appointment.pk).exists())
+        self.assertTrue(Appointment.objects.filter(pk=second_conflict.pk).exists())
+        audit = AuditLog.objects.get(
+            action=AuditLog.Action.CREATE,
+            model_name="ClosedDay",
+            object_id=str(closure.pk),
+        )
+        metadata_text = str(audit.metadata)
+        self.assertNotIn("Allowed Conflict Summary Name", metadata_text)
+        self.assertNotIn("Second Requeried Conflict", metadata_text)
+        self.assertNotIn("SENSITIVE", metadata_text)
+
+    def test_nonblocking_appointment_does_not_trigger_closure_confirmation(self):
+        target_date = self.future_date(6)
+        appointment = self.create_scheduling_appointment(
+            target_date,
+            status=Appointment.Status.CANCELLED,
+        )
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            self.action_url("dashboard_scheduling_closure_create", language="en"),
+            {"date": target_date.isoformat(), "reason_ar": "", "reason_en": "No conflict"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(ClosedDay.objects.filter(doctor=self.doctor, date=target_date).exists())
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, Appointment.Status.CANCELLED)
+
+    def test_service_duration_only_update_validation_audit_and_availability(self):
+        target_date = self.future_date(3)
+        self.create_schedule(target_date, time(9, 0), time(10, 0))
+        self.short_visit.price = "45.00"
+        self.short_visit.show_price_to_patient = True
+        self.short_visit.instructions_en = "Unchanged service instructions"
+        self.short_visit.display_order = 7
+        self.short_visit.save()
+        self.short_visit.refresh_from_db()
+        unchanged = {
+            "doctor_id": self.short_visit.doctor_id,
+            "name_ar": self.short_visit.name_ar,
+            "name_en": self.short_visit.name_en,
+            "price": self.short_visit.price,
+            "show_price_to_patient": self.short_visit.show_price_to_patient,
+            "instructions_en": self.short_visit.instructions_en,
+            "display_order": self.short_visit.display_order,
+            "is_active": self.short_visit.is_active,
+        }
+        update_url = self.action_url(
+            "dashboard_scheduling_service_duration",
+            language="en",
+            visit_type_id=self.short_visit.pk,
+        )
+        self.client.force_login(self.staff)
+        for invalid in ("0", "-1", "not-an-integer"):
+            with self.subTest(invalid=invalid):
+                response = self.client.post(update_url, {"duration_minutes": invalid})
+                self.assertEqual(response.status_code, 400)
+        self.short_visit.refresh_from_db()
+        self.assertEqual(self.short_visit.duration_minutes, 15)
+        self.assertEqual(
+            len(
+                booking_services.generate_available_slots(
+                    self.short_visit,
+                    target_date=target_date,
+                    doctor=self.doctor,
+                )
+            ),
+            4,
+        )
+
+        updated = self.client.post(update_url, {"duration_minutes": "60"})
+        self.assertEqual(updated.status_code, 302)
+        self.short_visit.refresh_from_db()
+        self.assertEqual(self.short_visit.duration_minutes, 60)
+        for field_name, value in unchanged.items():
+            self.assertEqual(getattr(self.short_visit, field_name), value)
+        self.assertEqual(
+            len(
+                booking_services.generate_available_slots(
+                    self.short_visit,
+                    target_date=target_date,
+                    doctor=self.doctor,
+                )
+            ),
+            1,
+        )
+        audit = AuditLog.objects.get(
+            action=AuditLog.Action.UPDATE,
+            model_name="VisitType",
+            object_id=str(self.short_visit.pk),
+        )
+        self.assertEqual(audit.metadata["old_duration_minutes"], 15)
+        self.assertEqual(audit.metadata["new_duration_minutes"], 60)
+
+    def test_booking_rules_update_existing_and_missing_rows_validation_types_and_audit(self):
+        reminder_key = SystemSetting.APPOINTMENT_REMINDER_OFFSET_MINUTES
+        SystemSetting.objects.filter(key=reminder_key).delete()
+        minimum = SystemSetting.objects.get(key=SystemSetting.BOOKING_MIN_LEAD_MINUTES)
+        minimum.description = "Preserve this existing description."
+        minimum.save(update_fields=["description"])
+        unrelated = SystemSetting.objects.create(
+            key=SystemSetting.BOOKING_POST_RATE_LIMIT_PER_HOUR,
+            value="17",
+            value_type=SystemSetting.ValueType.INTEGER,
+            description="Unrelated rate limit.",
+        )
+        existing_appointment = self.create_scheduling_appointment(self.future_date(2))
+        original_reminder_offset = existing_appointment.reminder_offset
+        url = self.action_url("dashboard_scheduling_rules_update", language="en")
+        self.client.force_login(self.staff)
+
+        invalid_cases = {
+            "booking_enabled": "maybe",
+            "booking_min_lead_minutes": "-1",
+            "booking_max_days_ahead": "0",
+            "booking_slot_interval_minutes": "0",
+            "appointment_reminder_offset_minutes": "-1",
+        }
+        for field_name, invalid_value in invalid_cases.items():
+            with self.subTest(field_name=field_name):
+                response = self.client.post(
+                    url,
+                    self.rules_payload(**{field_name: invalid_value}),
+                )
+                self.assertEqual(response.status_code, 400)
+        for field_name, above_defensive_limit in (
+            ("booking_min_lead_minutes", "5256001"),
+            ("booking_max_days_ahead", "3651"),
+            ("booking_slot_interval_minutes", "5256001"),
+            ("appointment_reminder_offset_minutes", "5256001"),
+        ):
+            with self.subTest(field_name=field_name, boundary="defensive-maximum"):
+                response = self.client.post(
+                    url,
+                    self.rules_payload(**{field_name: above_defensive_limit}),
+                )
+                self.assertEqual(response.status_code, 400)
+
+        response = self.client.post(
+            url,
+            self.rules_payload(
+                booking_enabled="false",
+                booking_min_lead_minutes="45",
+                booking_max_days_ahead="45",
+                booking_slot_interval_minutes="20",
+                appointment_reminder_offset_minutes="90",
+            ),
+        )
+        self.assertEqual(response.status_code, 302)
+        effective = booking_services.get_booking_settings()
+        self.assertFalse(effective.enabled)
+        self.assertEqual(effective.min_lead_minutes, 45)
+        self.assertEqual(effective.max_days_ahead, 45)
+        self.assertEqual(effective.slot_interval_minutes, 20)
+        self.assertEqual(effective.reminder_offset_minutes, 90)
+
+        expected_types = {
+            SystemSetting.BOOKING_ENABLED: SystemSetting.ValueType.BOOLEAN,
+            SystemSetting.BOOKING_MIN_LEAD_MINUTES: SystemSetting.ValueType.INTEGER,
+            SystemSetting.BOOKING_MAX_DAYS_AHEAD: SystemSetting.ValueType.INTEGER,
+            SystemSetting.BOOKING_SLOT_INTERVAL_MINUTES: SystemSetting.ValueType.INTEGER,
+            SystemSetting.APPOINTMENT_REMINDER_OFFSET_MINUTES: SystemSetting.ValueType.DURATION_MINUTES,
+        }
+        for key, value_type in expected_types.items():
+            setting = SystemSetting.objects.get(key=key)
+            self.assertEqual(setting.value_type, value_type)
+        minimum.refresh_from_db()
+        self.assertEqual(minimum.description, "Preserve this existing description.")
+        unrelated.refresh_from_db()
+        self.assertEqual((unrelated.value, unrelated.description), ("17", "Unrelated rate limit."))
+        existing_appointment.refresh_from_db()
+        self.assertEqual(existing_appointment.reminder_offset, original_reminder_offset)
+
+        audits = AuditLog.objects.filter(action=AuditLog.Action.SETTINGS_CHANGE)
+        self.assertEqual(audits.count(), 5)
+        self.assertEqual(
+            {audit.metadata["key"] for audit in audits},
+            set(expected_types),
+        )
+        for audit in audits:
+            self.assertEqual(set(audit.metadata), {"key", "old_value", "new_value"})
+
+    def test_booking_rule_changes_flow_directly_into_public_availability(self):
+        target_date = self.future_date(3)
+        self.create_schedule(target_date, time(9, 0), time(10, 0))
+        url = self.action_url("dashboard_scheduling_rules_update")
+        self.client.force_login(self.staff)
+
+        self.client.post(url, self.rules_payload(booking_enabled="false"))
+        self.assertEqual(
+            booking_services.generate_available_slots(
+                self.short_visit,
+                target_date=target_date,
+                doctor=self.doctor,
+            ),
+            [],
+        )
+
+        self.client.post(
+            url,
+            self.rules_payload(booking_min_lead_minutes="5256000"),
+        )
+        self.assertEqual(
+            booking_services.generate_available_slots(
+                self.short_visit,
+                target_date=target_date,
+                doctor=self.doctor,
+            ),
+            [],
+        )
+
+        self.client.post(url, self.rules_payload(booking_max_days_ahead="1"))
+        self.assertEqual(
+            booking_services.generate_available_slots(
+                self.short_visit,
+                target_date=target_date,
+                doctor=self.doctor,
+            ),
+            [],
+        )
+
+        updated = self.client.post(
+            url,
+            self.rules_payload(
+                booking_slot_interval_minutes="30",
+                appointment_reminder_offset_minutes="75",
+            ),
+        )
+        self.assertEqual(updated.status_code, 302)
+        slots = booking_services.generate_available_slots(
+            self.short_visit,
+            target_date=target_date,
+            doctor=self.doctor,
+        )
+        self.assertEqual(len(slots), 2)
+        self.assertEqual(booking_services.get_booking_settings().reminder_offset_minutes, 75)
+
+    def test_each_allowed_booking_key_can_update_and_be_recreated_without_touching_others(self):
+        cases = (
+            (
+                "booking_enabled",
+                SystemSetting.BOOKING_ENABLED,
+                "false",
+                SystemSetting.ValueType.BOOLEAN,
+            ),
+            (
+                "booking_min_lead_minutes",
+                SystemSetting.BOOKING_MIN_LEAD_MINUTES,
+                "25",
+                SystemSetting.ValueType.INTEGER,
+            ),
+            (
+                "booking_max_days_ahead",
+                SystemSetting.BOOKING_MAX_DAYS_AHEAD,
+                "25",
+                SystemSetting.ValueType.INTEGER,
+            ),
+            (
+                "booking_slot_interval_minutes",
+                SystemSetting.BOOKING_SLOT_INTERVAL_MINUTES,
+                "25",
+                SystemSetting.ValueType.INTEGER,
+            ),
+            (
+                "appointment_reminder_offset_minutes",
+                SystemSetting.APPOINTMENT_REMINDER_OFFSET_MINUTES,
+                "25",
+                SystemSetting.ValueType.DURATION_MINUTES,
+            ),
+        )
+        unrelated = SystemSetting.objects.create(
+            key=SystemSetting.BOOKING_PHONE_RATE_LIMIT_PER_DAY,
+            value="91",
+            value_type=SystemSetting.ValueType.INTEGER,
+            description="Must remain untouched.",
+        )
+        url = self.action_url("dashboard_scheduling_rules_update")
+        self.client.force_login(self.staff)
+        for field_name, key, desired_value, expected_type in cases:
+            with self.subTest(field_name=field_name, operation="update"):
+                setting, _ = SystemSetting.objects.update_or_create(
+                    key=key,
+                    defaults={
+                        "value": "999" if field_name != "booking_enabled" else "true",
+                        "value_type": expected_type,
+                        "description": f"Preserved description for {field_name}.",
+                    },
+                )
+                payload = self.rules_payload(**{field_name: desired_value})
+                self.assertEqual(self.client.post(url, payload).status_code, 302)
+                setting.refresh_from_db()
+                self.assertEqual(setting.value, desired_value)
+                self.assertEqual(setting.value_type, expected_type)
+                self.assertEqual(
+                    setting.description,
+                    f"Preserved description for {field_name}.",
+                )
+            with self.subTest(field_name=field_name, operation="recreate"):
+                SystemSetting.objects.filter(key=key).delete()
+                self.assertEqual(self.client.post(url, payload).status_code, 302)
+                recreated = SystemSetting.objects.get(key=key)
+                self.assertEqual(recreated.value, desired_value)
+                self.assertEqual(recreated.value_type, expected_type)
+            unrelated.refresh_from_db()
+            self.assertEqual(
+                (unrelated.value, unrelated.description),
+                ("91", "Must remain untouched."),
+            )
+
+    def test_all_mutation_routes_enforce_login_staff_post_and_csrf(self):
+        update_period = DoctorSchedule.objects.create(
+            doctor=self.doctor,
+            weekday=DoctorSchedule.Weekday.MONDAY,
+            start_time=time(8, 0),
+            end_time=time(9, 0),
+        )
+        deactivate_period = DoctorSchedule.objects.create(
+            doctor=self.doctor,
+            weekday=DoctorSchedule.Weekday.TUESDAY,
+            start_time=time(8, 0),
+            end_time=time(9, 0),
+        )
+        closure = ClosedDay.objects.create(
+            doctor=self.doctor,
+            date=self.future_date(12),
+            reason_en="Security route closure",
+        )
+        cases = [
+            (
+                "weekly-create",
+                self.action_url("dashboard_scheduling_weekly_create", language="en"),
+                {"weekday": DoctorSchedule.Weekday.WEDNESDAY, "start_time": "10:00", "end_time": "11:00"},
+            ),
+            (
+                "weekly-update",
+                self.action_url(
+                    "dashboard_scheduling_weekly_update",
+                    language="en",
+                    period_id=update_period.pk,
+                ),
+                {"start_time": "08:00", "end_time": "09:30"},
+            ),
+            (
+                "weekly-deactivate",
+                self.action_url(
+                    "dashboard_scheduling_weekly_deactivate",
+                    language="en",
+                    period_id=deactivate_period.pk,
+                ),
+                {},
+            ),
+            (
+                "closure-create",
+                self.action_url("dashboard_scheduling_closure_create", language="en"),
+                {"date": self.future_date(11).isoformat(), "reason_ar": "", "reason_en": "Security create"},
+            ),
+            (
+                "closure-deactivate",
+                self.action_url(
+                    "dashboard_scheduling_closure_deactivate",
+                    language="en",
+                    closure_id=closure.pk,
+                ),
+                {},
+            ),
+            (
+                "service-duration",
+                self.action_url(
+                    "dashboard_scheduling_service_duration",
+                    language="en",
+                    visit_type_id=self.long_visit.pk,
+                ),
+                {"duration_minutes": "50"},
+            ),
+            (
+                "booking-rules",
+                self.action_url("dashboard_scheduling_rules_update", language="en"),
+                self.rules_payload(),
+            ),
+        ]
+        for label, url, payload in cases:
+            with self.subTest(label=label, boundary="anonymous"):
+                anonymous = Client().post(url, payload)
+                self.assertEqual(anonymous.status_code, 302)
+                self.assertTrue(anonymous["Location"].startswith(f"{reverse('login_en')}?role=doctor&next="))
+            with self.subTest(label=label, boundary="non-staff"):
+                non_staff_client = Client()
+                non_staff_client.force_login(self.normal_user)
+                self.assertEqual(non_staff_client.post(url, payload).status_code, 403)
+            with self.subTest(label=label, boundary="GET"):
+                staff_client = Client()
+                staff_client.force_login(self.staff)
+                self.assertEqual(staff_client.get(url).status_code, 405)
+            with self.subTest(label=label, boundary="CSRF"):
+                csrf_client = Client(enforce_csrf_checks=True)
+                csrf_client.force_login(self.staff)
+                self.assertEqual(csrf_client.post(url, payload).status_code, 403)
+                token_response = csrf_client.get(self.scheduling_url(lang="en", section="weekly"))
+                self.assertEqual(token_response.status_code, 200)
+                csrf_token = csrf_client.cookies["csrftoken"].value
+                allowed = csrf_client.post(
+                    url,
+                    {**payload, "csrfmiddlewaretoken": csrf_token},
+                )
+                self.assertEqual(allowed.status_code, 302)
+
+    def test_management_controls_fail_safely_without_active_doctor(self):
+        self.doctor.is_active = False
+        self.doctor.save(update_fields=["is_active"])
+        self.client.force_login(self.staff)
+        response = self.scheduling(lang="en", section="weekly")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Management is currently unavailable")
+        self.assertNotContains(response, "Add period")
+        mutation = self.client.post(
+            self.action_url("dashboard_scheduling_weekly_create", language="en"),
+            {"weekday": 0, "start_time": "09:00", "end_time": "10:00"},
+        )
+        self.assertEqual(mutation.status_code, 409)
+        self.assertFalse(DoctorSchedule.objects.exists())
+
+    def test_management_changes_are_visible_through_the_existing_public_booking_page(self):
+        target_date = self.future_date(3)
+        self.client.force_login(self.staff)
+
+        def public_slot_count():
+            response = self.client.get(
+                reverse("booking_slots_en"),
+                {"visit_type": self.short_visit.pk, "date": target_date.isoformat()},
+            )
+            self.assertEqual(response.status_code, 200)
+            group = next(
+                (
+                    item
+                    for item in response.context.get("grouped_slots", [])
+                    if item["date"] == target_date
+                ),
+                None,
+            )
+            return len(group["slots"]) if group else 0
+
+        self.client.post(
+            self.action_url("dashboard_scheduling_weekly_create"),
+            {
+                "weekday": target_date.weekday(),
+                "start_time": "09:00",
+                "end_time": "10:00",
+            },
+        )
+        self.assertEqual(public_slot_count(), 4)
+
+        self.client.post(
+            self.action_url(
+                "dashboard_scheduling_service_duration",
+                visit_type_id=self.short_visit.pk,
+            ),
+            {"duration_minutes": "60"},
+        )
+        self.assertEqual(public_slot_count(), 1)
+
+        self.client.post(
+            self.action_url("dashboard_scheduling_closure_create"),
+            {"date": target_date.isoformat(), "reason_ar": "", "reason_en": "Public flow closure"},
+        )
+        self.assertEqual(public_slot_count(), 0)
+        closure = ClosedDay.objects.get(doctor=self.doctor, date=target_date)
+        self.client.post(
+            self.action_url(
+                "dashboard_scheduling_closure_deactivate",
+                closure_id=closure.pk,
+            )
+        )
+        self.assertEqual(public_slot_count(), 1)
+
+        self.client.post(
+            self.action_url("dashboard_scheduling_rules_update"),
+            self.rules_payload(booking_enabled="false"),
+        )
+        disabled = self.client.get(
+            reverse("booking_slots_en"),
+            {"visit_type": self.short_visit.pk},
+        )
+        self.assertContains(disabled, "Online booking is currently unavailable")
+
+        self.client.post(
+            self.action_url(
+                "dashboard_scheduling_service_duration",
+                visit_type_id=self.short_visit.pk,
+            ),
+            {"duration_minutes": "15"},
+        )
+        self.client.post(
+            self.action_url("dashboard_scheduling_rules_update"),
+            self.rules_payload(booking_slot_interval_minutes="30"),
+        )
+        self.assertEqual(public_slot_count(), 2)
+
+    def test_management_css_contains_responsive_and_accessibility_contract(self):
+        stylesheet = (
+            Path(__file__).resolve().parents[2] / "static" / "css" / "dashboard-scheduling.css"
+        ).read_text(encoding="utf-8")
+        for contract in (
+            ".scheduling-section-tabs",
+            ".scheduling-period-editor",
+            ".scheduling-conflict-warning",
+            ".scheduling-rules-grid",
+            "@media (max-width: 63.999rem)",
+            "@media (max-width: 47.999rem)",
+            "@media (max-width: 35rem)",
+            ":focus-visible",
+            "min-width: 0",
+            "overflow-wrap: anywhere",
+        ):
+            self.assertIn(contract, stylesheet)

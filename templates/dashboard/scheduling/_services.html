@@ -1,0 +1,58 @@
+<section class="scheduling-management" aria-labelledby="services-title">
+    <header class="scheduling-management-header">
+        <div>
+            <p>{% if is_arabic %}إعداد التوقيت فقط{% else %}Scheduling field only{% endif %}</p>
+            <h2 id="services-title">{% if is_arabic %}الخدمات{% else %}Services{% endif %}</h2>
+        </div>
+        <p>
+            {% if is_arabic %}
+                غيّر مدة الخدمة بالدقائق. تبقى أسماء الخدمات وأسعارها وتعليماتها وحالتها دون تغيير.
+            {% else %}
+                Change service duration in minutes. Names, prices, instructions, relationships, and active state remain unchanged.
+            {% endif %}
+        </p>
+    </header>
+
+    {% if not scheduling_doctor %}
+        <div class="scheduling-unavailable" role="status">
+            <span aria-hidden="true">—</span>
+            <div>
+                <h2>{% if is_arabic %}الإدارة غير متاحة حالياً{% else %}Management is currently unavailable{% endif %}</h2>
+                <p>{% if is_arabic %}لا يوجد طبيب نشط لتحديد الخدمات المتوافقة.{% else %}There is no active doctor for resolving compatible services.{% endif %}</p>
+            </div>
+        </div>
+    {% else %}
+        <div class="scheduling-service-management-list">
+            {% for item in scheduling_service_items %}
+                <article class="scheduling-management-card scheduling-service-card">
+                    <div>
+                        <p>{% if is_arabic %}خدمة نشطة{% else %}Active service{% endif %}</p>
+                        <h3>
+                            {% if is_arabic %}
+                                {{ item.visit_type.name_ar|default:item.visit_type.name_en }}
+                            {% else %}
+                                {{ item.visit_type.name_en|default:item.visit_type.name_ar }}
+                            {% endif %}
+                        </h3>
+                    </div>
+                    <form method="post" action="{{ item.update_url }}" class="scheduling-service-duration-form">
+                        {% csrf_token %}
+                        {{ item.form.non_field_errors }}
+                        <div class="scheduling-field">
+                            <label for="{{ item.form.duration_minutes.id_for_label }}">{{ item.form.duration_minutes.label }}</label>
+                            {{ item.form.duration_minutes }}
+                            {{ item.form.duration_minutes.errors }}
+                        </div>
+                        <button class="scheduling-button" type="submit">
+                            {% if is_arabic %}حفظ المدة{% else %}Save duration{% endif %}
+                        </button>
+                    </form>
+                </article>
+            {% empty %}
+                <div class="scheduling-management-empty" role="status">
+                    {% if is_arabic %}لا توجد خدمات نشطة متوافقة مع الطبيب الحالي.{% else %}No active services are compatible with the current doctor.{% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</section>

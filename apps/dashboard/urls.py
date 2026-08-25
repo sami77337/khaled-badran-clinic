@@ -6,6 +6,41 @@ from . import views
 urlpatterns = [
     path("", views.dashboard_home, name="dashboard_home"),
     path("scheduling/", views.dashboard_scheduling, name="dashboard_scheduling"),
+    path(
+        "scheduling/weekly/create/",
+        views.dashboard_scheduling_weekly_create,
+        name="dashboard_scheduling_weekly_create",
+    ),
+    path(
+        "scheduling/weekly/<int:period_id>/update/",
+        views.dashboard_scheduling_weekly_update,
+        name="dashboard_scheduling_weekly_update",
+    ),
+    path(
+        "scheduling/weekly/<int:period_id>/deactivate/",
+        views.dashboard_scheduling_weekly_deactivate,
+        name="dashboard_scheduling_weekly_deactivate",
+    ),
+    path(
+        "scheduling/closures/create/",
+        views.dashboard_scheduling_closure_create,
+        name="dashboard_scheduling_closure_create",
+    ),
+    path(
+        "scheduling/closures/<int:closure_id>/deactivate/",
+        views.dashboard_scheduling_closure_deactivate,
+        name="dashboard_scheduling_closure_deactivate",
+    ),
+    path(
+        "scheduling/services/<int:visit_type_id>/duration/",
+        views.dashboard_scheduling_service_duration,
+        name="dashboard_scheduling_service_duration",
+    ),
+    path(
+        "scheduling/rules/update/",
+        views.dashboard_scheduling_rules_update,
+        name="dashboard_scheduling_rules_update",
+    ),
     path("patients/", views.dashboard_patient_list, name="dashboard_patient_list"),
     path(
         "patients/<int:patient_id>/records/",
