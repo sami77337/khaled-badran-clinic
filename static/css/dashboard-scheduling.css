@@ -420,7 +420,7 @@
 .scheduling-appointment {
     display: grid;
     min-width: 0;
-    min-height: clamp(3.5rem, calc(var(--appointment-duration) * 0.06rem), 7rem);
+    min-height: clamp(3.5rem, calc(3rem + var(--appointment-duration) * 0.035rem), 7rem);
     grid-template-columns: 7.25rem minmax(0, 1fr) auto;
     align-items: center;
     gap: 0.75rem;
@@ -575,7 +575,7 @@
 }
 
 .scheduling-week-state,
-.scheduling-week-periods {
+.scheduling-week-hours {
     min-height: 4.6rem;
     border-block-end: 1px solid var(--dashboard-line);
     margin: 0;
@@ -598,10 +598,14 @@
     overflow-wrap: anywhere;
 }
 
+.scheduling-week-hours,
 .scheduling-week-periods {
     display: grid;
     align-content: center;
     gap: 0.25rem;
+}
+
+.scheduling-week-periods {
     font-family: var(--dashboard-font-en);
     font-variant-numeric: tabular-nums;
 }
@@ -623,7 +627,7 @@
 .scheduling-week-appointment {
     display: grid;
     min-width: 0;
-    min-height: clamp(3.75rem, calc(var(--appointment-duration) * 0.06rem), 7rem);
+    min-height: clamp(3.75rem, calc(3rem + var(--appointment-duration) * 0.035rem), 7rem);
     align-content: start;
     gap: 0.08rem;
     border: 1px solid rgba(74, 15, 20, 0.16);
@@ -1447,8 +1451,8 @@
     overflow-wrap: anywhere;
 }
 
-.scheduling-week-day > .scheduling-source-badge {
-    margin: 0.5rem 0.55rem 0;
+.scheduling-week-hours > .scheduling-source-badge {
+    margin: 0;
 }
 
 .scheduling-special-hours {

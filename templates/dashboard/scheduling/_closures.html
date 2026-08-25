@@ -39,6 +39,7 @@
                         Review the safe operational summary below. Every appointment and status will remain unchanged after confirmation.
                     {% endif %}
                 </p>
+                <p><strong>{% if is_arabic %}التاريخ{% else %}Date{% endif %}:</strong> <time dir="ltr" datetime="{{ scheduling_closure_form.date.value }}">{{ scheduling_closure_form.date.value }}</time></p>
             </header>
             <div class="scheduling-conflict-list" role="list">
                 {% for conflict in scheduling_closure_conflicts %}
@@ -71,7 +72,7 @@
                 <button class="scheduling-button is-danger" type="submit">
                     {% if is_arabic %}تأكيد إغلاق اليوم بالكامل{% else %}Confirm full-day closure{% endif %}
                 </button>
-                <a class="scheduling-cancel-link" href="{% url 'dashboard_scheduling' %}?section=closures{% if not is_arabic %}&amp;lang=en{% endif %}">
+                <a class="scheduling-cancel-link" href="{% url 'dashboard_scheduling' %}?section=calendar&amp;view=day&amp;date={{ scheduling_closure_form.date.value|urlencode }}{% if not is_arabic %}&amp;lang=en{% endif %}">
                     {% if is_arabic %}العودة دون إغلاق{% else %}Go back without closing{% endif %}
                 </a>
             </form>

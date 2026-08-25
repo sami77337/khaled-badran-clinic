@@ -217,10 +217,12 @@
                                             {% for reason in day.closures %}{% if reason %}<span>{{ reason }}</span>{% endif %}{% endfor %}
                                         </div>
                                     {% elif day.working_periods %}
-                                        {% if day.has_special_hours %}<p class="scheduling-source-badge">{% if is_arabic %}ساعات خاصة{% else %}Special hours{% endif %}</p>{% endif %}
-                                        <ul class="scheduling-week-periods" aria-label="{% if is_arabic %}ساعات الدوام{% else %}Working hours{% endif %}">
-                                            {% for period in day.working_periods %}<li dir="ltr">{{ period.start }}–{{ period.end }}</li>{% endfor %}
-                                        </ul>
+                                        <div class="scheduling-week-hours">
+                                            {% if day.has_special_hours %}<p class="scheduling-source-badge">{% if is_arabic %}ساعات خاصة{% else %}Special hours{% endif %}</p>{% endif %}
+                                            <ul class="scheduling-week-periods" aria-label="{% if is_arabic %}ساعات الدوام{% else %}Working hours{% endif %}">
+                                                {% for period in day.working_periods %}<li dir="ltr">{{ period.start }}–{{ period.end }}</li>{% endfor %}
+                                            </ul>
+                                        </div>
                                     {% else %}
                                         <p class="scheduling-week-state">{% if is_arabic %}لا توجد ساعات دوام{% else %}No working hours{% endif %}</p>
                                     {% endif %}
@@ -257,7 +259,7 @@
                         </div>
                     </div>
                 {% else %}
-                    <div class="scheduling-month" role="grid" aria-label="{{ scheduling_period_label }}">
+                    <div class="scheduling-month" tabindex="0" role="grid" aria-label="{{ scheduling_period_label }}">
                         <div class="scheduling-month-weekdays" role="row">
                             {% for day in scheduling_days|slice:':7' %}<span role="columnheader">{{ day.weekday_short }}</span>{% endfor %}
                         </div>

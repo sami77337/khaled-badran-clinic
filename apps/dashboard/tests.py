@@ -2199,6 +2199,7 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         week_day = next(item for item in week.context["scheduling_days"] if item["date"] == target_date)
         self.assertEqual(week_day["working_periods"], [{"start": "12:00", "end": "15:00"}])
         self.assertContains(week, "Special hours")
+        self.assertContains(week, 'class="scheduling-week-hours"')
 
         neighboring_date = target_date + timedelta(days=7)
         neighbor = self.scheduling(lang="en", view="day", date=neighboring_date.isoformat())
@@ -2220,6 +2221,7 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         month_day = next(item for item in month.context["scheduling_days"] if item["date"] == target_date)
         self.assertTrue(month_day["has_special_hours"])
         self.assertContains(month, ">Special<")
+        self.assertContains(month, 'class="scheduling-month" tabindex="0"')
         action_query = parse_qs(
             urlsplit(month.context["scheduling_special_create_url"]).query
         )
@@ -2518,6 +2520,21 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             self.assertContains(warning, "Allowed Conflict Summary Name")
             self.assertContains(warning, "Synthetic short service")
             self.assertContains(warning, "Confirmed")
+            self.assertContains(
+                warning,
+                (
+                    f'<time dir="ltr" datetime="{target_date.isoformat()}">'
+                    f"{target_date.isoformat()}</time>"
+                ),
+                html=True,
+            )
+            self.assertContains(
+                warning,
+                (
+                    f'href="{reverse("dashboard_scheduling")}?section=calendar&amp;'
+                    f'view=day&amp;date={target_date.isoformat()}&amp;lang=en"'
+                ),
+            )
             self.assertFalse(ClosedDay.objects.filter(doctor=self.doctor, date=target_date).exists())
             for private_value in (
                 "+962799999991",
@@ -3131,3 +3148,7 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             "overflow-wrap: anywhere",
         ):
             self.assertIn(contract, stylesheet)
+        self.assertIn(
+            "calc(3rem + var(--appointment-duration) * 0.035rem)",
+            stylesheet,
+        )
