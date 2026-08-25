@@ -11,7 +11,7 @@ from apps.booking.audit import create_appointment_audit
 from apps.booking.models import Appointment, AppointmentStatusHistory
 from apps.booking.phone import normalize_phone
 from apps.booking.selectors import get_active_doctor, get_active_visit_type, get_active_visit_types
-from apps.clinic.models import ClosedDay, DoctorSchedule
+from apps.clinic.models import ClosedDay, DoctorSchedule, DoctorScheduleOverride
 from apps.core.models import AuditLog, SystemSetting
 from apps.patients.models import Patient
 
@@ -28,6 +28,12 @@ ACTIVE_APPOINTMENT_STATUSES = [
     Appointment.Status.RESCHEDULED,
 ]
 BLOCKING_APPOINTMENT_STATUSES = ACTIVE_APPOINTMENT_STATUSES
+
+WORKING_PERIOD_SOURCE_CLOSED = "closed"
+WORKING_PERIOD_SOURCE_SPECIAL = "special"
+WORKING_PERIOD_SOURCE_WEEKLY = "weekly"
+
+_NOT_PRELOADED = object()
 
 
 @dataclass(frozen=True)
@@ -55,6 +61,12 @@ class BookingSlot:
     @property
     def local_time(self):
         return timezone.localtime(self.starts_at).time()
+
+
+@dataclass(frozen=True)
+class EffectiveWorkingPeriods:
+    source: str
+    periods: tuple
 
 
 def _get_setting_value(key):
@@ -148,6 +160,44 @@ def is_closed_day(doctor, day):
     ).exists()
 
 
+def get_effective_working_periods(
+    doctor,
+    day,
+    *,
+    closed=_NOT_PRELOADED,
+    special_periods=_NOT_PRELOADED,
+    weekly_periods=_NOT_PRELOADED,
+):
+    """Resolve the one authoritative source of working periods for a local date.
+
+    Optional preloaded values let calendar views batch their queries while keeping
+    precedence in this function. Booking callers intentionally use the query-backed
+    defaults.
+    """
+    if closed is _NOT_PRELOADED:
+        closed = is_closed_day(doctor, day)
+    if closed:
+        return EffectiveWorkingPeriods(WORKING_PERIOD_SOURCE_CLOSED, ())
+
+    if special_periods is _NOT_PRELOADED:
+        special_periods = DoctorScheduleOverride.objects.filter(
+            doctor=doctor,
+            date=day,
+            is_active=True,
+        ).order_by("start_time", "id")
+    special_periods = tuple(special_periods)
+    if special_periods:
+        return EffectiveWorkingPeriods(WORKING_PERIOD_SOURCE_SPECIAL, special_periods)
+
+    if weekly_periods is _NOT_PRELOADED:
+        weekly_periods = DoctorSchedule.objects.filter(
+            doctor=doctor,
+            weekday=day.weekday(),
+            is_active=True,
+        ).order_by("start_time", "id")
+    return EffectiveWorkingPeriods(WORKING_PERIOD_SOURCE_WEEKLY, tuple(weekly_periods))
+
+
 def overlaps_existing_appointment(doctor, starts_at, ends_at, exclude_appointment_id=None):
     queryset = Appointment.objects.filter(
         doctor=doctor,
@@ -232,21 +282,17 @@ def generate_available_slots(
 
     slots = []
     for day in dates:
-        if is_closed_day(doctor, day):
+        effective_periods = get_effective_working_periods(doctor, day)
+        if effective_periods.source == WORKING_PERIOD_SOURCE_CLOSED:
             continue
 
-        schedules = DoctorSchedule.objects.filter(
-            doctor=doctor,
-            weekday=day.weekday(),
-            is_active=True,
-        ).order_by("start_time")
         blocking_intervals = _blocking_intervals_for_day(
             doctor,
             day,
             exclude_appointment_id=exclude_appointment_id,
         )
 
-        for schedule in schedules:
+        for schedule in effective_periods.periods:
             for slot in _iter_schedule_slots(schedule, day, visit_type, settings, now):
                 if not _slot_overlaps_intervals(slot.starts_at, slot.ends_at, blocking_intervals):
                     slots.append(slot)

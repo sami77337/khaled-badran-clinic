@@ -21,7 +21,7 @@ from apps.booking.forms import PUBLIC_BOOKING_ERROR_COPY, PublicBookingForm
 from apps.booking.models import Appointment, AppointmentStatusHistory
 from apps.booking.phone import normalize_phone
 from apps.booking import operations, rate_limits, services
-from apps.clinic.models import ClosedDay, Doctor, DoctorSchedule, VisitType
+from apps.clinic.models import ClosedDay, Doctor, DoctorSchedule, DoctorScheduleOverride, VisitType
 from apps.core.models import AuditLog, SystemSetting
 from apps.patients.models import Patient
 
@@ -69,6 +69,22 @@ class BookingTestDataMixin:
         return DoctorSchedule.objects.create(
             doctor=doctor,
             weekday=weekday,
+            start_time=start,
+            end_time=end,
+            is_active=is_active,
+        )
+
+    def create_schedule_override(
+        self,
+        doctor,
+        day,
+        start=time(10, 0),
+        end=time(12, 0),
+        is_active=True,
+    ):
+        return DoctorScheduleOverride.objects.create(
+            doctor=doctor,
+            date=day,
             start_time=start,
             end_time=end,
             is_active=is_active,
@@ -174,6 +190,203 @@ class BookingServiceTests(BookingTestDataMixin, TestCase):
         )
 
         self.assertEqual(slots, [])
+
+    def test_special_hours_replace_weekly_schedule_for_exact_date(self):
+        self.create_schedule(self.doctor, weekday=0, start=time(10), end=time(17))
+        self.create_schedule_override(self.doctor, self.now.date(), start=time(12), end=time(15))
+
+        slots = services.generate_available_slots(
+            self.visit_type,
+            target_date=self.now.date(),
+            now=self.now,
+            settings=self.settings,
+            doctor=self.doctor,
+        )
+
+        self.assertEqual(
+            [slot.local_time.strftime("%H:%M") for slot in slots],
+            ["12:00", "12:30", "13:00", "13:30", "14:00", "14:30"],
+        )
+
+    def test_closed_day_wins_over_special_hours(self):
+        self.create_schedule_override(self.doctor, self.now.date(), start=time(12), end=time(15))
+        ClosedDay.objects.create(doctor=self.doctor, date=self.now.date(), is_active=True)
+
+        effective = services.get_effective_working_periods(self.doctor, self.now.date())
+        slots = services.generate_available_slots(
+            self.visit_type,
+            target_date=self.now.date(),
+            now=self.now,
+            settings=self.settings,
+            doctor=self.doctor,
+        )
+
+        self.assertEqual(effective.source, services.WORKING_PERIOD_SOURCE_CLOSED)
+        self.assertEqual(slots, [])
+
+    def test_inactive_special_hours_fall_back_to_weekly_schedule(self):
+        self.create_schedule(self.doctor, weekday=0, start=time(10), end=time(12))
+        self.create_schedule_override(
+            self.doctor,
+            self.now.date(),
+            start=time(15),
+            end=time(17),
+            is_active=False,
+        )
+
+        effective = services.get_effective_working_periods(self.doctor, self.now.date())
+        slots = services.generate_available_slots(
+            self.visit_type,
+            target_date=self.now.date(),
+            now=self.now,
+            settings=self.settings,
+            doctor=self.doctor,
+        )
+
+        self.assertEqual(effective.source, services.WORKING_PERIOD_SOURCE_WEEKLY)
+        self.assertEqual([slot.local_time.strftime("%H:%M") for slot in slots], ["10:00", "10:30", "11:00", "11:30"])
+
+    def test_multiple_special_periods_do_not_bridge_the_gap(self):
+        self.create_schedule(self.doctor, weekday=0, start=time(9), end=time(18))
+        self.create_schedule_override(self.doctor, self.now.date(), start=time(9), end=time(12))
+        self.create_schedule_override(self.doctor, self.now.date(), start=time(16), end=time(18))
+
+        slots = services.generate_available_slots(
+            self.visit_type,
+            target_date=self.now.date(),
+            now=self.now,
+            settings=self.settings,
+            doctor=self.doctor,
+        )
+        slot_times = [slot.local_time.strftime("%H:%M") for slot in slots]
+
+        self.assertIn("11:30", slot_times)
+        self.assertIn("16:00", slot_times)
+        self.assertNotIn("12:00", slot_times)
+        self.assertNotIn("15:30", slot_times)
+
+    def test_special_hours_support_visit_type_durations(self):
+        short_visit = self.create_visit_type(doctor=self.doctor, duration=15)
+        long_visit = self.create_visit_type(doctor=self.doctor, duration=60)
+        self.create_schedule_override(self.doctor, self.now.date(), start=time(12), end=time(13))
+
+        short_slots = services.generate_available_slots(
+            short_visit,
+            target_date=self.now.date(),
+            now=self.now,
+            settings=self.settings,
+            doctor=self.doctor,
+        )
+        long_slots = services.generate_available_slots(
+            long_visit,
+            target_date=self.now.date(),
+            now=self.now,
+            settings=self.settings,
+            doctor=self.doctor,
+        )
+
+        self.assertEqual([slot.local_time.strftime("%H:%M") for slot in short_slots], ["12:00", "12:30"])
+        self.assertEqual([slot.local_time.strftime("%H:%M") for slot in long_slots], ["12:00"])
+
+    def test_blocking_appointment_inside_special_hours_remains_blocking(self):
+        self.create_schedule_override(self.doctor, self.now.date(), start=time(12), end=time(15))
+        Appointment.objects.create(
+            doctor=self.doctor,
+            patient=self.create_patient(),
+            visit_type=self.visit_type,
+            starts_at=aware(2026, 1, 5, 12, 30),
+            ends_at=aware(2026, 1, 5, 13, 0),
+        )
+
+        slots = services.generate_available_slots(
+            self.visit_type,
+            target_date=self.now.date(),
+            now=self.now,
+            settings=self.settings,
+            doctor=self.doctor,
+        )
+
+        self.assertNotIn("12:30", [slot.local_time.strftime("%H:%M") for slot in slots])
+
+    def test_blocking_appointment_crossing_special_hours_boundary_remains_blocking(self):
+        self.create_schedule_override(self.doctor, self.now.date(), start=time(12), end=time(15))
+        Appointment.objects.create(
+            doctor=self.doctor,
+            patient=self.create_patient(),
+            visit_type=self.visit_type,
+            starts_at=aware(2026, 1, 5, 14, 30),
+            ends_at=aware(2026, 1, 5, 15, 30),
+        )
+
+        slots = services.generate_available_slots(
+            self.visit_type,
+            target_date=self.now.date(),
+            now=self.now,
+            settings=self.settings,
+            doctor=self.doctor,
+        )
+
+        self.assertNotIn("14:30", [slot.local_time.strftime("%H:%M") for slot in slots])
+
+    def test_public_validation_rejects_weekly_slot_outside_special_hours(self):
+        self.create_schedule(self.doctor, weekday=0, start=time(10), end=time(17))
+        self.create_schedule_override(self.doctor, self.now.date(), start=time(12), end=time(15))
+
+        with self.assertRaises(ValidationError):
+            services.validate_public_booking_request(
+                self.visit_type,
+                aware(2026, 1, 5, 10, 0),
+                settings=self.settings,
+                doctor=self.doctor,
+                now=self.now,
+            )
+
+    def test_booking_rules_still_apply_under_special_hours(self):
+        self.create_schedule_override(self.doctor, self.now.date(), start=time(12), end=time(15))
+        settings = services.BookingSettings(
+            enabled=True,
+            min_lead_minutes=90,
+            max_days_ahead=30,
+            slot_interval_minutes=60,
+            reminder_offset_minutes=180,
+        )
+
+        slots = services.generate_available_slots(
+            self.visit_type,
+            target_date=self.now.date(),
+            now=aware(2026, 1, 5, 11, 0),
+            settings=settings,
+            doctor=self.doctor,
+        )
+
+        self.assertEqual([slot.local_time.strftime("%H:%M") for slot in slots], ["13:00", "14:00"])
+        self.assertEqual(
+            services.generate_available_slots(
+                self.visit_type,
+                target_date=self.now.date(),
+                now=self.now,
+                settings=services.BookingSettings(False, 0, 30, 30, 180),
+                doctor=self.doctor,
+            ),
+            [],
+        )
+        beyond_horizon = self.now.date() + timedelta(days=31)
+        self.create_schedule_override(
+            self.doctor,
+            beyond_horizon,
+            start=time(12),
+            end=time(15),
+        )
+        self.assertEqual(
+            services.generate_available_slots(
+                self.visit_type,
+                target_date=beyond_horizon,
+                now=self.now,
+                settings=settings,
+                doctor=self.doctor,
+            ),
+            [],
+        )
 
     def test_no_past_slots(self):
         self.create_schedule(self.doctor, weekday=0, start=time(8, 0), end=time(11, 0))
@@ -670,6 +883,32 @@ class PublicBookingViewTests(BookingTestDataMixin, TestCase):
         self.assertEqual(appointment.patient.phone_e164, "+962791234567")
         self.assertEqual(appointment.status, Appointment.Status.CONFIRMED)
         self.assertEqual(appointment.booking_note, "Please call before appointment.")
+
+    def test_final_public_post_rejects_weekly_slot_outside_special_hours(self):
+        DoctorScheduleOverride.objects.create(
+            doctor=self.doctor,
+            date=self.tomorrow,
+            start_time=time(14),
+            end_time=time(15),
+            is_active=True,
+        )
+
+        response = self.client.post(
+            reverse("booking_confirm"),
+            {
+                "full_name": "Test Patient",
+                "phone": "0791234567",
+                "same_as_phone": "on",
+                "visit_type": str(self.visit_type.id),
+                "starts_at": self.slot.value,
+                "booking_note": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, PUBLIC_BOOKING_ERROR_COPY["ar"]["slot_unavailable"])
+        self.assertEqual(Patient.objects.count(), 0)
+        self.assertEqual(Appointment.objects.count(), 0)
 
     def test_valid_booking_redirects_to_token_success_url(self):
         response = self.client.post(

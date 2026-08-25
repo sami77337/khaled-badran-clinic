@@ -106,7 +106,7 @@
                         <p>{% if is_arabic %}الفترة المعروضة{% else %}Visible period{% endif %}</p>
                         <h2 id="scheduling-calendar-title">{{ scheduling_period_label }}</h2>
                     </div>
-                    <span class="scheduling-read-only">{% if is_arabic %}عرض فقط{% else %}Read only{% endif %}</span>
+                    <span class="scheduling-read-only">{% if is_arabic %}الساعات الفعالة{% else %}Effective hours{% endif %}</span>
                 </header>
 
                 {% if scheduling_view == "day" %}
@@ -127,7 +127,10 @@
                             </header>
 
                             <div class="scheduling-day-section">
-                                <h4>{% if is_arabic %}ساعات الدوام الأساسية{% else %}Base working hours{% endif %}</h4>
+                                <div class="scheduling-section-heading">
+                                    <h4>{% if is_arabic %}ساعات الدوام الفعالة{% else %}Effective working hours{% endif %}</h4>
+                                    <span class="scheduling-source-badge">{{ scheduling_selected_day.effective_source_label }}</span>
+                                </div>
                                 {% if scheduling_selected_day.working_periods %}
                                     <ul class="scheduling-period-list">
                                         {% for period in scheduling_selected_day.working_periods %}
@@ -135,7 +138,13 @@
                                         {% endfor %}
                                     </ul>
                                 {% else %}
-                                    <p class="scheduling-empty-copy">{% if is_arabic %}لا توجد ساعات دوام متكررة لهذا اليوم.{% else %}No recurring working hours for this day.{% endif %}</p>
+                                    <p class="scheduling-empty-copy">
+                                        {% if scheduling_selected_day.effective_source == "weekly" %}
+                                            {% if is_arabic %}لا توجد ساعات دوام متكررة لهذا اليوم.{% else %}No recurring working hours for this day.{% endif %}
+                                        {% else %}
+                                            {% if is_arabic %}لا توجد ساعات دوام فعالة لهذا اليوم.{% else %}No effective working hours for this day.{% endif %}
+                                        {% endif %}
+                                    </p>
                                 {% endif %}
                             </div>
 
@@ -208,6 +217,7 @@
                                             {% for reason in day.closures %}{% if reason %}<span>{{ reason }}</span>{% endif %}{% endfor %}
                                         </div>
                                     {% elif day.working_periods %}
+                                        {% if day.has_special_hours %}<p class="scheduling-source-badge">{% if is_arabic %}ساعات خاصة{% else %}Special hours{% endif %}</p>{% endif %}
                                         <ul class="scheduling-week-periods" aria-label="{% if is_arabic %}ساعات الدوام{% else %}Working hours{% endif %}">
                                             {% for period in day.working_periods %}<li dir="ltr">{{ period.start }}–{{ period.end }}</li>{% endfor %}
                                         </ul>
@@ -266,6 +276,8 @@
                                             <span class="scheduling-month-signals">
                                                 {% if day.is_closed %}
                                                     <b class="is-closed">{% if is_arabic %}مغلق{% else %}Closed{% endif %}</b>
+                                                {% elif day.has_special_hours %}
+                                                    <b class="is-special">{% if is_arabic %}ساعات خاصة{% else %}Special{% endif %}</b>
                                                 {% elif day.working_periods %}
                                                     <b>{% if is_arabic %}دوام{% else %}Working{% endif %}</b>
                                                 {% else %}
@@ -300,10 +312,30 @@
                         </dd>
                     </div>
                     <div>
-                        <dt>{% if is_arabic %}ساعات الدوام{% else %}Working hours{% endif %}</dt>
+                        <dt>{% if is_arabic %}المصدر الفعال{% else %}Effective source{% endif %}</dt>
+                        <dd>{{ scheduling_selected_day.effective_source_label }}</dd>
+                    </div>
+                    <div>
+                        <dt>{% if is_arabic %}الساعات الفعالة{% else %}Effective hours{% endif %}</dt>
                         <dd>
                             {% if scheduling_selected_day.working_periods %}
                                 {% for period in scheduling_selected_day.working_periods %}<span dir="ltr">{{ period.start }}–{{ period.end }}</span>{% endfor %}
+                            {% else %}—{% endif %}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>{% if is_arabic %}الجدول الأسبوعي{% else %}Weekly schedule{% endif %}</dt>
+                        <dd>
+                            {% if scheduling_selected_day.weekly_periods %}
+                                {% for period in scheduling_selected_day.weekly_periods %}<span dir="ltr">{{ period.start }}–{{ period.end }}</span>{% endfor %}
+                            {% else %}—{% endif %}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>{% if is_arabic %}ساعات خاصة{% else %}Special hours{% endif %}</dt>
+                        <dd>
+                            {% if scheduling_selected_day.special_periods %}
+                                {% for period in scheduling_selected_day.special_periods %}<span dir="ltr">{{ period.start }}–{{ period.end }}</span>{% endfor %}
                             {% else %}—{% endif %}
                         </dd>
                     </div>
@@ -333,6 +365,12 @@
                         {% for reason in scheduling_selected_day.closures %}{% if reason %}<span>{{ reason }}</span>{% endif %}{% endfor %}
                     </div>
                 {% endif %}
+                {% if scheduling_selected_day.is_closed and scheduling_selected_day.has_special_hours %}
+                    <div class="scheduling-inspector-closure" role="status">
+                        <strong>{% if is_arabic %}الساعات الخاصة غير فعالة أثناء الإغلاق{% else %}Special hours are ignored during the closure{% endif %}</strong>
+                        <span>{% if is_arabic %}هذا اليوم مغلق. الساعات الخاصة محفوظة لكنها غير فعالة أثناء الإغلاق.{% else %}This date is closed. Special hours are preserved but ignored while the closure is active.{% endif %}</span>
+                    </div>
+                {% endif %}
                 {% if scheduling_selected_visit_type %}
                     {% if scheduling_selected_day.available_slots %}
                         <ul class="scheduling-inspector-slots">
@@ -348,6 +386,7 @@
             </aside>
         </div>
     {% endif %}
+    {% include "dashboard/scheduling/_special_hours.html" %}
     {% elif scheduling_section == "weekly" %}
         {% include "dashboard/scheduling/_weekly.html" %}
     {% elif scheduling_section == "services" %}

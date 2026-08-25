@@ -18,7 +18,13 @@ from django.views.decorators.http import require_GET, require_POST
 from apps.booking import services as booking_services
 from apps.booking.models import Appointment
 from apps.booking.selectors import get_active_doctor, get_active_visit_types
-from apps.clinic.models import ClosedDay, Doctor, DoctorSchedule, VisitType
+from apps.clinic.models import (
+    ClosedDay,
+    Doctor,
+    DoctorSchedule,
+    DoctorScheduleOverride,
+    VisitType,
+)
 from apps.core.models import AuditLog, SystemSetting
 from apps.core.views import _base_context
 from apps.patients.models import Patient
@@ -27,6 +33,8 @@ from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
 from .forms import (
     BookingRulesForm,
     ClosureCreateForm,
+    SpecialHoursDateForm,
+    SpecialHoursForm,
     StaffClinicalNoteForm,
     StaffRecordMediaCreateForm,
     StaffRecordMediaUpdateForm,
@@ -473,19 +481,60 @@ def _scheduling_day_item(
     selected_date,
     today,
     selected_month,
+    active_doctor,
     schedules_by_weekday,
+    overrides_by_date,
     closures_by_date,
     appointments_by_date,
 ):
     weekday_full, weekday_short = SCHEDULING_WEEKDAY_LABELS[language][day.weekday()]
-    periods = [
-        {
-            "start": schedule.start_time.strftime("%H:%M"),
-            "end": schedule.end_time.strftime("%H:%M"),
-        }
-        for schedule in schedules_by_weekday.get(day.weekday(), [])
-    ]
+    weekly_rows = schedules_by_weekday.get(day.weekday(), [])
+    special_rows = overrides_by_date.get(day, [])
     closures = closures_by_date.get(day, [])
+    effective = booking_services.get_effective_working_periods(
+        active_doctor,
+        day,
+        closed=bool(closures),
+        special_periods=special_rows,
+        weekly_periods=weekly_rows,
+    )
+
+    def format_periods(rows):
+        return [
+            {
+                "start": row.start_time.strftime("%H:%M"),
+                "end": row.end_time.strftime("%H:%M"),
+            }
+            for row in rows
+        ]
+
+    source_labels = {
+        "ar": {
+            booking_services.WORKING_PERIOD_SOURCE_CLOSED: "مغلق",
+            booking_services.WORKING_PERIOD_SOURCE_SPECIAL: "ساعات خاصة",
+            booking_services.WORKING_PERIOD_SOURCE_WEEKLY: "الجدول الأسبوعي",
+        },
+        "en": {
+            booking_services.WORKING_PERIOD_SOURCE_CLOSED: "Closed",
+            booking_services.WORKING_PERIOD_SOURCE_SPECIAL: "Special hours",
+            booking_services.WORKING_PERIOD_SOURCE_WEEKLY: "Weekly schedule",
+        },
+    }
+    periods = format_periods(effective.periods)
+    weekly_periods = format_periods(weekly_rows)
+    special_periods = format_periods(special_rows)
+    override_reasons = [
+        {
+            "reason": (
+                (row.reason_ar if language == "ar" else row.reason_en)
+                or (row.reason_en if language == "ar" else row.reason_ar)
+            ),
+            "start": row.start_time.strftime("%H:%M"),
+            "end": row.end_time.strftime("%H:%M"),
+        }
+        for row in special_rows
+        if row.reason_ar or row.reason_en
+    ]
     appointment_items = appointments_by_date.get(day, [])
     return {
         "date": day,
@@ -498,8 +547,14 @@ def _scheduling_day_item(
         "is_selected": day == selected_date,
         "is_current_month": (day.year, day.month) == selected_month,
         "working_periods": periods,
+        "weekly_periods": weekly_periods,
+        "special_periods": special_periods,
+        "special_reasons": override_reasons,
+        "has_special_hours": bool(special_rows),
+        "effective_source": effective.source,
+        "effective_source_label": source_labels[language][effective.source],
         "closures": closures,
-        "is_closed": bool(closures),
+        "is_closed": effective.source == booking_services.WORKING_PERIOD_SOURCE_CLOSED,
         "appointments": appointment_items,
         "appointment_count": len(appointment_items),
         "available_slots": [],
@@ -566,6 +621,7 @@ def _scheduling_context(
     _, visible_end = _local_day_bounds(visible_dates[-1])
 
     schedules_by_weekday = {}
+    overrides_by_date = {}
     closures_by_date = {}
     appointments_by_date = {}
     if active_doctor:
@@ -575,6 +631,14 @@ def _scheduling_context(
         ).order_by("weekday", "start_time", "id")
         for schedule in schedules:
             schedules_by_weekday.setdefault(schedule.weekday, []).append(schedule)
+
+        overrides = DoctorScheduleOverride.objects.filter(
+            doctor=active_doctor,
+            is_active=True,
+            date__range=(visible_dates[0], visible_dates[-1]),
+        ).order_by("date", "start_time", "id")
+        for override in overrides:
+            overrides_by_date.setdefault(override.date, []).append(override)
 
         closures = (
             ClosedDay.objects.filter(
@@ -612,7 +676,9 @@ def _scheduling_context(
             selected_date=selected_date,
             today=today,
             selected_month=(selected_date.year, selected_date.month),
+            active_doctor=active_doctor,
             schedules_by_weekday=schedules_by_weekday,
+            overrides_by_date=overrides_by_date,
             closures_by_date=closures_by_date,
             appointments_by_date=appointments_by_date,
         )
@@ -627,7 +693,9 @@ def _scheduling_context(
             selected_date=selected_date,
             today=today,
             selected_month=(selected_date.year, selected_date.month),
+            active_doctor=active_doctor,
             schedules_by_weekday=schedules_by_weekday,
+            overrides_by_date=overrides_by_date,
             closures_by_date=closures_by_date,
             appointments_by_date=appointments_by_date,
         )
@@ -749,6 +817,13 @@ def _scheduling_context(
             "scheduling_doctor": active_doctor,
             "scheduling_visit_types": visit_types,
             "scheduling_selected_visit_type": selected_visit_type,
+            "scheduling_current_url": _scheduling_url(
+                language,
+                section="calendar",
+                view=view,
+                selected_date=selected_date,
+                visit_type=selected_visit_type,
+            ),
             "scheduling_days": day_items,
             "scheduling_month_weeks": [
                 day_items[index : index + 7]
@@ -805,6 +880,23 @@ def _localized_post_url(route_name, language, **kwargs):
     return f"{url}?lang=en" if language == "en" else url
 
 
+def _special_hours_post_url(
+    route_name,
+    language,
+    selected_date,
+    *,
+    view,
+    visit_type=None,
+    **kwargs,
+):
+    params = {"view": view, "date": selected_date.isoformat()}
+    if language == "en":
+        params["lang"] = "en"
+    if visit_type is not None:
+        params["visit_type"] = visit_type.pk
+    return f"{reverse(route_name, kwargs=kwargs or None)}?{urlencode(params)}"
+
+
 def _booking_rules_initial():
     settings = booking_services.get_booking_settings()
     return {
@@ -821,6 +913,9 @@ def _scheduling_management_context(
     language,
     active_doctor,
     visit_types,
+    selected_date,
+    view,
+    selected_visit_type,
     bound_weekly_create_form=None,
     bound_weekly_create_weekday=None,
     bound_weekly_update_form=None,
@@ -830,9 +925,15 @@ def _scheduling_management_context(
     duration_form=None,
     duration_visit_type_id=None,
     booking_rules_form=None,
+    special_create_form=None,
+    special_update_form=None,
+    special_update_period_id=None,
+    special_conflicts=None,
+    special_confirmation=None,
 ):
     periods_by_weekday = {}
     closures = []
+    special_periods = []
     if active_doctor:
         for period in DoctorSchedule.objects.filter(
             doctor=active_doctor,
@@ -846,6 +947,13 @@ def _scheduling_management_context(
             )
             .filter(Q(doctor=active_doctor) | Q(doctor__isnull=True))
             .order_by("date", "id")
+        )
+        special_periods = list(
+            DoctorScheduleOverride.objects.filter(
+                doctor=active_doctor,
+                date=selected_date,
+                is_active=True,
+            ).order_by("start_time", "id")
         )
 
     weekly_days = []
@@ -937,6 +1045,41 @@ def _scheduling_management_context(
         }
         for item in closures
     ]
+    special_items = []
+    for period in special_periods:
+        update_form = (
+            special_update_form
+            if special_update_form is not None and special_update_period_id == period.pk
+            else SpecialHoursForm(
+                language=language,
+                doctor=active_doctor,
+                locked_date=period.date,
+                instance=period,
+                auto_id=f"id_special_{period.pk}_%s",
+            )
+        )
+        special_items.append(
+            {
+                "period": period,
+                "update_form": update_form,
+                "update_url": _special_hours_post_url(
+                    "dashboard_scheduling_special_update",
+                    language,
+                    selected_date,
+                    view=view,
+                    visit_type=selected_visit_type,
+                    period_id=period.pk,
+                ),
+                "deactivate_url": _special_hours_post_url(
+                    "dashboard_scheduling_special_deactivate",
+                    language,
+                    selected_date,
+                    view=view,
+                    visit_type=selected_visit_type,
+                    period_id=period.pk,
+                ),
+            }
+        )
     return {
         "scheduling_weekly_days": weekly_days,
         "scheduling_weekly_create_url": _localized_post_url(
@@ -958,6 +1101,33 @@ def _scheduling_management_context(
         ),
         "scheduling_booking_rules_url": _localized_post_url(
             "dashboard_scheduling_rules_update", language
+        ),
+        "scheduling_special_create_form": (
+            special_create_form
+            if special_create_form is not None
+            else SpecialHoursForm(
+                language=language,
+                doctor=active_doctor,
+                initial={"date": selected_date},
+                auto_id="id_special_create_%s",
+            )
+        ),
+        "scheduling_special_create_url": _special_hours_post_url(
+            "dashboard_scheduling_special_create",
+            language,
+            selected_date,
+            view=view,
+            visit_type=selected_visit_type,
+        ),
+        "scheduling_special_items": special_items,
+        "scheduling_special_conflicts": special_conflicts or [],
+        "scheduling_special_confirmation": special_confirmation,
+        "scheduling_special_use_weekly_url": _special_hours_post_url(
+            "dashboard_scheduling_special_use_weekly",
+            language,
+            selected_date,
+            view=view,
+            visit_type=selected_visit_type,
         ),
     }
 
@@ -1000,6 +1170,9 @@ def _scheduling_page_context(request, *, section=None, **management_overrides):
             language=language,
             active_doctor=active_doctor,
             visit_types=visit_types,
+            selected_date=selected_date,
+            view=view,
+            selected_visit_type=selected_visit_type,
             **management_overrides,
         )
     )
@@ -1060,8 +1233,29 @@ def _scheduling_unavailable_response(request, section):
     return _render_scheduling_section(request, section, status=409)
 
 
-def _scheduling_redirect(language, section):
-    return redirect(_scheduling_url(language, section=section))
+def _scheduling_redirect(language, section, *, selected_date=None, view=None):
+    return redirect(
+        _scheduling_url(
+            language,
+            section=section,
+            selected_date=selected_date,
+            view=view,
+        )
+    )
+
+
+def _special_hours_redirect(request, language, selected_date):
+    params = {
+        "section": "calendar",
+        "view": _parse_scheduling_view(request.GET.get("view")),
+        "date": selected_date.isoformat(),
+    }
+    if language == "en":
+        params["lang"] = "en"
+    raw_visit_type = request.GET.get("visit_type")
+    if raw_visit_type and raw_visit_type.isdigit():
+        params["visit_type"] = raw_visit_type
+    return redirect(f"{reverse('dashboard_scheduling')}?{urlencode(params)}")
 
 
 @_staff_required
@@ -1235,6 +1429,471 @@ def dashboard_scheduling_weekly_deactivate(request, period_id):
         else "تم إيقاف فترة العمل.",
     )
     return _scheduling_redirect(language, "weekly")
+
+
+def _special_hours_period_bounds(day, periods):
+    current_timezone = timezone.get_current_timezone()
+    return [
+        (
+            timezone.make_aware(
+                datetime.combine(day, period.start_time),
+                current_timezone,
+            ),
+            timezone.make_aware(
+                datetime.combine(day, period.end_time),
+                current_timezone,
+            ),
+        )
+        for period in periods
+    ]
+
+
+def _special_hours_conflicts(doctor, day, proposed_periods):
+    day_start, day_end = _local_day_bounds(day)
+    appointments = list(
+        Appointment.objects.filter(
+            doctor=doctor,
+            status__in=booking_services.BLOCKING_APPOINTMENT_STATUSES,
+            starts_at__lt=day_end,
+            ends_at__gt=day_start,
+        )
+        .select_related("patient", "visit_type")
+        .order_by("starts_at", "id")
+    )
+    period_bounds = _special_hours_period_bounds(day, proposed_periods)
+    return [
+        appointment
+        for appointment in appointments
+        if not any(
+            period_start <= appointment.starts_at
+            and appointment.ends_at <= period_end
+            for period_start, period_end in period_bounds
+        )
+    ]
+
+
+def _special_hours_conflict_items(appointments, language):
+    return [
+        {
+            "time": (
+                f"{timezone.localtime(appointment.starts_at).strftime('%H:%M')}–"
+                f"{timezone.localtime(appointment.ends_at).strftime('%H:%M')}"
+            ),
+            "patient_name": appointment.patient.full_name,
+            "service": _localized_visit_type_name(appointment.visit_type, language),
+            "status": DASHBOARD_STATUS_LABELS[language].get(
+                appointment.status,
+                appointment.get_status_display(),
+            ),
+        }
+        for appointment in appointments
+    ]
+
+
+def _special_hours_confirmation(
+    request,
+    *,
+    language,
+    operation,
+    day,
+    form=None,
+    hidden_fields=None,
+):
+    operation_labels = {
+        "ar": {
+            "create": "إضافة الساعات الخاصة رغم التعارضات",
+            "update": "حفظ تعديل الساعات الخاصة رغم التعارضات",
+            "deactivate": "إيقاف الساعات الخاصة رغم التعارضات",
+            "use_weekly": "العودة للجدول الأسبوعي رغم التعارضات",
+        },
+        "en": {
+            "create": "Add Special Hours despite conflicts",
+            "update": "Save Special Hours despite conflicts",
+            "deactivate": "Deactivate Special Hours despite conflicts",
+            "use_weekly": "Use weekly schedule despite conflicts",
+        },
+    }
+    return {
+        "action_url": request.get_full_path(),
+        "operation": operation,
+        "operation_label": operation_labels[language][operation],
+        "date": day,
+        "form": form,
+        "hidden_fields": hidden_fields or [],
+    }
+
+
+def _render_special_hours_form_error(
+    request,
+    *,
+    form,
+    period_id=None,
+):
+    overrides = {"special_create_form": form}
+    if period_id is not None:
+        overrides = {
+            "special_update_form": form,
+            "special_update_period_id": period_id,
+        }
+    return _render_scheduling_section(
+        request,
+        "calendar",
+        status=400,
+        **overrides,
+    )
+
+
+@_staff_required
+@require_POST
+def dashboard_scheduling_special_create(request):
+    language = _dashboard_language(request)
+    active_doctor = get_active_doctor()
+    if active_doctor is None:
+        return _scheduling_unavailable_response(request, "calendar")
+    form = SpecialHoursForm(request.POST, language=language, doctor=active_doctor)
+    if not form.is_valid():
+        return _render_special_hours_form_error(request, form=form)
+
+    confirmed = request.POST.get("confirm_special_hours") == "yes"
+    with transaction.atomic():
+        doctor = _locked_active_doctor(active_doctor)
+        if doctor is None:
+            return _scheduling_unavailable_response(request, "calendar")
+        form = SpecialHoursForm(request.POST, language=language, doctor=doctor)
+        if not form.is_valid() or not form.validate_no_overlap(doctor=doctor):
+            return _render_special_hours_form_error(request, form=form)
+
+        special_date = form.cleaned_data["date"]
+        current_periods = list(
+            DoctorScheduleOverride.objects.select_for_update()
+            .filter(doctor=doctor, date=special_date, is_active=True)
+            .order_by("start_time", "id")
+        )
+        proposed_periods = [*current_periods, form.instance]
+        conflicts = _special_hours_conflicts(doctor, special_date, proposed_periods)
+        if conflicts and not confirmed:
+            return _render_scheduling_section(
+                request,
+                "calendar",
+                special_create_form=form,
+                special_conflicts=_special_hours_conflict_items(conflicts, language),
+                special_confirmation=_special_hours_confirmation(
+                    request,
+                    language=language,
+                    operation="create",
+                    day=special_date,
+                    form=form,
+                ),
+            )
+
+        period = form.save(commit=False)
+        period.doctor = doctor
+        period.is_active = True
+        period.full_clean()
+        period.save()
+        _configuration_audit(
+            user=request.user,
+            action=AuditLog.Action.CREATE,
+            instance=period,
+            message="Created date-specific Special Hours.",
+            metadata={
+                "operation": "create",
+                "date": period.date.isoformat(),
+                "new_start": period.start_time.strftime("%H:%M"),
+                "new_end": period.end_time.strftime("%H:%M"),
+                "active": True,
+                "reason_ar": period.reason_ar,
+                "reason_en": period.reason_en,
+            },
+        )
+    messages.success(
+        request,
+        "Special Hours added." if language == "en" else "تمت إضافة الساعات الخاصة.",
+    )
+    return _special_hours_redirect(request, language, special_date)
+
+
+@_staff_required
+@require_POST
+def dashboard_scheduling_special_update(request, period_id):
+    language = _dashboard_language(request)
+    active_doctor = get_active_doctor()
+    if active_doctor is None:
+        return _scheduling_unavailable_response(request, "calendar")
+    current_period = get_object_or_404(
+        DoctorScheduleOverride,
+        pk=period_id,
+        doctor=active_doctor,
+        is_active=True,
+    )
+    form = SpecialHoursForm(
+        request.POST,
+        language=language,
+        doctor=active_doctor,
+        locked_date=current_period.date,
+        instance=current_period,
+    )
+    if not form.is_valid():
+        return _render_special_hours_form_error(request, form=form, period_id=period_id)
+
+    confirmed = request.POST.get("confirm_special_hours") == "yes"
+    with transaction.atomic():
+        doctor = _locked_active_doctor(active_doctor)
+        if doctor is None:
+            return _scheduling_unavailable_response(request, "calendar")
+        period = get_object_or_404(
+            DoctorScheduleOverride.objects.select_for_update(),
+            pk=period_id,
+            doctor=doctor,
+            is_active=True,
+        )
+        old_start = period.start_time.strftime("%H:%M")
+        old_end = period.end_time.strftime("%H:%M")
+        old_reason_ar = period.reason_ar
+        old_reason_en = period.reason_en
+        form = SpecialHoursForm(
+            request.POST,
+            language=language,
+            doctor=doctor,
+            locked_date=period.date,
+            instance=period,
+        )
+        if not form.is_valid() or not form.validate_no_overlap(
+            doctor=doctor,
+            exclude_period_id=period.pk,
+        ):
+            return _render_special_hours_form_error(request, form=form, period_id=period_id)
+
+        current_periods = list(
+            DoctorScheduleOverride.objects.select_for_update()
+            .filter(doctor=doctor, date=period.date, is_active=True)
+            .order_by("start_time", "id")
+        )
+        proposed_periods = [
+            candidate for candidate in current_periods if candidate.pk != period.pk
+        ]
+        proposed_periods.append(form.instance)
+        conflicts = _special_hours_conflicts(doctor, period.date, proposed_periods)
+        if conflicts and not confirmed:
+            return _render_scheduling_section(
+                request,
+                "calendar",
+                special_update_form=form,
+                special_update_period_id=period_id,
+                special_conflicts=_special_hours_conflict_items(conflicts, language),
+                special_confirmation=_special_hours_confirmation(
+                    request,
+                    language=language,
+                    operation="update",
+                    day=period.date,
+                    form=form,
+                ),
+            )
+
+        period = form.save(commit=False)
+        period.doctor = doctor
+        period.is_active = True
+        period.full_clean()
+        period.save(
+            update_fields=[
+                "start_time",
+                "end_time",
+                "reason_ar",
+                "reason_en",
+                "updated_at",
+            ]
+        )
+        _configuration_audit(
+            user=request.user,
+            action=AuditLog.Action.UPDATE,
+            instance=period,
+            message="Updated date-specific Special Hours.",
+            metadata={
+                "operation": "update",
+                "date": period.date.isoformat(),
+                "old_start": old_start,
+                "old_end": old_end,
+                "new_start": period.start_time.strftime("%H:%M"),
+                "new_end": period.end_time.strftime("%H:%M"),
+                "active": True,
+                "old_reason_ar": old_reason_ar,
+                "old_reason_en": old_reason_en,
+                "new_reason_ar": period.reason_ar,
+                "new_reason_en": period.reason_en,
+            },
+        )
+    messages.success(
+        request,
+        "Special Hours updated." if language == "en" else "تم تحديث الساعات الخاصة.",
+    )
+    return _special_hours_redirect(request, language, period.date)
+
+
+@_staff_required
+@require_POST
+def dashboard_scheduling_special_deactivate(request, period_id):
+    language = _dashboard_language(request)
+    active_doctor = get_active_doctor()
+    if active_doctor is None:
+        return _scheduling_unavailable_response(request, "calendar")
+    confirmed = request.POST.get("confirm_special_hours") == "yes"
+    with transaction.atomic():
+        doctor = _locked_active_doctor(active_doctor)
+        if doctor is None:
+            return _scheduling_unavailable_response(request, "calendar")
+        period = get_object_or_404(
+            DoctorScheduleOverride.objects.select_for_update(),
+            pk=period_id,
+            doctor=doctor,
+            is_active=True,
+        )
+        current_periods = list(
+            DoctorScheduleOverride.objects.select_for_update()
+            .filter(doctor=doctor, date=period.date, is_active=True)
+            .order_by("start_time", "id")
+        )
+        proposed_periods = [
+            candidate for candidate in current_periods if candidate.pk != period.pk
+        ]
+        if not proposed_periods:
+            proposed_periods = list(
+                DoctorSchedule.objects.select_for_update()
+                .filter(
+                    doctor=doctor,
+                    weekday=period.date.weekday(),
+                    is_active=True,
+                )
+                .order_by("start_time", "id")
+            )
+        conflicts = _special_hours_conflicts(doctor, period.date, proposed_periods)
+        if conflicts and not confirmed:
+            return _render_scheduling_section(
+                request,
+                "calendar",
+                special_conflicts=_special_hours_conflict_items(conflicts, language),
+                special_confirmation=_special_hours_confirmation(
+                    request,
+                    language=language,
+                    operation="deactivate",
+                    day=period.date,
+                ),
+            )
+
+        old_start = period.start_time.strftime("%H:%M")
+        old_end = period.end_time.strftime("%H:%M")
+        period.is_active = False
+        period.save(update_fields=["is_active", "updated_at"])
+        _configuration_audit(
+            user=request.user,
+            action=AuditLog.Action.UPDATE,
+            instance=period,
+            message="Deactivated date-specific Special Hours.",
+            metadata={
+                "operation": "deactivate",
+                "date": period.date.isoformat(),
+                "old_start": old_start,
+                "old_end": old_end,
+                "active": False,
+                "reason_ar": period.reason_ar,
+                "reason_en": period.reason_en,
+            },
+        )
+    messages.success(
+        request,
+        "Special Hours deactivated."
+        if language == "en"
+        else "تم إيقاف الساعات الخاصة.",
+    )
+    return _special_hours_redirect(request, language, period.date)
+
+
+@_staff_required
+@require_POST
+def dashboard_scheduling_special_use_weekly(request):
+    language = _dashboard_language(request)
+    form = SpecialHoursDateForm(request.POST, language=language)
+    active_doctor = get_active_doctor()
+    if active_doctor is None:
+        return _scheduling_unavailable_response(request, "calendar")
+    if not form.is_valid():
+        return _render_scheduling_section(request, "calendar", status=400)
+
+    confirmed = request.POST.get("confirm_special_hours") == "yes"
+    with transaction.atomic():
+        doctor = _locked_active_doctor(active_doctor)
+        if doctor is None:
+            return _scheduling_unavailable_response(request, "calendar")
+        form = SpecialHoursDateForm(request.POST, language=language)
+        if not form.is_valid():
+            return _render_scheduling_section(request, "calendar", status=400)
+        special_date = form.cleaned_data["date"]
+        periods = list(
+            DoctorScheduleOverride.objects.select_for_update()
+            .filter(doctor=doctor, date=special_date, is_active=True)
+            .order_by("start_time", "id")
+        )
+        if not periods:
+            messages.info(
+                request,
+                "The weekly schedule is already in use."
+                if language == "en"
+                else "الجدول الأسبوعي مستخدم بالفعل.",
+            )
+            return _special_hours_redirect(request, language, special_date)
+
+        weekly_periods = list(
+            DoctorSchedule.objects.select_for_update()
+            .filter(
+                doctor=doctor,
+                weekday=special_date.weekday(),
+                is_active=True,
+            )
+            .order_by("start_time", "id")
+        )
+        conflicts = _special_hours_conflicts(doctor, special_date, weekly_periods)
+        if conflicts and not confirmed:
+            return _render_scheduling_section(
+                request,
+                "calendar",
+                special_conflicts=_special_hours_conflict_items(conflicts, language),
+                special_confirmation=_special_hours_confirmation(
+                    request,
+                    language=language,
+                    operation="use_weekly",
+                    day=special_date,
+                    hidden_fields=[
+                        {"name": "date", "value": special_date.isoformat()}
+                    ],
+                ),
+            )
+
+        for period in periods:
+            old_start = period.start_time.strftime("%H:%M")
+            old_end = period.end_time.strftime("%H:%M")
+            period.is_active = False
+            period.save(update_fields=["is_active", "updated_at"])
+            _configuration_audit(
+                user=request.user,
+                action=AuditLog.Action.UPDATE,
+                instance=period,
+                message="Returned date-specific Special Hours to weekly schedule.",
+                metadata={
+                    "operation": "use_weekly_schedule",
+                    "date": period.date.isoformat(),
+                    "old_start": old_start,
+                    "old_end": old_end,
+                    "active": False,
+                    "reason_ar": period.reason_ar,
+                    "reason_en": period.reason_en,
+                },
+            )
+    messages.success(
+        request,
+        "Weekly schedule restored for this date."
+        if language == "en"
+        else "تمت العودة إلى الجدول الأسبوعي لهذا التاريخ.",
+    )
+    return _special_hours_redirect(request, language, special_date)
 
 
 def _closure_conflict_queryset(doctor, closure_date):

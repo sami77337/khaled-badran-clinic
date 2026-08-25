@@ -1,7 +1,7 @@
 from django import forms
 
 from apps.booking.models import Appointment
-from apps.clinic.models import ClosedDay, DoctorSchedule
+from apps.clinic.models import ClosedDay, DoctorSchedule, DoctorScheduleOverride
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
 
 
@@ -130,6 +130,125 @@ class ClosureCreateForm(forms.ModelForm):
         }
         for name, (arabic, english) in labels.items():
             self.fields[name].label = _scheduling_copy(language, arabic, english)
+        invalid_date = _scheduling_copy(language, "أدخل تاريخاً صالحاً.", "Enter a valid date.")
+        self.fields["date"].error_messages.update(
+            {"required": invalid_date, "invalid": invalid_date}
+        )
+
+
+class SpecialHoursForm(forms.ModelForm):
+    class Meta:
+        model = DoctorScheduleOverride
+        fields = ["date", "start_time", "end_time", "reason_ar", "reason_en"]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "start_time": forms.TimeInput(
+                attrs={"type": "time", "step": "60"},
+                format="%H:%M",
+            ),
+            "end_time": forms.TimeInput(
+                attrs={"type": "time", "step": "60"},
+                format="%H:%M",
+            ),
+        }
+
+    def __init__(self, *args, language="ar", doctor=None, locked_date=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.language = language
+        self.doctor = doctor
+        self.locked_date = locked_date
+        if doctor is not None:
+            self.instance.doctor = doctor
+        if locked_date is not None:
+            self.fields["date"].widget = forms.HiddenInput()
+            self.initial["date"] = locked_date
+
+        labels = {
+            "date": ("التاريخ", "Date"),
+            "start_time": ("وقت البدء", "Start time"),
+            "end_time": ("وقت الانتهاء", "End time"),
+            "reason_ar": ("السبب بالعربية (اختياري)", "Arabic reason (optional)"),
+            "reason_en": ("السبب بالإنجليزية (اختياري)", "English reason (optional)"),
+        }
+        for name, (arabic, english) in labels.items():
+            self.fields[name].label = _scheduling_copy(language, arabic, english)
+
+        invalid_date = _scheduling_copy(language, "أدخل تاريخاً صالحاً.", "Enter a valid date.")
+        invalid_time = _scheduling_copy(
+            language,
+            "أدخل وقتاً صالحاً بصيغة ساعة ودقيقة.",
+            "Enter a valid time in hours and minutes.",
+        )
+        self.fields["date"].error_messages.update(
+            {"required": invalid_date, "invalid": invalid_date}
+        )
+        for name in ("start_time", "end_time"):
+            self.fields[name].input_formats = TIME_INPUT_FORMATS
+            self.fields[name].error_messages.update(
+                {"required": invalid_time, "invalid": invalid_time}
+            )
+
+    def clean_date(self):
+        value = self.cleaned_data["date"]
+        if self.locked_date is not None and value != self.locked_date:
+            raise forms.ValidationError(
+                _scheduling_copy(
+                    self.language,
+                    "يجب أن يبقى التعديل في التاريخ المحدد.",
+                    "The update must remain on the selected date.",
+                )
+            )
+        return value
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_time = cleaned_data.get("start_time")
+        end_time = cleaned_data.get("end_time")
+        if start_time and end_time and start_time >= end_time:
+            self.add_error(
+                "end_time",
+                _scheduling_copy(
+                    self.language,
+                    "يجب أن يكون وقت الانتهاء بعد وقت البدء.",
+                    "End time must be after start time.",
+                ),
+            )
+        return cleaned_data
+
+    def validate_no_overlap(self, *, doctor, exclude_period_id=None):
+        if self.errors:
+            return False
+        overlaps = DoctorScheduleOverride.objects.filter(
+            doctor=doctor,
+            date=self.cleaned_data["date"],
+            is_active=True,
+            start_time__lt=self.cleaned_data["end_time"],
+            end_time__gt=self.cleaned_data["start_time"],
+        )
+        if exclude_period_id is not None:
+            overlaps = overlaps.exclude(pk=exclude_period_id)
+        if overlaps.exists():
+            self.add_error(
+                "start_time",
+                _scheduling_copy(
+                    self.language,
+                    "تتداخل هذه الفترة مع ساعات خاصة نشطة في التاريخ نفسه.",
+                    "This period overlaps active Special Hours on the same date.",
+                ),
+            )
+            return False
+        return True
+
+
+class SpecialHoursDateForm(forms.Form):
+    date = forms.DateField(
+        widget=forms.HiddenInput(),
+        input_formats=["%Y-%m-%d"],
+    )
+
+    def __init__(self, *args, language="ar", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["date"].label = _scheduling_copy(language, "التاريخ", "Date")
         invalid_date = _scheduling_copy(language, "أدخل تاريخاً صالحاً.", "Enter a valid date.")
         self.fields["date"].error_messages.update(
             {"required": invalid_date, "invalid": invalid_date}

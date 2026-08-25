@@ -14,7 +14,13 @@ from django.utils import timezone
 
 from apps.booking import services as booking_services
 from apps.booking.models import Appointment
-from apps.clinic.models import ClosedDay, Doctor, DoctorSchedule, VisitType
+from apps.clinic.models import (
+    ClosedDay,
+    Doctor,
+    DoctorSchedule,
+    DoctorScheduleOverride,
+    VisitType,
+)
 from apps.core.models import AuditLog, SystemSetting
 from apps.dashboard import views as dashboard_views
 from apps.patients.models import Patient
@@ -1181,6 +1187,27 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             is_active=True,
         )
 
+    def create_schedule_override(
+        self,
+        day,
+        start=time(12, 0),
+        end=time(15, 0),
+        *,
+        doctor=None,
+        is_active=True,
+        reason_ar="",
+        reason_en="",
+    ):
+        return DoctorScheduleOverride.objects.create(
+            doctor=doctor or self.doctor,
+            date=day,
+            start_time=start,
+            end_time=end,
+            is_active=is_active,
+            reason_ar=reason_ar,
+            reason_en=reason_en,
+        )
+
     def aware_datetime(self, day, value):
         return timezone.make_aware(
             datetime.combine(day, value),
@@ -1658,15 +1685,15 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertIn('searchParams.set("view", "day")', javascript)
         self.assertIn("window.location.replace", javascript)
 
-    def test_scheduling_is_strictly_read_only_and_has_no_management_controls(self):
+    def test_calendar_keeps_operational_scope_while_exposing_special_hours(self):
         self.client.force_login(self.staff)
         response = self.scheduling(lang="en")
 
-        self.assertContains(response, "Read only")
+        self.assertContains(response, "Effective hours")
+        self.assertContains(response, "Special hours for this date")
         for prohibited_label in (
             "Close Day",
             "Edit Hours",
-            "Special Hours",
             "Save Schedule",
             "Drag",
             "Medical Records",
@@ -1691,6 +1718,11 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         url = reverse(name, kwargs=kwargs or None)
         return f"{url}?lang=en" if language == "en" else url
 
+    def special_action_url(self, name, day, *, language="en", **kwargs):
+        url = self.action_url(name, language=language, **kwargs)
+        separator = "&" if "?" in url else "?"
+        return f"{url}{separator}{urlencode({'view': 'day', 'date': day.isoformat()})}"
+
     def test_management_sections_are_allowlisted_bilingual_and_keep_calendar_default(self):
         self.client.force_login(self.staff)
         response = self.scheduling(lang="en", section="weekly")
@@ -1709,7 +1741,519 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
 
         invalid = self.scheduling(section="not-a-real-section")
         self.assertEqual(invalid.context["scheduling_section"], "calendar")
-        self.assertContains(invalid, "عرض فقط")
+        self.assertContains(invalid, "الساعات الفعالة")
+
+    def test_special_hours_create_validation_overlap_audit_and_booking_effect(self):
+        target_date = self.future_date(8)
+        self.create_schedule(target_date, time(9), time(17))
+        inactive = self.create_schedule_override(
+            target_date,
+            time(12),
+            time(15),
+            is_active=False,
+        )
+        create_url = self.special_action_url(
+            "dashboard_scheduling_special_create",
+            target_date,
+        )
+        self.client.force_login(self.staff)
+
+        for start_value, end_value in (
+            ("not-a-time", "15:00"),
+            ("12:00", "12:00"),
+            ("15:00", "12:00"),
+        ):
+            with self.subTest(start=start_value, end=end_value):
+                response = self.client.post(
+                    create_url,
+                    {
+                        "date": target_date.isoformat(),
+                        "start_time": start_value,
+                        "end_time": end_value,
+                        "reason_ar": "",
+                        "reason_en": "",
+                    },
+                )
+                self.assertEqual(response.status_code, 400)
+
+        first_payload = {
+            "date": target_date.isoformat(),
+            "start_time": "12:00",
+            "end_time": "15:00",
+            "reason_ar": "دوام خاص تجريبي",
+            "reason_en": "Synthetic Special Hours",
+        }
+        created = self.client.post(create_url, first_payload)
+        self.assertEqual(created.status_code, 302)
+        redirect_query = parse_qs(urlsplit(created["Location"]).query)
+        self.assertEqual(redirect_query["lang"], ["en"])
+        self.assertEqual(redirect_query["view"], ["day"])
+        self.assertEqual(redirect_query["date"], [target_date.isoformat()])
+        first = DoctorScheduleOverride.objects.get(
+            doctor=self.doctor,
+            date=target_date,
+            start_time=time(12),
+            is_active=True,
+        )
+        self.assertFalse(inactive.is_active)
+
+        second = self.client.post(
+            create_url,
+            {
+                "date": target_date.isoformat(),
+                "start_time": "16:00",
+                "end_time": "18:00",
+                "reason_ar": "",
+                "reason_en": "Second period",
+            },
+        )
+        self.assertEqual(second.status_code, 302)
+        overlap = self.client.post(
+            create_url,
+            {
+                "date": target_date.isoformat(),
+                "start_time": "14:30",
+                "end_time": "16:30",
+                "reason_ar": "",
+                "reason_en": "Overlap",
+            },
+        )
+        self.assertEqual(overlap.status_code, 400)
+        self.assertContains(overlap, "overlaps", status_code=400)
+        self.assertEqual(
+            DoctorScheduleOverride.objects.filter(
+                doctor=self.doctor,
+                date=target_date,
+                is_active=True,
+            ).count(),
+            2,
+        )
+
+        slots = booking_services.generate_available_slots(
+            self.short_visit,
+            target_date=target_date,
+            doctor=self.doctor,
+        )
+        slot_times = [slot.local_time.strftime("%H:%M") for slot in slots]
+        self.assertEqual(slot_times[0], "12:00")
+        self.assertIn("16:00", slot_times)
+        self.assertNotIn("09:00", slot_times)
+        audit = AuditLog.objects.get(
+            action=AuditLog.Action.CREATE,
+            model_name="DoctorScheduleOverride",
+            object_id=str(first.pk),
+        )
+        self.assertEqual(audit.metadata["date"], target_date.isoformat())
+        self.assertEqual(audit.metadata["new_start"], "12:00")
+        self.assertNotIn("patient", str(audit.metadata).lower())
+
+    def test_special_hours_update_excludes_self_locks_date_and_enforces_doctor(self):
+        target_date = self.future_date(9)
+        first = self.create_schedule_override(target_date, time(9), time(12))
+        self.create_schedule_override(target_date, time(16), time(18))
+        update_url = self.special_action_url(
+            "dashboard_scheduling_special_update",
+            target_date,
+            period_id=first.pk,
+        )
+        self.client.force_login(self.staff)
+        payload = {
+            "date": target_date.isoformat(),
+            "start_time": "10:00",
+            "end_time": "13:00",
+            "reason_ar": "سبب محدث",
+            "reason_en": "Updated reason",
+        }
+
+        updated = self.client.post(update_url, payload)
+        self.assertEqual(updated.status_code, 302)
+        first.refresh_from_db()
+        self.assertEqual((first.start_time, first.end_time), (time(10), time(13)))
+        self.assertEqual(first.reason_en, "Updated reason")
+        audit = AuditLog.objects.filter(
+            action=AuditLog.Action.UPDATE,
+            model_name="DoctorScheduleOverride",
+            object_id=str(first.pk),
+        ).latest("created_at")
+        self.assertEqual(audit.metadata["old_start"], "09:00")
+        self.assertEqual(audit.metadata["new_start"], "10:00")
+
+        overlap = self.client.post(
+            update_url,
+            {**payload, "start_time": "17:00", "end_time": "19:00"},
+        )
+        self.assertEqual(overlap.status_code, 400)
+        tampered_date = self.client.post(
+            update_url,
+            {**payload, "date": (target_date + timedelta(days=1)).isoformat()},
+        )
+        self.assertEqual(tampered_date.status_code, 400)
+        first.refresh_from_db()
+        self.assertEqual((first.date, first.start_time), (target_date, time(10)))
+
+        other_doctor = Doctor.objects.create(
+            full_name_ar="طبيب ساعات خاصة آخر",
+            full_name_en="Other Special Hours doctor",
+            is_active=True,
+            display_order=20,
+        )
+        other = self.create_schedule_override(
+            target_date,
+            time(14),
+            time(15),
+            doctor=other_doctor,
+        )
+        wrong_doctor = self.client.post(
+            self.special_action_url(
+                "dashboard_scheduling_special_update",
+                target_date,
+                period_id=other.pk,
+            ),
+            {
+                "date": target_date.isoformat(),
+                "start_time": "15:00",
+                "end_time": "16:00",
+                "reason_ar": "",
+                "reason_en": "",
+            },
+        )
+        self.assertEqual(wrong_doctor.status_code, 404)
+        other.refresh_from_db()
+        self.assertEqual(other.start_time, time(14))
+
+    def test_special_hours_conflict_confirmation_requeries_and_preserves_private_appointments(self):
+        target_date = self.future_date(10)
+        appointment = self.create_scheduling_appointment(
+            target_date,
+            start=time(10),
+            duration=30,
+            patient_name="Visible Special Conflict Name",
+            status=Appointment.Status.CONFIRMED,
+            booking_note="SPECIAL-PRIVATE-BOOKING-NOTE",
+        )
+        appointment.patient.phone_raw = "+962799999992"
+        appointment.patient.phone_e164 = "+962799999992"
+        appointment.patient.save(update_fields=["phone_raw", "phone_e164"])
+        original_status = appointment.status
+        create_url = self.special_action_url(
+            "dashboard_scheduling_special_create",
+            target_date,
+        )
+        payload = {
+            "date": target_date.isoformat(),
+            "start_time": "12:00",
+            "end_time": "15:00",
+            "reason_ar": "",
+            "reason_en": "Conflict-confirmed Special Hours",
+        }
+        self.client.force_login(self.staff)
+
+        with patch(
+            "apps.dashboard.views._special_hours_conflicts",
+            wraps=dashboard_views._special_hours_conflicts,
+        ) as conflict_query:
+            warning = self.client.post(create_url, payload)
+            self.assertEqual(warning.status_code, 200)
+            self.assertContains(warning, "Existing appointments fall outside the proposed effective hours")
+            self.assertContains(warning, "Visible Special Conflict Name")
+            self.assertContains(warning, "10:00–10:30")
+            self.assertFalse(
+                DoctorScheduleOverride.objects.filter(
+                    doctor=self.doctor,
+                    date=target_date,
+                    is_active=True,
+                ).exists()
+            )
+            for private_value in (
+                "+962799999992",
+                "SPECIAL-PRIVATE-BOOKING-NOTE",
+                str(appointment.public_token),
+                "private-media",
+            ):
+                self.assertNotContains(warning, private_value)
+
+            second = self.create_scheduling_appointment(
+                target_date,
+                start=time(14, 30),
+                duration=60,
+                patient_name="Requeried Boundary Conflict",
+                status=Appointment.Status.ARRIVED,
+            )
+            confirmed = self.client.post(
+                create_url,
+                {**payload, "confirm_special_hours": "yes"},
+            )
+            self.assertEqual(confirmed.status_code, 302)
+            self.assertEqual(conflict_query.call_count, 2)
+
+        override = DoctorScheduleOverride.objects.get(
+            doctor=self.doctor,
+            date=target_date,
+            is_active=True,
+        )
+        appointment.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(appointment.status, original_status)
+        self.assertEqual(second.status, Appointment.Status.ARRIVED)
+        self.assertTrue(Appointment.objects.filter(pk=appointment.pk).exists())
+        self.assertTrue(Appointment.objects.filter(pk=second.pk).exists())
+        audit = AuditLog.objects.get(
+            action=AuditLog.Action.CREATE,
+            model_name="DoctorScheduleOverride",
+            object_id=str(override.pk),
+        )
+        metadata_text = str(audit.metadata)
+        self.assertNotIn("Visible Special Conflict Name", metadata_text)
+        self.assertNotIn("Requeried Boundary Conflict", metadata_text)
+        self.assertNotIn("SPECIAL-PRIVATE", metadata_text)
+
+    def test_special_hours_conflicts_require_whole_interval_containment(self):
+        target_date = self.future_date(11)
+        first = self.create_schedule_override(target_date, time(9), time(12))
+        self.create_schedule_override(target_date, time(16), time(18))
+        noon_conflict = self.create_scheduling_appointment(
+            target_date,
+            start=time(11, 30),
+            duration=60,
+            patient_name="Crosses Noon Boundary",
+        )
+        afternoon_conflict = self.create_scheduling_appointment(
+            target_date,
+            start=time(15, 30),
+            duration=60,
+            patient_name="Crosses Afternoon Boundary",
+        )
+        compatible = self.create_scheduling_appointment(
+            target_date,
+            start=time(16, 15),
+            duration=45,
+            patient_name="Wholly Compatible Appointment",
+        )
+        self.client.force_login(self.staff)
+
+        update_url = self.special_action_url(
+            "dashboard_scheduling_special_update",
+            target_date,
+            period_id=first.pk,
+        )
+        payload = {
+            "date": target_date.isoformat(),
+            "start_time": "09:00",
+            "end_time": "12:00",
+            "reason_ar": "",
+            "reason_en": "Confirmed containment update",
+        }
+        warning = self.client.post(
+            update_url,
+            payload,
+        )
+
+        self.assertEqual(warning.status_code, 200)
+        conflicts = warning.context["scheduling_special_conflicts"]
+        self.assertEqual(
+            {item["patient_name"] for item in conflicts},
+            {"Crosses Noon Boundary", "Crosses Afternoon Boundary"},
+        )
+        first.refresh_from_db()
+        self.assertTrue(first.is_active)
+        self.assertEqual(first.reason_en, "")
+
+        confirmed = self.client.post(
+            update_url,
+            {**payload, "confirm_special_hours": "yes"},
+        )
+        self.assertEqual(confirmed.status_code, 302)
+        first.refresh_from_db()
+        self.assertEqual(first.reason_en, "Confirmed containment update")
+        for appointment in (noon_conflict, afternoon_conflict, compatible):
+            appointment.refresh_from_db()
+            self.assertEqual(appointment.status, Appointment.Status.CONFIRMED)
+
+    def test_special_hours_deactivate_and_use_weekly_validate_final_schedule(self):
+        target_date = self.future_date(12)
+        self.create_schedule(target_date, time(9), time(12))
+        period = self.create_schedule_override(target_date, time(9), time(17))
+        second_period = self.create_schedule_override(target_date, time(18), time(19))
+        appointment = self.create_scheduling_appointment(
+            target_date,
+            start=time(16),
+            duration=30,
+            patient_name="Weekly Reduction Conflict",
+        )
+        use_weekly_url = self.special_action_url(
+            "dashboard_scheduling_special_use_weekly",
+            target_date,
+        )
+        self.client.force_login(self.staff)
+
+        warning = self.client.post(use_weekly_url, {"date": target_date.isoformat()})
+        self.assertEqual(warning.status_code, 200)
+        self.assertContains(warning, "Weekly Reduction Conflict")
+        period.refresh_from_db()
+        self.assertTrue(period.is_active)
+        confirmed = self.client.post(
+            use_weekly_url,
+            {"date": target_date.isoformat(), "confirm_special_hours": "yes"},
+        )
+        self.assertEqual(confirmed.status_code, 302)
+        period.refresh_from_db()
+        second_period.refresh_from_db()
+        appointment.refresh_from_db()
+        self.assertFalse(period.is_active)
+        self.assertFalse(second_period.is_active)
+        self.assertEqual(appointment.status, Appointment.Status.CONFIRMED)
+        audit = AuditLog.objects.filter(
+            model_name="DoctorScheduleOverride",
+            object_id=str(period.pk),
+        ).latest("created_at")
+        self.assertEqual(audit.metadata["operation"], "use_weekly_schedule")
+
+        expanding_date = self.future_date(13)
+        self.create_schedule(expanding_date, time(9), time(17))
+        expanding = self.create_schedule_override(
+            expanding_date,
+            time(12),
+            time(15),
+        )
+        no_warning = self.client.post(
+            self.special_action_url(
+                "dashboard_scheduling_special_use_weekly",
+                expanding_date,
+            ),
+            {"date": expanding_date.isoformat()},
+        )
+        self.assertEqual(no_warning.status_code, 302)
+        expanding.refresh_from_db()
+        self.assertFalse(expanding.is_active)
+
+    def test_deactivating_one_special_period_checks_remaining_effective_periods(self):
+        target_date = self.future_date(14)
+        first = self.create_schedule_override(target_date, time(9), time(12))
+        self.create_schedule_override(target_date, time(16), time(18))
+        appointment = self.create_scheduling_appointment(
+            target_date,
+            start=time(9, 30),
+            duration=30,
+            patient_name="Deactivation Conflict",
+        )
+        url = self.special_action_url(
+            "dashboard_scheduling_special_deactivate",
+            target_date,
+            period_id=first.pk,
+        )
+        self.client.force_login(self.staff)
+
+        warning = self.client.post(url)
+        self.assertEqual(warning.status_code, 200)
+        self.assertContains(warning, "Deactivation Conflict")
+        first.refresh_from_db()
+        self.assertTrue(first.is_active)
+        confirmed = self.client.post(url, {"confirm_special_hours": "yes"})
+        self.assertEqual(confirmed.status_code, 302)
+        first.refresh_from_db()
+        appointment.refresh_from_db()
+        self.assertFalse(first.is_active)
+        self.assertEqual(appointment.status, Appointment.Status.CONFIRMED)
+        audit = AuditLog.objects.filter(
+            model_name="DoctorScheduleOverride",
+            object_id=str(first.pk),
+        ).latest("created_at")
+        self.assertEqual(audit.metadata["operation"], "deactivate")
+        self.assertFalse(audit.metadata["active"])
+
+    def test_calendar_uses_effective_source_for_day_week_month_and_inspector(self):
+        target_date = self.future_date(15)
+        self.create_schedule(target_date, time(9), time(17))
+        self.create_schedule_override(
+            target_date,
+            time(12),
+            time(15),
+            reason_en="Exact-date reduced hours",
+        )
+        self.client.force_login(self.staff)
+
+        day = self.scheduling(
+            lang="en",
+            view="day",
+            date=target_date.isoformat(),
+            visit_type=self.short_visit.pk,
+        )
+        selected = day.context["scheduling_selected_day"]
+        self.assertEqual(selected["effective_source"], booking_services.WORKING_PERIOD_SOURCE_SPECIAL)
+        self.assertEqual(selected["weekly_periods"], [{"start": "09:00", "end": "17:00"}])
+        self.assertEqual(selected["special_periods"], [{"start": "12:00", "end": "15:00"}])
+        self.assertEqual(selected["working_periods"], selected["special_periods"])
+        production_slots = booking_services.generate_available_slots(
+            self.short_visit,
+            target_date=target_date,
+            doctor=self.doctor,
+        )
+        self.assertEqual(
+            [item["start"] for item in selected["available_slots"]],
+            [slot.local_time.strftime("%H:%M") for slot in production_slots],
+        )
+        self.assertContains(day, "Effective source")
+        self.assertContains(day, "Special hours")
+
+        week = self.scheduling(lang="en", view="week", date=target_date.isoformat())
+        week_day = next(item for item in week.context["scheduling_days"] if item["date"] == target_date)
+        self.assertEqual(week_day["working_periods"], [{"start": "12:00", "end": "15:00"}])
+        self.assertContains(week, "Special hours")
+
+        neighboring_date = target_date + timedelta(days=7)
+        neighbor = self.scheduling(lang="en", view="day", date=neighboring_date.isoformat())
+        self.assertEqual(
+            neighbor.context["scheduling_selected_day"]["effective_source"],
+            booking_services.WORKING_PERIOD_SOURCE_WEEKLY,
+        )
+        self.assertEqual(
+            neighbor.context["scheduling_selected_day"]["working_periods"],
+            [{"start": "09:00", "end": "17:00"}],
+        )
+
+        month = self.scheduling(
+            lang="en",
+            view="month",
+            date=target_date.isoformat(),
+            visit_type=self.short_visit.pk,
+        )
+        month_day = next(item for item in month.context["scheduling_days"] if item["date"] == target_date)
+        self.assertTrue(month_day["has_special_hours"])
+        self.assertContains(month, ">Special<")
+        action_query = parse_qs(
+            urlsplit(month.context["scheduling_special_create_url"]).query
+        )
+        self.assertEqual(action_query["lang"], ["en"])
+        self.assertEqual(action_query["view"], ["month"])
+        self.assertEqual(action_query["date"], [target_date.isoformat()])
+        self.assertEqual(action_query["visit_type"], [str(self.short_visit.pk)])
+        preserved_redirect = self.client.post(
+            month.context["scheduling_special_create_url"],
+            {
+                "date": target_date.isoformat(),
+                "start_time": "15:00",
+                "end_time": "16:00",
+                "reason_ar": "",
+                "reason_en": "Preserve management state",
+            },
+        )
+        preserved_query = parse_qs(urlsplit(preserved_redirect["Location"]).query)
+        self.assertEqual(preserved_query["section"], ["calendar"])
+        self.assertEqual(preserved_query["view"], ["month"])
+        self.assertEqual(preserved_query["date"], [target_date.isoformat()])
+        self.assertEqual(preserved_query["visit_type"], [str(self.short_visit.pk)])
+
+        ClosedDay.objects.create(doctor=self.doctor, date=target_date, is_active=True)
+        closed = self.scheduling(lang="en", view="day", date=target_date.isoformat())
+        closed_day = closed.context["scheduling_selected_day"]
+        self.assertEqual(closed_day["effective_source"], booking_services.WORKING_PERIOD_SOURCE_CLOSED)
+        self.assertEqual(closed_day["working_periods"], [])
+        self.assertTrue(closed_day["special_periods"])
+        self.assertContains(
+            closed,
+            "This date is closed. Special hours are preserved but ignored while the closure is active.",
+            count=2,
+        )
 
     def test_weekly_period_create_validation_deactivation_audit_and_real_availability(self):
         target_date = self.future_date(3)
@@ -2329,6 +2873,22 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             date=self.future_date(12),
             reason_en="Security route closure",
         )
+        special_date = self.future_date(13)
+        special_update = self.create_schedule_override(
+            special_date,
+            time(10),
+            time(11),
+        )
+        special_deactivate = self.create_schedule_override(
+            special_date,
+            time(12),
+            time(13),
+        )
+        special_use_weekly = self.create_schedule_override(
+            special_date,
+            time(14),
+            time(15),
+        )
         cases = [
             (
                 "weekly-create",
@@ -2366,6 +2926,49 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
                     closure_id=closure.pk,
                 ),
                 {},
+            ),
+            (
+                "special-create",
+                self.action_url("dashboard_scheduling_special_create", language="en"),
+                {
+                    "date": self.future_date(14).isoformat(),
+                    "start_time": "10:00",
+                    "end_time": "11:00",
+                    "reason_ar": "",
+                    "reason_en": "Security Special Hours",
+                },
+            ),
+            (
+                "special-update",
+                self.action_url(
+                    "dashboard_scheduling_special_update",
+                    language="en",
+                    period_id=special_update.pk,
+                ),
+                {
+                    "date": special_date.isoformat(),
+                    "start_time": "10:00",
+                    "end_time": "11:30",
+                    "reason_ar": "",
+                    "reason_en": "Security update",
+                },
+            ),
+            (
+                "special-deactivate",
+                self.action_url(
+                    "dashboard_scheduling_special_deactivate",
+                    language="en",
+                    period_id=special_deactivate.pk,
+                ),
+                {},
+            ),
+            (
+                "special-use-weekly",
+                self.action_url(
+                    "dashboard_scheduling_special_use_weekly",
+                    language="en",
+                ),
+                {"date": special_date.isoformat()},
             ),
             (
                 "service-duration",
@@ -2422,6 +3025,18 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         )
         self.assertEqual(mutation.status_code, 409)
         self.assertFalse(DoctorSchedule.objects.exists())
+        special_mutation = self.client.post(
+            self.action_url("dashboard_scheduling_special_create", language="en"),
+            {
+                "date": self.future_date().isoformat(),
+                "start_time": "12:00",
+                "end_time": "15:00",
+                "reason_ar": "",
+                "reason_en": "Unavailable",
+            },
+        )
+        self.assertEqual(special_mutation.status_code, 409)
+        self.assertFalse(DoctorScheduleOverride.objects.exists())
 
     def test_management_changes_are_visible_through_the_existing_public_booking_page(self):
         target_date = self.future_date(3)

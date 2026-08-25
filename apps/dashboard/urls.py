@@ -22,6 +22,26 @@ urlpatterns = [
         name="dashboard_scheduling_weekly_deactivate",
     ),
     path(
+        "scheduling/special-hours/create/",
+        views.dashboard_scheduling_special_create,
+        name="dashboard_scheduling_special_create",
+    ),
+    path(
+        "scheduling/special-hours/<int:period_id>/update/",
+        views.dashboard_scheduling_special_update,
+        name="dashboard_scheduling_special_update",
+    ),
+    path(
+        "scheduling/special-hours/<int:period_id>/deactivate/",
+        views.dashboard_scheduling_special_deactivate,
+        name="dashboard_scheduling_special_deactivate",
+    ),
+    path(
+        "scheduling/special-hours/use-weekly/",
+        views.dashboard_scheduling_special_use_weekly,
+        name="dashboard_scheduling_special_use_weekly",
+    ),
+    path(
         "scheduling/closures/create/",
         views.dashboard_scheduling_closure_create,
         name="dashboard_scheduling_closure_create",
