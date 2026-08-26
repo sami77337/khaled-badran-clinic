@@ -47,6 +47,7 @@
     margin-block-end: 0;
     color: var(--dashboard-muted);
     font-size: 0.96rem;
+    font-weight: 500;
 }
 
 .scheduling-timezone {
@@ -56,6 +57,7 @@
     margin-block-end: 0;
     color: var(--dashboard-muted);
     font-size: 0.78rem;
+    font-weight: 600;
     text-align: end;
 }
 
@@ -71,7 +73,7 @@
 .scheduling-inspector,
 .scheduling-unavailable {
     min-width: 0;
-    border: 1px solid var(--dashboard-line);
+    border: 1px solid rgba(139, 90, 43, 0.36);
     border-radius: var(--dashboard-radius);
     background: var(--dashboard-white);
     box-shadow: var(--dashboard-shadow);
@@ -90,7 +92,7 @@
     display: inline-flex;
     min-width: 0;
     align-items: center;
-    border: 1px solid var(--dashboard-line);
+    border: 1px solid rgba(139, 90, 43, 0.4);
     border-radius: 0.8rem;
     background: var(--dashboard-ivory);
     padding: 0.2rem;
@@ -104,7 +106,7 @@
     justify-content: center;
     border-radius: 0.62rem;
     padding: 0.45rem 0.75rem;
-    color: var(--dashboard-muted);
+    color: var(--dashboard-ink);
     font-size: 0.86rem;
     font-weight: 600;
     white-space: nowrap;
@@ -113,10 +115,13 @@
 .scheduling-view-tab:hover,
 .scheduling-date-navigation a:hover {
     background: var(--dashboard-soft-wood);
-    color: var(--dashboard-wood);
+    color: var(--dashboard-burgundy);
 }
 
-.scheduling-view-tab.is-active {
+.dashboard-shell .scheduling-view-tab.is-active,
+.dashboard-shell .scheduling-view-tab.is-active:hover,
+.dashboard-shell .scheduling-view-tab.is-active:focus-visible,
+.dashboard-shell .scheduling-view-tab.is-active:active {
     background: var(--dashboard-burgundy);
     color: var(--dashboard-white);
 }
@@ -127,78 +132,7 @@
 
 .scheduling-date-navigation .is-today {
     color: var(--dashboard-burgundy);
-}
-
-.scheduling-service-form {
-    display: grid;
-    min-width: 0;
-    gap: 0.28rem;
-    margin: 0;
-}
-
-.scheduling-service-form label {
-    color: var(--dashboard-ink);
-    font-size: 0.82rem;
-    font-weight: 600;
-}
-
-.scheduling-service-control {
-    display: flex;
-    min-width: 0;
-    gap: 0.45rem;
-}
-
-.scheduling-service-control select {
-    width: 100%;
-    min-width: 0;
-    min-height: 2.75rem;
-    border: 1px solid var(--dashboard-line);
-    border-radius: 0.7rem;
-    background: var(--dashboard-white);
-    color: var(--dashboard-ink);
-    padding: 0.45rem 0.65rem;
-    font: inherit;
-    font-size: 0.88rem;
-}
-
-.scheduling-service-control button {
-    min-height: 2.75rem;
-    flex: 0 0 auto;
-    border-radius: 0.7rem;
-    background: var(--dashboard-burgundy);
-    color: var(--dashboard-white);
-    cursor: pointer;
-    padding: 0.45rem 0.9rem;
-    font-size: 0.86rem;
-    font-weight: 600;
-}
-
-.scheduling-service-control button:hover {
-    background: var(--dashboard-burgundy-deep);
-}
-
-.scheduling-service-control select:focus-visible {
-    outline: 3px solid rgba(139, 90, 43, 0.48);
-    outline-offset: 3px;
-}
-
-.scheduling-availability-note {
-    display: flex;
-    min-width: 0;
-    align-items: baseline;
-    gap: 0.55rem;
-    border-inline-start: 0.24rem solid var(--dashboard-wood);
-    border-radius: 0.45rem;
-    background: var(--dashboard-soft-wood);
-    color: var(--dashboard-muted);
-    padding: 0.65rem 0.8rem;
-    font-size: 0.84rem;
-}
-
-.scheduling-availability-note strong {
-    flex: 0 0 auto;
-    color: var(--dashboard-wood);
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .scheduling-layout {
@@ -214,7 +148,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    border-block-end: 1px solid var(--dashboard-line);
+    border-block-end: 1px solid rgba(139, 90, 43, 0.32);
     padding: 1rem 1.1rem;
 }
 
@@ -236,7 +170,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(139, 90, 43, 0.24);
+    border: 1px solid rgba(139, 90, 43, 0.42);
     border-radius: 999px;
     background: var(--dashboard-soft-wood);
     color: var(--dashboard-wood);
@@ -278,6 +212,7 @@
 .scheduling-unavailable p {
     margin-block-end: 0;
     color: var(--dashboard-muted);
+    font-weight: 500;
 }
 
 .scheduling-day-view {
@@ -286,7 +221,7 @@
 
 .scheduling-operational-day {
     min-width: 0;
-    border: 1px solid var(--dashboard-line);
+    border: 1px solid rgba(139, 90, 43, 0.36);
     border-radius: 0.95rem;
     overflow: hidden;
 }
@@ -303,7 +238,7 @@
 
 .scheduling-day-heading p {
     margin-block-end: 0.05rem;
-    color: var(--dashboard-muted);
+    color: var(--dashboard-ink);
     font-size: 0.82rem;
 }
 
@@ -334,7 +269,7 @@
 
 .scheduling-day-section {
     min-width: 0;
-    border-block-start: 1px solid var(--dashboard-line);
+    border-block-start: 1px solid rgba(139, 90, 43, 0.3);
     padding: 0.9rem 1rem;
 }
 
@@ -369,11 +304,8 @@
 }
 
 .scheduling-period-list,
-.scheduling-slot-list,
 .scheduling-appointment-list,
-.scheduling-week-periods,
-.scheduling-week-availability ul,
-.scheduling-inspector-slots {
+.scheduling-week-periods {
     margin: 0;
     padding: 0;
     list-style: none;
@@ -390,7 +322,7 @@
     min-height: 2.25rem;
     align-items: center;
     gap: 0.25rem;
-    border: 1px solid var(--dashboard-line);
+    border: 1px solid rgba(139, 90, 43, 0.4);
     border-radius: 0.65rem;
     background: var(--dashboard-ivory);
     color: var(--dashboard-ink);
@@ -487,32 +419,11 @@
     color: var(--dashboard-wood);
 }
 
-.scheduling-slot-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-}
-
-.scheduling-slot-list li,
-.scheduling-inspector-slots li {
-    border: 1px solid rgba(139, 90, 43, 0.28);
-    border-radius: 0.6rem;
-    background: var(--dashboard-soft-wood);
-    color: var(--dashboard-wood);
-    font-family: var(--dashboard-font-en);
-    font-size: 0.8rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-}
-
-.scheduling-slot-list li {
-    padding: 0.35rem 0.55rem;
-}
-
 .scheduling-empty-copy {
     margin-block-end: 0;
     color: var(--dashboard-muted);
     font-size: 0.84rem;
+    font-weight: 500;
 }
 
 .scheduling-week-scroll {
@@ -536,7 +447,7 @@
 
 .scheduling-week-day {
     min-width: 0;
-    border-inline-end: 1px solid var(--dashboard-line);
+    border-inline-end: 1px solid rgba(139, 90, 43, 0.3);
     background: var(--dashboard-white);
 }
 
@@ -552,7 +463,7 @@
     display: grid;
     min-height: 5.4rem;
     place-items: center;
-    border-block-end: 1px solid var(--dashboard-line);
+    border-block-end: 1px solid rgba(139, 90, 43, 0.3);
     padding: 0.55rem;
     text-align: center;
 }
@@ -563,8 +474,10 @@
 
 .scheduling-week-day > header span,
 .scheduling-week-day > header small {
-    color: var(--dashboard-muted);
-    font-size: 0.72rem;
+    color: var(--dashboard-ink);
+    font-size: 0.78rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
 }
 
 .scheduling-week-day > header strong {
@@ -577,11 +490,12 @@
 .scheduling-week-state,
 .scheduling-week-hours {
     min-height: 4.6rem;
-    border-block-end: 1px solid var(--dashboard-line);
+    border-block-end: 1px solid rgba(139, 90, 43, 0.3);
     margin: 0;
     padding: 0.6rem;
     color: var(--dashboard-muted);
     font-size: 0.75rem;
+    font-weight: 500;
 }
 
 .scheduling-week-state.is-closed {
@@ -622,6 +536,7 @@
     margin-block-end: 0;
     color: var(--dashboard-muted);
     font-size: 0.75rem;
+    font-weight: 500;
 }
 
 .scheduling-week-appointment {
@@ -652,31 +567,6 @@
     font-weight: 600;
 }
 
-.scheduling-week-availability {
-    display: grid;
-    gap: 0.35rem;
-    border-block-start: 1px solid rgba(139, 90, 43, 0.2);
-    background: var(--dashboard-soft-wood);
-    padding: 0.55rem;
-    color: var(--dashboard-wood);
-    font-size: 0.7rem;
-}
-
-.scheduling-week-availability ul {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.2rem;
-}
-
-.scheduling-week-availability li {
-    border: 1px solid rgba(139, 90, 43, 0.25);
-    border-radius: 0.4rem;
-    background: var(--dashboard-white);
-    padding: 0.15rem 0.3rem;
-    font-family: var(--dashboard-font-en);
-    font-variant-numeric: tabular-nums;
-}
-
 .scheduling-month {
     max-width: 100%;
     overflow-x: auto;
@@ -686,24 +576,24 @@
 .scheduling-month-weekdays,
 .scheduling-month-row {
     display: grid;
-    min-width: 19.25rem;
-    grid-template-columns: repeat(7, minmax(2.75rem, 1fr));
+    min-width: 56rem;
+    grid-template-columns: repeat(7, minmax(8rem, 1fr));
 }
 
 .scheduling-month-grid {
-    min-width: 19.25rem;
+    min-width: 56rem;
 }
 
 .scheduling-month-weekdays {
-    border-block-end: 1px solid var(--dashboard-line);
+    border-block-end: 1px solid rgba(139, 90, 43, 0.34);
     background: var(--dashboard-ivory);
 }
 
 .scheduling-month-weekdays span {
     padding: 0.55rem 0.25rem;
-    color: var(--dashboard-muted);
-    font-size: 0.75rem;
-    font-weight: 600;
+    color: var(--dashboard-ink);
+    font-size: 0.8rem;
+    font-weight: 700;
     text-align: center;
 }
 
@@ -713,8 +603,8 @@
     min-height: 6.5rem;
     align-content: space-between;
     gap: 0.35rem;
-    border-inline-end: 1px solid var(--dashboard-line);
-    border-block-end: 1px solid var(--dashboard-line);
+    border-inline-end: 1px solid rgba(139, 90, 43, 0.3);
+    border-block-end: 1px solid rgba(139, 90, 43, 0.3);
     background: var(--dashboard-white);
     padding: 0.55rem;
 }
@@ -734,7 +624,7 @@
 
 .scheduling-month-day.is-outside {
     background: var(--dashboard-ivory);
-    opacity: 0.62;
+    opacity: 0.74;
 }
 
 .scheduling-month-number {
@@ -777,7 +667,7 @@
 }
 
 .scheduling-inspector > header {
-    border-block-end: 1px solid var(--dashboard-line);
+    border-block-end: 1px solid rgba(139, 90, 43, 0.34);
     background: var(--dashboard-ivory);
     padding: 1rem;
 }
@@ -796,14 +686,14 @@
     min-width: 0;
     grid-template-columns: minmax(7.5rem, 0.8fr) minmax(0, 1.2fr);
     gap: 0.7rem;
-    border-block-end: 1px solid var(--dashboard-line);
+    border-block-end: 1px solid rgba(139, 90, 43, 0.3);
     padding: 0.7rem 1rem;
 }
 
 .scheduling-summary-list dt {
-    color: var(--dashboard-muted);
+    color: var(--dashboard-ink);
     font-size: 0.78rem;
-    font-weight: 500;
+    font-weight: 700;
 }
 
 .scheduling-summary-list dd {
@@ -836,19 +726,6 @@
     font-size: 0.8rem;
 }
 
-.scheduling-inspector-slots {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-    max-height: 10.5rem;
-    overflow-y: auto;
-    padding: 0.75rem 1rem;
-}
-
-.scheduling-inspector-slots li {
-    padding: 0.3rem 0.45rem;
-}
-
 .scheduling-inspector > .scheduling-empty-copy {
     padding: 0.75rem 1rem;
 }
@@ -866,9 +743,11 @@
     padding: 0.55rem 0.8rem;
     font-size: 0.88rem;
     font-weight: 600;
+    box-shadow: 0 0.25rem 0.65rem rgba(74, 15, 20, 0.18);
 }
 
-.scheduling-appointments-link:hover {
+.scheduling-appointments-link:hover,
+.scheduling-appointments-link:active {
     background: var(--dashboard-burgundy-deep);
 }
 
@@ -877,71 +756,6 @@
 .dashboard-shell .scheduling-appointments-link:focus-visible,
 .dashboard-shell .scheduling-appointments-link:active {
     color: var(--dashboard-white);
-}
-
-.scheduling-availability-form {
-    display: grid;
-    min-width: 0;
-    gap: 0.55rem;
-    border-block-end: 1px solid var(--dashboard-line);
-    padding: 0.9rem 1rem;
-}
-
-.scheduling-availability-form label {
-    color: var(--dashboard-ink);
-    font-size: 0.88rem;
-    font-weight: 700;
-}
-
-.scheduling-availability-form select {
-    width: 100%;
-    min-width: 0;
-    min-height: 2.85rem;
-    border: 1px solid rgba(139, 90, 43, 0.42);
-    border-radius: 0.68rem;
-    background: var(--dashboard-white);
-    color: var(--dashboard-ink);
-    padding: 0.55rem 0.68rem;
-    font: inherit;
-}
-
-.scheduling-availability-form select:focus-visible {
-    outline: 3px solid rgba(159, 111, 74, 0.34);
-    outline-offset: 2px;
-}
-
-.scheduling-availability-results {
-    border-block-end: 1px solid var(--dashboard-line);
-}
-
-.scheduling-availability-results > header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem 0;
-}
-
-.scheduling-availability-results h3 {
-    margin: 0;
-    color: var(--dashboard-ink);
-    font-size: 0.92rem;
-}
-
-.scheduling-availability-results > header span {
-    color: var(--dashboard-burgundy);
-    font-family: var(--dashboard-font-en);
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-}
-
-.scheduling-availability-prompt {
-    margin: 0;
-    border-block-end: 1px solid var(--dashboard-line);
-    color: var(--dashboard-muted);
-    padding: 0.8rem 1rem;
-    font-size: 0.86rem;
-    line-height: 1.55;
 }
 
 @media (min-width: 112rem) {
@@ -960,9 +774,6 @@
         grid-template-columns: auto minmax(0, 1fr);
     }
 
-    .scheduling-service-form {
-        grid-column: 1 / -1;
-    }
 }
 
 @media (max-width: 47.999rem) {
@@ -982,15 +793,6 @@
     .scheduling-view-tab,
     .scheduling-date-navigation a {
         flex: 1 1 0;
-    }
-
-    .scheduling-service-form {
-        grid-column: auto;
-    }
-
-    .scheduling-availability-note {
-        display: grid;
-        gap: 0.15rem;
     }
 
     .scheduling-card-header {
@@ -1034,11 +836,6 @@
     .scheduling-date-navigation a {
         padding-inline: 0.4rem;
         font-size: 0.8rem;
-    }
-
-    .scheduling-service-control {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
     }
 
     .scheduling-card-header,
@@ -1098,10 +895,10 @@
     min-height: 2.65rem;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--dashboard-line);
+    border: 1px solid rgba(139, 90, 43, 0.4);
     border-radius: 999px;
     background: var(--dashboard-white);
-    color: var(--dashboard-muted);
+    color: var(--dashboard-ink);
     padding: 0.5rem 0.9rem;
     font-size: 0.86rem;
     font-weight: 600;
@@ -1110,22 +907,28 @@
 }
 
 .scheduling-section-tab:hover {
-    border-color: rgba(74, 15, 20, 0.35);
+    border-color: var(--dashboard-burgundy);
+    background: var(--dashboard-soft-burgundy);
     color: var(--dashboard-burgundy);
 }
 
-.scheduling-section-tab.is-active {
+.dashboard-shell .scheduling-section-tab.is-active,
+.dashboard-shell .scheduling-section-tab.is-active:hover,
+.dashboard-shell .scheduling-section-tab.is-active:focus-visible,
+.dashboard-shell .scheduling-section-tab.is-active:active {
     border-color: var(--dashboard-burgundy);
     background: var(--dashboard-burgundy);
     color: var(--dashboard-white);
 }
 
 .scheduling-section-tab:focus-visible,
-.scheduling-button:focus-visible,
+.dashboard-shell .scheduling-button:focus-visible,
+.dashboard-shell .scheduling-mode-action:focus-visible,
+.scheduling-appointments-link:focus-visible,
 .scheduling-cancel-link:focus-visible,
 .scheduling-management input:focus-visible,
 .scheduling-management select:focus-visible {
-    outline: 3px solid rgba(159, 111, 74, 0.34);
+    outline: 3px solid rgba(139, 90, 43, 0.58);
     outline-offset: 2px;
 }
 
@@ -1156,8 +959,12 @@
     grid-template-columns: minmax(0, 0.85fr) minmax(18rem, 1.15fr);
     align-items: end;
     gap: 1rem;
-    border-block-end: 1px solid var(--dashboard-line);
+    border-block-end: 1px solid rgba(139, 90, 43, 0.38);
     padding-block: 0.35rem 1rem;
+}
+
+.scheduling-management-header.is-compact {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .scheduling-management-header > div,
@@ -1213,7 +1020,7 @@
 .scheduling-conflict-warning,
 .scheduling-management-empty {
     min-width: 0;
-    border: 1px solid rgba(139, 90, 43, 0.3);
+    border: 1px solid rgba(139, 90, 43, 0.46);
     border-radius: var(--dashboard-radius);
     background: var(--dashboard-white);
     box-shadow: var(--dashboard-shadow);
@@ -1225,7 +1032,7 @@
 }
 
 .scheduling-management-empty {
-    color: var(--dashboard-muted);
+    color: var(--dashboard-ink);
     padding: 1.2rem;
     text-align: center;
 }
@@ -1249,7 +1056,7 @@
 }
 
 .scheduling-weekday-card > header span {
-    color: var(--dashboard-muted);
+    color: var(--dashboard-ink);
     font-size: 0.86rem;
     font-weight: 600;
 }
@@ -1259,7 +1066,7 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
     gap: 0.65rem;
-    border-block-start: 1px solid rgba(139, 90, 43, 0.24);
+    border-block-start: 1px solid rgba(139, 90, 43, 0.38);
     padding-block: 0.8rem;
 }
 
@@ -1273,7 +1080,7 @@
 
 .scheduling-add-form {
     margin-block-start: 0.65rem;
-    border: 1px dashed rgba(139, 90, 43, 0.42);
+    border: 1px dashed rgba(139, 90, 43, 0.58);
     border-radius: 0.8rem;
     background: var(--dashboard-ivory);
     padding: 0.8rem;
@@ -1299,7 +1106,7 @@
     width: 100%;
     min-width: 0;
     min-height: 2.75rem;
-    border: 1px solid rgba(139, 90, 43, 0.42);
+    border: 1px solid rgba(139, 90, 43, 0.58);
     border-radius: 0.68rem;
     background: var(--dashboard-white);
     color: var(--dashboard-ink);
@@ -1336,7 +1143,7 @@
     font-weight: 600;
 }
 
-.scheduling-button {
+.dashboard-shell .scheduling-button {
     display: inline-flex;
     min-height: 2.75rem;
     align-items: center;
@@ -1352,41 +1159,54 @@
     line-height: 1.2;
     text-align: center;
     cursor: pointer;
+    box-shadow: 0 0.25rem 0.65rem rgba(74, 15, 20, 0.16);
 }
 
-.scheduling-button:hover {
+.dashboard-shell .scheduling-button:hover,
+.dashboard-shell .scheduling-button:focus-visible,
+.dashboard-shell .scheduling-button:active {
+    border-color: var(--dashboard-burgundy-deep);
     background: var(--dashboard-burgundy-deep);
     color: var(--dashboard-white);
 }
 
-.scheduling-button.is-secondary {
-    background: transparent;
-    color: var(--dashboard-burgundy);
+.dashboard-shell .scheduling-button.is-danger {
+    border-color: var(--dashboard-burgundy-deep);
+    background: var(--dashboard-burgundy-deep);
+    color: var(--dashboard-white);
 }
 
-.scheduling-button.is-secondary:hover {
-    background: rgba(74, 15, 20, 0.06);
-}
-
-.scheduling-button.is-danger {
-    border-color: rgba(138, 32, 41, 0.38);
-    background: transparent;
-    color: #8a2029;
-}
-
-.scheduling-button.is-danger:hover {
-    background: rgba(138, 32, 41, 0.08);
-    color: var(--dashboard-burgundy);
-}
-
-.scheduling-button.is-danger.is-destructive {
+.dashboard-shell .scheduling-button.is-danger:hover,
+.dashboard-shell .scheduling-button.is-danger:focus-visible,
+.dashboard-shell .scheduling-button.is-danger:active {
+    border-color: var(--dashboard-burgundy);
     background: var(--dashboard-burgundy);
     color: var(--dashboard-white);
 }
 
-.scheduling-button.is-danger.is-destructive:hover {
+.dashboard-shell .scheduling-button.is-danger.is-destructive {
+    border-color: var(--dashboard-burgundy-deep);
     background: var(--dashboard-burgundy-deep);
     color: var(--dashboard-white);
+}
+
+.dashboard-shell .scheduling-button.is-danger.is-destructive:hover,
+.dashboard-shell .scheduling-button.is-danger.is-destructive:focus-visible,
+.dashboard-shell .scheduling-button.is-danger.is-destructive:active {
+    border-color: var(--dashboard-burgundy);
+    background: var(--dashboard-burgundy);
+    color: var(--dashboard-white);
+}
+
+.dashboard-shell .scheduling-button:disabled,
+.dashboard-shell .scheduling-button[aria-disabled="true"],
+.dashboard-shell .scheduling-mode-action:disabled,
+.dashboard-shell .scheduling-mode-action[aria-disabled="true"] {
+    border-color: rgba(74, 15, 20, 0.72);
+    background: rgba(74, 15, 20, 0.72);
+    color: var(--dashboard-white);
+    box-shadow: none;
+    cursor: not-allowed;
 }
 
 .scheduling-service-card {
@@ -1519,6 +1339,7 @@
 .scheduling-closure-item small {
     margin: 0.2rem 0 0;
     color: var(--dashboard-muted);
+    font-weight: 500;
     overflow-wrap: anywhere;
 }
 
@@ -1545,7 +1366,7 @@
     min-width: 0;
     grid-template-columns: 5rem repeat(3, minmax(0, 1fr));
     gap: 0.6rem;
-    border: 1px solid var(--dashboard-line);
+    border: 1px solid rgba(139, 90, 43, 0.4);
     border-radius: 0.7rem;
     background: var(--dashboard-white);
     padding: 0.65rem 0.75rem;
@@ -1582,25 +1403,20 @@
 .scheduling-day-mode-actions {
     display: grid;
     min-width: 0;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.65rem;
 }
 
-.scheduling-day-mode-actions form {
-    min-width: 0;
-    margin: 0;
-}
-
-.scheduling-mode-action {
+.dashboard-shell .scheduling-mode-action {
     display: flex;
     width: 100%;
     min-height: 3rem;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(139, 90, 43, 0.42);
+    border: 1px solid var(--dashboard-burgundy);
     border-radius: 0.75rem;
-    background: var(--dashboard-white);
-    color: var(--dashboard-burgundy);
+    background: var(--dashboard-burgundy);
+    color: var(--dashboard-white);
     padding: 0.6rem 0.8rem;
     font: inherit;
     font-size: 0.86rem;
@@ -1608,23 +1424,56 @@
     line-height: 1.35;
     text-align: center;
     cursor: pointer;
+    box-shadow: 0 0.25rem 0.65rem rgba(74, 15, 20, 0.18);
 }
 
-.scheduling-mode-action:hover,
-.scheduling-mode-action:focus-visible {
-    border-color: var(--dashboard-burgundy);
-    background: var(--dashboard-soft-burgundy);
-    color: var(--dashboard-burgundy);
+.dashboard-shell .scheduling-mode-action:hover,
+.dashboard-shell .scheduling-mode-action:focus-visible,
+.dashboard-shell .scheduling-mode-action:active {
+    border-color: var(--dashboard-burgundy-deep);
+    background: var(--dashboard-burgundy-deep);
+    color: var(--dashboard-white);
 }
 
-.scheduling-mode-action.is-current {
+.dashboard-shell .scheduling-mode-action.is-danger {
+    border-color: var(--dashboard-burgundy-deep);
+    background: var(--dashboard-burgundy-deep);
+    color: var(--dashboard-white);
+}
+
+.dashboard-shell .scheduling-mode-action.is-danger:hover,
+.dashboard-shell .scheduling-mode-action.is-danger:focus-visible,
+.dashboard-shell .scheduling-mode-action.is-danger:active {
     border-color: var(--dashboard-burgundy);
     background: var(--dashboard-burgundy);
     color: var(--dashboard-white);
 }
 
-.scheduling-mode-action.is-danger {
-    border-color: rgba(74, 15, 20, 0.45);
+.dashboard-shell .scheduling-button:disabled:hover,
+.dashboard-shell .scheduling-button:disabled:focus-visible,
+.dashboard-shell .scheduling-button:disabled:active,
+.dashboard-shell .scheduling-button[aria-disabled="true"]:hover,
+.dashboard-shell .scheduling-button[aria-disabled="true"]:focus-visible,
+.dashboard-shell .scheduling-button[aria-disabled="true"]:active,
+.dashboard-shell .scheduling-mode-action:disabled:hover,
+.dashboard-shell .scheduling-mode-action:disabled:focus-visible,
+.dashboard-shell .scheduling-mode-action:disabled:active,
+.dashboard-shell .scheduling-mode-action[aria-disabled="true"]:hover,
+.dashboard-shell .scheduling-mode-action[aria-disabled="true"]:focus-visible,
+.dashboard-shell .scheduling-mode-action[aria-disabled="true"]:active {
+    border-color: rgba(74, 15, 20, 0.72);
+    background: rgba(74, 15, 20, 0.72);
+    color: var(--dashboard-white);
+}
+
+.scheduling-customization-details {
+    display: grid;
+    min-width: 0;
+    gap: 1rem;
+}
+
+.scheduling-customization-details[hidden] {
+    display: none;
 }
 
 .scheduling-source-badge {
@@ -1632,7 +1481,7 @@
     width: fit-content;
     max-width: 100%;
     align-items: center;
-    border: 1px solid rgba(139, 90, 43, 0.28);
+    border: 1px solid rgba(139, 90, 43, 0.46);
     border-radius: 999px;
     background: var(--dashboard-soft-wood);
     color: var(--dashboard-wood);
@@ -1655,7 +1504,7 @@
 
 #calendar-toolbar,
 #calendar,
-#availability-check,
+#selected-day-inspector,
 #day-management,
 #weekly-hours-title,
 #services-title,
@@ -1675,13 +1524,12 @@
 .is-rtl .scheduling-field-help,
 .is-rtl .scheduling-weekday-card > header span,
 .is-rtl .scheduling-service-form-heading p,
-.is-rtl .scheduling-availability-prompt,
 .is-rtl .scheduling-conflict-warning p,
 .is-rtl .scheduling-conflict-item,
 .is-rtl .scheduling-special-form-heading p,
 .is-rtl .scheduling-special-list-heading p,
 .is-rtl .scheduling-empty-copy {
-    font-size: max(0.86rem, 13.5px);
+    font-size: max(0.88rem, 14px);
     font-weight: 600;
     line-height: 1.65;
 }
@@ -1727,6 +1575,7 @@
     margin: 0.2rem 0 0;
     color: var(--dashboard-muted);
     font-size: 0.82rem;
+    font-weight: 500;
 }
 
 .scheduling-special-fields {
@@ -1896,7 +1745,6 @@
     .scheduling-closure-choice-form .scheduling-button,
     .scheduling-closure-choice-form .scheduling-cancel-link,
     .scheduling-service-state-form .scheduling-button,
-    .scheduling-availability-form .scheduling-button,
     .scheduling-mode-action {
         width: 100%;
     }

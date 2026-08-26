@@ -1,16 +1,9 @@
 <section class="scheduling-management" aria-labelledby="closures-title">
-    <header class="scheduling-management-header">
+    <header class="scheduling-management-header is-compact">
         <div>
             <p>{% if is_arabic %}إغلاق يوم كامل{% else %}Full-day closure{% endif %}</p>
             <h2 id="closures-title">{% if is_arabic %}الإغلاقات{% else %}Closures{% endif %}</h2>
         </div>
-        <p>
-            {% if is_arabic %}
-                يمنع الإغلاق الحجوزات الجديدة لذلك اليوم. عند وجود مواعيد، ستختار بوضوح إبقاءها أو إلغاءها.
-            {% else %}
-                A closure prevents new bookings for that date. When appointments exist, you explicitly choose whether to keep or cancel them.
-            {% endif %}
-        </p>
     </header>
 
     {% if not scheduling_doctor %}

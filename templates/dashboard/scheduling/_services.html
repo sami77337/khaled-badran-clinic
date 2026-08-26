@@ -104,7 +104,7 @@
                             {{ item.form.duration_minutes }}
                             {{ item.form.duration_minutes.errors }}
                         </div>
-                        <button class="scheduling-button is-secondary" type="submit">{% if is_arabic %}حفظ المدة{% else %}Save duration{% endif %}</button>
+                        <button class="scheduling-button" type="submit">{% if is_arabic %}حفظ المدة{% else %}Save duration{% endif %}</button>
                     </form>
                     {% if item.visit_type.is_active %}
                         <form method="post" action="{{ item.deactivate_url }}" class="scheduling-service-state-form">

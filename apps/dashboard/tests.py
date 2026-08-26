@@ -1286,18 +1286,44 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertEqual(switch_query["view"], ["month"])
         self.assertEqual(switch_query["date"], [selected_date.isoformat()])
         self.assertEqual(switch_query["visit_type"], [str(self.short_visit.pk)])
+        arabic_month_headers = arabic.content.decode().split(
+            '<div class="scheduling-month-weekdays"', 1
+        )[1].split("</div>", 1)[0]
+        for weekday in (
+            "الأحد",
+            "الاثنين",
+            "الثلاثاء",
+            "الأربعاء",
+            "الخميس",
+            "الجمعة",
+            "السبت",
+        ):
+            self.assertIn(f">{weekday}</span>", arabic_month_headers)
 
         english = self.scheduling(
             lang="en",
-            view="day",
+            view="month",
             date=selected_date.isoformat(),
             visit_type=self.short_visit.pk,
         )
         self.assertContains(english, '<html lang="en" dir="ltr">')
         self.assertContains(english, "Scheduling Center")
-        self.assertContains(english, "Check available times")
+        self.assertContains(english, "Selected day")
         self.assertNotContains(english, "Working hours ≠ final availability")
-        self.assertContains(english, "Synthetic short service")
+        self.assertNotContains(english, "Synthetic short service")
+        english_month_headers = english.content.decode().split(
+            '<div class="scheduling-month-weekdays"', 1
+        )[1].split("</div>", 1)[0]
+        for weekday in (
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+        ):
+            self.assertIn(f">{weekday}</span>", english_month_headers)
 
     def test_view_date_and_visit_type_parameters_are_validated_safely(self):
         self.client.force_login(self.staff)
@@ -1685,15 +1711,25 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertIn('matchMedia("(max-width: 35rem)")', javascript)
         self.assertIn('searchParams.set("view", "day")', javascript)
         self.assertIn("window.location.replace", javascript)
+        self.assertIn('data-scheduling-customization-toggle', javascript)
+        self.assertIn('setAttribute("aria-expanded"', javascript)
+        self.assertIn("customizationDetails.hidden", javascript)
 
     def test_calendar_keeps_operational_scope_while_exposing_special_hours(self):
         self.client.force_login(self.staff)
         response = self.scheduling(lang="en")
 
         self.assertContains(response, "Effective hours")
+        self.assertContains(response, "Appointments")
         self.assertContains(response, "Customize this day")
-        self.assertContains(response, "Check available times")
-        self.assertContains(response, "Select service")
+        self.assertContains(response, "Close full day")
+        self.assertContains(response, "View Appointments")
+        self.assertContains(response, "Selected day")
+        self.assertNotContains(response, "Check available times")
+        self.assertNotContains(response, "Select service")
+        self.assertNotContains(response, "Show available times")
+        self.assertNotContains(response, "Available times")
+        self.assertNotContains(response, "Service availability")
         self.assertIsNone(response.context["scheduling_selected_visit_type"])
         self.assertNotContains(response, 'class="scheduling-inspector-slots"')
         rendered = response.content.decode()
@@ -1703,6 +1739,12 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertNotIn("visit_type", toolbar)
         self.assertNotIn("All services", rendered)
         self.assertNotIn("Working hours ≠ final availability", rendered)
+        self.assertNotIn("scheduling-availability", rendered)
+        mode_actions = rendered.split(
+            '<div class="scheduling-day-mode-actions"', 1
+        )[1].split("</div>", 1)[0]
+        self.assertEqual(mode_actions.count("scheduling-mode-action"), 2)
+        self.assertNotIn("Use weekly schedule", mode_actions)
         for prohibited_label in (
             "Close Day",
             "Edit Hours",
@@ -1715,7 +1757,7 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         ):
             self.assertNotContains(response, prohibited_label)
 
-    def test_customize_day_starts_from_weekly_reference_and_exposes_three_clear_states(self):
+    def test_customize_day_starts_from_weekly_reference_and_hides_details_until_requested(self):
         target_date = self.future_date(11)
         self.create_schedule(target_date, time(9), time(17))
         self.client.force_login(self.staff)
@@ -1724,15 +1766,19 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         create_form = response.context["scheduling_special_create_form"]
         self.assertEqual(create_form.initial["start_time"], time(9))
         self.assertEqual(create_form.initial["end_time"], time(17))
-        self.assertContains(response, "Using weekly schedule")
         self.assertContains(response, "Customize this day")
         self.assertContains(response, "Close full day")
         self.assertContains(response, "Use separate periods to represent time off between them")
+        self.assertFalse(response.context["scheduling_customization_open"])
+        self.assertContains(response, 'id="scheduling-customization-details" hidden')
+        self.assertNotContains(response, "Using weekly schedule")
+        self.assertNotContains(response, "Use weekly schedule")
 
         self.create_schedule_override(target_date, time(10), time(12))
         customized = self.scheduling(lang="en", view="day", date=target_date.isoformat())
-        self.assertContains(customized, "Use weekly schedule")
         self.assertContains(customized, "Customized hours")
+        self.assertContains(customized, 'id="scheduling-customization-details" hidden')
+        self.assertNotContains(customized, "Use weekly schedule")
 
     def rules_payload(self, **overrides):
         payload = {
@@ -1769,6 +1815,16 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         for label in ("التقويم", "ساعات العمل الأسبوعية", "الخدمات", "قواعد الحجز", "الإغلاقات"):
             self.assertContains(arabic, label)
         self.assertContains(arabic, 'dir="rtl"')
+        self.assertNotContains(
+            arabic,
+            "يمنع الإغلاق الحجوزات الجديدة لذلك اليوم. عند وجود مواعيد، ستختار بوضوح إبقاءها أو إلغاءها.",
+        )
+
+        english_closures = self.scheduling(lang="en", section="closures")
+        self.assertNotContains(
+            english_closures,
+            "A closure prevents new bookings for that date. When appointments exist, you explicitly choose whether to keep or cancel them.",
+        )
 
         invalid = self.scheduling(section="not-a-real-section")
         self.assertEqual(invalid.context["scheduling_section"], "calendar")
@@ -1806,6 +1862,12 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
                     },
                 )
                 self.assertEqual(response.status_code, 400)
+                self.assertTrue(response.context["scheduling_customization_open"])
+                self.assertNotContains(
+                    response,
+                    'id="scheduling-customization-details" hidden',
+                    status_code=400,
+                )
 
         first_payload = {
             "date": target_date.isoformat(),
@@ -1850,6 +1912,7 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             },
         )
         self.assertEqual(overlap.status_code, 400)
+        self.assertTrue(overlap.context["scheduling_customization_open"])
         self.assertContains(overlap, "overlaps", status_code=400)
         self.assertEqual(
             DoctorScheduleOverride.objects.filter(
@@ -3545,9 +3608,10 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             ".scheduling-conflict-warning",
             ".scheduling-rules-grid",
             ".scheduling-day-mode-actions",
-            ".scheduling-availability-form",
+            ".scheduling-customization-details",
             ".scheduling-service-create-fields",
             ".dashboard-shell .scheduling-appointments-link",
+            ".dashboard-shell .scheduling-button",
             "@media (max-width: 63.999rem)",
             "@media (max-width: 47.999rem)",
             "@media (max-width: 35rem)",
@@ -3555,7 +3619,7 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             "min-width: 0",
             "overflow-wrap: anywhere",
             "overflow-x: auto",
-            "13.5px",
+            "14px",
         ):
             self.assertIn(contract, stylesheet)
         self.assertIn(

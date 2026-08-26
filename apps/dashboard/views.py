@@ -1221,6 +1221,12 @@ def _scheduling_management_context(
         "scheduling_special_items": special_items,
         "scheduling_special_conflicts": special_conflicts or [],
         "scheduling_special_confirmation": special_confirmation,
+        "scheduling_customization_open": bool(
+            special_create_form is not None
+            or special_update_form is not None
+            or special_conflicts
+            or special_confirmation
+        ),
         "scheduling_special_use_weekly_url": _special_hours_post_url(
             "dashboard_scheduling_special_use_weekly",
             language,

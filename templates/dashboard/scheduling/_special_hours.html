@@ -17,19 +17,17 @@
         </div>
     {% else %}
         <div class="scheduling-day-mode-actions" aria-label="{% if is_arabic %}خيارات دوام اليوم{% else %}Day schedule options{% endif %}">
-            {% if scheduling_special_items %}
-                <form method="post" action="{{ scheduling_special_use_weekly_url }}">
-                    {% csrf_token %}
-                    <input type="hidden" name="date" value="{{ scheduling_selected_date|date:'Y-m-d' }}">
-                    <button class="scheduling-mode-action" type="submit">{% if is_arabic %}استخدام الدوام الأسبوعي{% else %}Use weekly schedule{% endif %}</button>
-                </form>
-            {% else %}
-                <span class="scheduling-mode-action is-current">{% if is_arabic %}يُستخدم الدوام الأسبوعي{% else %}Using weekly schedule{% endif %}</span>
-            {% endif %}
-            <a class="scheduling-mode-action{% if scheduling_special_items %} is-current{% endif %}" href="#customize-day-form">{% if is_arabic %}تخصيص ساعات هذا اليوم{% else %}Customize this day{% endif %}</a>
+            <button
+                class="scheduling-mode-action"
+                type="button"
+                data-scheduling-customization-toggle
+                aria-controls="scheduling-customization-details"
+                aria-expanded="{% if scheduling_customization_open %}true{% else %}false{% endif %}"
+            >{% if is_arabic %}تخصيص ساعات هذا اليوم{% else %}Customize this day{% endif %}</button>
             <a class="scheduling-mode-action is-danger" href="{{ scheduling_close_selected_day_url }}">{% if is_arabic %}إغلاق اليوم بالكامل{% else %}Close full day{% endif %}</a>
         </div>
 
+        <div class="scheduling-customization-details" id="scheduling-customization-details"{% if not scheduling_customization_open %} hidden{% endif %}>
         {% if scheduling_selected_day.is_closed and scheduling_selected_day.has_special_hours %}
             <div class="scheduling-special-closed-note" role="status">
                 <strong>{% if is_arabic %}مغلق{% else %}Closed{% endif %}</strong>
@@ -170,5 +168,6 @@
                 {% endfor %}
             </section>
         {% endif %}
+        </div>
     {% endif %}
 </section>

@@ -13,9 +13,9 @@
             <h1>{% if is_arabic %}مركز الجدولة{% else %}Scheduling Center{% endif %}</h1>
             <p>
                 {% if is_arabic %}
-                    عرض للدوام والمواعيد والتوافر الفعلي حسب الخدمة.
+                    عرض للدوام والمواعيد وإدارة اليوم المحدد.
                 {% else %}
-                    Working hours, appointments, and real service-specific availability.
+                    Working hours, appointments, and selected-day operations.
                 {% endif %}
             </p>
         </div>
@@ -160,7 +160,7 @@
                                 <article class="scheduling-week-day{% if day.is_today %} is-today{% endif %}{% if day.is_selected %} is-selected{% endif %}" role="listitem">
                                     <header>
                                         <a href="{{ day.day_view_url }}">
-                                            <span>{{ day.weekday_short }}</span>
+                                            <span>{{ day.weekday_full }}</span>
                                             <strong>{{ day.day_number }}</strong>
                                             <small>{{ day.month_name }}</small>
                                         </a>
@@ -196,18 +196,6 @@
                                         {% endif %}
                                     </div>
 
-                                    {% if scheduling_selected_visit_type %}
-                                        <div class="scheduling-week-availability">
-                                            <strong>{% if is_arabic %}متاح للخدمة{% else %}Service availability{% endif %} · {{ day.available_slots|length }}</strong>
-                                            {% if day.available_slots %}
-                                                <ul>
-                                                    {% for slot in day.available_slots %}<li dir="ltr">{{ slot.start }}</li>{% endfor %}
-                                                </ul>
-                                            {% else %}
-                                                <span>{% if is_arabic %}لا توجد أوقات{% else %}No slots{% endif %}</span>
-                                            {% endif %}
-                                        </div>
-                                    {% endif %}
                                 </article>
                             {% endfor %}
                         </div>
@@ -215,7 +203,7 @@
                 {% else %}
                     <div class="scheduling-month" tabindex="0" role="grid" aria-label="{{ scheduling_period_label }}">
                         <div class="scheduling-month-weekdays" role="row">
-                            {% for day in scheduling_days|slice:':7' %}<span role="columnheader">{{ day.weekday_short }}</span>{% endfor %}
+                            {% for day in scheduling_days|slice:':7' %}<span role="columnheader">{{ day.weekday_full }}</span>{% endfor %}
                         </div>
                         <div class="scheduling-month-grid" role="rowgroup">
                             {% for week in scheduling_month_weeks %}
@@ -252,60 +240,24 @@
                 {% endif %}
             </section>
 
-            <aside class="scheduling-inspector" id="availability-check" aria-labelledby="scheduling-inspector-title">
+            <aside class="scheduling-inspector" id="selected-day-inspector" aria-labelledby="scheduling-inspector-title">
                 <header>
                     <p>{{ scheduling_selected_day.weekday_full }} · <span dir="ltr">{{ scheduling_selected_date|date:"Y-m-d" }}</span></p>
-                    <h2 id="scheduling-inspector-title">{% if is_arabic %}التحقق من الأوقات المتاحة{% else %}Check available times{% endif %}</h2>
+                    <h2 id="scheduling-inspector-title">{% if is_arabic %}اليوم المحدد{% else %}Selected day{% endif %}</h2>
                 </header>
-                {% if scheduling_view != "day" %}
-                    <dl class="scheduling-summary-list is-compact">
-                        <div>
-                            <dt>{% if is_arabic %}الدوام الفعال{% else %}Effective hours{% endif %}</dt>
-                            <dd>
-                                <strong>{{ scheduling_selected_day.effective_source_label }}</strong>
-                                {% for period in scheduling_selected_day.working_periods %}<span dir="ltr">{{ period.start }}–{{ period.end }}</span>{% empty %}—{% endfor %}
-                            </dd>
-                        </div>
-                        <div>
-                            <dt>{% if is_arabic %}المواعيد{% else %}Appointments{% endif %}</dt>
-                            <dd>{{ scheduling_selected_day.appointment_count }}</dd>
-                        </div>
-                    </dl>
-                {% endif %}
-                <form class="scheduling-availability-form" method="get" action="{% url 'dashboard_scheduling' %}#availability-check">
-                    {% if not is_arabic %}<input type="hidden" name="lang" value="en">{% endif %}
-                    <input type="hidden" name="section" value="calendar">
-                    <input type="hidden" name="view" value="{{ scheduling_view }}">
-                    <input type="hidden" name="date" value="{{ scheduling_selected_date|date:'Y-m-d' }}">
-                    <label for="scheduling-availability-service">{% if is_arabic %}اختر الخدمة{% else %}Select service{% endif %}</label>
-                    <select id="scheduling-availability-service" name="visit_type" required>
-                        <option value="">{% if is_arabic %}اختر خدمة للتحقق من الأوقات{% else %}Select a service to check times{% endif %}</option>
-                        {% for visit_type in scheduling_visit_types %}
-                            <option value="{{ visit_type.pk }}"{% if scheduling_selected_visit_type.pk == visit_type.pk %} selected{% endif %}>
-                                {% if is_arabic %}{{ visit_type.name_ar|default:visit_type.name_en }}{% else %}{{ visit_type.name_en|default:visit_type.name_ar }}{% endif %}
-                                · {{ visit_type.duration_minutes }} {% if is_arabic %}دقيقة{% else %}min{% endif %}
-                            </option>
-                        {% endfor %}
-                    </select>
-                    <button class="scheduling-button" type="submit">{% if is_arabic %}عرض الأوقات المتاحة{% else %}Show available times{% endif %}</button>
-                </form>
-                {% if scheduling_selected_visit_type %}
-                    <section class="scheduling-availability-results" aria-live="polite" aria-labelledby="availability-results-title">
-                        <header>
-                            <h3 id="availability-results-title">{% if is_arabic %}الأوقات المتاحة{% else %}Available times{% endif %}</h3>
-                            <span>{{ scheduling_selected_day.available_slots|length }}</span>
-                        </header>
-                        {% if scheduling_selected_day.available_slots %}
-                            <ul class="scheduling-inspector-slots">
-                                {% for slot in scheduling_selected_day.available_slots %}<li dir="ltr">{{ slot.start }}–{{ slot.end }}</li>{% endfor %}
-                            </ul>
-                        {% else %}
-                            <p class="scheduling-empty-copy">{% if is_arabic %}لا توجد أوقات متاحة لهذه الخدمة في التاريخ المحدد.{% else %}No available times for this service on the selected date.{% endif %}</p>
-                        {% endif %}
-                    </section>
-                {% else %}
-                    <p class="scheduling-availability-prompt">{% if is_arabic %}اختر خدمة واحدة لعرض الأوقات الفعلية المتاحة لهذا اليوم.{% else %}Select one service to see its real available times for this date.{% endif %}</p>
-                {% endif %}
+                <dl class="scheduling-summary-list is-compact">
+                    <div>
+                        <dt>{% if is_arabic %}الدوام الفعال{% else %}Effective hours{% endif %}</dt>
+                        <dd>
+                            <strong>{{ scheduling_selected_day.effective_source_label }}</strong>
+                            {% for period in scheduling_selected_day.working_periods %}<span dir="ltr">{{ period.start }}–{{ period.end }}</span>{% empty %}—{% endfor %}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>{% if is_arabic %}المواعيد{% else %}Appointments{% endif %}</dt>
+                        <dd>{{ scheduling_selected_day.appointment_count }}</dd>
+                    </div>
+                </dl>
                 <a class="scheduling-appointments-link" href="{{ scheduling_appointments_url }}">
                     {% if is_arabic %}عرض المواعيد{% else %}View Appointments{% endif %}
                 </a>
