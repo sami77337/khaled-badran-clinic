@@ -217,6 +217,289 @@ class DashboardRecordAccessTests(DashboardRecordWorkflowMixin, TestCase):
         self.assert_no_cache(response)
 
 
+class DashboardPatientListTests(DashboardRecordWorkflowMixin, TestCase):
+    def setUp(self):
+        self.staff = self.create_staff()
+
+    def patient_list(self, **params):
+        self.client.force_login(self.staff)
+        return self.client.get(reverse("dashboard_patient_list"), params)
+
+    def patient_names(self, response):
+        return [patient.full_name for patient in response.context["patients"]]
+
+    def test_uses_approved_dashboard_shell_and_active_patients_navigation(self):
+        patient = self.create_patient(full_name="Dashboard Shell Patient")
+
+        response = self.patient_list()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "dashboard/patient_list.html")
+        self.assertTemplateUsed(response, "dashboard/base.html")
+        self.assertTemplateNotUsed(response, "base.html")
+        self.assertEqual(response.context["active_dashboard_nav"], "patients")
+        self.assertContains(response, '<body class="dashboard-shell is-rtl">')
+        self.assertContains(response, 'class="dashboard-nav-link is-active"')
+        self.assertContains(response, 'aria-current="page"')
+        self.assertContains(response, "css/dashboard-patients.css")
+        self.assertContains(response, patient.full_name)
+        for legacy_fragment in (
+            'class="site-shell',
+            'class="page-hero',
+            'class="booking-steps',
+            'class="trust-note',
+            "لوحة داخلية للطاقم",
+            "المرضى والسجلات",
+            "<footer",
+        ):
+            self.assertNotContains(response, legacy_fragment)
+
+    def test_defaults_to_arabic_rtl_and_supports_english_ltr_with_page_switch(self):
+        self.create_patient(full_name="Bilingual Patient")
+
+        arabic = self.patient_list()
+        english = self.patient_list(lang="en")
+
+        self.assertContains(arabic, '<html lang="ar" dir="rtl">')
+        self.assertContains(arabic, "<h1>المرضى</h1>", html=True)
+        self.assertContains(arabic, "إدارة ملفات المرضى والوصول إلى السجلات الطبية.")
+        self.assertEqual(
+            arabic.context["dashboard_language_switch_url"],
+            f'{reverse("dashboard_patient_list")}?lang=en',
+        )
+        self.assertContains(english, '<html lang="en" dir="ltr">')
+        self.assertContains(english, "<h1>Patients</h1>", html=True)
+        self.assertContains(english, "Manage patient files and access medical records.")
+        self.assertEqual(
+            english.context["dashboard_language_switch_url"],
+            reverse("dashboard_patient_list"),
+        )
+        self.assertContains(english, '<input type="hidden" name="lang" value="en">')
+        self.assertContains(english, "Open Record")
+
+    def test_language_switch_preserves_the_trimmed_search_on_patients_page(self):
+        patient = self.create_patient(full_name="Switch Search Patient")
+
+        arabic = self.patient_list(q="  Switch Search  ")
+        english_switch = urlsplit(arabic.context["dashboard_language_switch_url"])
+
+        self.assertEqual(english_switch.path, reverse("dashboard_patient_list"))
+        self.assertEqual(parse_qs(english_switch.query), {"lang": ["en"], "q": ["Switch Search"]})
+        self.assertContains(arabic, patient.full_name)
+
+        english = self.patient_list(lang="en", q="Switch Search")
+        arabic_switch = urlsplit(english.context["dashboard_language_switch_url"])
+        self.assertEqual(arabic_switch.path, reverse("dashboard_patient_list"))
+        self.assertEqual(parse_qs(arabic_switch.query), {"q": ["Switch Search"]})
+
+    def test_summary_and_each_patient_row_use_real_annotated_counts(self):
+        patient = self.create_patient(full_name="Counted Patient")
+        first_visit = self.create_visit(patient=patient)
+        self.create_visit(patient=patient)
+        self.create_note(patient=patient, visit=first_visit)
+        self.create_note(patient=patient)
+        self.create_media(patient=patient)
+
+        response = self.patient_list(lang="en")
+        rendered_patient = list(response.context["patients"])[0]
+
+        self.assertEqual(response.context["total_patient_count"], 1)
+        self.assertEqual(rendered_patient.visit_count, 2)
+        self.assertEqual(rendered_patient.note_count, 2)
+        self.assertEqual(rendered_patient.media_count, 1)
+        self.assertContains(response, "Total patients")
+        self.assertContains(response, "Visits")
+        self.assertContains(response, "Notes")
+        self.assertContains(response, "Media")
+
+    def test_searches_real_patients_by_name_and_trims_whitespace(self):
+        matching = self.create_patient(full_name="Amal Synthetic Search")
+        hidden = self.create_patient(
+            full_name="Different Patient",
+            phone_raw="+962700000010",
+            phone_e164="+962700000010",
+        )
+
+        response = self.patient_list(q="  synthetic search  ")
+
+        self.assertEqual(response.context["patient_search_query"], "synthetic search")
+        self.assertEqual(self.patient_names(response), [matching.full_name])
+        self.assertContains(response, matching.full_name)
+        self.assertNotContains(response, hidden.full_name)
+
+    def test_searches_real_patients_by_raw_and_e164_phone(self):
+        raw_match = self.create_patient(
+            full_name="Raw Phone Match",
+            phone_raw="0798888777",
+            phone_e164="",
+        )
+        e164_match = self.create_patient(
+            full_name="E164 Phone Match",
+            phone_raw="0791234567",
+            phone_e164="+962791234567",
+        )
+        self.create_patient(
+            full_name="Unmatched Phone",
+            phone_raw="0780000000",
+            phone_e164="+962780000000",
+        )
+
+        raw_response = self.patient_list(q="8888")
+        e164_response = self.patient_list(q="+96279123")
+
+        self.assertEqual(self.patient_names(raw_response), [raw_match.full_name])
+        self.assertEqual(self.patient_names(e164_response), [e164_match.full_name])
+
+    def test_search_query_is_defensively_bounded(self):
+        response = self.patient_list(q=f"  {'x' * 150}  ")
+
+        self.assertEqual(
+            response.context["patient_search_query"],
+            "x" * dashboard_views.PATIENT_SEARCH_MAX_LENGTH,
+        )
+        self.assertContains(
+            response,
+            f'maxlength="{dashboard_views.PATIENT_SEARCH_MAX_LENGTH}"',
+        )
+
+    def test_empty_database_state_is_bilingual_and_not_a_table_row(self):
+        arabic = self.patient_list()
+        english = self.patient_list(lang="en")
+
+        self.assertContains(arabic, "لا توجد ملفات مرضى بعد.")
+        self.assertContains(english, "No patient files yet.")
+        self.assertNotContains(arabic, "<table")
+        self.assertNotContains(english, "<table")
+
+    def test_no_matching_search_state_is_distinct_and_easy_to_clear(self):
+        self.create_patient(full_name="Existing Patient")
+
+        arabic = self.patient_list(q="No Such Patient")
+        english = self.patient_list(lang="en", q="No Such Patient")
+
+        self.assertContains(arabic, "لا توجد نتائج مطابقة.")
+        self.assertNotContains(arabic, "لا توجد ملفات مرضى بعد.")
+        self.assertContains(english, "No matching patients found.")
+        self.assertNotContains(english, "No patient files yet.")
+        self.assertContains(english, "Clear search", count=2)
+        self.assertEqual(
+            english.context["patient_search_clear_url"],
+            f'{reverse("dashboard_patient_list")}?lang=en',
+        )
+
+    def test_long_name_wraps_and_phone_has_ltr_direction_contract(self):
+        long_name = (
+            "Long English Patient Name With Multiple Components That Must Wrap Safely "
+            "Without Expanding The Dashboard Viewport"
+        )
+        phone = "+962791234567"
+        self.create_patient(full_name=long_name, phone_raw=phone, phone_e164=phone)
+
+        response = self.patient_list(lang="en")
+
+        self.assertContains(response, long_name)
+        self.assertContains(
+            response,
+            f'<span class="patient-phone-number" dir="ltr">{phone}</span>',
+            html=True,
+        )
+        stylesheet = (
+            Path(__file__).resolve().parents[2] / "static" / "css" / "dashboard-patients.css"
+        ).read_text(encoding="utf-8")
+        self.assertIn("overflow-wrap: anywhere;", stylesheet)
+        self.assertIn("@media (max-width: 35rem)", stylesheet)
+        self.assertIn("grid-template-columns: minmax(0, 1fr);", stylesheet)
+
+    def test_list_omits_email_and_private_clinical_or_media_fields(self):
+        patient_user = self.create_user(username="patient-list-private-user")
+        patient_user.email = "PATIENT-LIST-PRIVATE-EMAIL@example.test"
+        patient_user.save(update_fields=["email"])
+        patient = self.create_patient(
+            user=patient_user,
+            full_name="Privacy Reviewed Patient",
+            phone_raw="0795554433",
+            phone_e164="+962795554433",
+        )
+        patient.notes = "PATIENT-LIST-PRIVATE-PATIENT-NOTES"
+        patient.save(update_fields=["notes"])
+        appointment = self.create_appointment(patient)
+        appointment.booking_note = "PATIENT-LIST-PRIVATE-BOOKING-NOTE"
+        appointment.save(update_fields=["booking_note"])
+        visit = self.create_visit(
+            patient=patient,
+            appointment=appointment,
+            visit_reason="PATIENT-LIST-PRIVATE-VISIT-REASON",
+            doctor_notes="PATIENT-LIST-PRIVATE-DOCTOR-NOTES",
+            diagnosis_plan="PATIENT-LIST-PRIVATE-DIAGNOSIS",
+            instructions="PATIENT-LIST-PRIVATE-INSTRUCTIONS",
+            follow_up_notes="PATIENT-LIST-PRIVATE-FOLLOW-UP",
+        )
+        note = self.create_note(
+            patient=patient,
+            visit=visit,
+            title="PATIENT-LIST-PRIVATE-NOTE-TITLE",
+            body="PATIENT-LIST-PRIVATE-NOTE-BODY",
+        )
+        media = self.create_media(
+            patient=patient,
+            title="PATIENT-LIST-PRIVATE-MEDIA-TITLE",
+            description="PATIENT-LIST-PRIVATE-MEDIA-DESCRIPTION",
+        )
+
+        response = self.patient_list(lang="en")
+
+        self.assertContains(response, patient.full_name)
+        self.assertContains(response, patient.phone)
+        for private_value in (
+            patient_user.email,
+            patient.phone_raw,
+            patient.notes,
+            appointment.booking_note,
+            str(appointment.public_token),
+            visit.visit_reason,
+            visit.doctor_notes,
+            visit.diagnosis_plan,
+            visit.instructions,
+            visit.follow_up_notes,
+            note.title,
+            note.body,
+            media.title,
+            media.description,
+            str(media.public_id),
+        ):
+            self.assertNotContains(response, private_value)
+        self.assertNotContains(response, "Patient ID")
+        self.assertNotContains(response, "data-patient-id")
+
+    def test_annotated_patient_rows_do_not_add_per_patient_queries(self):
+        baseline_patient = self.create_patient(full_name="Query Baseline Patient")
+        self.create_visit(patient=baseline_patient)
+        request = RequestFactory().get(reverse("dashboard_patient_list"))
+        request.user = self.staff
+
+        with CaptureQueriesContext(connection) as baseline_capture:
+            baseline_response = dashboard_views.dashboard_patient_list(request)
+        self.assertEqual(baseline_response.status_code, 200)
+
+        for index in range(6):
+            patient = self.create_patient(
+                full_name=f"Query Scale Patient {index}",
+                phone_raw=f"+96279000{index:04d}",
+                phone_e164=f"+96279000{index:04d}",
+            )
+            visit = self.create_visit(patient=patient)
+            self.create_note(patient=patient, visit=visit)
+            self.create_media(patient=patient)
+
+        expanded_request = RequestFactory().get(reverse("dashboard_patient_list"))
+        expanded_request.user = self.staff
+        with CaptureQueriesContext(connection) as expanded_capture:
+            expanded_response = dashboard_views.dashboard_patient_list(expanded_request)
+        self.assertEqual(expanded_response.status_code, 200)
+
+        self.assertEqual(len(expanded_capture), len(baseline_capture))
+
+
 class DashboardPatientRecordDetailTests(DashboardRecordWorkflowMixin, TestCase):
     def setUp(self):
         self.staff = self.create_staff()

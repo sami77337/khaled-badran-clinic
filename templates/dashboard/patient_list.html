@@ -1,56 +1,117 @@
-{% extends "base.html" %}
+{% extends "dashboard/base.html" %}
+{% load static %}
 
-{% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">لوحة داخلية للطاقم</p>
-        <h1>المرضى والسجلات</h1>
-        <p>صفحة خاصة بالطبيب والطاقم لعرض المرضى وفتح سجلات الزيارات والملاحظات والوسائط الخاصة.</p>
+{% block dashboard_styles %}
+    <link rel="stylesheet" href="{% static 'css/dashboard-patients.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content patients-content">
+    <div class="patients-overview">
+        <header class="patients-page-header">
+            <h1>{% if is_arabic %}المرضى{% else %}Patients{% endif %}</h1>
+            <p>
+                {% if is_arabic %}
+                    إدارة ملفات المرضى والوصول إلى السجلات الطبية.
+                {% else %}
+                    Manage patient files and access medical records.
+                {% endif %}
+            </p>
+        </header>
+
+        <section class="patients-summary" aria-label="{% if is_arabic %}ملخص المرضى{% else %}Patient summary{% endif %}">
+            <p>{% if is_arabic %}إجمالي المرضى{% else %}Total patients{% endif %}</p>
+            <strong>{{ total_patient_count }}</strong>
+        </section>
     </div>
-</section>
 
-<section class="section">
-    <div class="container staff-layout">
-        {% include "dashboard/_dashboard_nav.html" %}
+    <section class="patients-search-panel" aria-label="{% if is_arabic %}البحث عن المرضى{% else %}Patient search{% endif %}">
+        <form class="patients-search-form" method="get" action="{{ dashboard_patients_url }}" role="search">
+            {% if not is_arabic %}<input type="hidden" name="lang" value="en">{% endif %}
+            <label class="dashboard-sr-only" for="patient-search">
+                {% if is_arabic %}ابحث بالاسم أو رقم الهاتف{% else %}Search by name or phone{% endif %}
+            </label>
+            <input
+                id="patient-search"
+                name="q"
+                type="search"
+                value="{{ patient_search_query }}"
+                maxlength="{{ patient_search_max_length }}"
+                placeholder="{% if is_arabic %}ابحث بالاسم أو رقم الهاتف{% else %}Search by name or phone{% endif %}"
+                autocomplete="off"
+            >
+            <button type="submit">{% if is_arabic %}بحث{% else %}Search{% endif %}</button>
+            {% if patient_search_query %}
+                <a class="patients-search-clear" href="{{ patient_search_clear_url }}">
+                    {% if is_arabic %}مسح البحث{% else %}Clear search{% endif %}
+                </a>
+            {% endif %}
+        </form>
+    </section>
 
-        <div class="staff-table-wrap">
-            <table class="staff-table">
-                <thead>
-                    <tr>
-                        <th>المريض</th>
-                        <th>الهاتف</th>
-                        <th>الزيارات</th>
-                        <th>الملاحظات</th>
-                        <th>الوسائط</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
+    {% if total_patient_count %}
+        {% if patients %}
+            <section class="patients-results" aria-labelledby="patients-results-title">
+                <h2 class="dashboard-sr-only" id="patients-results-title">
+                    {% if is_arabic %}قائمة المرضى{% else %}Patient list{% endif %}
+                </h2>
+                <div class="patients-list-header" aria-hidden="true">
+                    <span>{% if is_arabic %}المريض{% else %}Patient{% endif %}</span>
+                    <span>{% if is_arabic %}الهاتف{% else %}Phone{% endif %}</span>
+                    <span class="patients-header-counts">
+                        <span>{% if is_arabic %}الزيارات{% else %}Visits{% endif %}</span>
+                        <span>{% if is_arabic %}الملاحظات{% else %}Notes{% endif %}</span>
+                        <span>{% if is_arabic %}الوسائط{% else %}Media{% endif %}</span>
+                    </span>
+                    <span>{% if is_arabic %}السجل{% else %}Record{% endif %}</span>
+                </div>
+                <div class="patients-list">
                     {% for patient in patients %}
-                        <tr>
-                            <td>{{ patient.full_name }}</td>
-                            <td>{{ patient.phone }}</td>
-                            <td>{{ patient.visit_count }}</td>
-                            <td>{{ patient.note_count }}</td>
-                            <td>{{ patient.media_count }}</td>
-                            <td>
-                                <a class="btn btn-small btn-secondary" href="{% url 'dashboard_patient_record_detail' patient.id %}">
-                                    فتح السجل
-                                </a>
-                            </td>
-                        </tr>
-                    {% empty %}
-                        <tr>
-                            <td colspan="6">لا توجد ملفات مرضى بعد.</td>
-                        </tr>
+                        <article class="patient-row">
+                            <div class="patient-identity">
+                                <h3>{{ patient.full_name }}</h3>
+                            </div>
+                            <p class="patient-phone">
+                                <span class="dashboard-sr-only">{% if is_arabic %}الهاتف{% else %}Phone{% endif %}: </span>
+                                <span class="patient-phone-number" dir="ltr">{{ patient.phone }}</span>
+                            </p>
+                            <dl class="patient-counts">
+                                <div class="patient-count">
+                                    <dt>{% if is_arabic %}الزيارات{% else %}Visits{% endif %}</dt>
+                                    <dd>{{ patient.visit_count }}</dd>
+                                </div>
+                                <div class="patient-count">
+                                    <dt>{% if is_arabic %}الملاحظات{% else %}Notes{% endif %}</dt>
+                                    <dd>{{ patient.note_count }}</dd>
+                                </div>
+                                <div class="patient-count">
+                                    <dt>{% if is_arabic %}الوسائط{% else %}Media{% endif %}</dt>
+                                    <dd>{{ patient.media_count }}</dd>
+                                </div>
+                            </dl>
+                            <a class="patient-record-action" href="{% url 'dashboard_patient_record_detail' patient.id %}">
+                                {% if is_arabic %}فتح السجل{% else %}Open Record{% endif %}
+                            </a>
+                        </article>
                     {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <p class="trust-note">
-            هذه الصفحة داخلية فقط. لا توجد روابط تصدير أو روابط عامة للملفات الطبية الخاصة.
-        </p>
-    </div>
-</section>
+                </div>
+            </section>
+        {% else %}
+            <section class="patients-empty-state" role="status">
+                <span aria-hidden="true">—</span>
+                <div>
+                    <h2>{% if is_arabic %}لا توجد نتائج مطابقة.{% else %}No matching patients found.{% endif %}</h2>
+                    <a href="{{ patient_search_clear_url }}">{% if is_arabic %}مسح البحث{% else %}Clear search{% endif %}</a>
+                </div>
+            </section>
+        {% endif %}
+    {% else %}
+        <section class="patients-empty-state" role="status">
+            <span aria-hidden="true">—</span>
+            <div>
+                <h2>{% if is_arabic %}لا توجد ملفات مرضى بعد.{% else %}No patient files yet.{% endif %}</h2>
+            </div>
+        </section>
+    {% endif %}
+</div>
 {% endblock %}

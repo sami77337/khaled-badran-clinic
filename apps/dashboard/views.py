@@ -82,6 +82,7 @@ DASHBOARD_STATUS_LABELS = {
 
 SCHEDULING_VIEW_NAMES = ("day", "week", "month")
 SCHEDULING_SECTION_NAMES = ("calendar", "weekly", "services", "rules", "closures")
+PATIENT_SEARCH_MAX_LENGTH = 100
 SCHEDULING_WEEKDAY_DISPLAY_ORDER = (
     DoctorSchedule.Weekday.SUNDAY,
     DoctorSchedule.Weekday.MONDAY,
@@ -186,6 +187,17 @@ def _dashboard_language(request):
 def _dashboard_home_url(language):
     url = reverse("dashboard_home")
     return f"{url}?lang=en" if language == "en" else url
+
+
+def _dashboard_patient_list_url(language, *, query=""):
+    params = {}
+    if language == "en":
+        params["lang"] = "en"
+    if query:
+        params["q"] = query
+    encoded_params = urlencode(params)
+    route = reverse("dashboard_patient_list")
+    return f"{route}?{encoded_params}" if encoded_params else route
 
 
 def _scheduling_url(
@@ -2614,19 +2626,62 @@ def _media_items(media_queryset):
 @_staff_required
 @require_GET
 def dashboard_patient_list(request):
-    patients = (
-        Patient.objects.annotate(
-            visit_count=Count("visit_records", distinct=True),
-            note_count=Count("clinical_notes", distinct=True),
-            media_count=Count("record_media", distinct=True),
+    language = _dashboard_language(request)
+    alternate_language = "en" if language == "ar" else "ar"
+    search_query = (request.GET.get("q") or "").strip()[:PATIENT_SEARCH_MAX_LENGTH]
+    total_patient_count = Patient.objects.count()
+    patients = Patient.objects.all()
+    if search_query:
+        patients = patients.filter(
+            Q(full_name__icontains=search_query)
+            | Q(phone_raw__icontains=search_query)
+            | Q(phone_e164__icontains=search_query)
         )
-        .order_by("full_name", "id")
-    )
-    return render(
+    patients = patients.annotate(
+        visit_count=Count("visit_records", distinct=True),
+        note_count=Count("clinical_notes", distinct=True),
+        media_count=Count("record_media", distinct=True),
+    ).order_by("full_name", "id")
+
+    context = _dashboard_home_context(
         request,
-        "dashboard/patient_list.html",
-        _dashboard_context(request, patients=patients),
+        language=language,
+        metrics={},
+        schedule_items=[],
     )
+    patient_list_url = _dashboard_patient_list_url(language)
+    for nav_item in context["dashboard_nav_items"]:
+        if nav_item["key"] == "patients":
+            nav_item["url"] = patient_list_url
+            break
+    context.update(
+        {
+            "page_key": "dashboard_patient_list",
+            "page_title": (
+                f"المرضى | {context['clinic']['name_ar']}"
+                if language == "ar"
+                else f"Patients | {context['clinic']['name_en']}"
+            ),
+            "meta_description": (
+                "إدارة ملفات المرضى والوصول إلى السجلات الطبية."
+                if language == "ar"
+                else "Manage patient files and access medical records."
+            ),
+            "canonical_url": request.build_absolute_uri(patient_list_url),
+            "active_dashboard_nav": "patients",
+            "dashboard_patients_url": patient_list_url,
+            "dashboard_language_switch_url": _dashboard_patient_list_url(
+                alternate_language,
+                query=search_query,
+            ),
+            "patient_search_clear_url": patient_list_url,
+            "patient_search_max_length": PATIENT_SEARCH_MAX_LENGTH,
+            "patient_search_query": search_query,
+            "total_patient_count": total_patient_count,
+            "patients": patients,
+        }
+    )
+    return render(request, "dashboard/patient_list.html", context)
 
 
 @_staff_required
