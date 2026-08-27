@@ -162,6 +162,12 @@ class DashboardRecordWorkflowMixin:
         self.assertIn("no-cache", cache_control)
         self.assertIn("no-store", cache_control)
 
+    def patient_record_url(self, patient, *, language="ar", fragment=None):
+        url = reverse("dashboard_patient_record_detail", kwargs={"patient_id": patient.id})
+        if language == "en":
+            url = f"{url}?lang=en"
+        return f"{url}#{fragment}" if fragment else url
+
 
 class DashboardRecordAccessTests(DashboardRecordWorkflowMixin, TestCase):
     def setUp(self):
@@ -222,6 +228,43 @@ class DashboardRecordAccessTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertContains(response, self.patient.full_name)
         self.assertContains(response, self.patient.phone)
         self.assert_no_cache(response)
+
+    def test_anonymous_english_record_workflow_redirects_to_english_doctor_login(self):
+        media = self.create_media(patient=self.patient)
+        urls = [
+            reverse("dashboard_patient_record_detail", kwargs={"patient_id": self.patient.id}),
+            reverse("dashboard_visit_create", kwargs={"patient_id": self.patient.id}),
+            reverse("dashboard_note_create", kwargs={"patient_id": self.patient.id}),
+            reverse("dashboard_media_create", kwargs={"patient_id": self.patient.id}),
+            reverse(
+                "dashboard_media_update",
+                kwargs={"patient_id": self.patient.id, "public_id": media.public_id},
+            ),
+        ]
+
+        for url in urls:
+            with self.subTest(url=url):
+                response = self.client.get(f"{url}?lang=en")
+
+                self.assertEqual(response.status_code, 302)
+                self.assertIn(f"{reverse('login_en')}?role=doctor&next=", response["Location"])
+
+    def test_non_staff_cannot_access_record_create_or_edit_pages(self):
+        media = self.create_media(patient=self.patient)
+        self.client.force_login(self.normal_user)
+        urls = [
+            reverse("dashboard_visit_create", kwargs={"patient_id": self.patient.id}),
+            reverse("dashboard_note_create", kwargs={"patient_id": self.patient.id}),
+            reverse("dashboard_media_create", kwargs={"patient_id": self.patient.id}),
+            reverse(
+                "dashboard_media_update",
+                kwargs={"patient_id": self.patient.id, "public_id": media.public_id},
+            ),
+        ]
+
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 403)
 
 
 class DashboardPatientListTests(DashboardRecordWorkflowMixin, TestCase):
@@ -758,6 +801,179 @@ class DashboardCreateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
         self.patient = self.create_patient()
         self.client.force_login(self.staff)
 
+    def test_create_forms_use_dashboard_shell_and_localized_labels(self):
+        cases = (
+            (
+                "dashboard_visit_create",
+                ("إضافة زيارة", "تاريخ الزيارة", "التشخيص / الخطة", "حفظ الزيارة"),
+                ("Add Visit", "Visit date", "Diagnosis / plan", "Save Visit"),
+            ),
+            (
+                "dashboard_note_create",
+                ("إضافة ملاحظة سريرية", "نوع الملاحظة", "نص الملاحظة", "حفظ الملاحظة"),
+                ("Add Clinical Note", "Note type", "Note body", "Save Note"),
+            ),
+            (
+                "dashboard_media_create",
+                ("رفع ملف خاص", "نوع الملف", "حالة الظهور", "موافقة مؤكدة"),
+                ("Upload Private Media", "Media type", "Visibility", "Confirmed consent"),
+            ),
+        )
+
+        for route_name, arabic_labels, english_labels in cases:
+            route = reverse(route_name, kwargs={"patient_id": self.patient.id})
+            for language, labels, direction in (
+                ("ar", arabic_labels, "rtl"),
+                ("en", english_labels, "ltr"),
+            ):
+                with self.subTest(route=route_name, language=language):
+                    response = self.client.get(
+                        route,
+                        {"lang": "en"} if language == "en" else {},
+                    )
+
+                    self.assertEqual(response.status_code, 200)
+                    self.assertTemplateUsed(response, "dashboard/base.html")
+                    self.assertContains(response, f'<html lang="{language}" dir="{direction}">')
+                    self.assertContains(response, 'class="dashboard-sidebar"')
+                    self.assertContains(response, "css/dashboard-patient-record.css")
+                    self.assertEqual(response.context["active_dashboard_nav"], "patients")
+                    for label in labels:
+                        self.assertContains(response, label)
+                    for legacy_fragment in (
+                        'class="site-shell',
+                        'class="page-hero',
+                        'class="booking-form',
+                        'class="booking-steps',
+                        'class="trust-note',
+                    ):
+                        self.assertNotContains(response, legacy_fragment)
+
+    def test_media_create_form_preserves_multipart_and_three_visibility_states(self):
+        response = self.client.get(
+            reverse("dashboard_media_create", kwargs={"patient_id": self.patient.id}),
+            {"lang": "en"},
+        )
+
+        self.assertContains(response, 'enctype="multipart/form-data"')
+        self.assertContains(response, 'value="private_only"')
+        self.assertContains(response, 'value="visible_to_patient"')
+        self.assertContains(response, 'value="approved_public_case"')
+        self.assertContains(response, "Private only")
+        self.assertContains(response, "Visible to patient")
+        self.assertContains(response, "Approved public case")
+
+    def test_english_form_language_switch_and_cancel_keep_patient_context(self):
+        cases = (
+            ("dashboard_visit_create", "visits"),
+            ("dashboard_note_create", "clinical-notes"),
+            ("dashboard_media_create", "private-media"),
+        )
+        for route_name, fragment in cases:
+            with self.subTest(route_name=route_name):
+                route = reverse(route_name, kwargs={"patient_id": self.patient.id})
+                response = self.client.get(route, {"lang": "en"})
+
+                self.assertEqual(response.context["dashboard_language_switch_url"], route)
+                self.assertEqual(
+                    response.context["cancel_url"],
+                    self.patient_record_url(
+                        self.patient,
+                        language="en",
+                        fragment=fragment,
+                    ),
+                )
+                self.assertContains(response, self.patient.full_name)
+
+    def test_english_successful_posts_return_to_localized_record_sections(self):
+        visit_url = reverse("dashboard_visit_create", kwargs={"patient_id": self.patient.id})
+        visit_response = self.client.post(
+            f"{visit_url}?lang=en",
+            {
+                "appointment": "",
+                "visit_date": "2026-01-15T10:30",
+                "visit_reason": "SYNTHETIC-ENGLISH-VISIT",
+            },
+        )
+        visit = VisitRecord.objects.get(patient=self.patient)
+        note_url = reverse("dashboard_note_create", kwargs={"patient_id": self.patient.id})
+        note_response = self.client.post(
+            f"{note_url}?lang=en",
+            {
+                "visit": str(visit.id),
+                "note_type": ClinicalNote.NoteType.DOCTOR_NOTE,
+                "title": "SYNTHETIC-ENGLISH-NOTE",
+                "body": "SYNTHETIC-ENGLISH-NOTE-BODY",
+            },
+        )
+        media_url = reverse("dashboard_media_create", kwargs={"patient_id": self.patient.id})
+        media_response = self.client.post(
+            f"{media_url}?lang=en",
+            {
+                "visit": str(visit.id),
+                "media_type": RecordMedia.MediaType.IMAGE,
+                "file": self.synthetic_image_file(name="synthetic-english-image.jpg"),
+                "title": "SYNTHETIC-ENGLISH-MEDIA",
+                "description": "SYNTHETIC-ENGLISH-MEDIA-DESCRIPTION",
+                "visibility": RecordMedia.Visibility.PRIVATE_ONLY,
+                "is_active": "on",
+            },
+        )
+
+        self.assertRedirects(
+            visit_response,
+            self.patient_record_url(self.patient, language="en", fragment="visits"),
+            fetch_redirect_response=False,
+        )
+        self.assertRedirects(
+            note_response,
+            self.patient_record_url(
+                self.patient,
+                language="en",
+                fragment="clinical-notes",
+            ),
+            fetch_redirect_response=False,
+        )
+        self.assertRedirects(
+            media_response,
+            self.patient_record_url(
+                self.patient,
+                language="en",
+                fragment="private-media",
+            ),
+            fetch_redirect_response=False,
+        )
+
+    def test_media_consent_validation_error_is_localized_without_changing_rule(self):
+        route = reverse("dashboard_media_create", kwargs={"patient_id": self.patient.id})
+        payload = {
+            "visit": "",
+            "media_type": RecordMedia.MediaType.IMAGE,
+            "file": self.synthetic_image_file(name="synthetic-consent-ar.jpg"),
+            "title": "SYNTHETIC-CONSENT-AR",
+            "visibility": RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+            "is_active": "on",
+        }
+        arabic = self.client.post(route, payload)
+        english_payload = {
+            **payload,
+            "file": self.synthetic_image_file(name="synthetic-consent-en.jpg"),
+            "title": "SYNTHETIC-CONSENT-EN",
+        }
+        english = self.client.post(f"{route}?lang=en", english_payload)
+
+        self.assertContains(
+            arabic,
+            "تتطلب وسائط الحالة العامة موافقة مؤكدة.",
+            status_code=400,
+        )
+        self.assertContains(
+            english,
+            "Public case media requires confirmed consent.",
+            status_code=400,
+        )
+        self.assertEqual(RecordMedia.objects.filter(patient=self.patient).count(), 0)
+
     def test_staff_can_create_visit_record_with_private_default(self):
         response = self.client.post(
             reverse("dashboard_visit_create", kwargs={"patient_id": self.patient.id}),
@@ -774,7 +990,7 @@ class DashboardCreateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
 
         self.assertRedirects(
             response,
-            reverse("dashboard_patient_record_detail", kwargs={"patient_id": self.patient.id}),
+            self.patient_record_url(self.patient, fragment="visits"),
             fetch_redirect_response=False,
         )
         visit = VisitRecord.objects.get(patient=self.patient)
@@ -797,7 +1013,7 @@ class DashboardCreateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
 
         self.assertRedirects(
             response,
-            reverse("dashboard_patient_record_detail", kwargs={"patient_id": self.patient.id}),
+            self.patient_record_url(self.patient, fragment="clinical-notes"),
             fetch_redirect_response=False,
         )
         note = ClinicalNote.objects.get(patient=self.patient)
@@ -821,7 +1037,7 @@ class DashboardCreateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
 
         self.assertRedirects(
             response,
-            reverse("dashboard_patient_record_detail", kwargs={"patient_id": self.patient.id}),
+            self.patient_record_url(self.patient, fragment="private-media"),
             fetch_redirect_response=False,
         )
         media = RecordMedia.objects.get(patient=self.patient)
@@ -846,7 +1062,7 @@ class DashboardCreateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
 
         self.assertRedirects(
             response,
-            reverse("dashboard_patient_record_detail", kwargs={"patient_id": self.patient.id}),
+            self.patient_record_url(self.patient, fragment="private-media"),
             fetch_redirect_response=False,
         )
         media = RecordMedia.objects.get(patient=self.patient)
@@ -873,7 +1089,7 @@ class DashboardCreateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertContains(response, "Unsupported image", status_code=400)
+        self.assertContains(response, "امتداد ملف الصورة غير مدعوم.", status_code=400)
         self.assertEqual(RecordMedia.objects.filter(patient=self.patient).count(), 0)
 
     def test_approved_public_case_without_consent_is_rejected(self):
@@ -891,7 +1107,7 @@ class DashboardCreateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertContains(response, "Public case media requires confirmed consent.", status_code=400)
+        self.assertContains(response, "تتطلب وسائط الحالة العامة موافقة مؤكدة.", status_code=400)
         self.assertEqual(RecordMedia.objects.filter(patient=self.patient).count(), 0)
 
     def test_dashboard_posts_are_csrf_protected(self):
@@ -953,6 +1169,64 @@ class DashboardUpdateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
             kwargs={"patient_id": self.patient.id, "public_id": media.public_id},
         )
 
+    def test_media_edit_uses_localized_dashboard_shell_and_compact_summary(self):
+        media = self.create_media(
+            patient=self.patient,
+            uploaded_by=self.staff,
+            visibility=RecordMedia.Visibility.PRIVATE_ONLY,
+        )
+        route = self.media_update_url(media)
+
+        for language, direction, title, media_type, summary in (
+            ("ar", "rtl", "تعديل الملف", "صورة", "ملخص الملف"),
+            ("en", "ltr", "Edit Media", "Image", "Media Summary"),
+        ):
+            with self.subTest(language=language):
+                response = self.client.get(
+                    route,
+                    {"lang": "en"} if language == "en" else {},
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertTemplateUsed(response, "dashboard/base.html")
+                self.assertContains(response, f'<html lang="{language}" dir="{direction}">')
+                self.assertContains(response, title)
+                self.assertContains(response, summary)
+                self.assertContains(response, media_type)
+                self.assertContains(response, str(self.staff))
+                self.assertContains(response, "css/dashboard-patient-record.css")
+                self.assertNotContains(response, 'class="page-hero')
+                self.assertNotContains(response, 'class="booking-form')
+                self.assertNotContains(response, 'enctype="multipart/form-data"')
+
+    def test_english_media_edit_returns_to_english_private_media_section(self):
+        media = self.create_media(
+            patient=self.patient,
+            visibility=RecordMedia.Visibility.PRIVATE_ONLY,
+        )
+
+        response = self.client.post(
+            f"{self.media_update_url(media)}?lang=en",
+            {
+                "title": "SYNTHETIC-ENGLISH-UPDATED-MEDIA",
+                "description": "SYNTHETIC-ENGLISH-UPDATED-DESCRIPTION",
+                "visibility": RecordMedia.Visibility.VISIBLE_TO_PATIENT,
+                "is_active": "on",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            self.patient_record_url(
+                self.patient,
+                language="en",
+                fragment="private-media",
+            ),
+            fetch_redirect_response=False,
+        )
+        media.refresh_from_db()
+        self.assertEqual(media.visibility, RecordMedia.Visibility.VISIBLE_TO_PATIENT)
+
     def test_staff_can_update_media_title_description_and_visibility(self):
         media = self.create_media(patient=self.patient, visibility=RecordMedia.Visibility.PRIVATE_ONLY)
 
@@ -968,7 +1242,7 @@ class DashboardUpdateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
 
         self.assertRedirects(
             response,
-            reverse("dashboard_patient_record_detail", kwargs={"patient_id": self.patient.id}),
+            self.patient_record_url(self.patient, fragment="private-media"),
             fetch_redirect_response=False,
         )
         media.refresh_from_db()
@@ -1048,7 +1322,7 @@ class DashboardUpdateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
         )
 
         self.assertEqual(rejected.status_code, 400)
-        self.assertContains(rejected, "Public case media requires confirmed consent.", status_code=400)
+        self.assertContains(rejected, "تتطلب وسائط الحالة العامة موافقة مؤكدة.", status_code=400)
         self.assertEqual(accepted.status_code, 302)
         self.assertEqual(media.visibility, RecordMedia.Visibility.APPROVED_PUBLIC_CASE)
         self.assertTrue(media.consent_confirmed)
@@ -1139,6 +1413,58 @@ class DashboardUpdateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertNotEqual(media.title, "Blocked title")
 
 
+class DashboardPatientRecordResponsiveContractTests(TestCase):
+    def test_record_templates_use_only_the_dashboard_shell_and_focused_stylesheet(self):
+        project_root = Path(__file__).resolve().parents[2]
+        template_paths = (
+            "patient_record_detail.html",
+            "visit_form.html",
+            "note_form.html",
+            "media_form.html",
+        )
+
+        for template_name in template_paths:
+            with self.subTest(template_name=template_name):
+                source = (project_root / "templates" / "dashboard" / template_name).read_text(
+                    encoding="utf-8"
+                )
+
+                self.assertIn('{% extends "dashboard/base.html" %}', source)
+                self.assertIn("{% block dashboard_content %}", source)
+                self.assertIn("dashboard-patient-record.css", source)
+                self.assertNotIn('{% extends "base.html" %}', source)
+                self.assertNotIn("dashboard/_dashboard_nav.html", source)
+                self.assertNotIn("page-hero", source)
+                self.assertNotIn("booking-form", source)
+                self.assertNotIn("trust-note", source)
+
+    def test_record_styles_define_mobile_single_column_and_overflow_contracts(self):
+        css = (
+            Path(__file__).resolve().parents[2]
+            / "static"
+            / "css"
+            / "dashboard-patient-record.css"
+        ).read_text(encoding="utf-8")
+
+        for contract in (
+            ".patient-record-content",
+            "width: min(100%, 78rem);",
+            "overflow-wrap: anywhere;",
+            "word-break: break-word;",
+            "flex-wrap: wrap;",
+            "color: var(--dashboard-white);",
+            "@media (max-width: 47.999rem)",
+            "@media (max-width: 35rem)",
+            "@media (max-width: 22rem)",
+            ".record-patient-details",
+            ".record-action-bar",
+            ".record-media-actions",
+            "grid-template-columns: minmax(0, 1fr);",
+        ):
+            with self.subTest(contract=contract):
+                self.assertIn(contract, css)
+
+
 class DashboardRegressionTests(DashboardRecordWorkflowMixin, TestCase):
     def test_patient_portal_medical_records_remain_read_only(self):
         patient_user = self.create_user(username="synthetic-dashboard-read-only-user")
@@ -1217,7 +1543,7 @@ class DashboardRegressionTests(DashboardRecordWorkflowMixin, TestCase):
                 self.assertEqual(response.status_code, 404)
 
 
-class DashboardOverviewTests(DashboardRecordWorkflowMixin, TestCase):
+class DashboardOverviewTestMixin(DashboardRecordWorkflowMixin):
     def setUp(self):
         self.staff = self.create_staff()
         self.doctor = Doctor.objects.create(
@@ -1275,6 +1601,200 @@ class DashboardOverviewTests(DashboardRecordWorkflowMixin, TestCase):
         query = {"lang": "en"} if language == "en" else {}
         return self.client.get(reverse("dashboard_home"), query)
 
+
+class DashboardPatientRecordPresentationTests(DashboardRecordWorkflowMixin, TestCase):
+    def setUp(self):
+        self.staff = self.create_staff()
+        self.patient = self.create_patient()
+        self.client.force_login(self.staff)
+
+    def record_detail(self, *, language="ar"):
+        url = reverse(
+            "dashboard_patient_record_detail",
+            kwargs={"patient_id": self.patient.id},
+        )
+        return self.client.get(url, {"lang": "en"} if language == "en" else {})
+
+    def test_record_detail_uses_dashboard_shell_in_arabic_and_english(self):
+        for language, direction, heading in (
+            ("ar", "rtl", "سجل المريض"),
+            ("en", "ltr", "Patient Record"),
+        ):
+            with self.subTest(language=language):
+                response = self.record_detail(language=language)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertTemplateUsed(response, "dashboard/base.html")
+                self.assertContains(response, f'<html lang="{language}" dir="{direction}">')
+                self.assertContains(response, 'class="dashboard-shell')
+                self.assertContains(response, 'class="dashboard-sidebar"')
+                self.assertContains(
+                    response,
+                    'class="dashboard-nav-link is-active"',
+                )
+                self.assertContains(response, heading)
+                self.assertContains(response, "css/dashboard-patient-record.css")
+                self.assertEqual(response.context["active_dashboard_nav"], "patients")
+                for legacy_fragment in (
+                    'class="site-shell',
+                    'class="site-header',
+                    'class="site-footer',
+                    'class="page-hero',
+                    'class="booking-steps',
+                    'class="trust-note',
+                ):
+                    self.assertNotContains(response, legacy_fragment)
+
+    def test_record_language_switch_and_actions_preserve_workflow_language(self):
+        detail_path = reverse(
+            "dashboard_patient_record_detail",
+            kwargs={"patient_id": self.patient.id},
+        )
+        english = self.record_detail(language="en")
+        arabic = self.record_detail(language="ar")
+
+        self.assertEqual(
+            arabic.context["dashboard_language_switch_url"],
+            f"{detail_path}?lang=en",
+        )
+        self.assertEqual(english.context["dashboard_language_switch_url"], detail_path)
+        self.assertEqual(
+            english.context["dashboard_patients_url"],
+            f"{reverse('dashboard_patient_list')}?lang=en",
+        )
+        for action_name in (
+            "dashboard_visit_create",
+            "dashboard_note_create",
+            "dashboard_media_create",
+        ):
+            action_url = reverse(action_name, kwargs={"patient_id": self.patient.id})
+            self.assertContains(english, f'href="{action_url}?lang=en"')
+
+    def test_english_patient_list_opens_the_record_in_english(self):
+        response = self.client.get(reverse("dashboard_patient_list"), {"lang": "en"})
+
+        self.assertContains(
+            response,
+            f'href="{self.patient_record_url(self.patient, language="en")}"',
+        )
+
+    def test_patient_identity_card_uses_only_approved_fields_and_ltr_phone(self):
+        self.patient.phone_raw = "079-INTERNAL-RAW"
+        self.patient.phone_e164 = "+962790000000"
+        self.patient.notes = "SYNTHETIC-PRIVATE-PATIENT-NOTES"
+        self.patient.gender = Patient.Gender.FEMALE
+        self.patient.save(update_fields=["phone_raw", "phone_e164", "notes", "gender"])
+
+        response = self.record_detail(language="en")
+
+        self.assertContains(response, "Patient Information")
+        self.assertContains(response, self.patient.full_name)
+        self.assertContains(response, '<dd dir="ltr">+962790000000</dd>', html=True)
+        self.assertContains(response, "1990-01-01")
+        self.assertContains(response, "Female")
+        self.assertNotContains(response, self.patient.phone_raw)
+        self.assertNotContains(response, self.patient.notes)
+        self.assertNotContains(response, "Patient ID")
+        self.assertNotContains(response, "data-patient-id")
+
+    def test_record_detail_renders_all_visit_and_note_fields_without_token_leakage(self):
+        appointment = self.create_appointment(self.patient)
+        visit = self.create_visit(
+            patient=self.patient,
+            appointment=appointment,
+            visit_reason="SYNTHETIC-VISIT-REASON",
+            doctor_notes="SYNTHETIC-DOCTOR-NOTES",
+            diagnosis_plan="SYNTHETIC-DIAGNOSIS-PLAN",
+            instructions="SYNTHETIC-INSTRUCTIONS",
+            follow_up_notes="SYNTHETIC-FOLLOW-UP",
+            is_visible_to_patient=True,
+        )
+        self.create_note(
+            patient=self.patient,
+            visit=visit,
+            note_type=ClinicalNote.NoteType.FOLLOW_UP,
+            title="SYNTHETIC-CLINICAL-TITLE",
+            body="SYNTHETIC-CLINICAL-BODY",
+            is_visible_to_patient=False,
+        )
+
+        response = self.record_detail(language="en")
+
+        for content in (
+            appointment.visit_type.name_en,
+            appointment.doctor.display_name_en,
+            "SYNTHETIC-VISIT-REASON",
+            "SYNTHETIC-DOCTOR-NOTES",
+            "SYNTHETIC-DIAGNOSIS-PLAN",
+            "SYNTHETIC-INSTRUCTIONS",
+            "SYNTHETIC-FOLLOW-UP",
+            "SYNTHETIC-CLINICAL-TITLE",
+            "SYNTHETIC-CLINICAL-BODY",
+            "Follow-up",
+            "Visible to patient",
+            "Private only",
+        ):
+            self.assertContains(response, content)
+        self.assertNotContains(response, str(appointment.public_token))
+
+    def test_record_detail_has_concise_bilingual_empty_states(self):
+        arabic = self.record_detail(language="ar")
+        english = self.record_detail(language="en")
+
+        for empty_state in (
+            "لا توجد زيارات بعد.",
+            "لا توجد ملاحظات سريرية بعد.",
+            "لا توجد وسائط خاصة بعد.",
+        ):
+            self.assertContains(arabic, empty_state)
+        for empty_state in (
+            "No visits yet.",
+            "No clinical notes yet.",
+            "No private media yet.",
+        ):
+            self.assertContains(english, empty_state)
+
+    def test_record_collections_remain_bounded_without_per_item_queries(self):
+        baseline_appointment = self.create_appointment(self.patient)
+        baseline_visit = self.create_visit(patient=self.patient, appointment=baseline_appointment)
+        self.create_note(patient=self.patient, visit=baseline_visit, created_by=self.staff)
+        self.create_media(patient=self.patient, visit=baseline_visit, uploaded_by=self.staff)
+        request = RequestFactory().get(
+            reverse("dashboard_patient_record_detail", kwargs={"patient_id": self.patient.id})
+        )
+        request.user = self.staff
+
+        with CaptureQueriesContext(connection) as baseline_capture:
+            baseline_response = dashboard_views.dashboard_patient_record_detail(
+                request,
+                self.patient.id,
+            )
+        self.assertEqual(baseline_response.status_code, 200)
+
+        for index in range(4):
+            appointment = self.create_appointment(self.patient)
+            visit = self.create_visit(
+                patient=self.patient,
+                appointment=appointment,
+                visit_reason=f"SYNTHETIC-QUERY-VISIT-{index}",
+            )
+            self.create_note(patient=self.patient, visit=visit, created_by=self.staff)
+            self.create_media(patient=self.patient, visit=visit, uploaded_by=self.staff)
+
+        expanded_request = RequestFactory().get(
+            reverse("dashboard_patient_record_detail", kwargs={"patient_id": self.patient.id})
+        )
+        expanded_request.user = self.staff
+        with CaptureQueriesContext(connection) as expanded_capture:
+            expanded_response = dashboard_views.dashboard_patient_record_detail(
+                expanded_request,
+                self.patient.id,
+            )
+        self.assertEqual(expanded_response.status_code, 200)
+        self.assertEqual(len(expanded_capture), len(baseline_capture))
+
+
+class DashboardOverviewTests(DashboardOverviewTestMixin, TestCase):
     def test_dashboard_home_route_uses_staff_boundary_and_never_cache(self):
         route = reverse("dashboard_home")
 

@@ -47,10 +47,41 @@ from .forms import (
 )
 
 
-VISIBILITY_LABELS = {
-    RecordMedia.Visibility.PRIVATE_ONLY: "خاص فقط",
-    RecordMedia.Visibility.VISIBLE_TO_PATIENT: "ظاهر للمريض",
-    RecordMedia.Visibility.APPROVED_PUBLIC_CASE: "حالة عامة بموافقة",
+RECORD_VISIBILITY_LABELS = {
+    "ar": {
+        RecordMedia.Visibility.PRIVATE_ONLY: "خاص فقط",
+        RecordMedia.Visibility.VISIBLE_TO_PATIENT: "ظاهر للمريض",
+        RecordMedia.Visibility.APPROVED_PUBLIC_CASE: "حالة عامة بموافقة",
+    },
+    "en": {
+        RecordMedia.Visibility.PRIVATE_ONLY: "Private only",
+        RecordMedia.Visibility.VISIBLE_TO_PATIENT: "Visible to patient",
+        RecordMedia.Visibility.APPROVED_PUBLIC_CASE: "Approved public case",
+    },
+}
+RECORD_NOTE_TYPE_LABELS = {
+    "ar": {
+        ClinicalNote.NoteType.DOCTOR_NOTE: "ملاحظة طبيب",
+        ClinicalNote.NoteType.STAFF_NOTE: "ملاحظة طاقم",
+        ClinicalNote.NoteType.FOLLOW_UP: "متابعة",
+    },
+    "en": dict(ClinicalNote.NoteType.choices),
+}
+RECORD_MEDIA_TYPE_LABELS = {
+    "ar": {
+        RecordMedia.MediaType.IMAGE: "صورة",
+        RecordMedia.MediaType.SHORT_VIDEO: "فيديو قصير",
+    },
+    "en": dict(RecordMedia.MediaType.choices),
+}
+PATIENT_GENDER_LABELS = {
+    "ar": {
+        Patient.Gender.FEMALE: "أنثى",
+        Patient.Gender.MALE: "ذكر",
+        Patient.Gender.OTHER: "آخر",
+        Patient.Gender.PREFER_NOT_TO_SAY: "يفضل عدم الإفصاح",
+    },
+    "en": dict(Patient.Gender.choices),
 }
 
 DASHBOARD_EXCLUDED_TODAY_STATUSES = (
@@ -2547,55 +2578,116 @@ def _method_allowed(request, methods):
     return None
 
 
-def _dashboard_context(request, **extra):
-    context = _base_context(request, "booking", "ar")
+def _dashboard_record_url(route_name, language, *, kwargs=None, fragment=None):
+    route = reverse(route_name, kwargs=kwargs)
+    if language == "en":
+        route = f"{route}?{urlencode({'lang': 'en'})}"
+    return f"{route}#{fragment}" if fragment else route
+
+
+def _patient_record_detail_url(patient, language="ar", *, fragment=None):
+    return _dashboard_record_url(
+        "dashboard_patient_record_detail",
+        language,
+        kwargs={"patient_id": patient.id},
+        fragment=fragment,
+    )
+
+
+def _dashboard_record_context(
+    request,
+    *,
+    patient,
+    route_name,
+    route_kwargs,
+    **extra,
+):
+    language = _dashboard_language(request)
+    alternate_language = "en" if language == "ar" else "ar"
+    context = _dashboard_home_context(
+        request,
+        language=language,
+        metrics={},
+        schedule_items=[],
+    )
+    patient_list_url = _dashboard_patient_list_url(language)
+    for nav_item in context["dashboard_nav_items"]:
+        if nav_item["key"] == "patients":
+            nav_item["url"] = patient_list_url
+            break
+
+    current_url = _dashboard_record_url(route_name, language, kwargs=route_kwargs)
     context.update(
         {
-            "page_key": "dashboard_records",
-            "page_title": f"لوحة سجلات المرضى | {context['clinic']['name_ar']}",
-            "meta_description": "صفحات داخلية مخصصة لفريق العيادة لإدارة سجلات المرضى والوسائط الخاصة.",
-            "canonical_url": request.build_absolute_uri(request.path),
-            "dashboard_patients_url": reverse("dashboard_patient_list"),
-            "staff_appointments_url": reverse("staff_appointment_list"),
-            "dashboard_nav_items": [
-                {
-                    "label": "المرضى والسجلات",
-                    "url": reverse("dashboard_patient_list"),
-                },
-                {
-                    "label": "المواعيد",
-                    "url": reverse("staff_appointment_list"),
-                },
-            ],
+            "page_key": "dashboard_patient_record",
+            "page_title": (
+                f"سجل المريض | {context['clinic']['name_ar']}"
+                if language == "ar"
+                else f"Patient Record | {context['clinic']['name_en']}"
+            ),
+            "meta_description": (
+                "إدارة سجل المريض والوسائط الخاصة ضمن بوابة الطاقم."
+                if language == "ar"
+                else "Manage the patient record and private media in the staff portal."
+            ),
+            "canonical_url": request.build_absolute_uri(current_url),
+            "active_dashboard_nav": "patients",
+            "dashboard_patients_url": patient_list_url,
+            "dashboard_language_switch_url": _dashboard_record_url(
+                route_name,
+                alternate_language,
+                kwargs=route_kwargs,
+            ),
+            "patient": patient,
+            "patient_record_url": _patient_record_detail_url(patient, language),
+            "patient_gender_label": PATIENT_GENDER_LABELS[language].get(
+                patient.gender,
+                patient.get_gender_display(),
+            ),
+            "has_patient_age": patient.age is not None,
         }
     )
     context.update(extra)
     return context
 
 
-def _patient_record_detail_url(patient):
-    return reverse("dashboard_patient_record_detail", kwargs={"patient_id": patient.id})
+def _record_visibility_label(is_visible_to_patient, language):
+    visibility = (
+        RecordMedia.Visibility.VISIBLE_TO_PATIENT
+        if is_visible_to_patient
+        else RecordMedia.Visibility.PRIVATE_ONLY
+    )
+    return RECORD_VISIBILITY_LABELS[language][visibility]
 
 
-def _record_visibility_label(is_visible_to_patient):
-    return "ظاهر للمريض" if is_visible_to_patient else "خاص فقط"
-
-
-def _media_status_labels(media):
+def _media_status_labels(media, language):
     labels = [
         {
-            "label": VISIBILITY_LABELS.get(media.visibility, media.get_visibility_display()),
+            "label": RECORD_VISIBILITY_LABELS[language].get(
+                media.visibility,
+                media.get_visibility_display(),
+            ),
             "class": f"status-{media.visibility}",
         }
     ]
     if media.consent_confirmed:
-        labels.append({"label": "موافقة مؤكدة", "class": "status-consent-confirmed"})
+        labels.append(
+            {
+                "label": "موافقة مؤكدة" if language == "ar" else "Consent confirmed",
+                "class": "status-consent-confirmed",
+            }
+        )
     if not media.is_active:
-        labels.append({"label": "غير نشط", "class": "status-inactive"})
+        labels.append(
+            {
+                "label": "غير نشط" if language == "ar" else "Inactive",
+                "class": "status-inactive",
+            }
+        )
     return labels
 
 
-def _media_items(media_queryset):
+def _media_items(media_queryset, language):
     items = []
     for media in media_queryset:
         staff_download_url = ""
@@ -2610,11 +2702,16 @@ def _media_items(media_queryset):
         items.append(
             {
                 "media": media,
-                "status_labels": _media_status_labels(media),
+                "media_type_label": RECORD_MEDIA_TYPE_LABELS[language].get(
+                    media.media_type,
+                    media.get_media_type_display(),
+                ),
+                "status_labels": _media_status_labels(media, language),
                 "staff_download_url": staff_download_url,
                 "public_case_url": public_case_url,
-                "edit_url": reverse(
+                "edit_url": _dashboard_record_url(
                     "dashboard_media_update",
+                    language,
                     kwargs={
                         "patient_id": media.patient_id,
                         "public_id": media.public_id,
@@ -2683,6 +2780,7 @@ def dashboard_patient_list(request):
         patient.contact_display_number = (patient.phone or "").strip()
         patient.call_uri = _patient_call_uri(patient.phone_e164, patient.phone_raw)
         patient.whatsapp_url = _patient_whatsapp_url(patient.whatsapp_phone_e164)
+        patient.record_url = _patient_record_detail_url(patient, language)
 
     context = _dashboard_home_context(
         request,
@@ -2728,18 +2826,19 @@ def dashboard_patient_list(request):
 @_staff_required
 @require_GET
 def dashboard_patient_record_detail(request, patient_id):
+    language = _dashboard_language(request)
     patient = get_object_or_404(Patient, id=patient_id)
-    visits = (
+    visits = list(
         VisitRecord.objects.filter(patient=patient)
         .select_related("appointment", "appointment__doctor", "appointment__visit_type")
         .order_by("-visit_date", "-created_at")
     )
-    notes = (
+    notes = list(
         ClinicalNote.objects.filter(patient=patient)
         .select_related("visit", "created_by")
         .order_by("-created_at", "-id")
     )
-    media = (
+    media = list(
         RecordMedia.objects.filter(patient=patient)
         .select_related("visit", "uploaded_by")
         .order_by("-uploaded_at", "-id")
@@ -2747,27 +2846,54 @@ def dashboard_patient_record_detail(request, patient_id):
     return render(
         request,
         "dashboard/patient_record_detail.html",
-        _dashboard_context(
+        _dashboard_record_context(
             request,
             patient=patient,
+            route_name="dashboard_patient_record_detail",
+            route_kwargs={"patient_id": patient.id},
             visit_items=[
                 {
                     "visit": visit,
-                    "visibility_label": _record_visibility_label(visit.is_visible_to_patient),
+                    "visibility_label": _record_visibility_label(
+                        visit.is_visible_to_patient,
+                        language,
+                    ),
                 }
                 for visit in visits
             ],
             note_items=[
                 {
                     "note": note,
-                    "visibility_label": _record_visibility_label(note.is_visible_to_patient),
+                    "note_type_label": RECORD_NOTE_TYPE_LABELS[language].get(
+                        note.note_type,
+                        note.get_note_type_display(),
+                    ),
+                    "visibility_label": _record_visibility_label(
+                        note.is_visible_to_patient,
+                        language,
+                    ),
                 }
                 for note in notes
             ],
-            media_items=_media_items(media),
-            visit_create_url=reverse("dashboard_visit_create", kwargs={"patient_id": patient.id}),
-            note_create_url=reverse("dashboard_note_create", kwargs={"patient_id": patient.id}),
-            media_create_url=reverse("dashboard_media_create", kwargs={"patient_id": patient.id}),
+            media_items=_media_items(media, language),
+            visit_count=len(visits),
+            note_count=len(notes),
+            media_count=len(media),
+            visit_create_url=_dashboard_record_url(
+                "dashboard_visit_create",
+                language,
+                kwargs={"patient_id": patient.id},
+            ),
+            note_create_url=_dashboard_record_url(
+                "dashboard_note_create",
+                language,
+                kwargs={"patient_id": patient.id},
+            ),
+            media_create_url=_dashboard_record_url(
+                "dashboard_media_create",
+                language,
+                kwargs={"patient_id": patient.id},
+            ),
         ),
     )
 
@@ -2777,29 +2903,35 @@ def dashboard_visit_create(request, patient_id):
     not_allowed = _method_allowed(request, ["GET", "POST"])
     if not_allowed:
         return not_allowed
+    language = _dashboard_language(request)
     patient = get_object_or_404(Patient, id=patient_id)
     if request.method == "POST":
-        form = StaffVisitRecordForm(request.POST, patient=patient)
+        form = StaffVisitRecordForm(request.POST, patient=patient, language=language)
         if form.is_valid():
             visit = form.save(commit=False)
             visit.patient = patient
             visit.save()
-            messages.success(request, "تم إنشاء الزيارة.")
-            return redirect(_patient_record_detail_url(patient))
+            messages.success(
+                request,
+                "تم حفظ الزيارة." if language == "ar" else "Visit saved.",
+            )
+            return redirect(_patient_record_detail_url(patient, language, fragment="visits"))
         status = 400
     else:
-        form = StaffVisitRecordForm(patient=patient)
+        form = StaffVisitRecordForm(patient=patient, language=language)
         status = 200
 
     return render(
         request,
         "dashboard/visit_form.html",
-        _dashboard_context(
+        _dashboard_record_context(
             request,
             patient=patient,
+            route_name="dashboard_visit_create",
+            route_kwargs={"patient_id": patient.id},
             form=form,
-            form_title="إضافة زيارة",
-            cancel_url=_patient_record_detail_url(patient),
+            form_title="إضافة زيارة" if language == "ar" else "Add Visit",
+            cancel_url=_patient_record_detail_url(patient, language, fragment="visits"),
         ),
         status=status,
     )
@@ -2810,30 +2942,51 @@ def dashboard_note_create(request, patient_id):
     not_allowed = _method_allowed(request, ["GET", "POST"])
     if not_allowed:
         return not_allowed
+    language = _dashboard_language(request)
     patient = get_object_or_404(Patient, id=patient_id)
     if request.method == "POST":
-        form = StaffClinicalNoteForm(request.POST, patient=patient, created_by=request.user)
+        form = StaffClinicalNoteForm(
+            request.POST,
+            patient=patient,
+            created_by=request.user,
+            language=language,
+        )
         if form.is_valid():
             note = form.save(commit=False)
             note.patient = patient
             note.created_by = request.user
             note.save()
-            messages.success(request, "تم إنشاء الملاحظة.")
-            return redirect(_patient_record_detail_url(patient))
+            messages.success(
+                request,
+                "تم حفظ الملاحظة." if language == "ar" else "Clinical note saved.",
+            )
+            return redirect(
+                _patient_record_detail_url(patient, language, fragment="clinical-notes")
+            )
         status = 400
     else:
-        form = StaffClinicalNoteForm(patient=patient, created_by=request.user)
+        form = StaffClinicalNoteForm(
+            patient=patient,
+            created_by=request.user,
+            language=language,
+        )
         status = 200
 
     return render(
         request,
         "dashboard/note_form.html",
-        _dashboard_context(
+        _dashboard_record_context(
             request,
             patient=patient,
+            route_name="dashboard_note_create",
+            route_kwargs={"patient_id": patient.id},
             form=form,
-            form_title="إضافة ملاحظة سريرية",
-            cancel_url=_patient_record_detail_url(patient),
+            form_title="إضافة ملاحظة سريرية" if language == "ar" else "Add Clinical Note",
+            cancel_url=_patient_record_detail_url(
+                patient,
+                language,
+                fragment="clinical-notes",
+            ),
         ),
         status=status,
     )
@@ -2844,6 +2997,7 @@ def dashboard_media_create(request, patient_id):
     not_allowed = _method_allowed(request, ["GET", "POST"])
     if not_allowed:
         return not_allowed
+    language = _dashboard_language(request)
     patient = get_object_or_404(Patient, id=patient_id)
     if request.method == "POST":
         form = StaffRecordMediaCreateForm(
@@ -2851,28 +3005,44 @@ def dashboard_media_create(request, patient_id):
             request.FILES,
             patient=patient,
             uploaded_by=request.user,
+            language=language,
         )
         if form.is_valid():
             media = form.save(commit=False)
             media.patient = patient
             media.uploaded_by = request.user
             media.save()
-            messages.success(request, "تم رفع الملف الخاص.")
-            return redirect(_patient_record_detail_url(patient))
+            messages.success(
+                request,
+                "تم رفع الملف الخاص." if language == "ar" else "Private media uploaded.",
+            )
+            return redirect(
+                _patient_record_detail_url(patient, language, fragment="private-media")
+            )
         status = 400
     else:
-        form = StaffRecordMediaCreateForm(patient=patient, uploaded_by=request.user)
+        form = StaffRecordMediaCreateForm(
+            patient=patient,
+            uploaded_by=request.user,
+            language=language,
+        )
         status = 200
 
     return render(
         request,
         "dashboard/media_form.html",
-        _dashboard_context(
+        _dashboard_record_context(
             request,
             patient=patient,
+            route_name="dashboard_media_create",
+            route_kwargs={"patient_id": patient.id},
             form=form,
-            form_title="رفع صورة أو فيديو خاص",
-            cancel_url=_patient_record_detail_url(patient),
+            form_title="رفع ملف خاص" if language == "ar" else "Upload Private Media",
+            cancel_url=_patient_record_detail_url(
+                patient,
+                language,
+                fragment="private-media",
+            ),
             is_multipart=True,
         ),
         status=status,
@@ -2884,6 +3054,7 @@ def dashboard_media_update(request, patient_id, public_id):
     not_allowed = _method_allowed(request, ["GET", "POST"])
     if not_allowed:
         return not_allowed
+    language = _dashboard_language(request)
     patient = get_object_or_404(Patient, id=patient_id)
     media = get_object_or_404(
         RecordMedia.objects.select_related("patient", "visit", "uploaded_by"),
@@ -2891,26 +3062,41 @@ def dashboard_media_update(request, patient_id, public_id):
         public_id=public_id,
     )
     if request.method == "POST":
-        form = StaffRecordMediaUpdateForm(request.POST, instance=media)
+        form = StaffRecordMediaUpdateForm(request.POST, instance=media, language=language)
         if form.is_valid():
             form.save()
-            messages.success(request, "تم تحديث حالة الملف.")
-            return redirect(_patient_record_detail_url(patient))
+            messages.success(
+                request,
+                "تم تحديث الملف." if language == "ar" else "Media updated.",
+            )
+            return redirect(
+                _patient_record_detail_url(patient, language, fragment="private-media")
+            )
         status = 400
     else:
-        form = StaffRecordMediaUpdateForm(instance=media)
+        form = StaffRecordMediaUpdateForm(instance=media, language=language)
         status = 200
 
     return render(
         request,
         "dashboard/media_form.html",
-        _dashboard_context(
+        _dashboard_record_context(
             request,
             patient=patient,
+            route_name="dashboard_media_update",
+            route_kwargs={"patient_id": patient.id, "public_id": media.public_id},
             media=media,
+            media_type_label=RECORD_MEDIA_TYPE_LABELS[language].get(
+                media.media_type,
+                media.get_media_type_display(),
+            ),
             form=form,
-            form_title="تعديل حالة ملف",
-            cancel_url=_patient_record_detail_url(patient),
+            form_title="تعديل الملف" if language == "ar" else "Edit Media",
+            cancel_url=_patient_record_detail_url(
+                patient,
+                language,
+                fragment="private-media",
+            ),
             is_multipart=False,
         ),
         status=status,

@@ -94,7 +94,7 @@
                                 </div>
                             </dl>
                             <div class="patient-actions">
-                                <a class="patient-record-action" href="{% url 'dashboard_patient_record_detail' patient.id %}">
+                                <a class="patient-record-action" href="{{ patient.record_url }}">
                                     {% if is_arabic %}فتح السجل{% else %}Open Record{% endif %}
                                 </a>
                                 <div class="patient-contact">

@@ -1,50 +1,51 @@
-{% extends "base.html" %}
+{% extends "dashboard/base.html" %}
+{% load static %}
 
-{% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">لوحة داخلية للطاقم</p>
+{% block dashboard_styles %}
+    <link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content patient-record-content record-form-page">
+    <header class="record-page-header record-form-header">
+        <a class="record-back-link" href="{{ cancel_url }}">
+            <span aria-hidden="true">←</span>
+            <span>{% if is_arabic %}العودة إلى سجل المريض{% else %}Back to Patient Record{% endif %}</span>
+        </a>
+        <p class="record-eyebrow">{% if is_arabic %}المريض: {{ patient.full_name }}{% else %}Patient: {{ patient.full_name }}{% endif %}</p>
         <h1>{{ form_title }}</h1>
-        <p>المريض: {{ patient.full_name }}. الملفات الخاصة لا تستخدم روابط تخزين عامة.</p>
-    </div>
-</section>
+    </header>
 
-<section class="section">
-    <div class="container staff-layout">
-        {% include "dashboard/_dashboard_nav.html" %}
+    {% if media %}
+        <section class="record-media-summary" aria-labelledby="media-summary-title">
+            <h2 id="media-summary-title">{% if is_arabic %}ملخص الملف{% else %}Media Summary{% endif %}</h2>
+            <dl>
+                <div>
+                    <dt>{% if is_arabic %}نوع الملف{% else %}Media type{% endif %}</dt>
+                    <dd>{{ media_type_label }}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}رفع بواسطة{% else %}Uploaded by{% endif %}</dt>
+                    <dd>{% if media.uploaded_by %}{{ media.uploaded_by }}{% elif is_arabic %}غير محدد{% else %}Not specified{% endif %}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}تاريخ الرفع{% else %}Upload date{% endif %}</dt>
+                    <dd><time datetime="{{ media.uploaded_at|date:'c' }}" dir="ltr">{{ media.uploaded_at|date:"Y-m-d H:i" }}</time></dd>
+                </div>
+            </dl>
+        </section>
+    {% endif %}
 
-        {% if media %}
-            <section class="staff-panel">
-                <h2>ملخص الملف</h2>
-                <dl class="detail-list">
-                    <div>
-                        <dt>نوع الملف</dt>
-                        <dd>{{ media.get_media_type_display }}</dd>
-                    </div>
-                    <div>
-                        <dt>رفع بواسطة</dt>
-                        <dd>{{ media.uploaded_by|default:"غير محدد" }}</dd>
-                    </div>
-                    <div>
-                        <dt>تاريخ الرفع</dt>
-                        <dd>{{ media.uploaded_at|date:"Y-m-d H:i" }}</dd>
-                    </div>
-                </dl>
-            </section>
-        {% endif %}
-
-        <form class="booking-form" method="post" action=""{% if is_multipart %} enctype="multipart/form-data"{% endif %}>
+    <section class="record-form-panel" aria-labelledby="media-form-title">
+        <h2 class="dashboard-sr-only" id="media-form-title">{{ form_title }}</h2>
+        <form class="record-form" method="post" action=""{% if is_multipart %} enctype="multipart/form-data"{% endif %}>
             {% csrf_token %}
             {% include "dashboard/_form_fields.html" %}
-            <div class="hero-actions">
-                <button class="btn btn-primary" type="submit">حفظ الملف</button>
-                <a class="btn btn-secondary" href="{{ cancel_url }}">إلغاء</a>
+            <div class="record-form-actions">
+                <button type="submit">{% if is_arabic %}حفظ الملف{% else %}Save Media{% endif %}</button>
+                <a href="{{ cancel_url }}">{% if is_arabic %}إلغاء{% else %}Cancel{% endif %}</a>
             </div>
         </form>
-
-        <p class="trust-note">
-            خاص فقط يبقى داخليا. ظاهر للمريض لا يجعله عاما. حالة عامة بموافقة لا تحفظ إلا مع موافقة مؤكدة.
-        </p>
-    </div>
-</section>
+    </section>
+</div>
 {% endblock %}
