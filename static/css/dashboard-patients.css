@@ -457,11 +457,12 @@
     .patient-count {
         display: inline-flex;
         align-items: center;
-        gap: 0.25rem;
+        gap: 0.35rem;
         color: var(--dashboard-muted);
         font-size: 0.84rem;
         font-weight: 600;
         line-height: 1.25;
+        white-space: nowrap;
     }
 
     .patient-count + .patient-count::before {
@@ -477,14 +478,13 @@
         overflow: visible;
         clip: auto;
         clip-path: none;
-        white-space: normal;
+        white-space: nowrap;
     }
 
     .patient-count dd {
         display: inline-flex;
         flex: 0 0 auto;
         align-items: center;
-        order: -1;
         font-size: 0.9rem;
         white-space: nowrap;
     }
