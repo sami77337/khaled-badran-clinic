@@ -16,6 +16,9 @@ TIME_INPUT_FORMATS = ["%H:%M"]
 MAX_VISIT_DURATION_MINUTES = 65_535
 MAX_BOOKING_HORIZON_DAYS = 3_650
 MAX_BOOKING_RULE_MINUTES = 5_256_000
+PUBLIC_CASE_NOTE_MAX_LENGTH = 500
+PUBLIC_CASE_BEFORE_TITLE = "Before"
+PUBLIC_CASE_AFTER_TITLE = "After"
 
 RECORD_FIELD_ERROR_MESSAGES = {
     "ar": {
@@ -793,6 +796,168 @@ class StaffRecordMediaCreateForm(_LocalizedRecordFormMixin, forms.ModelForm):
                 },
             },
         )
+
+
+class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
+    visit = forms.ModelChoiceField(queryset=VisitRecord.objects.none())
+    before_image = forms.FileField(
+        required=False,
+        widget=forms.ClearableFileInput(
+            attrs={"accept": "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"}
+        ),
+    )
+    after_image = forms.FileField(
+        required=False,
+        widget=forms.ClearableFileInput(
+            attrs={"accept": "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"}
+        ),
+    )
+    video = forms.FileField(
+        required=False,
+        widget=forms.ClearableFileInput(attrs={"accept": "video/mp4,.mp4"}),
+    )
+    short_note = forms.CharField(
+        required=False,
+        max_length=PUBLIC_CASE_NOTE_MAX_LENGTH,
+        strip=True,
+        widget=forms.Textarea(
+            attrs={"rows": 3, "maxlength": str(PUBLIC_CASE_NOTE_MAX_LENGTH)}
+        ),
+    )
+    consent_confirmed = forms.BooleanField(required=True)
+
+    def __init__(self, *args, patient, uploaded_by, language="ar", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.patient = patient
+        self.uploaded_by = uploaded_by
+        self.media_instances = []
+        self.fields["visit"].queryset = VisitRecord.objects.filter(patient=patient).order_by(
+            "-visit_date",
+            "-created_at",
+        )
+        self.fields["visit"].empty_label = _scheduling_copy(
+            language,
+            "اختر الزيارة",
+            "Select a visit",
+        )
+        self._configure_record_localization(
+            language=language,
+            labels={
+                "ar": {
+                    "visit": "الزيارة المرتبطة",
+                    "before_image": "صورة قبل",
+                    "after_image": "صورة بعد",
+                    "video": "فيديو",
+                    "short_note": "ملاحظة قصيرة عن الحالة (اختياري)",
+                    "consent_confirmed": (
+                        "أؤكد أن موافقة المريض على النشر تم الحصول عليها في العيادة."
+                    ),
+                },
+                "en": {
+                    "visit": "Linked visit",
+                    "before_image": "Before image",
+                    "after_image": "After image",
+                    "video": "Video",
+                    "short_note": "Short case note (optional)",
+                    "consent_confirmed": (
+                        "I confirm that the patient's consent for public display was obtained "
+                        "in the clinic."
+                    ),
+                },
+            },
+            help_texts={
+                "ar": {
+                    "short_note": (
+                        "تظهر هذه الملاحظة للعامة. لا تُدخل تشخيصاً أو خطة علاج أو معلومات خاصة."
+                    ),
+                },
+                "en": {
+                    "short_note": (
+                        "This note is public. Do not include a diagnosis, treatment plan, or "
+                        "private information."
+                    ),
+                },
+            },
+        )
+        for validator in self.fields["short_note"].validators:
+            if getattr(validator, "code", "") == "max_length":
+                validator.message = RECORD_FIELD_ERROR_MESSAGES[self.language]["max_length"]
+
+    def _localized_model_error(self, message):
+        if self.language == "ar":
+            return RECORD_MODEL_ERROR_TRANSLATIONS_AR.get(message, message)
+        return message
+
+    def _add_media_validation_errors(self, field_name, error):
+        if hasattr(error, "message_dict"):
+            messages = [
+                message
+                for field_messages in error.message_dict.values()
+                for message in field_messages
+            ]
+        else:
+            messages = error.messages
+        for message in messages:
+            self.add_error(field_name, self._localized_model_error(message))
+
+    def clean(self):
+        cleaned_data = super().clean()
+        media_specs = (
+            (
+                "before_image",
+                RecordMedia.MediaType.IMAGE,
+                PUBLIC_CASE_BEFORE_TITLE,
+            ),
+            (
+                "after_image",
+                RecordMedia.MediaType.IMAGE,
+                PUBLIC_CASE_AFTER_TITLE,
+            ),
+            ("video", RecordMedia.MediaType.SHORT_VIDEO, ""),
+        )
+        supplied_specs = [
+            (field_name, media_type, title, cleaned_data.get(field_name))
+            for field_name, media_type, title in media_specs
+            if cleaned_data.get(field_name)
+        ]
+        if not supplied_specs:
+            self.add_error(
+                None,
+                _scheduling_copy(
+                    self.language,
+                    "أضف صورة قبل أو صورة بعد أو فيديو واحداً على الأقل.",
+                    "Add at least one before image, after image, or video.",
+                ),
+            )
+
+        visit = cleaned_data.get("visit")
+        if not visit or not cleaned_data.get("consent_confirmed") or not supplied_specs:
+            return cleaned_data
+
+        note = cleaned_data.get("short_note", "")
+        media_instances = []
+        for field_name, media_type, title, uploaded_file in supplied_specs:
+            media = RecordMedia(
+                patient=self.patient,
+                visit=visit,
+                media_type=media_type,
+                file=uploaded_file,
+                title=title,
+                description=note,
+                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+                consent_confirmed=True,
+                is_active=True,
+                uploaded_by=self.uploaded_by,
+            )
+            try:
+                media.full_clean()
+            except ValidationError as error:
+                self._add_media_validation_errors(field_name, error)
+            media_instances.append(media)
+
+        if not self.errors:
+            self.media_instances = media_instances
+        return cleaned_data
 
 
 class StaffRecordMediaUpdateForm(_LocalizedRecordFormMixin, forms.ModelForm):

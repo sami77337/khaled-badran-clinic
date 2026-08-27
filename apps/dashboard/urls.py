@@ -98,6 +98,11 @@ urlpatterns = [
         name="dashboard_media_create",
     ),
     path(
+        "patients/<int:patient_id>/records/public-case/create/",
+        views.dashboard_public_case_create,
+        name="dashboard_public_case_create",
+    ),
+    path(
         "patients/<int:patient_id>/records/media/<uuid:public_id>/edit/",
         views.dashboard_media_update,
         name="dashboard_media_update",

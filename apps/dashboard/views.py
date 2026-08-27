@@ -37,6 +37,7 @@ from .forms import (
     SpecialHoursDateForm,
     SpecialHoursForm,
     StaffClinicalNoteForm,
+    StaffPublicCaseCreateForm,
     StaffRecordMediaCreateForm,
     StaffRecordMediaUpdateForm,
     StaffVisitRecordForm,
@@ -2894,6 +2895,11 @@ def dashboard_patient_record_detail(request, patient_id):
                 language,
                 kwargs={"patient_id": patient.id},
             ),
+            public_case_create_url=_dashboard_record_url(
+                "dashboard_public_case_create",
+                language,
+                kwargs={"patient_id": patient.id},
+            ),
         ),
     )
 
@@ -3044,6 +3050,81 @@ def dashboard_media_create(request, patient_id):
                 fragment="private-media",
             ),
             is_multipart=True,
+        ),
+        status=status,
+    )
+
+
+@_staff_required
+def dashboard_public_case_create(request, patient_id):
+    not_allowed = _method_allowed(request, ["GET", "POST"])
+    if not_allowed:
+        return not_allowed
+    language = _dashboard_language(request)
+    patient = get_object_or_404(Patient, id=patient_id)
+    has_visits = VisitRecord.objects.filter(patient=patient).exists()
+    form = None
+    status = 200
+
+    if has_visits:
+        if request.method == "POST":
+            form = StaffPublicCaseCreateForm(
+                request.POST,
+                request.FILES,
+                patient=patient,
+                uploaded_by=request.user,
+                language=language,
+            )
+            if form.is_valid():
+                with transaction.atomic():
+                    for media in form.media_instances:
+                        media.full_clean()
+                    for media in form.media_instances:
+                        media.save()
+                messages.success(
+                    request,
+                    "تم نشر الحالة العامة."
+                    if language == "ar"
+                    else "Public case published.",
+                )
+                return redirect(
+                    _patient_record_detail_url(
+                        patient,
+                        language,
+                        fragment="private-media",
+                    )
+                )
+            status = 400
+        else:
+            form = StaffPublicCaseCreateForm(
+                patient=patient,
+                uploaded_by=request.user,
+                language=language,
+            )
+    elif request.method == "POST":
+        status = 400
+
+    return render(
+        request,
+        "dashboard/public_case_form.html",
+        _dashboard_record_context(
+            request,
+            patient=patient,
+            route_name="dashboard_public_case_create",
+            route_kwargs={"patient_id": patient.id},
+            form=form,
+            form_title="نشر حالة عامة" if language == "ar" else "Publish Public Case",
+            cancel_url=_patient_record_detail_url(
+                patient,
+                language,
+                fragment="private-media",
+            ),
+            has_visits=has_visits,
+            visit_create_url=_dashboard_record_url(
+                "dashboard_visit_create",
+                language,
+                kwargs={"patient_id": patient.id},
+            ),
         ),
         status=status,
     )

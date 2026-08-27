@@ -1,0 +1,40 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block dashboard_styles %}
+    <link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content patient-record-content record-form-page">
+    <header class="record-page-header record-form-header">
+        <a class="record-back-link" href="{{ cancel_url }}">
+            <span aria-hidden="true">←</span>
+            <span>{% if is_arabic %}العودة إلى سجل المريض{% else %}Back to Patient Record{% endif %}</span>
+        </a>
+        <p class="record-eyebrow">{% if is_arabic %}المريض: {{ patient.full_name }}{% else %}Patient: {{ patient.full_name }}{% endif %}</p>
+        <h1>{{ form_title }}</h1>
+    </header>
+
+    <section class="record-form-panel" aria-labelledby="public-case-form-title">
+        <h2 class="dashboard-sr-only" id="public-case-form-title">{{ form_title }}</h2>
+        {% if has_visits %}
+            <form class="record-form" method="post" action="" enctype="multipart/form-data">
+                {% csrf_token %}
+                {% include "dashboard/_form_fields.html" %}
+                <div class="record-form-actions">
+                    <button type="submit">{% if is_arabic %}نشر الحالة{% else %}Publish Case{% endif %}</button>
+                    <a href="{{ cancel_url }}">{% if is_arabic %}إلغاء{% else %}Cancel{% endif %}</a>
+                </div>
+            </form>
+        {% else %}
+            <div class="public-case-visit-required" role="status">
+                <p>{% if is_arabic %}يجب إضافة زيارة للمريض قبل نشر حالة عامة.{% else %}Add a patient visit before publishing a public case.{% endif %}</p>
+                <a class="record-action record-action-secondary" href="{{ visit_create_url }}">
+                    {% if is_arabic %}إضافة زيارة{% else %}Add Visit{% endif %}
+                </a>
+            </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

@@ -26,6 +26,9 @@
         <a class="record-action record-action-primary" href="{{ media_create_url }}">
             {% if is_arabic %}رفع ملف{% else %}Upload Media{% endif %}
         </a>
+        <a class="record-action record-action-secondary" href="{{ public_case_create_url }}">
+            {% if is_arabic %}نشر حالة عامة{% else %}Publish Public Case{% endif %}
+        </a>
         <a class="record-action record-action-secondary" href="{{ dashboard_patients_url }}">
             {% if is_arabic %}العودة إلى المرضى{% else %}Back to Patients{% endif %}
         </a>

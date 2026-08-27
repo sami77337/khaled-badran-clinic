@@ -91,7 +91,13 @@ def grouped_public_cases(language="ar", limit=None):
                 "before": None,
                 "after": None,
                 "description": "",
+                "public_title": "",
             },
+        )
+        role = (
+            _role_from_title(media.title)
+            if media.media_type == RecordMedia.MediaType.IMAGE
+            else "primary"
         )
         item = {
             "public_id": media.public_id,
@@ -99,11 +105,13 @@ def grouped_public_cases(language="ar", limit=None):
             "title": media.title,
             "description": media.description,
             "url": _media_url(media, language),
-            "role": _role_from_title(media.title),
+            "role": role,
         }
         group["items"].append(item)
         if media.description and not group["description"]:
             group["description"] = media.description
+        if item["role"] == "primary" and media.title and not group["public_title"]:
+            group["public_title"] = media.title
         if item["role"] == "before" and group["before"] is None:
             group["before"] = item
         elif item["role"] == "after" and group["after"] is None:
@@ -116,9 +124,12 @@ def grouped_public_cases(language="ar", limit=None):
 
     result = []
     for index, group in enumerate(groups.values(), start=1):
-        group["display_title"] = (
-            f"حالة مصرح بعرضها {index}" if language == "ar" else f"Authorized case {index}"
+        neutral_title = (
+            f"حالة مصرح بعرضها {index}"
+            if language == "ar"
+            else f"Authorized case {index}"
         )
+        group["display_title"] = group["public_title"] or neutral_title
         result.append(group)
         if limit is not None and len(result) >= limit:
             break

@@ -83,6 +83,11 @@
     margin-top: 1.25rem;
 }
 
+.public-case-comparison.is-single,
+.case-comparison-preview.is-single {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 .public-case-comparison figure {
     overflow: hidden;
     margin: 0;

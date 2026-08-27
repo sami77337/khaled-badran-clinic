@@ -171,3 +171,61 @@ class PublicCaseGroupingTests(TestCase):
             self.assertEqual(groups[0]["before"]["public_id"], before.public_id)
             self.assertEqual(groups[0]["after"]["public_id"], after.public_id)
             self.assertEqual(groups[0]["primary"]["public_id"], video.public_id)
+
+    def test_canonical_role_titles_are_not_public_headlines_and_note_is_resolved_once(self):
+        with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
+            patient = Patient.objects.create(
+                full_name="Synthetic Hidden Grouping Patient",
+                phone_raw="0000000001",
+            )
+            visit = VisitRecord.objects.create(patient=patient)
+            note = "Synthetic consistent public case note."
+            rows = (
+                (RecordMedia.MediaType.IMAGE, "before.jpg", "image/jpeg", "Before"),
+                (RecordMedia.MediaType.IMAGE, "after.jpg", "image/jpeg", "After"),
+                (RecordMedia.MediaType.SHORT_VIDEO, "case.mp4", "video/mp4", ""),
+            )
+            for media_type, filename, content_type, title in rows:
+                RecordMedia.objects.create(
+                    patient=patient,
+                    visit=visit,
+                    media_type=media_type,
+                    file=SimpleUploadedFile(filename, b"synthetic", content_type=content_type),
+                    title=title,
+                    description=note,
+                    visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+                    consent_confirmed=True,
+                    is_active=True,
+                )
+
+            groups = grouped_public_cases("en")
+
+            self.assertEqual(len(groups), 1)
+            group = groups[0]
+            self.assertEqual(len(group["items"]), 3)
+            self.assertEqual(group["before"]["title"], "Before")
+            self.assertEqual(group["after"]["title"], "After")
+            self.assertEqual(group["primary"]["media_type"], RecordMedia.MediaType.SHORT_VIDEO)
+            self.assertEqual(group["display_title"], "Authorized case 1")
+            self.assertEqual(group["description"], note)
+
+    def test_legitimate_non_role_title_remains_the_public_case_title(self):
+        with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
+            patient = Patient.objects.create(
+                full_name="Synthetic Legitimate Title Patient",
+                phone_raw="0000000002",
+            )
+            media = RecordMedia.objects.create(
+                patient=patient,
+                media_type=RecordMedia.MediaType.IMAGE,
+                file=SimpleUploadedFile("case.jpg", b"synthetic", content_type="image/jpeg"),
+                title="Synthetic public-safe case title",
+                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+                consent_confirmed=True,
+                is_active=True,
+            )
+
+            group = grouped_public_cases("en")[0]
+
+            self.assertEqual(group["primary"]["public_id"], media.public_id)
+            self.assertEqual(group["display_title"], "Synthetic public-safe case title")

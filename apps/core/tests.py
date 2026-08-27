@@ -1266,6 +1266,153 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
             with self.subTest(fragment=fragment):
                 self.assertNotContains(response, fragment)
 
+    def test_before_after_video_group_renders_once_with_one_note_and_neutral_heading(self):
+        patient = self.create_patient(
+            full_name="Synthetic Grouped Case Hidden Patient",
+            phone_raw="0790000222",
+            phone_e164="+962790000222",
+        )
+        appointment = self.create_appointment(patient=patient)
+        visit = self.create_visit(patient=patient, appointment=appointment)
+        note = "Synthetic explicit short public case note."
+        before = self.create_media(
+            patient=patient,
+            visit=visit,
+            title="Before",
+            description=note,
+            file=self.synthetic_image_file(name="synthetic-before.jpg"),
+        )
+        after = self.create_media(
+            patient=patient,
+            visit=visit,
+            title="After",
+            description=note,
+            file=self.synthetic_image_file(name="synthetic-after.jpg"),
+        )
+        video = self.create_media(
+            patient=patient,
+            visit=visit,
+            media_type=RecordMedia.MediaType.SHORT_VIDEO,
+            title="",
+            description=note,
+            file=self.synthetic_video_file(name="synthetic-case.mp4"),
+        )
+
+        response = self.client.get(reverse("public_cases_en"))
+        content = response.content.decode()
+        before_url = reverse("public_case_media_en", kwargs={"public_id": before.public_id})
+        after_url = reverse("public_case_media_en", kwargs={"public_id": after.public_id})
+        video_url = reverse("public_case_media_en", kwargs={"public_id": video.public_id})
+        video_tag = re.search(r"<video[^>]*>", content).group(0)
+
+        self.assertContains(response, 'class="public-case-card public-case-group-card"', count=1)
+        self.assertContains(response, "<h2>Authorized case 1</h2>", html=True)
+        self.assertNotContains(response, "<h2>Before</h2>", html=True)
+        self.assertNotContains(response, "<h2>After</h2>", html=True)
+        self.assertContains(response, note, count=1)
+        self.assertEqual(content.count(f'src="{before_url}"'), 1)
+        self.assertEqual(content.count(f'src="{after_url}"'), 1)
+        self.assertEqual(content.count(f'src="{video_url}"'), 1)
+        self.assertEqual(content.count("<video"), 1)
+        for attribute in ("muted", "playsinline", "controls"):
+            self.assertIn(attribute, video_tag)
+        self.assertNotIn("autoplay", video_tag)
+
+        blocked_fragments = (
+            patient.full_name,
+            patient.phone_raw,
+            patient.phone_e164,
+            appointment.booking_note,
+            visit.visit_reason,
+            visit.doctor_notes,
+            visit.diagnosis_plan,
+            visit.instructions,
+            visit.follow_up_notes,
+            before.file.name,
+            after.file.name,
+            video.file.name,
+            str(settings.PRIVATE_MEDIA_ROOT),
+            'href="/media/',
+        )
+        for fragment in blocked_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertNotContains(response, fragment)
+
+    def test_before_only_and_after_only_are_each_rendered_without_duplication(self):
+        patient = self.create_patient(
+            full_name="Synthetic Optional Role Hidden Patient",
+            phone_raw="0790000444",
+            phone_e164="+962790000444",
+        )
+        before_visit = self.create_visit(patient=patient)
+        after_visit = self.create_visit(patient=patient)
+        before = self.create_media(
+            patient=patient,
+            visit=before_visit,
+            title="Before",
+            description="Synthetic before-only note.",
+        )
+        after = self.create_media(
+            patient=patient,
+            visit=after_visit,
+            title="After",
+            description="Synthetic after-only note.",
+        )
+
+        response = self.client.get(reverse("public_cases_en"))
+        content = response.content.decode()
+        before_url = reverse("public_case_media_en", kwargs={"public_id": before.public_id})
+        after_url = reverse("public_case_media_en", kwargs={"public_id": after.public_id})
+
+        self.assertEqual(content.count(f'src="{before_url}"'), 1)
+        self.assertEqual(content.count(f'src="{after_url}"'), 1)
+        self.assertContains(response, "Synthetic before-only note.", count=1)
+        self.assertContains(response, "Synthetic after-only note.", count=1)
+        self.assertContains(response, 'class="public-case-comparison is-single"', count=2)
+
+    def test_public_group_updates_immediately_when_items_are_unpublished(self):
+        patient = self.create_patient(
+            full_name="Synthetic Unpublish Hidden Patient",
+            phone_raw="0790000555",
+            phone_e164="+962790000555",
+        )
+        visit = self.create_visit(patient=patient)
+        before = self.create_media(patient=patient, visit=visit, title="Before")
+        after = self.create_media(patient=patient, visit=visit, title="After")
+        video = self.create_media(
+            patient=patient,
+            visit=visit,
+            media_type=RecordMedia.MediaType.SHORT_VIDEO,
+            title="",
+        )
+        before_url = reverse("public_case_media_en", kwargs={"public_id": before.public_id})
+        after_url = reverse("public_case_media_en", kwargs={"public_id": after.public_id})
+        video_url = reverse("public_case_media_en", kwargs={"public_id": video.public_id})
+
+        initial = self.client.get(reverse("public_cases_en"))
+        for url in (before_url, after_url, video_url):
+            self.assertContains(initial, url)
+
+        after.is_active = False
+        after.save(update_fields=["is_active"])
+        after_removed = self.client.get(reverse("public_cases_en"))
+        self.assertNotContains(after_removed, after_url)
+        self.assertContains(after_removed, before_url)
+        self.assertContains(after_removed, video_url)
+
+        before.visibility = RecordMedia.Visibility.PRIVATE_ONLY
+        before.save(update_fields=["visibility"])
+        before_removed = self.client.get(reverse("public_cases_en"))
+        self.assertNotContains(before_removed, before_url)
+        self.assertNotContains(before_removed, after_url)
+        self.assertContains(before_removed, video_url)
+
+        self.force_unconsented_public_case(video)
+        consent_removed = self.client.get(reverse("public_cases_en"))
+        self.assertNotContains(consent_removed, before_url)
+        self.assertNotContains(consent_removed, after_url)
+        self.assertNotContains(consent_removed, video_url)
+
     def test_home_teaser_uses_public_case_route_only(self):
         media = self.create_media(
             title="Home approved public case teaser",
