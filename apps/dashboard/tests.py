@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -56,12 +57,16 @@ class DashboardRecordWorkflowMixin:
         full_name="Synthetic Patient",
         phone_raw="+962700000000",
         phone_e164="+962700000000",
+        whatsapp_phone_raw="",
+        whatsapp_phone_e164="",
     ):
         return Patient.objects.create(
             user=user,
             full_name=full_name,
             phone_raw=phone_raw,
             phone_e164=phone_e164,
+            whatsapp_phone_raw=whatsapp_phone_raw,
+            whatsapp_phone_e164=whatsapp_phone_e164,
             date_of_birth=date(1990, 1, 1),
             gender=Patient.Gender.PREFER_NOT_TO_SAY,
         )
@@ -169,6 +174,7 @@ class DashboardRecordAccessTests(DashboardRecordWorkflowMixin, TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertIn(f"{reverse('login')}?role=doctor&next=", response["Location"])
+        self.assertNotIn(b"data-patient-contact-trigger", response.content)
 
     def test_authenticated_non_staff_gets_403_for_dashboard_patient_list(self):
         self.client.force_login(self.normal_user)
@@ -176,6 +182,7 @@ class DashboardRecordAccessTests(DashboardRecordWorkflowMixin, TestCase):
         response = self.client.get(reverse("dashboard_patient_list"))
 
         self.assertEqual(response.status_code, 403)
+        self.assertNotIn(b"data-patient-contact-trigger", response.content)
 
     def test_staff_can_access_dashboard_patient_list(self):
         self.client.force_login(self.staff)
@@ -277,6 +284,37 @@ class DashboardPatientListTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertContains(english, '<input type="hidden" name="lang" value="en">')
         self.assertContains(english, "Open Record")
 
+    def test_open_record_button_keeps_an_explicit_white_text_state_contract(self):
+        self.create_patient(full_name="Contrast Contract Patient")
+
+        response = self.patient_list(lang="en")
+        stylesheet = (
+            Path(__file__).resolve().parents[2] / "static" / "css" / "dashboard-patients.css"
+        ).read_text(encoding="utf-8")
+
+        self.assertContains(response, 'class="patient-record-action"')
+        self.assertIn("background: var(--dashboard-burgundy);", stylesheet)
+        for state in ("", ":link", ":visited", ":hover", ":focus-visible", ":active"):
+            self.assertIn(f".dashboard-shell .patient-record-action{state}", stylesheet)
+        self.assertIn("color: #fff;", stylesheet)
+
+    def test_contact_action_and_menu_labels_render_in_arabic_and_english(self):
+        self.create_patient(full_name="Bilingual Contact Patient")
+
+        arabic = self.patient_list()
+        english = self.patient_list(lang="en")
+
+        self.assertContains(arabic, 'class="patient-contact-trigger"')
+        self.assertContains(arabic, "تواصل")
+        self.assertContains(arabic, "اتصال")
+        self.assertContains(arabic, "نسخ الرقم")
+        self.assertContains(arabic, 'data-copy-success="تم نسخ الرقم"')
+        self.assertContains(english, 'class="patient-contact-trigger"')
+        self.assertContains(english, "Contact")
+        self.assertContains(english, "Call")
+        self.assertContains(english, "Copy number")
+        self.assertContains(english, 'data-copy-success="Number copied"')
+
     def test_language_switch_preserves_the_trimmed_search_on_patients_page(self):
         patient = self.create_patient(full_name="Switch Search Patient")
 
@@ -350,6 +388,88 @@ class DashboardPatientListTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertEqual(self.patient_names(raw_response), [raw_match.full_name])
         self.assertEqual(self.patient_names(e164_response), [e164_match.full_name])
 
+    def test_call_action_prefers_safe_normalized_phone(self):
+        patient = self.create_patient(
+            full_name="Normalized Call Patient",
+            phone_raw="0791234567",
+            phone_e164="+962791234567",
+        )
+
+        response = self.patient_list(lang="en")
+
+        self.assertContains(response, f'href="tel:{patient.phone_e164}"')
+        self.assertNotContains(response, f'href="tel:{patient.phone_raw}"')
+
+    def test_call_action_uses_only_a_defensively_sanitized_raw_fallback(self):
+        self.create_patient(
+            full_name="Safe Raw Call Patient",
+            phone_raw="(079) 123-4567",
+            phone_e164="",
+        )
+        unsafe_phone = "0791234567;ext=9"
+        self.create_patient(
+            full_name="Unsafe Raw Call Patient",
+            phone_raw=unsafe_phone,
+            phone_e164="",
+        )
+
+        response = self.patient_list(lang="en")
+
+        self.assertContains(response, 'href="tel:0791234567"')
+        self.assertNotContains(response, f'href="tel:{unsafe_phone}"')
+
+    def test_whatsapp_action_uses_dedicated_valid_e164_digits_only(self):
+        whatsapp_phone = "+962799876543"
+        patient = self.create_patient(
+            full_name="Dedicated WhatsApp Patient",
+            phone_raw="0791111111",
+            phone_e164="+962791111111",
+            whatsapp_phone_raw="0799876543",
+            whatsapp_phone_e164=whatsapp_phone,
+        )
+
+        response = self.patient_list(lang="en")
+        page = response.content.decode()
+        targets = re.findall(r'href="(https://wa\.me/[^"]+)"', page)
+
+        self.assertEqual(targets, [f"https://wa.me/{whatsapp_phone[1:]}"])
+        target = urlsplit(targets[0])
+        self.assertEqual(target.scheme, "https")
+        self.assertEqual(target.netloc, "wa.me")
+        self.assertTrue(target.path.removeprefix("/").isdigit())
+        self.assertNotIn("+", target.path)
+        self.assertContains(response, "WhatsApp")
+        self.assertContains(response, 'target="_blank"')
+        self.assertContains(response, 'rel="noopener noreferrer"')
+        self.assertNotContains(response, patient.whatsapp_phone_raw)
+
+    def test_whatsapp_does_not_fall_back_to_primary_or_raw_whatsapp_phone(self):
+        patient = self.create_patient(
+            full_name="No Dedicated Target Patient",
+            phone_raw="0792222222",
+            phone_e164="+962792222222",
+            whatsapp_phone_raw="0793333333",
+            whatsapp_phone_e164="",
+        )
+
+        response = self.patient_list(lang="en")
+
+        self.assertNotContains(response, "WhatsApp")
+        self.assertNotContains(response, "https://wa.me/")
+        self.assertNotContains(response, patient.whatsapp_phone_raw)
+
+    def test_invalid_whatsapp_e164_does_not_render_an_action(self):
+        self.create_patient(
+            full_name="Invalid Dedicated Target Patient",
+            whatsapp_phone_raw="0794444444",
+            whatsapp_phone_e164="+962 79 444 4444",
+        )
+
+        response = self.patient_list(lang="en")
+
+        self.assertNotContains(response, "WhatsApp")
+        self.assertNotContains(response, "https://wa.me/")
+
     def test_search_query_is_defensively_bounded(self):
         response = self.patient_list(q=f"  {'x' * 150}  ")
 
@@ -410,6 +530,45 @@ class DashboardPatientListTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertIn("@media (max-width: 35rem)", stylesheet)
         self.assertIn("grid-template-columns: minmax(0, 1fr);", stylesheet)
 
+    def test_contact_markup_has_unique_accessible_controls_and_mobile_bounds(self):
+        self.create_patient(full_name="Accessible Contact Patient A")
+        self.create_patient(
+            full_name="Accessible Contact Patient B",
+            phone_raw="0795550001",
+            phone_e164="+962795550001",
+        )
+
+        response = self.patient_list(lang="en")
+        page = response.content.decode()
+        trigger_matches = re.findall(
+            r'<button\s+class="patient-contact-trigger"\s+'
+            r'id="([^"]+)"\s+type="button"\s+aria-expanded="false"\s+'
+            r'aria-controls="([^"]+)"\s+data-patient-contact-trigger',
+            page,
+        )
+        stylesheet = (
+            Path(__file__).resolve().parents[2] / "static" / "css" / "dashboard-patients.css"
+        ).read_text(encoding="utf-8")
+
+        self.assertEqual(len(trigger_matches), 2)
+        trigger_ids = [match[0] for match in trigger_matches]
+        menu_ids = [match[1] for match in trigger_matches]
+        self.assertEqual(len(set(trigger_ids)), 2)
+        self.assertEqual(len(set(menu_ids)), 2)
+        for trigger_id, menu_id in trigger_matches:
+            self.assertTrue(trigger_id.startswith("patient-contact-row-"))
+            self.assertEqual(menu_id, trigger_id.removesuffix("-trigger") + "-menu")
+            self.assertIn(f'id="{menu_id}"', page)
+            self.assertIn(f'aria-labelledby="{trigger_id}"', page)
+        self.assertContains(response, 'role="group"', count=2)
+        self.assertContains(response, "js/dashboard-patients.js")
+        self.assertIn("width: min(13rem, calc(100vw - 2rem));", stylesheet)
+        self.assertIn("max-width: calc(100vw - 2rem);", stylesheet)
+        self.assertIn("max-height: calc(100vh - 2rem);", stylesheet)
+        self.assertIn(".patient-contact-menu.opens-upward", stylesheet)
+        self.assertIn("@media (max-width: 35rem)", stylesheet)
+        self.assertIn(".patient-actions", stylesheet)
+
     def test_list_omits_email_and_private_clinical_or_media_fields(self):
         patient_user = self.create_user(username="patient-list-private-user")
         patient_user.email = "PATIENT-LIST-PRIVATE-EMAIL@example.test"
@@ -421,7 +580,8 @@ class DashboardPatientListTests(DashboardRecordWorkflowMixin, TestCase):
             phone_e164="+962795554433",
         )
         patient.notes = "PATIENT-LIST-PRIVATE-PATIENT-NOTES"
-        patient.save(update_fields=["notes"])
+        patient.whatsapp_phone_raw = "PATIENT-LIST-PRIVATE-WHATSAPP-RAW"
+        patient.save(update_fields=["notes", "whatsapp_phone_raw"])
         appointment = self.create_appointment(patient)
         appointment.booking_note = "PATIENT-LIST-PRIVATE-BOOKING-NOTE"
         appointment.save(update_fields=["booking_note"])
@@ -453,6 +613,7 @@ class DashboardPatientListTests(DashboardRecordWorkflowMixin, TestCase):
         for private_value in (
             patient_user.email,
             patient.phone_raw,
+            patient.whatsapp_phone_raw,
             patient.notes,
             appointment.booking_note,
             str(appointment.public_token),

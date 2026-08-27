@@ -83,6 +83,8 @@ DASHBOARD_STATUS_LABELS = {
 SCHEDULING_VIEW_NAMES = ("day", "week", "month")
 SCHEDULING_SECTION_NAMES = ("calendar", "weekly", "services", "rules", "closures")
 PATIENT_SEARCH_MAX_LENGTH = 100
+E164_PHONE_RE = re.compile(r"^\+[1-9][0-9]{7,14}$")
+SAFE_RAW_PHONE_RE = re.compile(r"^\+?[0-9() .-]+$")
 SCHEDULING_WEEKDAY_DISPLAY_ORDER = (
     DoctorSchedule.Weekday.SUNDAY,
     DoctorSchedule.Weekday.MONDAY,
@@ -2623,6 +2625,38 @@ def _media_items(media_queryset):
     return items
 
 
+def _validated_e164(phone_number):
+    candidate = (phone_number or "").strip()
+    return candidate if E164_PHONE_RE.fullmatch(candidate) else ""
+
+
+def _patient_call_uri(phone_e164, phone_raw):
+    normalized_phone = _validated_e164(phone_e164)
+    if normalized_phone:
+        return f"tel:{normalized_phone}"
+
+    raw_phone = (phone_raw or "").strip()
+    if not raw_phone or not SAFE_RAW_PHONE_RE.fullmatch(raw_phone):
+        return ""
+    digits = re.sub(r"[^0-9]", "", raw_phone)
+    if not 7 <= len(digits) <= 15:
+        return ""
+    if raw_phone.startswith("+"):
+        sanitized_phone = f"+{digits}"
+        if not E164_PHONE_RE.fullmatch(sanitized_phone):
+            return ""
+    else:
+        sanitized_phone = digits
+    return f"tel:{sanitized_phone}"
+
+
+def _patient_whatsapp_url(whatsapp_phone_e164):
+    normalized_phone = _validated_e164(whatsapp_phone_e164)
+    if not normalized_phone:
+        return ""
+    return f"https://wa.me/{normalized_phone[1:]}"
+
+
 @_staff_required
 @require_GET
 def dashboard_patient_list(request):
@@ -2637,11 +2671,18 @@ def dashboard_patient_list(request):
             | Q(phone_raw__icontains=search_query)
             | Q(phone_e164__icontains=search_query)
         )
-    patients = patients.annotate(
-        visit_count=Count("visit_records", distinct=True),
-        note_count=Count("clinical_notes", distinct=True),
-        media_count=Count("record_media", distinct=True),
-    ).order_by("full_name", "id")
+    patients = list(
+        patients.annotate(
+            visit_count=Count("visit_records", distinct=True),
+            note_count=Count("clinical_notes", distinct=True),
+            media_count=Count("record_media", distinct=True),
+        ).order_by("full_name", "id")
+    )
+    for row_number, patient in enumerate(patients, start=1):
+        patient.contact_dom_key = f"patient-contact-row-{row_number}"
+        patient.contact_display_number = (patient.phone or "").strip()
+        patient.call_uri = _patient_call_uri(patient.phone_e164, patient.phone_raw)
+        patient.whatsapp_url = _patient_whatsapp_url(patient.whatsapp_phone_e164)
 
     context = _dashboard_home_context(
         request,

@@ -105,7 +105,8 @@
 
 .patients-search-form button,
 .patients-search-clear,
-.patient-record-action {
+.patient-record-action,
+.patient-contact-trigger {
     display: inline-flex;
     min-height: 2.85rem;
     align-items: center;
@@ -133,6 +134,20 @@
     color: var(--dashboard-white);
 }
 
+.dashboard-shell .patient-record-action,
+.dashboard-shell .patient-record-action:link,
+.dashboard-shell .patient-record-action:visited,
+.dashboard-shell .patient-record-action:hover,
+.dashboard-shell .patient-record-action:focus-visible,
+.dashboard-shell .patient-record-action:active {
+    color: #fff;
+}
+
+.dashboard-shell .patient-record-action:active {
+    border-color: var(--dashboard-burgundy-deep);
+    background: var(--dashboard-burgundy-deep);
+}
+
 .patients-search-clear {
     border: 1px solid rgba(74, 15, 20, 0.2);
     color: var(--dashboard-burgundy);
@@ -150,7 +165,7 @@
 .patient-row {
     display: grid;
     min-width: 0;
-    grid-template-columns: minmax(13rem, 2fr) minmax(9rem, 1.15fr) minmax(14rem, 1.45fr) minmax(8rem, auto);
+    grid-template-columns: minmax(13rem, 2fr) minmax(9rem, 1.15fr) minmax(14rem, 1.45fr) minmax(12rem, auto);
     align-items: center;
     gap: 1rem;
 }
@@ -176,7 +191,7 @@
 }
 
 .patients-list {
-    overflow: hidden;
+    overflow: visible;
 }
 
 .patient-row {
@@ -240,10 +255,106 @@
     font-variant-numeric: tabular-nums;
 }
 
-.patient-record-action {
+.patient-actions {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    align-items: stretch;
+    gap: 0.45rem;
+}
+
+.patient-record-action,
+.patient-contact-trigger {
     width: 100%;
     min-width: 0;
     text-align: center;
+}
+
+.patient-contact {
+    position: relative;
+    min-width: 0;
+}
+
+.patient-contact-trigger {
+    height: 100%;
+    border: 1px solid rgba(74, 15, 20, 0.28);
+    background: var(--dashboard-white);
+    color: var(--dashboard-burgundy);
+    cursor: pointer;
+}
+
+.patient-contact-trigger:hover,
+.patient-contact-trigger[aria-expanded="true"] {
+    border-color: rgba(74, 15, 20, 0.46);
+    background: var(--dashboard-soft-burgundy);
+    color: var(--dashboard-burgundy-deep);
+}
+
+.patient-contact-menu {
+    position: absolute;
+    z-index: 20;
+    inset-block-start: calc(100% + 0.4rem);
+    inset-inline-end: 0;
+    display: grid;
+    width: min(13rem, calc(100vw - 2rem));
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100vh - 2rem);
+    overflow-x: hidden;
+    overflow-y: auto;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.75rem;
+    background: var(--dashboard-white);
+    box-shadow: 0 0.8rem 1.8rem rgba(32, 24, 22, 0.18);
+}
+
+.patient-contact-menu.opens-upward {
+    inset-block-start: auto;
+    inset-block-end: calc(100% + 0.4rem);
+}
+
+.patient-contact-menu[hidden] {
+    display: none;
+}
+
+.dashboard-shell .patient-contact-option {
+    display: inline-flex;
+    width: 100%;
+    min-height: 2.85rem;
+    align-items: center;
+    border: 0;
+    background: transparent;
+    color: var(--dashboard-burgundy);
+    padding: 0.65rem 0.8rem;
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 650;
+    line-height: 1.25;
+    text-align: start;
+    cursor: pointer;
+}
+
+.patient-contact-option + .patient-contact-option {
+    border-block-start: 1px solid var(--dashboard-line);
+}
+
+.dashboard-shell .patient-contact-option:hover,
+.dashboard-shell .patient-contact-option:active {
+    background: var(--dashboard-soft-burgundy);
+    color: var(--dashboard-burgundy-deep);
+}
+
+.patient-contact-feedback {
+    margin: 0;
+    border-block-start: 1px solid var(--dashboard-line);
+    color: var(--dashboard-muted);
+    padding: 0.55rem 0.8rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.patient-contact-feedback:empty {
+    display: none;
 }
 
 .patients-empty-state {
@@ -359,7 +470,7 @@
         font-size: 0.9rem;
     }
 
-    .patient-record-action {
+    .patient-actions {
         grid-column: 2;
         grid-row: 1 / span 3;
         align-self: center;
@@ -406,11 +517,11 @@
 
     .patient-phone,
     .patient-counts,
-    .patient-record-action {
+    .patient-actions {
         grid-column: 1;
     }
 
-    .patient-record-action {
+    .patient-actions {
         grid-row: auto;
         margin-block-start: 0.25rem;
     }

@@ -5,6 +5,10 @@
     <link rel="stylesheet" href="{% static 'css/dashboard-patients.css' %}">
 {% endblock %}
 
+{% block dashboard_scripts %}
+    <script src="{% static 'js/dashboard-patients.js' %}" defer></script>
+{% endblock %}
+
 {% block dashboard_content %}
 <div class="dashboard-content patients-content">
     <div class="patients-overview">
@@ -73,7 +77,7 @@
                             </div>
                             <p class="patient-phone">
                                 <span class="dashboard-sr-only">{% if is_arabic %}الهاتف{% else %}Phone{% endif %}: </span>
-                                <span class="patient-phone-number" dir="ltr">{{ patient.phone }}</span>
+                                <span class="patient-phone-number" dir="ltr">{{ patient.contact_display_number }}</span>
                             </p>
                             <dl class="patient-counts">
                                 <div class="patient-count">
@@ -89,9 +93,66 @@
                                     <dd>{{ patient.media_count }}</dd>
                                 </div>
                             </dl>
-                            <a class="patient-record-action" href="{% url 'dashboard_patient_record_detail' patient.id %}">
-                                {% if is_arabic %}فتح السجل{% else %}Open Record{% endif %}
-                            </a>
+                            <div class="patient-actions">
+                                <a class="patient-record-action" href="{% url 'dashboard_patient_record_detail' patient.id %}">
+                                    {% if is_arabic %}فتح السجل{% else %}Open Record{% endif %}
+                                </a>
+                                <div class="patient-contact">
+                                    <button
+                                        class="patient-contact-trigger"
+                                        id="{{ patient.contact_dom_key }}-trigger"
+                                        type="button"
+                                        aria-expanded="false"
+                                        aria-controls="{{ patient.contact_dom_key }}-menu"
+                                        data-patient-contact-trigger
+                                    >
+                                        {% if is_arabic %}تواصل{% else %}Contact{% endif %}
+                                    </button>
+                                    <div
+                                        class="patient-contact-menu"
+                                        id="{{ patient.contact_dom_key }}-menu"
+                                        role="group"
+                                        aria-labelledby="{{ patient.contact_dom_key }}-trigger"
+                                        data-patient-contact-menu
+                                        hidden
+                                    >
+                                        {% if patient.call_uri %}
+                                            <a class="patient-contact-option" href="{{ patient.call_uri }}">
+                                                {% if is_arabic %}اتصال{% else %}Call{% endif %}
+                                            </a>
+                                        {% endif %}
+                                        {% if patient.whatsapp_url %}
+                                            <a
+                                                class="patient-contact-option"
+                                                href="{{ patient.whatsapp_url }}"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                {% if is_arabic %}واتساب{% else %}WhatsApp{% endif %}
+                                            </a>
+                                        {% endif %}
+                                        {% if patient.contact_display_number %}
+                                            <button
+                                                class="patient-contact-option"
+                                                type="button"
+                                                aria-describedby="{{ patient.contact_dom_key }}-feedback"
+                                                data-copy-number="{{ patient.contact_display_number }}"
+                                                data-copy-success="{% if is_arabic %}تم نسخ الرقم{% else %}Number copied{% endif %}"
+                                                data-copy-failure="{% if is_arabic %}تعذر نسخ الرقم{% else %}Could not copy number{% endif %}"
+                                            >
+                                                {% if is_arabic %}نسخ الرقم{% else %}Copy number{% endif %}
+                                            </button>
+                                            <p
+                                                class="patient-contact-feedback"
+                                                id="{{ patient.contact_dom_key }}-feedback"
+                                                role="status"
+                                                aria-live="polite"
+                                                aria-atomic="true"
+                                            ></p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
                         </article>
                     {% endfor %}
                 </div>
