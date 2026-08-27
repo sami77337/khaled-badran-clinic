@@ -61,11 +61,17 @@
 }
 
 .patients-summary strong {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
     color: var(--dashboard-burgundy);
     font-family: var(--dashboard-font-en);
     font-size: 2rem;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     line-height: 1.1;
+    direction: ltr;
+    unicode-bidi: isolate;
 }
 
 .patients-search-panel {
@@ -178,6 +184,11 @@
 }
 
 .patients-list-header > span:last-child {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    align-items: center;
+    gap: 0.45rem;
     text-align: center;
 }
 
@@ -253,6 +264,9 @@
     font-size: 1rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+    direction: ltr;
+    unicode-bidi: isolate;
 }
 
 .patient-actions {
@@ -442,11 +456,12 @@
 
     .patient-count {
         display: inline-flex;
-        align-items: baseline;
+        align-items: center;
         gap: 0.25rem;
         color: var(--dashboard-muted);
         font-size: 0.84rem;
         font-weight: 600;
+        line-height: 1.25;
     }
 
     .patient-count + .patient-count::before {
@@ -466,8 +481,12 @@
     }
 
     .patient-count dd {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
         order: -1;
         font-size: 0.9rem;
+        white-space: nowrap;
     }
 
     .patient-actions {
