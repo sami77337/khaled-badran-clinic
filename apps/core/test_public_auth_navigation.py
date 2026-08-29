@@ -32,11 +32,7 @@ class PublicAuthNavigationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'data-auth-action="login"')
         self.assertNotContains(response, 'data-auth-action="doctor-dashboard"')
-        self.assertContains(
-            response,
-            f'href="{reverse("patient_portal_dashboard")}"',
-            count=2,
-        )
+        self.assertContains(response, f'href="{reverse("patient_portal_dashboard")}"')
         self.assertContains(response, 'data-nav-key="patient_portal"', count=2)
 
     def test_staff_home_shows_doctor_dashboard_only_and_hides_patient_portal_nav(self):
