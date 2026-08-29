@@ -68,21 +68,37 @@
 
 .public-case-group-grid {
     grid-template-columns: minmax(0, 1fr);
+    max-inline-size: 72rem;
+    margin-inline: auto;
 }
 
 .public-case-group-card {
     min-width: 0;
 }
 
+.public-case-copy h2,
+.public-case-copy > p:not(.eyebrow),
+.case-card-copy h3,
+.case-card-copy > p:not(.eyebrow) {
+    overflow-wrap: anywhere;
+}
+
 .public-case-galleries {
     display: grid;
     min-width: 0;
     gap: clamp(1rem, 2.5vw, 1.5rem);
-    padding: 0 clamp(0.85rem, 2.5vw, 1.25rem) clamp(0.85rem, 2.5vw, 1.25rem);
+    padding-inline: clamp(1rem, 2.5vw, 1.5rem);
+    padding-block: clamp(1rem, 2.5vw, 1.5rem);
 }
 
-.public-case-category {
+.public-case-category,
+.public-case-comparison {
     min-width: 0;
+}
+
+.public-case-comparison {
+    display: grid;
+    gap: clamp(1rem, 2.5vw, 1.5rem);
 }
 
 .public-case-category h3 {
@@ -112,15 +128,17 @@
 .public-case-video-frame {
     display: grid;
     place-items: center;
-    padding: clamp(0.45rem, 1.5vw, 0.75rem);
+    padding: clamp(0.75rem, 1.5vw, 1rem);
 }
 
-.public-case-video-frame video,
-.case-media video {
+.public-case-video-frame video {
     display: block;
-    width: 100%;
-    height: auto;
-    max-height: min(70vh, 44rem);
+    inline-size: auto;
+    max-inline-size: 100%;
+    block-size: auto;
+    max-block-size: min(60vh, 34rem);
+    max-block-size: min(60svh, 34rem);
+    margin-inline: auto;
     border: 0;
     border-radius: calc(var(--radius) - 0.2rem);
     background: var(--color-charcoal);
@@ -159,6 +177,13 @@
     margin: clamp(0.75rem, 2vw, 1rem) clamp(0.75rem, 2vw, 1rem) 0;
     border: 1px solid var(--color-line);
     border-radius: var(--radius);
+    padding: clamp(0.45rem, 1vw, 0.7rem);
+}
+
+.case-media-link {
+    display: grid;
+    inline-size: 100%;
+    min-inline-size: 0;
 }
 
 .case-card .case-media img {
@@ -169,7 +194,24 @@
 }
 
 .case-card .case-media video {
-    max-height: 30rem;
+    display: block;
+    inline-size: auto;
+    max-inline-size: 100%;
+    block-size: auto;
+    max-block-size: min(50vh, 26rem);
+    max-block-size: min(50svh, 26rem);
+    margin-inline: auto;
+    object-fit: contain;
+}
+
+.case-card-title-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.case-card-title-link:hover,
+.case-card-title-link:focus-visible {
+    color: var(--color-red);
 }
 
 @media (min-width: 768px) {
@@ -177,9 +219,26 @@
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    .public-case-video-grid,
+    .public-case-video-grid {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+    }
+
     .public-case-image-grid {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+    }
+
+    .public-case-comparison.has-before-after {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+    }
+
+    .public-case-comparison .public-case-image-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .public-case-video-frame video {
+        max-block-size: min(68vh, 42rem);
+        max-block-size: min(68svh, 42rem);
     }
 }
 

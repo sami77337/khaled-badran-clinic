@@ -9,7 +9,6 @@ from apps.records.public_cases import (
     PUBLIC_CASE_ROLE_BEFORE,
     PUBLIC_CASE_ROLE_VIDEO,
     PUBLIC_CASE_ROLE_VIDEO_COVER,
-    decode_public_case_title,
 )
 
 from .models import PublicReview, SystemSetting
@@ -94,36 +93,30 @@ def grouped_public_cases(language="ar", limit=None):
                 "key": group_key,
                 "items": [],
                 "primary": None,
+                "teaser": None,
                 "before": None,
                 "after": None,
                 "before_items": [],
                 "after_items": [],
                 "video_items": [],
                 "video_cover": None,
-                "description": public_case.note,
-                "public_title": public_case.title,
+                "description": (public_case.note or "").strip(),
+                "public_title": (public_case.title or "").strip(),
             },
         )
-        decoded_role, clean_title, is_encoded = decode_public_case_title(media.title)
-        role = media.public_case_role or decoded_role
+        role = media.public_case_role or RecordMedia.PublicCaseRole.PRIMARY
         if media.media_type == RecordMedia.MediaType.SHORT_VIDEO:
             role = PUBLIC_CASE_ROLE_VIDEO
         elif role == PUBLIC_CASE_ROLE_VIDEO:
-            role = "primary"
+            role = RecordMedia.PublicCaseRole.PRIMARY
         item = {
             "public_id": media.public_id,
             "media_type": media.media_type,
-            "title": clean_title,
-            "description": media.description,
             "url": _media_url(media, language),
             "role": role,
             "poster_url": "",
         }
         group["items"].append(item)
-        if not group["description"] and media.description:
-            group["description"] = media.description
-        if clean_title and (is_encoded or decoded_role == "primary") and not group["public_title"]:
-            group["public_title"] = clean_title
 
         if role == PUBLIC_CASE_ROLE_VIDEO_COVER:
             if group["video_cover"] is None:
@@ -136,7 +129,7 @@ def grouped_public_cases(language="ar", limit=None):
             group["video_items"].append(item)
 
     result = []
-    for index, group in enumerate(groups.values(), start=1):
+    for group in groups.values():
         group["before"] = group["before_items"][0] if group["before_items"] else None
         group["after"] = group["after_items"][0] if group["after_items"] else None
         if group["video_items"] and group["video_cover"]:
@@ -156,6 +149,18 @@ def grouped_public_cases(language="ar", limit=None):
                 else (group["before"] or group["after"])
             )
         )
+        group["teaser"] = (
+            group["video_items"][0]
+            if group["video_items"]
+            else (
+                group["after"]
+                or group["before"]
+                or (primary_images[0] if primary_images else None)
+            )
+        )
+        if group["teaser"] is None:
+            continue
+        index = len(result) + 1
         neutral_title = (
             f"حالة مصرح بعرضها {index}"
             if language == "ar"

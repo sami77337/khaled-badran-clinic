@@ -1106,6 +1106,26 @@ class PublicCasesTestDataMixin:
             booking_note="Private appointment booking note hidden from public cases.",
         )
 
+    def create_public_case(
+        self,
+        *,
+        patient=None,
+        reference_visit=None,
+        title="",
+        note="",
+        consent_confirmed=True,
+        is_published=True,
+    ):
+        patient = patient or (reference_visit.patient if reference_visit else self.create_patient())
+        return PublicCase.objects.create(
+            patient=patient,
+            reference_visit=reference_visit,
+            title=title,
+            note=note,
+            consent_confirmed=consent_confirmed,
+            is_published=is_published,
+        )
+
     def create_media(
         self,
         *,
@@ -1207,15 +1227,27 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertNotContains(response, str(settings.PRIVATE_MEDIA_ROOT))
 
     def test_only_approved_consented_active_public_case_media_appears(self):
+        approved_image_case = self.create_public_case(
+            title="Approved public image case",
+            note="Image publication note.",
+        )
         approved_image = self.create_media(
-            title="Approved public image title",
-            description="Approved public image description.",
+            patient=approved_image_case.patient,
+            public_case=approved_image_case,
+            title="INTERNAL-IMAGE-TITLE-MUST-STAY-HIDDEN",
+            description="INTERNAL-IMAGE-DESCRIPTION-MUST-STAY-HIDDEN",
             file=self.synthetic_image_file(name="synthetic-public-case.jpg"),
         )
+        approved_video_case = self.create_public_case(
+            title="Approved public video case",
+            note="Video publication note.",
+        )
         approved_video = self.create_media(
+            patient=approved_video_case.patient,
+            public_case=approved_video_case,
             media_type=RecordMedia.MediaType.SHORT_VIDEO,
-            title="Approved public short video title",
-            description="Approved public short video description.",
+            title="INTERNAL-VIDEO-TITLE-MUST-STAY-HIDDEN",
+            description="INTERNAL-VIDEO-DESCRIPTION-MUST-STAY-HIDDEN",
             file=self.synthetic_video_file(name="synthetic-public-case.mp4"),
         )
         self.create_media(
@@ -1235,10 +1267,10 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
 
         response = self.client.get(reverse("public_cases_en"))
 
-        self.assertContains(response, "Approved public image title")
-        self.assertContains(response, "Approved public image description.")
-        self.assertContains(response, "Approved public short video title")
-        self.assertContains(response, "Approved public short video description.")
+        self.assertContains(response, approved_image_case.title, count=1)
+        self.assertContains(response, approved_image_case.note, count=1)
+        self.assertContains(response, approved_video_case.title, count=1)
+        self.assertContains(response, approved_video_case.note, count=1)
         self.assertContains(
             response,
             f'href="{reverse("public_case_media_en", kwargs={"public_id": approved_image.public_id})}"',
@@ -1251,6 +1283,10 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertNotContains(response, "Patient-visible media must stay hidden")
         self.assertNotContains(response, "Inactive public case media must stay hidden")
         self.assertNotContains(response, "Unconsented public case media must stay hidden")
+        self.assertNotContains(response, "INTERNAL-IMAGE-TITLE-MUST-STAY-HIDDEN")
+        self.assertNotContains(response, "INTERNAL-IMAGE-DESCRIPTION-MUST-STAY-HIDDEN")
+        self.assertNotContains(response, "INTERNAL-VIDEO-TITLE-MUST-STAY-HIDDEN")
+        self.assertNotContains(response, "INTERNAL-VIDEO-DESCRIPTION-MUST-STAY-HIDDEN")
         self.assertNotContains(response, approved_image.file.name)
         self.assertNotContains(response, approved_video.file.name)
         self.assertNotContains(response, "synthetic-public-case.jpg")
@@ -1273,17 +1309,29 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
             body="Private clinical note body hidden from public cases.",
             is_visible_to_patient=True,
         )
+        folder = RecordMediaFolder.objects.create(
+            patient=patient,
+            name="PRIVATE-FOLDER-NAME-MUST-STAY-HIDDEN",
+        )
+        public_case = self.create_public_case(
+            patient=patient,
+            reference_visit=visit,
+            title="Approved explicit public case title",
+            note="Approved explicit public case note.",
+        )
         media = self.create_media(
             patient=patient,
             visit=visit,
-            title="Approved public case metadata only",
-            description="Approved public case description only.",
+            folder=folder,
+            public_case=public_case,
+            title="INTERNAL-RECORD-MEDIA-TITLE-MUST-STAY-HIDDEN",
+            description="INTERNAL-RECORD-MEDIA-NOTE-MUST-STAY-HIDDEN",
         )
 
         response = self.client.get(reverse("public_cases_en"))
 
-        self.assertContains(response, "Approved public case metadata only")
-        self.assertContains(response, "Approved public case description only.")
+        self.assertContains(response, public_case.title, count=1)
+        self.assertContains(response, public_case.note, count=1)
         blocked_fragments = [
             patient.full_name,
             patient.phone_raw,
@@ -1298,6 +1346,9 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
             visit.follow_up_notes,
             "Private clinical note title hidden from public cases",
             "Private clinical note body hidden from public cases.",
+            folder.name,
+            media.title,
+            media.description,
             media.file.name,
             str(settings.PRIVATE_MEDIA_ROOT),
         ]
@@ -1314,26 +1365,37 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         appointment = self.create_appointment(patient=patient)
         visit = self.create_visit(patient=patient, appointment=appointment)
         note = "Synthetic explicit short public case note."
+        public_case = self.create_public_case(
+            patient=patient,
+            reference_visit=visit,
+            note=note,
+        )
         before = self.create_media(
             patient=patient,
             visit=visit,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
             title="Before",
-            description=note,
+            description="INTERNAL-BEFORE-NOTE-MUST-STAY-HIDDEN",
             file=self.synthetic_image_file(name="synthetic-before.jpg"),
         )
         after = self.create_media(
             patient=patient,
             visit=visit,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.AFTER,
             title="After",
-            description=note,
+            description="INTERNAL-AFTER-NOTE-MUST-STAY-HIDDEN",
             file=self.synthetic_image_file(name="synthetic-after.jpg"),
         )
         video = self.create_media(
             patient=patient,
             visit=visit,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.VIDEO,
             media_type=RecordMedia.MediaType.SHORT_VIDEO,
-            title="",
-            description=note,
+            title="Video",
+            description="INTERNAL-VIDEO-NOTE-MUST-STAY-HIDDEN",
             file=self.synthetic_video_file(name="synthetic-case.mp4"),
         )
 
@@ -1349,6 +1411,9 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertNotContains(response, "<h2>Before</h2>", html=True)
         self.assertNotContains(response, "<h2>After</h2>", html=True)
         self.assertContains(response, note, count=1)
+        self.assertNotContains(response, "INTERNAL-BEFORE-NOTE-MUST-STAY-HIDDEN")
+        self.assertNotContains(response, "INTERNAL-AFTER-NOTE-MUST-STAY-HIDDEN")
+        self.assertNotContains(response, "INTERNAL-VIDEO-NOTE-MUST-STAY-HIDDEN")
         self.assertEqual(content.count(f'src="{before_url}"'), 1)
         self.assertEqual(content.count(f'src="{after_url}"'), 1)
         self.assertEqual(content.count(f'src="{video_url}"'), 1)
@@ -1385,17 +1450,31 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         )
         before_visit = self.create_visit(patient=patient)
         after_visit = self.create_visit(patient=patient)
+        before_case = self.create_public_case(
+            patient=patient,
+            reference_visit=before_visit,
+            note="Synthetic before-only note.",
+        )
+        after_case = self.create_public_case(
+            patient=patient,
+            reference_visit=after_visit,
+            note="Synthetic after-only note.",
+        )
         before = self.create_media(
             patient=patient,
             visit=before_visit,
+            public_case=before_case,
+            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
             title="Before",
-            description="Synthetic before-only note.",
+            description="INTERNAL-BEFORE-ONLY-NOTE",
         )
         after = self.create_media(
             patient=patient,
             visit=after_visit,
+            public_case=after_case,
+            public_case_role=RecordMedia.PublicCaseRole.AFTER,
             title="After",
-            description="Synthetic after-only note.",
+            description="INTERNAL-AFTER-ONLY-NOTE",
         )
 
         response = self.client.get(reverse("public_cases_en"))
@@ -1407,6 +1486,8 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertEqual(content.count(f'src="{after_url}"'), 1)
         self.assertContains(response, "Synthetic before-only note.", count=1)
         self.assertContains(response, "Synthetic after-only note.", count=1)
+        self.assertNotContains(response, "INTERNAL-BEFORE-ONLY-NOTE")
+        self.assertNotContains(response, "INTERNAL-AFTER-ONLY-NOTE")
         self.assertContains(response, 'class="public-case-image-grid"', count=2)
 
     def test_full_case_renders_all_assets_once_with_cover_and_home_remains_concise(self):
@@ -1415,22 +1496,33 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
             phone_raw="0790000666",
             phone_e164="+962790000666",
         )
-        visit = self.create_visit(patient=patient)
+        reference_visit = self.create_visit(patient=patient)
+        before_visit = self.create_visit(patient=patient)
+        after_visit = self.create_visit(patient=patient)
+        video_visit = self.create_visit(patient=patient)
         folder = RecordMediaFolder.objects.create(
             patient=patient,
             name="INTERNAL-CASE-FOLDER-NEVER-PUBLIC",
         )
         title = "Public multi-asset case title"
         note = "One concise public note for the case."
+        public_case = self.create_public_case(
+            patient=patient,
+            reference_visit=reference_visit,
+            title=title,
+            note=note,
+        )
         rows = []
         for index in range(3):
             rows.append(
                 self.create_media(
                     patient=patient,
-                    visit=visit,
+                    visit=before_visit,
                     folder=folder,
+                    public_case=public_case,
+                    public_case_role=RecordMedia.PublicCaseRole.BEFORE,
                     title=encode_public_case_title("before", title),
-                    description=note,
+                    description=f"INTERNAL-BEFORE-DESCRIPTION-{index}",
                     file=self.synthetic_image_file(name=f"before-{index}.jpg"),
                 )
             )
@@ -1438,10 +1530,12 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
             rows.append(
                 self.create_media(
                     patient=patient,
-                    visit=visit,
+                    visit=after_visit,
                     folder=folder,
+                    public_case=public_case,
+                    public_case_role=RecordMedia.PublicCaseRole.AFTER,
                     title=encode_public_case_title("after", title),
-                    description=note,
+                    description=f"INTERNAL-AFTER-DESCRIPTION-{index}",
                     file=self.synthetic_image_file(name=f"after-{index}.jpg"),
                 )
             )
@@ -1450,20 +1544,24 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
             videos.append(
                 self.create_media(
                     patient=patient,
-                    visit=visit,
+                    visit=video_visit,
                     folder=folder,
+                    public_case=public_case,
+                    public_case_role=RecordMedia.PublicCaseRole.VIDEO,
                     media_type=RecordMedia.MediaType.SHORT_VIDEO,
                     title=encode_public_case_title("video", title),
-                    description=note,
+                    description=f"INTERNAL-VIDEO-DESCRIPTION-{index}",
                     file=self.synthetic_video_file(name=f"video-{index}.mp4"),
                 )
             )
         cover = self.create_media(
             patient=patient,
-            visit=visit,
+            visit=video_visit,
             folder=folder,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.VIDEO_COVER,
             title=encode_public_case_title("video_cover", title),
-            description=note,
+            description="INTERNAL-COVER-DESCRIPTION",
             file=self.synthetic_image_file(name="cover.jpg"),
         )
 
@@ -1471,6 +1569,11 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         cases_content = cases_response.content.decode()
         cover_url = reverse("public_case_media_en", kwargs={"public_id": cover.public_id})
 
+        self.assertContains(
+            cases_response,
+            'class="public-case-card public-case-group-card"',
+            count=1,
+        )
         self.assertContains(cases_response, f"<h2>{title}</h2>", html=True, count=1)
         self.assertContains(cases_response, note, count=1)
         self.assertContains(cases_response, ">Videos</h3>", count=1)
@@ -1489,6 +1592,11 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertNotIn(folder.name, cases_content)
         self.assertNotIn(patient.full_name, cases_content)
         self.assertNotIn(patient.phone_raw, cases_content)
+        self.assertNotIn(reference_visit.visit_reason, cases_content)
+        self.assertNotIn("INTERNAL-BEFORE-DESCRIPTION", cases_content)
+        self.assertNotIn("INTERNAL-AFTER-DESCRIPTION", cases_content)
+        self.assertNotIn("INTERNAL-VIDEO-DESCRIPTION", cases_content)
+        self.assertNotIn("INTERNAL-COVER-DESCRIPTION", cases_content)
         self.assertNotIn('href="/media/', cases_content)
 
         home_response = self.client.get(reverse("home_en"))
@@ -1552,11 +1660,72 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertNotContains(consent_removed, after_url)
         self.assertNotContains(consent_removed, video_url)
 
-    def test_home_teaser_uses_public_case_route_only(self):
-        media = self.create_media(
-            title="Home approved public case teaser",
-            description="Home approved public case teaser description.",
-            file=self.synthetic_image_file(name="synthetic-public-case.jpg"),
+    def test_unpublished_and_unconsented_cases_are_absent_from_public_pages(self):
+        unpublished_case = self.create_public_case(
+            title="UNPUBLISHED-CASE-MUST-STAY-HIDDEN",
+            is_published=False,
+        )
+        unpublished_media = self.create_media(
+            patient=unpublished_case.patient,
+            public_case=unpublished_case,
+            title="UNPUBLISHED-MEDIA-MUST-STAY-HIDDEN",
+        )
+        unconsented_case = self.create_public_case(
+            title="UNCONSENTED-CASE-MUST-STAY-HIDDEN",
+            consent_confirmed=False,
+        )
+        unconsented_media = self.create_media(
+            patient=unconsented_case.patient,
+            public_case=unconsented_case,
+            title="UNCONSENTED-CASE-MEDIA-MUST-STAY-HIDDEN",
+        )
+
+        for route_name in ("public_cases_en", "home_en"):
+            with self.subTest(route_name=route_name):
+                response = self.client.get(reverse(route_name))
+
+                self.assertNotContains(response, unpublished_case.title)
+                self.assertNotContains(response, unconsented_case.title)
+                self.assertNotContains(
+                    response,
+                    reverse(
+                        "public_case_media_en",
+                        kwargs={"public_id": unpublished_media.public_id},
+                    ),
+                )
+                self.assertNotContains(
+                    response,
+                    reverse(
+                        "public_case_media_en",
+                        kwargs={"public_id": unconsented_media.public_id},
+                    ),
+                )
+
+    def test_home_uses_one_teaser_asset_with_after_before_primary_priority(self):
+        public_case = self.create_public_case(
+            title="Home explicit public case teaser",
+            note="Concise home teaser note.",
+        )
+        primary = self.create_media(
+            patient=public_case.patient,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.PRIMARY,
+            title="INTERNAL-HOME-PRIMARY-TITLE",
+            file=self.synthetic_image_file(name="synthetic-primary.jpg"),
+        )
+        before = self.create_media(
+            patient=public_case.patient,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
+            title="INTERNAL-HOME-BEFORE-TITLE",
+            file=self.synthetic_image_file(name="synthetic-before.jpg"),
+        )
+        after = self.create_media(
+            patient=public_case.patient,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.AFTER,
+            title="INTERNAL-HOME-AFTER-TITLE",
+            file=self.synthetic_image_file(name="synthetic-after.jpg"),
         )
         self.create_media(
             visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
@@ -1564,16 +1733,37 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         )
 
         response = self.client.get(reverse("home_en"))
-
-        self.assertContains(response, "Home approved public case teaser")
-        self.assertContains(response, reverse("public_cases_en"))
-        self.assertContains(
-            response,
-            reverse("public_case_media_en", kwargs={"public_id": media.public_id}),
+        content = response.content.decode()
+        primary_url = reverse(
+            "public_case_media_en",
+            kwargs={"public_id": primary.public_id},
         )
+        before_url = reverse(
+            "public_case_media_en",
+            kwargs={"public_id": before.public_id},
+        )
+        after_url = reverse(
+            "public_case_media_en",
+            kwargs={"public_id": after.public_id},
+        )
+
+        self.assertContains(response, public_case.title, count=1)
+        self.assertContains(response, public_case.note, count=1)
+        self.assertContains(response, 'class="case-card"', count=1)
+        self.assertContains(response, reverse("public_cases_en"))
+        self.assertEqual(content.count(after_url), 1)
+        self.assertNotIn(before_url, content)
+        self.assertNotIn(primary_url, content)
+        self.assertNotIn("INTERNAL-HOME-PRIMARY-TITLE", content)
+        self.assertNotIn("INTERNAL-HOME-BEFORE-TITLE", content)
+        self.assertNotIn("INTERNAL-HOME-AFTER-TITLE", content)
         self.assertNotContains(response, "Home patient-visible teaser must stay hidden")
-        self.assertNotContains(response, media.file.name)
-        self.assertNotContains(response, "synthetic-public-case.jpg")
+        self.assertNotContains(response, primary.file.name)
+        self.assertNotContains(response, before.file.name)
+        self.assertNotContains(response, after.file.name)
+        self.assertNotContains(response, "synthetic-primary.jpg")
+        self.assertNotContains(response, "synthetic-before.jpg")
+        self.assertNotContains(response, "synthetic-after.jpg")
         self.assertNotContains(response, str(settings.PRIVATE_MEDIA_ROOT))
 
 
@@ -1601,6 +1791,25 @@ class PublicCaseMediaRouteTests(PublicCasesTestDataMixin, TestCase):
         response.close()
         with self.assertRaises(ValueError):
             media.file.url
+
+    def test_unpublishing_case_immediately_denies_previously_public_media(self):
+        public_case = self.create_public_case(title="Temporary public case")
+        media = self.create_media(
+            patient=public_case.patient,
+            public_case=public_case,
+            title="INTERNAL-TEMPORARY-PUBLIC-MEDIA",
+        )
+        media_url = reverse("public_case_media", kwargs={"public_id": media.public_id})
+
+        published_response = self.client.get(media_url)
+        self.assertEqual(published_response.status_code, 200)
+        published_response.close()
+
+        public_case.is_published = False
+        public_case.save(update_fields=["is_published"])
+
+        denied_response = self.client.get(media_url)
+        self.assertEqual(denied_response.status_code, 404)
 
     def test_non_public_or_inactive_media_return_404(self):
         blocked_media = [
@@ -1650,6 +1859,76 @@ class PublicCaseMediaRouteTests(PublicCasesTestDataMixin, TestCase):
         self.assertEqual(missing_media_response.status_code, 404)
         self.assertEqual(missing_file_response.status_code, 404)
         self.assertEqual(missing_storage_file_response.status_code, 404)
+
+
+class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
+    def test_full_cases_template_keeps_all_media_inside_one_case_article(self):
+        template = (settings.BASE_DIR / "templates" / "core" / "cases.html").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertEqual(
+            template.count('<article class="public-case-card public-case-group-card">'),
+            1,
+        )
+        self.assertIn('class="public-case-comparison', template)
+        self.assertLess(template.index("case.before_items"), template.index("case.after_items"))
+        self.assertIn("poster=\"{{ video.poster_url }}\"", template)
+        self.assertNotIn("case.video_cover.url", template)
+        self.assertNotIn("image.title", template)
+        self.assertNotIn("video.title", template)
+
+    def test_home_template_uses_only_the_selected_teaser_and_links_to_cases(self):
+        template = (settings.BASE_DIR / "templates" / "core" / "home.html").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("case.teaser.media_type", template)
+        self.assertIn("case.teaser.url", template)
+        self.assertNotIn("case.before_items", template)
+        self.assertNotIn("case.after_items", template)
+        self.assertNotIn("case.video_items", template)
+        self.assertNotIn("case.primary.url", template)
+        self.assertIn('href="{{ cases_url }}"', template)
+
+    def test_case_video_css_is_intrinsic_bounded_and_logical(self):
+        css = (settings.BASE_DIR / "static" / "css" / "public-closeout.css").read_text(
+            encoding="utf-8"
+        )
+        video_rule = re.search(r"\.public-case-video-frame video\s*\{(?P<body>[^}]*)\}", css)
+
+        self.assertIsNotNone(video_rule)
+        video_body = video_rule.group("body")
+        for declaration in (
+            "display: block",
+            "inline-size: auto",
+            "max-inline-size: 100%",
+            "block-size: auto",
+            "object-fit: contain",
+            "margin-inline: auto",
+        ):
+            with self.subTest(declaration=declaration):
+                self.assertIn(declaration, video_body)
+        self.assertNotIn("width: 100%", video_body)
+        self.assertNotIn("aspect-ratio", video_body)
+        self.assertNotIn("object-fit: cover", video_body)
+        self.assertIn("min(60svh, 34rem)", css)
+        self.assertIn("min(68svh, 42rem)", css)
+        self.assertIn("padding-inline:", css)
+        self.assertIn("padding-block:", css)
+        self.assertNotRegex(css, r"padding-(?:left|right):")
+
+    def test_case_layout_has_one_bounded_outer_column_and_internal_comparison(self):
+        css = (settings.BASE_DIR / "static" / "css" / "public-closeout.css").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn(".public-case-group-grid", css)
+        self.assertIn("grid-template-columns: minmax(0, 1fr)", css)
+        self.assertIn("max-inline-size:", css)
+        self.assertIn("margin-inline: auto", css)
+        self.assertIn(".public-case-comparison.has-before-after", css)
+        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr))", css)
 
 
 class PublicCasesRegressionBoundaryTests(PublicCasesTestDataMixin, TestCase):

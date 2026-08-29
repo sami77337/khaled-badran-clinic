@@ -40,29 +40,33 @@
                                     </div>
                                 </section>
                             {% endif %}
-                            {% if case.before_items %}
-                                <section class="public-case-category" aria-labelledby="case-before-{{ forloop.counter }}">
-                                    <h3 id="case-before-{{ forloop.counter }}">{% if is_arabic %}قبل{% else %}Before{% endif %}</h3>
-                                    <div class="public-case-image-grid">
-                                        {% for image in case.before_items %}
-                                            <figure><a href="{{ image.url }}"><img src="{{ image.url }}" alt="{% if is_arabic %}قبل{% else %}Before{% endif %}" loading="lazy"></a></figure>
-                                        {% endfor %}
-                                    </div>
-                                </section>
-                            {% endif %}
-                            {% if case.after_items %}
-                                <section class="public-case-category" aria-labelledby="case-after-{{ forloop.counter }}">
-                                    <h3 id="case-after-{{ forloop.counter }}">{% if is_arabic %}بعد{% else %}After{% endif %}</h3>
-                                    <div class="public-case-image-grid">
-                                        {% for image in case.after_items %}
-                                            <figure><a href="{{ image.url }}"><img src="{{ image.url }}" alt="{% if is_arabic %}بعد{% else %}After{% endif %}" loading="lazy"></a></figure>
-                                        {% endfor %}
-                                    </div>
-                                </section>
+                            {% if case.before_items or case.after_items %}
+                                <div class="public-case-comparison{% if case.before_items and case.after_items %} has-before-after{% endif %}">
+                                    {% if case.before_items %}
+                                        <section class="public-case-category" aria-labelledby="case-before-{{ forloop.counter }}">
+                                            <h3 id="case-before-{{ forloop.counter }}">{% if is_arabic %}قبل{% else %}Before{% endif %}</h3>
+                                            <div class="public-case-image-grid">
+                                                {% for image in case.before_items %}
+                                                    <figure><a href="{{ image.url }}"><img src="{{ image.url }}" alt="{% if is_arabic %}قبل{% else %}Before{% endif %}" loading="lazy"></a></figure>
+                                                {% endfor %}
+                                            </div>
+                                        </section>
+                                    {% endif %}
+                                    {% if case.after_items %}
+                                        <section class="public-case-category" aria-labelledby="case-after-{{ forloop.counter }}">
+                                            <h3 id="case-after-{{ forloop.counter }}">{% if is_arabic %}بعد{% else %}After{% endif %}</h3>
+                                            <div class="public-case-image-grid">
+                                                {% for image in case.after_items %}
+                                                    <figure><a href="{{ image.url }}"><img src="{{ image.url }}" alt="{% if is_arabic %}بعد{% else %}After{% endif %}" loading="lazy"></a></figure>
+                                                {% endfor %}
+                                            </div>
+                                        </section>
+                                    {% endif %}
+                                </div>
                             {% endif %}
                             {% if case.primary and case.primary.role == 'primary' and not case.video_items %}
                                 <div class="public-case-legacy-media">
-                                    <a href="{{ case.primary.url }}"><img src="{{ case.primary.url }}" alt="{{ case.display_title }}" loading="lazy"></a>
+                                    <a href="{{ case.primary.url }}"><img src="{{ case.primary.url }}" alt="{% if is_arabic %}صورة الحالة{% else %}Case image{% endif %}" loading="lazy"></a>
                                 </div>
                             {% endif %}
                         </div>

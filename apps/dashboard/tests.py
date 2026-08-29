@@ -2906,19 +2906,29 @@ class DashboardPatientRecordResponsiveContractTests(TestCase):
         ).read_text(encoding="utf-8")
 
         for contract in (
+            ".public-case-group-grid",
+            "max-inline-size:",
+            "margin-inline: auto;",
             ".public-case-galleries",
-            "padding: 0 clamp(0.85rem, 2.5vw, 1.25rem)",
+            "padding-inline:",
+            "padding-block:",
             ".public-case-video-frame",
             ".public-case-video-grid",
             "object-fit: contain;",
-            "height: auto;",
-            "max-height: min(70vh, 44rem);",
+            "inline-size: auto;",
+            "max-inline-size: 100%;",
+            "block-size: auto;",
+            "max-block-size: min(60svh, 34rem);",
+            "max-block-size: min(68svh, 42rem);",
+            ".public-case-comparison.has-before-after",
             "grid-template-columns: repeat(2, minmax(0, 1fr));",
             "@media (min-width: 768px)",
         ):
             with self.subTest(contract=contract):
                 self.assertIn(contract, css)
         self.assertNotIn("aspect-ratio: 9 / 16", css)
+        self.assertNotIn("padding-left:", css)
+        self.assertNotIn("padding-right:", css)
 
 
 class DashboardRegressionTests(DashboardRecordWorkflowMixin, TestCase):

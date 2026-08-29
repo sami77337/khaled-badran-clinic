@@ -138,11 +138,12 @@ class PublicCaseGroupingTests(TestCase):
                 full_name="Synthetic Cross Visit Case Patient",
                 phone_raw="0000000099",
             )
+            reference_visit = VisitRecord.objects.create(patient=patient)
             before_visit = VisitRecord.objects.create(patient=patient)
             after_visit = VisitRecord.objects.create(patient=patient)
             public_case = PublicCase.objects.create(
                 patient=patient,
-                reference_visit=before_visit,
+                reference_visit=reference_visit,
                 title="Explicit cross-visit public case",
                 note="One case-level note.",
                 consent_confirmed=True,
@@ -181,6 +182,11 @@ class PublicCaseGroupingTests(TestCase):
 
             public_case.is_published = False
             public_case.save(update_fields=["is_published"])
+            self.assertEqual(grouped_public_cases("en"), [])
+
+            public_case.is_published = True
+            public_case.consent_confirmed = False
+            public_case.save(update_fields=["is_published", "consent_confirmed"])
             self.assertEqual(grouped_public_cases("en"), [])
 
     def test_same_visit_media_are_grouped_and_before_after_are_recognized(self):
@@ -278,11 +284,44 @@ class PublicCaseGroupingTests(TestCase):
             self.assertEqual(len(group["items"]), 3)
             self.assertEqual(group["before"]["role"], "before")
             self.assertEqual(group["after"]["role"], "after")
-            self.assertEqual(group["before"]["title"], "")
-            self.assertEqual(group["after"]["title"], "")
+            self.assertNotIn("title", group["before"])
+            self.assertNotIn("description", group["after"])
             self.assertEqual(group["primary"]["media_type"], RecordMedia.MediaType.SHORT_VIDEO)
             self.assertEqual(group["display_title"], "Authorized case 1")
             self.assertEqual(group["description"], note)
+
+    def test_case_metadata_never_falls_back_to_record_media_metadata(self):
+        with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
+            patient = Patient.objects.create(
+                full_name="Synthetic Metadata Boundary Patient",
+                phone_raw="0000000004",
+            )
+            public_case = PublicCase.objects.create(
+                patient=patient,
+                title="",
+                note="",
+                consent_confirmed=True,
+                is_published=True,
+            )
+            RecordMedia.objects.create(
+                patient=patient,
+                public_case=public_case,
+                public_case_role=RecordMedia.PublicCaseRole.BEFORE,
+                media_type=RecordMedia.MediaType.IMAGE,
+                file=SimpleUploadedFile("before.jpg", b"before", content_type="image/jpeg"),
+                title="INTERNAL-ROLE-TITLE-MUST-STAY-HIDDEN",
+                description="INTERNAL-MEDIA-NOTE-MUST-STAY-HIDDEN",
+                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+                consent_confirmed=True,
+                is_active=True,
+            )
+
+            group = grouped_public_cases("en")[0]
+
+            self.assertEqual(group["display_title"], "Authorized case 1")
+            self.assertEqual(group["description"], "")
+            self.assertNotIn("INTERNAL-ROLE-TITLE-MUST-STAY-HIDDEN", str(group))
+            self.assertNotIn("INTERNAL-MEDIA-NOTE-MUST-STAY-HIDDEN", str(group))
 
     def test_legitimate_non_role_title_remains_the_public_case_title(self):
         with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
@@ -369,6 +408,10 @@ class PublicCaseGroupingTests(TestCase):
             self.assertEqual(len(first_group["video_items"]), 2)
             self.assertIsNotNone(first_group["video_cover"])
             self.assertEqual(
+                first_group["teaser"]["public_id"],
+                first_group["video_items"][0]["public_id"],
+            )
+            self.assertEqual(
                 first_group["video_items"][0]["poster_url"],
                 first_group["video_cover"]["url"],
             )
@@ -386,3 +429,28 @@ class PublicCaseGroupingTests(TestCase):
                 [item["public_id"] for item in first_group["items"]],
                 [item["public_id"] for item in second_group["items"]],
             )
+
+    def test_video_cover_without_a_renderable_asset_does_not_create_a_public_card(self):
+        with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
+            patient = Patient.objects.create(
+                full_name="Synthetic Cover Only Patient",
+                phone_raw="0000000005",
+            )
+            public_case = PublicCase.objects.create(
+                patient=patient,
+                title="Cover-only case must stay absent",
+                consent_confirmed=True,
+                is_published=True,
+            )
+            RecordMedia.objects.create(
+                patient=patient,
+                public_case=public_case,
+                public_case_role=RecordMedia.PublicCaseRole.VIDEO_COVER,
+                media_type=RecordMedia.MediaType.IMAGE,
+                file=SimpleUploadedFile("cover.jpg", b"cover", content_type="image/jpeg"),
+                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+                consent_confirmed=True,
+                is_active=True,
+            )
+
+            self.assertEqual(grouped_public_cases("en"), [])
