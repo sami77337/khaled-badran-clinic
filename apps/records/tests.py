@@ -6,7 +6,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.exceptions import ValidationError
-from django.db import connection, models
+from django.db import IntegrityError, connection, models, transaction
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
@@ -113,6 +113,23 @@ class PatientRecordTestDataMixin:
                 if media_type == RecordMedia.MediaType.SHORT_VIDEO
                 else self.synthetic_image_file()
             )
+        if (
+            kwargs.get("visibility") == RecordMedia.Visibility.APPROVED_PUBLIC_CASE
+            and "public_case" not in kwargs
+        ):
+            kwargs["public_case"] = PublicCase.objects.create(
+                patient=patient,
+                consent_confirmed=True,
+                is_published=True,
+            )
+            kwargs.setdefault(
+                "public_case_role",
+                (
+                    RecordMedia.PublicCaseRole.VIDEO
+                    if media_type == RecordMedia.MediaType.SHORT_VIDEO
+                    else RecordMedia.PublicCaseRole.PRIMARY
+                ),
+            )
         return RecordMedia.objects.create(
             patient=patient,
             media_type=media_type,
@@ -201,6 +218,18 @@ class PatientRecordFoundationTests(PatientRecordTestDataMixin, TestCase):
             media.full_clean()
 
         media.consent_confirmed = True
+        with self.assertRaisesMessage(
+            ValidationError,
+            "Approved public case media requires a public case.",
+        ):
+            media.full_clean()
+
+        media.public_case = PublicCase.objects.create(
+            patient=media.patient,
+            consent_confirmed=True,
+            is_published=True,
+        )
+        media.public_case_role = RecordMedia.PublicCaseRole.PRIMARY
         media.full_clean()
         media.save()
 
@@ -401,6 +430,16 @@ class PublicCaseModelTests(PatientRecordTestDataMixin, TestCase):
 
         self.assertEqual(media.folder, folder)
         self.assertEqual(media.public_case, public_case)
+
+    def test_database_rejects_approved_public_media_without_public_case(self):
+        media = self.create_record_media()
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            RecordMedia.objects.filter(pk=media.pk).update(
+                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+                consent_confirmed=True,
+                public_case=None,
+            )
 
 
 class PublicCaseBackfillMigrationTests(TransactionTestCase):

@@ -339,9 +339,12 @@ class RecordMedia(models.Model):
             models.CheckConstraint(
                 condition=(
                     ~models.Q(visibility="approved_public_case")
-                    | models.Q(consent_confirmed=True)
+                    | (
+                        models.Q(consent_confirmed=True)
+                        & models.Q(public_case__isnull=False)
+                    )
                 ),
-                name="record_media_public_case_requires_consent",
+                name="record_media_public_case_requires_consent_and_case",
             ),
         ]
 
@@ -366,6 +369,9 @@ class RecordMedia(models.Model):
             self.visibility == self.Visibility.APPROVED_PUBLIC_CASE
             and self.consent_confirmed
             and self.is_active
+            and self.public_case_id is not None
+            and self.public_case.consent_confirmed
+            and self.public_case.is_published
         )
 
     def _uploaded_file(self):
@@ -480,10 +486,15 @@ class RecordMedia(models.Model):
             raise ValidationError(
                 {"public_case_role": "The video public case role requires short video media."}
             )
-        if self.visibility == self.Visibility.APPROVED_PUBLIC_CASE and not self.consent_confirmed:
-            raise ValidationError(
-                {"consent_confirmed": "Public case media requires confirmed consent."}
-            )
+        if self.visibility == self.Visibility.APPROVED_PUBLIC_CASE:
+            if not self.consent_confirmed:
+                raise ValidationError(
+                    {"consent_confirmed": "Public case media requires confirmed consent."}
+                )
+            if not self.public_case_id:
+                raise ValidationError(
+                    {"public_case": "Approved public case media requires a public case."}
+                )
 
     def save(self, *args, **kwargs):
         self.populate_file_metadata()
