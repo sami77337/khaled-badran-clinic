@@ -20,9 +20,21 @@
             <div class="hero-actions">
                 <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
                 <a class="btn btn-secondary" href="{{ services_url }}">{% if is_arabic %}استكشف الخدمات{% else %}Explore Services{% endif %}</a>
-                <a class="portal-text-link" href="{% if is_arabic %}{% url 'login' %}{% else %}{% url 'login_en' %}{% endif %}">
-                    {% if is_arabic %}تسجيل الدخول إلى سجلي الطبي{% else %}Sign in to My Medical Record{% endif %}
-                </a>
+                {% if request.user.is_authenticated %}
+                    {% if not request.user.is_staff %}
+                        <a
+                            class="portal-text-link"
+                            data-auth-action="patient-portal-hero"
+                            href="{% if is_arabic %}{% url 'patient_portal_dashboard' %}{% else %}{% url 'patient_portal_dashboard_en' %}{% endif %}"
+                        >{% if is_arabic %}الذهاب إلى بوابة المريض{% else %}Go to Patient Portal{% endif %}</a>
+                    {% endif %}
+                {% else %}
+                    <a
+                        class="portal-text-link"
+                        data-auth-action="patient-login-hero"
+                        href="{% if is_arabic %}{% url 'login' %}?role=patient{% else %}{% url 'login_en' %}?role=patient{% endif %}"
+                    >{% if is_arabic %}تسجيل الدخول إلى سجلي الطبي{% else %}Sign in to My Medical Record{% endif %}</a>
+                {% endif %}
             </div>
         </div>
 
