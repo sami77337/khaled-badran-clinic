@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib import admin
 
-from .models import ClinicalNote, RecordMedia, RecordMediaFolder, VisitRecord
+from .models import ClinicalNote, PublicCase, RecordMedia, RecordMediaFolder, VisitRecord
 
 
 class RecordMediaAdminForm(forms.ModelForm):
@@ -87,6 +87,8 @@ class RecordMediaAdmin(admin.ModelAdmin):
         "patient",
         "visit",
         "folder",
+        "public_case",
+        "public_case_role",
         "media_type",
         "visibility",
         "consent_confirmed",
@@ -111,7 +113,7 @@ class RecordMediaAdmin(admin.ModelAdmin):
         "original_filename",
         "title",
     )
-    autocomplete_fields = ("patient", "visit", "folder", "uploaded_by")
+    autocomplete_fields = ("patient", "visit", "folder", "public_case", "uploaded_by")
     readonly_fields = (
         "public_id",
         "original_filename",
@@ -122,7 +124,7 @@ class RecordMediaAdmin(admin.ModelAdmin):
         "updated_at",
     )
     date_hierarchy = "uploaded_at"
-    list_select_related = ("patient", "visit", "uploaded_by")
+    list_select_related = ("patient", "visit", "folder", "public_case", "uploaded_by")
     fieldsets = (
         (
             None,
@@ -131,6 +133,8 @@ class RecordMediaAdmin(admin.ModelAdmin):
                     "patient",
                     "visit",
                     "folder",
+                    "public_case",
+                    "public_case_role",
                     "media_type",
                     "file",
                     "title",
@@ -167,6 +171,25 @@ class RecordMediaAdmin(admin.ModelAdmin):
         if not obj.file:
             return "No private file is stored."
         return "Staff-only private download route; no public file URL is rendered."
+
+
+@admin.register(PublicCase)
+class PublicCaseAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "title",
+        "patient",
+        "reference_visit",
+        "consent_confirmed",
+        "is_published",
+        "created_by",
+        "created_at",
+    )
+    list_filter = ("consent_confirmed", "is_published", "created_at")
+    search_fields = ("title", "patient__full_name")
+    autocomplete_fields = ("patient", "reference_visit", "created_by")
+    readonly_fields = ("created_at", "updated_at")
+    list_select_related = ("patient", "reference_visit", "created_by")
 
 
 @admin.register(RecordMediaFolder)

@@ -6,8 +6,9 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.exceptions import ValidationError
-from django.db import models
-from django.test import TestCase, override_settings
+from django.db import connection, models
+from django.db.migrations.executor import MigrationExecutor
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -18,6 +19,7 @@ from apps.records.models import (
     IMAGE_MAX_BYTES,
     SHORT_VIDEO_MAX_BYTES,
     ClinicalNote,
+    PublicCase,
     RecordMedia,
     RecordMediaFolder,
     VisitRecord,
@@ -258,10 +260,270 @@ class PatientRecordFoundationTests(PatientRecordTestDataMixin, TestCase):
                     self.assertNotIsInstance(field, models.FileField)
 
         self.assertIsInstance(RecordMedia._meta.get_field("file"), models.FileField)
-
         self.assertIn("Manual", VisitRecord._meta.get_field("diagnosis_plan").help_text)
         self.assertIn("Manual", VisitRecord._meta.get_field("instructions").help_text)
 
+
+class PublicCaseModelTests(PatientRecordTestDataMixin, TestCase):
+    def test_same_patient_reference_visit_is_valid(self):
+        patient = self.create_patient()
+        visit = VisitRecord.objects.create(patient=patient)
+        public_case = PublicCase(
+            patient=patient,
+            reference_visit=visit,
+            title="Synthetic public case",
+        )
+
+        public_case.full_clean()
+        public_case.save()
+
+        self.assertEqual(public_case.patient, patient)
+        self.assertEqual(public_case.reference_visit, visit)
+
+    def test_cross_patient_reference_visit_is_rejected(self):
+        patient = self.create_patient()
+        other_patient = Patient.objects.create(
+            full_name="Synthetic Other Patient",
+            phone_raw="+962700000001",
+        )
+        other_visit = VisitRecord.objects.create(patient=other_patient)
+        public_case = PublicCase(patient=patient, reference_visit=other_visit)
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            "Reference visit must belong to the selected patient.",
+        ):
+            public_case.full_clean()
+
+    def test_media_accepts_same_patient_public_case_and_explicit_image_roles(self):
+        patient = self.create_patient()
+        public_case = PublicCase.objects.create(patient=patient)
+
+        for role in (
+            RecordMedia.PublicCaseRole.PRIMARY,
+            RecordMedia.PublicCaseRole.BEFORE,
+            RecordMedia.PublicCaseRole.AFTER,
+            RecordMedia.PublicCaseRole.VIDEO_COVER,
+        ):
+            with self.subTest(role=role):
+                media = RecordMedia(
+                    patient=patient,
+                    public_case=public_case,
+                    public_case_role=role,
+                    media_type=RecordMedia.MediaType.IMAGE,
+                    file=self.synthetic_image_file(name=f"{role}.jpg"),
+                )
+                media.full_clean()
+
+    def test_media_accepts_video_role_for_short_video(self):
+        patient = self.create_patient()
+        public_case = PublicCase.objects.create(patient=patient)
+        media = RecordMedia(
+            patient=patient,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.VIDEO,
+            media_type=RecordMedia.MediaType.SHORT_VIDEO,
+            file=self.synthetic_video_file(),
+        )
+
+        media.full_clean()
+
+    def test_cross_patient_public_case_is_rejected(self):
+        patient = self.create_patient()
+        other_patient = Patient.objects.create(
+            full_name="Synthetic Public Case Owner",
+            phone_raw="+962700000002",
+        )
+        public_case = PublicCase.objects.create(patient=other_patient)
+        media = RecordMedia(
+            patient=patient,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
+            media_type=RecordMedia.MediaType.IMAGE,
+            file=self.synthetic_image_file(),
+        )
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            "Public case must belong to the selected patient.",
+        ):
+            media.full_clean()
+
+    def test_role_requires_public_case_and_matching_media_type(self):
+        patient = self.create_patient()
+        public_case = PublicCase.objects.create(patient=patient)
+        invalid_rows = (
+            (RecordMedia.PublicCaseRole.BEFORE, RecordMedia.MediaType.SHORT_VIDEO),
+            (RecordMedia.PublicCaseRole.AFTER, RecordMedia.MediaType.SHORT_VIDEO),
+            (RecordMedia.PublicCaseRole.VIDEO_COVER, RecordMedia.MediaType.SHORT_VIDEO),
+            (RecordMedia.PublicCaseRole.VIDEO, RecordMedia.MediaType.IMAGE),
+        )
+
+        without_case = RecordMedia(
+            patient=patient,
+            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
+            media_type=RecordMedia.MediaType.IMAGE,
+            file=self.synthetic_image_file(name="without-case.jpg"),
+        )
+        with self.assertRaisesMessage(
+            ValidationError,
+            "A public case role requires a public case.",
+        ):
+            without_case.full_clean()
+
+        for index, (role, media_type) in enumerate(invalid_rows):
+            with self.subTest(role=role, media_type=media_type):
+                file = (
+                    self.synthetic_video_file(name=f"invalid-{index}.mp4")
+                    if media_type == RecordMedia.MediaType.SHORT_VIDEO
+                    else self.synthetic_image_file(name=f"invalid-{index}.jpg")
+                )
+                media = RecordMedia(
+                    patient=patient,
+                    public_case=public_case,
+                    public_case_role=role,
+                    media_type=media_type,
+                    file=file,
+                )
+                with self.assertRaises(ValidationError):
+                    media.full_clean()
+
+    def test_folder_is_independent_from_public_case(self):
+        patient = self.create_patient()
+        folder = RecordMediaFolder.objects.create(patient=patient, name="Internal only")
+        public_case = PublicCase.objects.create(patient=patient)
+        media = self.create_record_media(
+            patient=patient,
+            folder=folder,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
+        )
+
+        self.assertEqual(media.folder, folder)
+        self.assertEqual(media.public_case, public_case)
+
+
+class PublicCaseBackfillMigrationTests(TransactionTestCase):
+    migrate_from = ("records", "0003_recordmediafolder_recordmedia_folder")
+    migrate_to = ("records", "0004_recordmedia_public_case_role_publiccase_and_more")
+
+    def setUp(self):
+        super().setUp()
+        executor = MigrationExecutor(connection)
+        executor.migrate([self.migrate_from])
+        old_apps = executor.loader.project_state([self.migrate_from]).apps
+        PatientModel = old_apps.get_model("patients", "Patient")
+        VisitModel = old_apps.get_model("records", "VisitRecord")
+        MediaModel = old_apps.get_model("records", "RecordMedia")
+
+        patient = PatientModel.objects.create(
+            full_name="Synthetic Migration Patient",
+            phone_raw="+962700000010",
+        )
+        first_visit = VisitModel.objects.create(patient_id=patient.pk)
+        second_visit = VisitModel.objects.create(patient_id=patient.pk)
+        self.original_files = []
+
+        def add_media(*, visit, media_type, title, description=""):
+            file_name = f"records/migration-{len(self.original_files)}.dat"
+            row = MediaModel.objects.create(
+                patient_id=patient.pk,
+                visit_id=visit.pk if visit else None,
+                media_type=media_type,
+                file=file_name,
+                original_filename=file_name.rsplit("/", 1)[-1],
+                file_size=10,
+                content_type=("video/mp4" if media_type == "short_video" else "image/jpeg"),
+                title=title,
+                description=description,
+                visibility="approved_public_case",
+                consent_confirmed=True,
+                is_active=True,
+            )
+            self.original_files.append((row.pk, file_name))
+            return row
+
+        self.first_before = add_media(
+            visit=first_visit,
+            media_type="image",
+            title="[[public-case:before]]Clean migrated title",
+            description="Migrated public note.",
+        )
+        self.first_after = add_media(
+            visit=first_visit,
+            media_type="image",
+            title="After",
+        )
+        self.second_video = add_media(
+            visit=second_visit,
+            media_type="short_video",
+            title="[[public-case:video]]Second migrated title",
+        )
+        self.second_cover = add_media(
+            visit=second_visit,
+            media_type="image",
+            title="[[public-case:video_cover]]Second migrated title",
+        )
+        self.unvisited_neutral = add_media(
+            visit=None,
+            media_type="image",
+            title="قبل",
+        )
+        self.unvisited_titled = add_media(
+            visit=None,
+            media_type="image",
+            title="Independent migrated title",
+        )
+
+        executor = MigrationExecutor(connection)
+        executor.migrate([self.migrate_to])
+        self.apps = executor.loader.project_state([self.migrate_to]).apps
+
+    def tearDown(self):
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes("records"))
+        super().tearDown()
+
+    def test_backfill_preserves_safe_legacy_grouping_and_media(self):
+        PublicCaseModel = self.apps.get_model("records", "PublicCase")
+        MediaModel = self.apps.get_model("records", "RecordMedia")
+        cases = list(PublicCaseModel.objects.order_by("pk"))
+        rows = {row.pk: row for row in MediaModel.objects.order_by("pk")}
+
+        self.assertEqual(len(cases), 4)
+        self.assertEqual(len(rows), 6)
+        self.assertEqual(
+            rows[self.first_before.pk].public_case_id,
+            rows[self.first_after.pk].public_case_id,
+        )
+        self.assertNotEqual(
+            rows[self.first_before.pk].public_case_id,
+            rows[self.second_video.pk].public_case_id,
+        )
+        self.assertNotEqual(
+            rows[self.unvisited_neutral.pk].public_case_id,
+            rows[self.unvisited_titled.pk].public_case_id,
+        )
+        self.assertEqual(rows[self.first_before.pk].public_case_role, "before")
+        self.assertEqual(rows[self.first_after.pk].public_case_role, "after")
+        self.assertEqual(rows[self.second_video.pk].public_case_role, "video")
+        self.assertEqual(rows[self.second_cover.pk].public_case_role, "video_cover")
+        self.assertEqual(rows[self.first_before.pk].public_case.title, "Clean migrated title")
+        self.assertEqual(rows[self.first_before.pk].public_case.note, "Migrated public note.")
+        self.assertEqual(rows[self.unvisited_neutral.pk].public_case.title, "")
+        self.assertEqual(
+            rows[self.unvisited_titled.pk].public_case.title,
+            "Independent migrated title",
+        )
+        self.assertTrue(all(case.consent_confirmed and case.is_published for case in cases))
+        self.assertEqual(
+            [(pk, rows[pk].file.name) for pk, _ in self.original_files],
+            self.original_files,
+        )
+
+
+
+class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
     def test_uploaded_image_is_accepted_with_allowed_type_and_size(self):
         media = self.create_record_media(file=self.synthetic_image_file(size=1024))
 

@@ -156,6 +156,50 @@ class ClinicalNote(models.Model):
         }
 
 
+class PublicCase(models.Model):
+    patient = models.ForeignKey(
+        "patients.Patient",
+        on_delete=models.PROTECT,
+        related_name="public_cases",
+    )
+    reference_visit = models.ForeignKey(
+        VisitRecord,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="public_cases",
+    )
+    title = models.CharField(max_length=180, blank=True)
+    note = models.TextField(blank=True)
+    consent_confirmed = models.BooleanField(default=False, db_index=True)
+    is_published = models.BooleanField(default=False, db_index=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="public_cases_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return self.title or f"Public case {self.pk or 'unsaved'}"
+
+    def clean(self):
+        if (
+            self.reference_visit_id
+            and self.patient_id
+            and self.reference_visit.patient_id != self.patient_id
+        ):
+            raise ValidationError(
+                {"reference_visit": "Reference visit must belong to the selected patient."}
+            )
+
+
 class RecordMediaFolder(models.Model):
     patient = models.ForeignKey(
         "patients.Patient",
@@ -210,6 +254,13 @@ class RecordMedia(models.Model):
         VISIBLE_TO_PATIENT = "visible_to_patient", "Visible to patient"
         APPROVED_PUBLIC_CASE = "approved_public_case", "Approved public case"
 
+    class PublicCaseRole(models.TextChoices):
+        PRIMARY = "primary", "Primary"
+        BEFORE = "before", "Before"
+        AFTER = "after", "After"
+        VIDEO = "video", "Video"
+        VIDEO_COVER = "video_cover", "Video cover"
+
     public_id = models.UUIDField(
         default=uuid.uuid4,
         unique=True,
@@ -234,6 +285,19 @@ class RecordMedia(models.Model):
         null=True,
         blank=True,
         related_name="media_items",
+    )
+    public_case = models.ForeignKey(
+        PublicCase,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="media_items",
+    )
+    public_case_role = models.CharField(
+        max_length=20,
+        choices=PublicCaseRole.choices,
+        blank=True,
+        default="",
     )
     media_type = models.CharField(max_length=20, choices=MediaType.choices)
     file = models.FileField(
@@ -387,6 +451,35 @@ class RecordMedia(models.Model):
             raise ValidationError({"visit": "Visit must belong to the selected patient."})
         if self.folder_id and self.patient_id and self.folder.patient_id != self.patient_id:
             raise ValidationError({"folder": "Folder must belong to the selected patient."})
+        if (
+            self.public_case_id
+            and self.patient_id
+            and self.public_case.patient_id != self.patient_id
+        ):
+            raise ValidationError(
+                {"public_case": "Public case must belong to the selected patient."}
+            )
+        if self.public_case_role and not self.public_case_id:
+            raise ValidationError(
+                {"public_case_role": "A public case role requires a public case."}
+            )
+        image_roles = {
+            self.PublicCaseRole.PRIMARY,
+            self.PublicCaseRole.BEFORE,
+            self.PublicCaseRole.AFTER,
+            self.PublicCaseRole.VIDEO_COVER,
+        }
+        if self.public_case_role in image_roles and self.media_type != self.MediaType.IMAGE:
+            raise ValidationError(
+                {"public_case_role": "This public case role requires image media."}
+            )
+        if (
+            self.public_case_role == self.PublicCaseRole.VIDEO
+            and self.media_type != self.MediaType.SHORT_VIDEO
+        ):
+            raise ValidationError(
+                {"public_case_role": "The video public case role requires short video media."}
+            )
         if self.visibility == self.Visibility.APPROVED_PUBLIC_CASE and not self.consent_confirmed:
             raise ValidationError(
                 {"consent_confirmed": "Public case media requires confirmed consent."}
