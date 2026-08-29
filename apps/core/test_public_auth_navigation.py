@@ -12,11 +12,13 @@ class PublicAuthNavigationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-auth-action="login"', count=2)
+        self.assertContains(response, 'data-auth-action="patient-login-hero"', count=1)
         self.assertNotContains(response, 'data-auth-action="doctor-dashboard"')
+        self.assertNotContains(response, 'data-auth-action="patient-portal-hero"')
         self.assertContains(
             response,
             f'href="{reverse("login")}?role=patient"',
-            count=2,
+            count=3,
         )
         self.assertContains(response, 'data-nav-key="patient_portal"', count=2)
 
@@ -31,11 +33,13 @@ class PublicAuthNavigationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'data-auth-action="login"')
+        self.assertNotContains(response, 'data-auth-action="patient-login-hero"')
         self.assertNotContains(response, 'data-auth-action="doctor-dashboard"')
+        self.assertContains(response, 'data-auth-action="patient-portal-hero"', count=1)
         self.assertContains(response, f'href="{reverse("patient_portal_dashboard")}"')
         self.assertContains(response, 'data-nav-key="patient_portal"', count=2)
 
-    def test_staff_home_shows_doctor_dashboard_only_and_hides_patient_portal_nav(self):
+    def test_staff_home_shows_doctor_dashboard_only_and_hides_patient_actions(self):
         staff_user = self.User.objects.create_user(
             username="synthetic-doctor-nav",
             password="SyntheticPass-12345",
@@ -47,6 +51,8 @@ class PublicAuthNavigationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'data-auth-action="login"')
+        self.assertNotContains(response, 'data-auth-action="patient-login-hero"')
+        self.assertNotContains(response, 'data-auth-action="patient-portal-hero"')
         self.assertContains(response, 'data-auth-action="doctor-dashboard"', count=2)
         self.assertContains(
             response,
@@ -60,10 +66,11 @@ class PublicAuthNavigationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-auth-action="login"', count=2)
+        self.assertContains(response, 'data-auth-action="patient-login-hero"', count=1)
         self.assertContains(
             response,
             f'href="{reverse("login_en")}?role=patient"',
-            count=2,
+            count=3,
         )
 
         staff_user = self.User.objects.create_user(
@@ -74,6 +81,8 @@ class PublicAuthNavigationTests(TestCase):
         self.client.force_login(staff_user)
         response = self.client.get(reverse("home_en"))
 
+        self.assertNotContains(response, 'data-auth-action="patient-login-hero"')
+        self.assertNotContains(response, 'data-auth-action="patient-portal-hero"')
         self.assertContains(response, 'data-auth-action="doctor-dashboard"', count=2)
         self.assertContains(
             response,
