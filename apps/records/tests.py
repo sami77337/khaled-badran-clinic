@@ -19,6 +19,7 @@ from apps.records.models import (
     SHORT_VIDEO_MAX_BYTES,
     ClinicalNote,
     RecordMedia,
+    RecordMediaFolder,
     VisitRecord,
 )
 from apps.records.storage import private_record_media_storage
@@ -457,3 +458,94 @@ class PatientRecordFoundationTests(PatientRecordTestDataMixin, TestCase):
         self.assertTrue(media.is_public_case_approved)
         with self.assertRaises(ValueError):
             media.file.url
+
+
+class RecordMediaFolderModelTests(PatientRecordTestDataMixin, TestCase):
+    def test_folder_belongs_to_patient_and_media_can_remain_unfiled(self):
+        patient = self.create_patient()
+        folder = RecordMediaFolder.objects.create(patient=patient, name="  Follow Up  ")
+        media = self.create_record_media(patient=patient)
+
+        self.assertEqual(folder.patient, patient)
+        self.assertEqual(folder.name, "Follow Up")
+        self.assertIsNone(media.folder)
+
+    def test_same_patient_folder_assignment_works(self):
+        patient = self.create_patient()
+        folder = RecordMediaFolder.objects.create(patient=patient, name="Procedure")
+        media = self.create_record_media(patient=patient, folder=folder)
+
+        self.assertEqual(media.folder, folder)
+
+    def test_cross_patient_folder_assignment_is_rejected(self):
+        patient = self.create_patient()
+        other_patient = Patient.objects.create(
+            full_name="Synthetic Other Patient",
+            phone_raw="+962700000001",
+        )
+        other_folder = RecordMediaFolder.objects.create(
+            patient=other_patient,
+            name="Other Patient Folder",
+        )
+        media = RecordMedia(
+            patient=patient,
+            folder=other_folder,
+            media_type=RecordMedia.MediaType.IMAGE,
+            file=self.synthetic_image_file(),
+        )
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            "Folder must belong to the selected patient.",
+        ):
+            media.full_clean()
+
+    def test_deleting_folder_sets_media_unfiled_without_deleting_media(self):
+        patient = self.create_patient()
+        folder = RecordMediaFolder.objects.create(patient=patient, name="Temporary Folder")
+        media = self.create_record_media(patient=patient, folder=folder)
+        media_pk = media.pk
+
+        folder.delete()
+        media.refresh_from_db()
+
+        self.assertIsNone(media.folder_id)
+        self.assertTrue(RecordMedia.objects.filter(pk=media_pk).exists())
+
+    def test_moving_folder_is_metadata_only_and_preserves_visibility_and_storage_name(self):
+        patient = self.create_patient()
+        first_folder = RecordMediaFolder.objects.create(patient=patient, name="First")
+        second_folder = RecordMediaFolder.objects.create(patient=patient, name="Second")
+        media = self.create_record_media(
+            patient=patient,
+            folder=first_folder,
+            visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
+        )
+        storage_name = media.file.name
+
+        media.folder = second_folder
+        media.save(update_fields=["folder"])
+        media.refresh_from_db()
+
+        self.assertEqual(media.folder, second_folder)
+        self.assertEqual(media.file.name, storage_name)
+        self.assertEqual(media.visibility, RecordMedia.Visibility.VISIBLE_TO_PATIENT)
+
+        media.folder = None
+        media.save(update_fields=["folder"])
+        media.refresh_from_db()
+        self.assertIsNone(media.folder_id)
+        self.assertEqual(media.file.name, storage_name)
+        self.assertEqual(media.visibility, RecordMedia.Visibility.VISIBLE_TO_PATIENT)
+
+    def test_folder_rejects_blank_and_case_insensitive_same_patient_duplicates(self):
+        patient = self.create_patient()
+        RecordMediaFolder.objects.create(patient=patient, name="Procedure Photos")
+
+        with self.assertRaises(ValidationError):
+            RecordMediaFolder.objects.create(patient=patient, name="   ")
+        with self.assertRaisesMessage(
+            ValidationError,
+            "A folder with this name already exists for this patient.",
+        ):
+            RecordMediaFolder.objects.create(patient=patient, name="procedure photos")

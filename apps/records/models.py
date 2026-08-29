@@ -156,6 +156,50 @@ class ClinicalNote(models.Model):
         }
 
 
+class RecordMediaFolder(models.Model):
+    patient = models.ForeignKey(
+        "patients.Patient",
+        on_delete=models.PROTECT,
+        related_name="media_folders",
+    )
+    name = models.CharField(max_length=120)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="record_media_folders_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        self.name = (self.name or "").strip()
+        if not self.name:
+            raise ValidationError({"name": "Folder name is required."})
+        if self.patient_id:
+            duplicates = RecordMediaFolder.objects.filter(
+                patient_id=self.patient_id,
+                name__iexact=self.name,
+            )
+            if self.pk:
+                duplicates = duplicates.exclude(pk=self.pk)
+            if duplicates.exists():
+                raise ValidationError(
+                    {"name": "A folder with this name already exists for this patient."}
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
 class RecordMedia(models.Model):
     class MediaType(models.TextChoices):
         IMAGE = "image", "Image"
@@ -179,6 +223,13 @@ class RecordMedia(models.Model):
     )
     visit = models.ForeignKey(
         VisitRecord,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="media_items",
+    )
+    folder = models.ForeignKey(
+        RecordMediaFolder,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -334,6 +385,8 @@ class RecordMedia(models.Model):
 
         if self.visit_id and self.patient_id and self.visit.patient_id != self.patient_id:
             raise ValidationError({"visit": "Visit must belong to the selected patient."})
+        if self.folder_id and self.patient_id and self.folder.patient_id != self.patient_id:
+            raise ValidationError({"folder": "Folder must belong to the selected patient."})
         if self.visibility == self.Visibility.APPROVED_PUBLIC_CASE and not self.consent_confirmed:
             raise ValidationError(
                 {"consent_confirmed": "Public case media requires confirmed consent."}

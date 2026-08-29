@@ -183,6 +183,74 @@
                 <h2 id="private-media-title">{% if is_arabic %}الوسائط الخاصة{% else %}Private Media{% endif %}</h2>
                 <span class="record-count" aria-label="{% if is_arabic %}عدد الوسائط الخاصة{% else %}Private media count{% endif %}">{{ media_count }}</span>
             </div>
+            <div class="record-folder-organizer" aria-labelledby="media-folders-title">
+                <div class="record-folder-organizer-heading">
+                    <div>
+                        <p class="record-entry-kicker">{% if is_arabic %}تنظيم داخلي للطاقم فقط{% else %}Internal staff organization only{% endif %}</p>
+                        <h3 id="media-folders-title">{% if is_arabic %}المجلدات{% else %}Folders{% endif %}</h3>
+                    </div>
+                    <span class="record-folder-safety">{% if is_arabic %}لا تظهر للمرضى أو للزوار{% else %}Never shown to patients or visitors{% endif %}</span>
+                </div>
+
+                <form class="record-folder-create" method="post" action="{{ folder_create_url }}">
+                    {% csrf_token %}
+                    <p class="record-entry-kicker">{% if is_arabic %}مجلد جديد{% else %}New Folder{% endif %}</p>
+                    <label for="{{ folder_create_form.name.id_for_label }}">{% if is_arabic %}اسم المجلد{% else %}Folder name{% endif %}</label>
+                    <div class="record-folder-create-controls">
+                        {{ folder_create_form.name }}
+                        <button type="submit">{% if is_arabic %}إنشاء المجلد{% else %}Create Folder{% endif %}</button>
+                    </div>
+                    {% if folder_create_form.name.errors %}<div class="record-field-errors" role="alert">{{ folder_create_form.name.errors }}</div>{% endif %}
+                    {% if folder_create_form.non_field_errors %}<div class="record-field-errors" role="alert">{{ folder_create_form.non_field_errors }}</div>{% endif %}
+                </form>
+
+                <div class="record-folder-list" aria-label="{% if is_arabic %}تصفية الوسائط حسب المجلد{% else %}Filter media by folder{% endif %}">
+                    <div class="record-folder-row{% if selected_media_filter == 'all' %} is-selected{% endif %}">
+                        <a class="record-folder-filter" href="{{ media_all_url }}"{% if selected_media_filter == 'all' %} aria-current="true"{% endif %}>
+                            <span>{% if is_arabic %}كل الوسائط{% else %}All Media{% endif %}</span>
+                            <span class="record-folder-count">{{ media_count }}</span>
+                        </a>
+                    </div>
+                    {% for item in media_folders %}
+                        <div class="record-folder-row{% if item.is_selected %} is-selected{% endif %}">
+                            <a class="record-folder-filter" href="{{ item.filter_url }}"{% if item.is_selected %} aria-current="true"{% endif %}>
+                                <span>{{ item.folder.name }}</span>
+                                <span class="record-folder-count">{{ item.media_count }}</span>
+                            </a>
+                            <details class="record-folder-actions">
+                                <summary>{% if is_arabic %}إدارة{% else %}Manage{% endif %}</summary>
+                                <div class="record-folder-actions-panel">
+                                    <form method="post" action="{{ item.rename_url }}">
+                                        {% csrf_token %}
+                                        <label for="{{ item.rename_form.name.id_for_label }}">{% if is_arabic %}اسم المجلد{% else %}Folder name{% endif %}</label>
+                                        {{ item.rename_form.name }}
+                                        {% if item.rename_form.name.errors %}<div class="record-field-errors" role="alert">{{ item.rename_form.name.errors }}</div>{% endif %}
+                                        <button type="submit">{% if is_arabic %}إعادة التسمية{% else %}Rename{% endif %}</button>
+                                    </form>
+                                    <a class="record-folder-delete-link" href="{{ item.delete_url }}">{% if is_arabic %}حذف المجلد{% else %}Delete Folder{% endif %}</a>
+                                </div>
+                            </details>
+                        </div>
+                    {% endfor %}
+                    <div class="record-folder-row{% if selected_media_filter == 'unfiled' %} is-selected{% endif %}">
+                        <a class="record-folder-filter" href="{{ media_unfiled_url }}"{% if selected_media_filter == 'unfiled' %} aria-current="true"{% endif %}>
+                            <span>{% if is_arabic %}بدون مجلد{% else %}Unfiled{% endif %}</span>
+                            <span class="record-folder-count">{{ unfiled_count }}</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="record-media-filter-summary" role="status">
+                {% if selected_folder %}
+                    <span>{% if is_arabic %}المجلد: {{ selected_folder.name }}{% else %}Folder: {{ selected_folder.name }}{% endif %}</span>
+                {% elif selected_media_filter == 'unfiled' %}
+                    <span>{% if is_arabic %}بدون مجلد{% else %}Unfiled{% endif %}</span>
+                {% else %}
+                    <span>{% if is_arabic %}كل الوسائط{% else %}All Media{% endif %}</span>
+                {% endif %}
+                <span>{{ filtered_media_count }}</span>
+            </div>
             {% if media_items %}
                 <div class="record-list">
                     {% for item in media_items %}
@@ -204,6 +272,7 @@
                             {% endif %}
                             <div class="record-media-meta">
                                 <span>{% if is_arabic %}نوع الوسائط{% else %}Media type{% endif %}: {{ item.media_type_label }}</span>
+                                <span>{% if is_arabic %}المجلد{% else %}Folder{% endif %}: {{ item.folder_label }}</span>
                             </div>
                             <div class="record-media-actions">
                                 {% if item.staff_download_url %}
@@ -218,7 +287,7 @@
                     {% endfor %}
                 </div>
             {% else %}
-                <p class="record-empty-state">{% if is_arabic %}لا توجد وسائط خاصة بعد.{% else %}No private media yet.{% endif %}</p>
+                <p class="record-empty-state">{% if selected_media_filter == 'all' %}{% if is_arabic %}لا توجد وسائط خاصة بعد.{% else %}No private media yet.{% endif %}{% else %}{% if is_arabic %}لا توجد وسائط في هذا العرض.{% else %}No media is available in this view.{% endif %}{% endif %}</p>
             {% endif %}
         </section>
     </div>

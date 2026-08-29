@@ -98,6 +98,21 @@ urlpatterns = [
         name="dashboard_media_create",
     ),
     path(
+        "patients/<int:patient_id>/records/media-folders/create/",
+        views.dashboard_media_folder_create,
+        name="dashboard_media_folder_create",
+    ),
+    path(
+        "patients/<int:patient_id>/records/media-folders/<int:folder_id>/rename/",
+        views.dashboard_media_folder_rename,
+        name="dashboard_media_folder_rename",
+    ),
+    path(
+        "patients/<int:patient_id>/records/media-folders/<int:folder_id>/delete/",
+        views.dashboard_media_folder_delete,
+        name="dashboard_media_folder_delete",
+    ),
+    path(
         "patients/<int:patient_id>/records/public-case/create/",
         views.dashboard_public_case_create,
         name="dashboard_public_case_create",

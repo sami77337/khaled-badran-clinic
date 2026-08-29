@@ -72,10 +72,10 @@
             <div class="case-card-row" data-card-carousel>
                 {% for case in public_case_teasers %}
                     <article class="case-card">
-                        {% if case.primary.role == 'primary' %}
+                        {% if case.primary %}
                             <div class="case-media">
                                 {% if case.primary.media_type == 'short_video' %}
-                                    <video src="{{ case.primary.url }}" muted playsinline controls preload="metadata" data-public-case-video></video>
+                                    <video src="{{ case.primary.url }}"{% if case.primary.poster_url %} poster="{{ case.primary.poster_url }}"{% endif %} muted playsinline controls preload="metadata" data-public-case-video></video>
                                 {% else %}
                                     <img src="{{ case.primary.url }}" alt="{{ case.display_title }}" loading="lazy">
                                 {% endif %}
@@ -85,22 +85,6 @@
                             <p class="eyebrow">{% if is_arabic %}حالة مصرح بعرضها{% else %}Authorized case{% endif %}</p>
                             <h3>{{ case.display_title }}</h3>
                             {% if case.description %}<p>{{ case.description }}</p>{% endif %}
-                            {% if case.before or case.after %}
-                                <div class="case-comparison-preview{% if not case.before or not case.after %} is-single{% endif %}">
-                                    {% if case.before %}
-                                        <figure>
-                                            <img src="{{ case.before.url }}" alt="{% if is_arabic %}قبل{% else %}Before{% endif %}" loading="lazy">
-                                            <figcaption>{% if is_arabic %}قبل{% else %}Before{% endif %}</figcaption>
-                                        </figure>
-                                    {% endif %}
-                                    {% if case.after %}
-                                        <figure>
-                                            <img src="{{ case.after.url }}" alt="{% if is_arabic %}بعد{% else %}After{% endif %}" loading="lazy">
-                                            <figcaption>{% if is_arabic %}بعد{% else %}After{% endif %}</figcaption>
-                                        </figure>
-                                    {% endif %}
-                                </div>
-                            {% endif %}
                         </div>
                     </article>
                 {% endfor %}

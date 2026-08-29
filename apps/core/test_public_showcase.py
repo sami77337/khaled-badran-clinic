@@ -9,7 +9,8 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.patients.models import Patient
-from apps.records.models import RecordMedia, VisitRecord
+from apps.records.models import RecordMedia, RecordMediaFolder, VisitRecord
+from apps.records.public_cases import encode_public_case_title
 
 from .models import PublicReview, SystemSetting
 from .showcase import (
@@ -203,8 +204,10 @@ class PublicCaseGroupingTests(TestCase):
             self.assertEqual(len(groups), 1)
             group = groups[0]
             self.assertEqual(len(group["items"]), 3)
-            self.assertEqual(group["before"]["title"], "Before")
-            self.assertEqual(group["after"]["title"], "After")
+            self.assertEqual(group["before"]["role"], "before")
+            self.assertEqual(group["after"]["role"], "after")
+            self.assertEqual(group["before"]["title"], "")
+            self.assertEqual(group["after"]["title"], "")
             self.assertEqual(group["primary"]["media_type"], RecordMedia.MediaType.SHORT_VIDEO)
             self.assertEqual(group["display_title"], "Authorized case 1")
             self.assertEqual(group["description"], note)
@@ -229,3 +232,67 @@ class PublicCaseGroupingTests(TestCase):
 
             self.assertEqual(group["primary"]["public_id"], media.public_id)
             self.assertEqual(group["display_title"], "Synthetic public-safe case title")
+
+    def test_encoded_multi_media_cover_title_and_folder_are_grouped_safely(self):
+        with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
+            patient = Patient.objects.create(
+                full_name="Synthetic Encoded Group Patient",
+                phone_raw="0000000003",
+            )
+            visit = VisitRecord.objects.create(patient=patient)
+            folder = RecordMediaFolder.objects.create(
+                patient=patient,
+                name="INTERNAL-FOLDER-MUST-STAY-HIDDEN",
+            )
+            public_title = "Public-safe encoded case title"
+            note = "One public-safe note."
+            specs = (
+                (RecordMedia.MediaType.IMAGE, "before-1.jpg", "image/jpeg", "before"),
+                (RecordMedia.MediaType.IMAGE, "before-2.png", "image/png", "before"),
+                (RecordMedia.MediaType.IMAGE, "after-1.webp", "image/webp", "after"),
+                (RecordMedia.MediaType.SHORT_VIDEO, "video-1.mp4", "video/mp4", "video"),
+                (RecordMedia.MediaType.SHORT_VIDEO, "video-2.mp4", "video/mp4", "video"),
+                (RecordMedia.MediaType.IMAGE, "cover.jpg", "image/jpeg", "video_cover"),
+            )
+            for media_type, filename, content_type, role in specs:
+                RecordMedia.objects.create(
+                    patient=patient,
+                    visit=visit,
+                    folder=folder,
+                    media_type=media_type,
+                    file=SimpleUploadedFile(filename, b"synthetic", content_type=content_type),
+                    title=encode_public_case_title(role, public_title),
+                    description=note,
+                    visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+                    consent_confirmed=True,
+                    is_active=True,
+                )
+
+            first_group = grouped_public_cases("en")[0]
+            second_group = grouped_public_cases("en")[0]
+
+            self.assertEqual(first_group["display_title"], public_title)
+            self.assertEqual(first_group["public_title"], public_title)
+            self.assertEqual(first_group["description"], note)
+            self.assertEqual(len(first_group["before_items"]), 2)
+            self.assertEqual(len(first_group["after_items"]), 1)
+            self.assertEqual(len(first_group["video_items"]), 2)
+            self.assertIsNotNone(first_group["video_cover"])
+            self.assertEqual(
+                first_group["video_items"][0]["poster_url"],
+                first_group["video_cover"]["url"],
+            )
+            self.assertNotIn(
+                first_group["video_cover"]["public_id"],
+                [item["public_id"] for item in first_group["before_items"]],
+            )
+            self.assertNotIn(
+                first_group["video_cover"]["public_id"],
+                [item["public_id"] for item in first_group["after_items"]],
+            )
+            self.assertNotIn("[[public-case:", str(first_group))
+            self.assertNotIn(folder.name, str(first_group))
+            self.assertEqual(
+                [item["public_id"] for item in first_group["items"]],
+                [item["public_id"] for item in second_group["items"]],
+            )

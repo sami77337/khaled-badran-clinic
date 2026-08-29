@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib import admin
 
-from .models import ClinicalNote, RecordMedia, VisitRecord
+from .models import ClinicalNote, RecordMedia, RecordMediaFolder, VisitRecord
 
 
 class RecordMediaAdminForm(forms.ModelForm):
@@ -86,6 +86,7 @@ class RecordMediaAdmin(admin.ModelAdmin):
         "public_id",
         "patient",
         "visit",
+        "folder",
         "media_type",
         "visibility",
         "consent_confirmed",
@@ -110,7 +111,7 @@ class RecordMediaAdmin(admin.ModelAdmin):
         "original_filename",
         "title",
     )
-    autocomplete_fields = ("patient", "visit", "uploaded_by")
+    autocomplete_fields = ("patient", "visit", "folder", "uploaded_by")
     readonly_fields = (
         "public_id",
         "original_filename",
@@ -129,6 +130,7 @@ class RecordMediaAdmin(admin.ModelAdmin):
                 "fields": (
                     "patient",
                     "visit",
+                    "folder",
                     "media_type",
                     "file",
                     "title",
@@ -165,3 +167,12 @@ class RecordMediaAdmin(admin.ModelAdmin):
         if not obj.file:
             return "No private file is stored."
         return "Staff-only private download route; no public file URL is rendered."
+
+
+@admin.register(RecordMediaFolder)
+class RecordMediaFolderAdmin(admin.ModelAdmin):
+    list_display = ("name", "patient", "created_by", "created_at", "updated_at")
+    search_fields = ("name", "patient__full_name")
+    autocomplete_fields = ("patient", "created_by")
+    readonly_fields = ("created_at", "updated_at")
+    list_select_related = ("patient", "created_by")

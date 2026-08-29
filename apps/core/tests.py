@@ -26,7 +26,8 @@ from apps.clinic.models import ClinicProfile, Doctor, VisitType
 from apps.core import views as core_views
 from apps.core.checks import production_readiness_checks
 from apps.patients.models import Patient
-from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
+from apps.records.models import ClinicalNote, RecordMedia, RecordMediaFolder, VisitRecord
+from apps.records.public_cases import encode_public_case_title
 from config.settings.helpers import (
     build_cache_config,
     build_database_config,
@@ -1104,6 +1105,7 @@ class PublicCasesTestDataMixin:
         *,
         patient=None,
         visit=None,
+        folder=None,
         media_type=RecordMedia.MediaType.IMAGE,
         visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
         consent_confirmed=None,
@@ -1124,6 +1126,7 @@ class PublicCasesTestDataMixin:
         return RecordMedia.objects.create(
             patient=patient,
             visit=visit,
+            folder=folder,
             media_type=media_type,
             file=file,
             visibility=visibility,
@@ -1206,7 +1209,7 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         )
         self.assertContains(
             response,
-            f'href="{reverse("public_case_media_en", kwargs={"public_id": approved_video.public_id})}"',
+            f'src="{reverse("public_case_media_en", kwargs={"public_id": approved_video.public_id})}"',
         )
         self.assertNotContains(response, "Private-only media must stay hidden")
         self.assertNotContains(response, "Patient-visible media must stay hidden")
@@ -1368,7 +1371,107 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertEqual(content.count(f'src="{after_url}"'), 1)
         self.assertContains(response, "Synthetic before-only note.", count=1)
         self.assertContains(response, "Synthetic after-only note.", count=1)
-        self.assertContains(response, 'class="public-case-comparison is-single"', count=2)
+        self.assertContains(response, 'class="public-case-image-grid"', count=2)
+
+    def test_full_case_renders_all_assets_once_with_cover_and_home_remains_concise(self):
+        patient = self.create_patient(
+            full_name="Synthetic Multi Asset Hidden Patient",
+            phone_raw="0790000666",
+            phone_e164="+962790000666",
+        )
+        visit = self.create_visit(patient=patient)
+        folder = RecordMediaFolder.objects.create(
+            patient=patient,
+            name="INTERNAL-CASE-FOLDER-NEVER-PUBLIC",
+        )
+        title = "Public multi-asset case title"
+        note = "One concise public note for the case."
+        rows = []
+        for index in range(3):
+            rows.append(
+                self.create_media(
+                    patient=patient,
+                    visit=visit,
+                    folder=folder,
+                    title=encode_public_case_title("before", title),
+                    description=note,
+                    file=self.synthetic_image_file(name=f"before-{index}.jpg"),
+                )
+            )
+        for index in range(2):
+            rows.append(
+                self.create_media(
+                    patient=patient,
+                    visit=visit,
+                    folder=folder,
+                    title=encode_public_case_title("after", title),
+                    description=note,
+                    file=self.synthetic_image_file(name=f"after-{index}.jpg"),
+                )
+            )
+        videos = []
+        for index in range(2):
+            videos.append(
+                self.create_media(
+                    patient=patient,
+                    visit=visit,
+                    folder=folder,
+                    media_type=RecordMedia.MediaType.SHORT_VIDEO,
+                    title=encode_public_case_title("video", title),
+                    description=note,
+                    file=self.synthetic_video_file(name=f"video-{index}.mp4"),
+                )
+            )
+        cover = self.create_media(
+            patient=patient,
+            visit=visit,
+            folder=folder,
+            title=encode_public_case_title("video_cover", title),
+            description=note,
+            file=self.synthetic_image_file(name="cover.jpg"),
+        )
+
+        cases_response = self.client.get(reverse("public_cases_en"))
+        cases_content = cases_response.content.decode()
+        cover_url = reverse("public_case_media_en", kwargs={"public_id": cover.public_id})
+
+        self.assertContains(cases_response, f"<h2>{title}</h2>", html=True, count=1)
+        self.assertContains(cases_response, note, count=1)
+        self.assertContains(cases_response, ">Videos</h3>", count=1)
+        self.assertContains(cases_response, ">Before</h3>", count=1)
+        self.assertContains(cases_response, ">After</h3>", count=1)
+        self.assertEqual(cases_content.count("<video"), 2)
+        for media in rows + videos:
+            protected_url = reverse(
+                "public_case_media_en",
+                kwargs={"public_id": media.public_id},
+            )
+            self.assertEqual(cases_content.count(protected_url), 2 if media in rows else 1)
+        self.assertIn(f'poster="{cover_url}"', cases_content)
+        self.assertEqual(cases_content.count(cover_url), 1)
+        self.assertNotIn("[[public-case:", cases_content)
+        self.assertNotIn(folder.name, cases_content)
+        self.assertNotIn(patient.full_name, cases_content)
+        self.assertNotIn(patient.phone_raw, cases_content)
+        self.assertNotIn('href="/media/', cases_content)
+
+        home_response = self.client.get(reverse("home_en"))
+        home_content = home_response.content.decode()
+        video_urls = [
+            reverse("public_case_media_en", kwargs={"public_id": video.public_id})
+            for video in videos
+        ]
+        self.assertContains(home_response, title, count=1)
+        self.assertContains(home_response, note, count=1)
+        self.assertEqual(sum(home_content.count(url) for url in video_urls), 1)
+        self.assertIn(f'poster="{cover_url}"', home_content)
+        self.assertNotIn(folder.name, home_content)
+        for image in rows:
+            image_url = reverse(
+                "public_case_media_en",
+                kwargs={"public_id": image.public_id},
+            )
+            self.assertNotIn(image_url, home_content)
 
     def test_public_group_updates_immediately_when_items_are_unpublished(self):
         patient = self.create_patient(
@@ -1514,6 +1617,40 @@ class PublicCaseMediaRouteTests(PublicCasesTestDataMixin, TestCase):
 
 
 class PublicCasesRegressionBoundaryTests(PublicCasesTestDataMixin, TestCase):
+    def test_internal_folder_metadata_never_appears_in_patient_portal(self):
+        user = get_user_model().objects.create_user(
+            username="+962790000332",
+            password="synthetic-test-password",
+        )
+        patient = self.create_patient(
+            user=user,
+            full_name="Synthetic Portal Folder Patient",
+            phone_raw="0790000332",
+            phone_e164="+962790000332",
+        )
+        folder = RecordMediaFolder.objects.create(
+            patient=patient,
+            name="PORTAL-MUST-NEVER-SEE-THIS-FOLDER",
+        )
+        visible_media = self.create_media(
+            patient=patient,
+            folder=folder,
+            visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
+            title="Patient-visible media with internal folder",
+        )
+        self.create_media(
+            patient=patient,
+            folder=folder,
+            title="Approved public case remains outside portal media",
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("patient_portal_medical_records_en"))
+
+        self.assertContains(response, visible_media.title)
+        self.assertNotContains(response, folder.name)
+        self.assertNotContains(response, "Approved public case remains outside portal media")
+
     def test_patient_portal_media_route_still_only_serves_linked_patient_visible_media(self):
         user = get_user_model().objects.create_user(
             username="+962790000333",

@@ -29,7 +29,7 @@ from apps.clinic.models import (
 from apps.core.models import AuditLog, SystemSetting
 from apps.core.views import _base_context
 from apps.patients.models import Patient
-from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
+from apps.records.models import ClinicalNote, RecordMedia, RecordMediaFolder, VisitRecord
 
 from .forms import (
     BookingRulesForm,
@@ -39,6 +39,7 @@ from .forms import (
     StaffClinicalNoteForm,
     StaffPublicCaseCreateForm,
     StaffRecordMediaCreateForm,
+    StaffRecordMediaFolderForm,
     StaffRecordMediaUpdateForm,
     StaffVisitRecordForm,
     VisitTypeCreateForm,
@@ -2579,18 +2580,39 @@ def _method_allowed(request, methods):
     return None
 
 
-def _dashboard_record_url(route_name, language, *, kwargs=None, fragment=None):
+def _dashboard_record_url(
+    route_name,
+    language,
+    *,
+    kwargs=None,
+    query_params=None,
+    fragment=None,
+):
     route = reverse(route_name, kwargs=kwargs)
+    params = {
+        key: value
+        for key, value in (query_params or {}).items()
+        if value not in (None, "")
+    }
     if language == "en":
-        route = f"{route}?{urlencode({'lang': 'en'})}"
+        params["lang"] = "en"
+    if params:
+        route = f"{route}?{urlencode(params)}"
     return f"{route}#{fragment}" if fragment else route
 
 
-def _patient_record_detail_url(patient, language="ar", *, fragment=None):
+def _patient_record_detail_url(
+    patient,
+    language="ar",
+    *,
+    query_params=None,
+    fragment=None,
+):
     return _dashboard_record_url(
         "dashboard_patient_record_detail",
         language,
         kwargs={"patient_id": patient.id},
+        query_params=query_params,
         fragment=fragment,
     )
 
@@ -2601,6 +2623,7 @@ def _dashboard_record_context(
     patient,
     route_name,
     route_kwargs,
+    query_params=None,
     **extra,
 ):
     language = _dashboard_language(request)
@@ -2617,7 +2640,12 @@ def _dashboard_record_context(
             nav_item["url"] = patient_list_url
             break
 
-    current_url = _dashboard_record_url(route_name, language, kwargs=route_kwargs)
+    current_url = _dashboard_record_url(
+        route_name,
+        language,
+        kwargs=route_kwargs,
+        query_params=query_params,
+    )
     context.update(
         {
             "page_key": "dashboard_patient_record",
@@ -2638,6 +2666,7 @@ def _dashboard_record_context(
                 route_name,
                 alternate_language,
                 kwargs=route_kwargs,
+                query_params=query_params,
             ),
             "patient": patient,
             "patient_record_url": _patient_record_detail_url(patient, language),
@@ -2710,6 +2739,11 @@ def _media_items(media_queryset, language):
                 "status_labels": _media_status_labels(media, language),
                 "staff_download_url": staff_download_url,
                 "public_case_url": public_case_url,
+                "folder_label": (
+                    media.folder.name
+                    if media.folder_id
+                    else ("بدون مجلد" if language == "ar" else "Unfiled")
+                ),
                 "edit_url": _dashboard_record_url(
                     "dashboard_media_update",
                     language,
@@ -2721,6 +2755,19 @@ def _media_items(media_queryset, language):
             }
         )
     return items
+
+
+def _record_media_audit(*, user, action, instance, event, metadata):
+    AuditLog.objects.create(
+        user=user,
+        action=action,
+        app_label=instance._meta.app_label,
+        model_name=instance.__class__.__name__,
+        object_id=str(instance.pk or ""),
+        object_repr=f"{instance.__class__.__name__} {instance.pk or ''}".strip(),
+        message=event,
+        metadata={"action": event, **metadata},
+    )
 
 
 def _validated_e164(phone_number):
@@ -2824,11 +2871,16 @@ def dashboard_patient_list(request):
     return render(request, "dashboard/patient_list.html", context)
 
 
-@_staff_required
-@require_GET
-def dashboard_patient_record_detail(request, patient_id):
+def _render_patient_record_detail(
+    request,
+    patient,
+    *,
+    folder_create_form=None,
+    rename_form=None,
+    rename_folder_id=None,
+    status=200,
+):
     language = _dashboard_language(request)
-    patient = get_object_or_404(Patient, id=patient_id)
     visits = list(
         VisitRecord.objects.filter(patient=patient)
         .select_related("appointment", "appointment__doctor", "appointment__visit_type")
@@ -2839,11 +2891,81 @@ def dashboard_patient_record_detail(request, patient_id):
         .select_related("visit", "created_by")
         .order_by("-created_at", "-id")
     )
+    folders = list(
+        RecordMediaFolder.objects.filter(patient=patient)
+        .annotate(media_count=Count("media_items"))
+        .order_by("name", "id")
+    )
+    folder_param = (request.GET.get("folder") or "").strip()
+    selected_folder = None
+    selected_filter = "all"
+    media_queryset = RecordMedia.objects.filter(patient=patient)
+    if folder_param == "unfiled":
+        selected_filter = "unfiled"
+        media_queryset = media_queryset.filter(folder__isnull=True)
+    elif folder_param.isdigit():
+        selected_folder = next(
+            (folder for folder in folders if folder.pk == int(folder_param)),
+            None,
+        )
+        if selected_folder is not None:
+            selected_filter = str(selected_folder.pk)
+            media_queryset = media_queryset.filter(folder=selected_folder)
+
+    total_media_count = RecordMedia.objects.filter(patient=patient).count()
+    unfiled_count = RecordMedia.objects.filter(patient=patient, folder__isnull=True).count()
     media = list(
-        RecordMedia.objects.filter(patient=patient)
-        .select_related("visit", "uploaded_by")
+        media_queryset.select_related("visit", "folder", "uploaded_by")
         .order_by("-uploaded_at", "-id")
     )
+    selected_query = {"folder": selected_filter} if selected_filter != "all" else {}
+    if folder_create_form is None:
+        folder_create_form = StaffRecordMediaFolderForm(
+            patient=patient,
+            created_by=request.user,
+            language=language,
+        )
+
+    folder_items = []
+    for folder in folders:
+        item_rename_form = (
+            rename_form
+            if rename_folder_id == folder.pk
+            else StaffRecordMediaFolderForm(
+                patient=patient,
+                created_by=request.user,
+                language=language,
+                instance=folder,
+                auto_id=f"id_folder_{folder.pk}_%s",
+            )
+        )
+        folder_items.append(
+            {
+                "folder": folder,
+                "media_count": folder.media_count,
+                "is_selected": selected_filter == str(folder.pk),
+                "filter_url": _patient_record_detail_url(
+                    patient,
+                    language,
+                    query_params={"folder": folder.pk},
+                    fragment="private-media",
+                ),
+                "rename_url": _dashboard_record_url(
+                    "dashboard_media_folder_rename",
+                    language,
+                    kwargs={"patient_id": patient.pk, "folder_id": folder.pk},
+                    query_params=selected_query,
+                ),
+                "delete_url": _dashboard_record_url(
+                    "dashboard_media_folder_delete",
+                    language,
+                    kwargs={"patient_id": patient.pk, "folder_id": folder.pk},
+                    query_params=selected_query,
+                ),
+                "rename_form": item_rename_form,
+            }
+        )
+
     return render(
         request,
         "dashboard/patient_record_detail.html",
@@ -2852,6 +2974,7 @@ def dashboard_patient_record_detail(request, patient_id):
             patient=patient,
             route_name="dashboard_patient_record_detail",
             route_kwargs={"patient_id": patient.id},
+            query_params=selected_query,
             visit_items=[
                 {
                     "visit": visit,
@@ -2879,7 +3002,30 @@ def dashboard_patient_record_detail(request, patient_id):
             media_items=_media_items(media, language),
             visit_count=len(visits),
             note_count=len(notes),
-            media_count=len(media),
+            media_count=total_media_count,
+            filtered_media_count=len(media),
+            media_folders=folder_items,
+            folder_create_form=folder_create_form,
+            folder_create_url=_dashboard_record_url(
+                "dashboard_media_folder_create",
+                language,
+                kwargs={"patient_id": patient.pk},
+                query_params=selected_query,
+            ),
+            media_all_url=_patient_record_detail_url(
+                patient,
+                language,
+                fragment="private-media",
+            ),
+            media_unfiled_url=_patient_record_detail_url(
+                patient,
+                language,
+                query_params={"folder": "unfiled"},
+                fragment="private-media",
+            ),
+            unfiled_count=unfiled_count,
+            selected_media_filter=selected_filter,
+            selected_folder=selected_folder,
             visit_create_url=_dashboard_record_url(
                 "dashboard_visit_create",
                 language,
@@ -2899,6 +3045,180 @@ def dashboard_patient_record_detail(request, patient_id):
                 "dashboard_public_case_create",
                 language,
                 kwargs={"patient_id": patient.id},
+            ),
+        ),
+        status=status,
+    )
+
+
+@_staff_required
+@require_GET
+def dashboard_patient_record_detail(request, patient_id):
+    patient = get_object_or_404(Patient, id=patient_id)
+    return _render_patient_record_detail(request, patient)
+
+
+def _requested_folder_query(request):
+    folder_value = (request.GET.get("folder") or "").strip()
+    if folder_value == "unfiled" or folder_value.isdigit():
+        return {"folder": folder_value}
+    return {}
+
+
+@_staff_required
+@require_POST
+def dashboard_media_folder_create(request, patient_id):
+    language = _dashboard_language(request)
+    patient = get_object_or_404(Patient, id=patient_id)
+    form = StaffRecordMediaFolderForm(
+        request.POST,
+        patient=patient,
+        created_by=request.user,
+        language=language,
+    )
+    if not form.is_valid():
+        return _render_patient_record_detail(
+            request,
+            patient,
+            folder_create_form=form,
+            status=400,
+        )
+
+    with transaction.atomic():
+        folder = form.save(commit=False)
+        folder.patient = patient
+        folder.created_by = request.user
+        folder.save()
+        _record_media_audit(
+            user=request.user,
+            action=AuditLog.Action.CREATE,
+            instance=folder,
+            event="media_folder_created",
+            metadata={"folder_id": folder.pk},
+        )
+    messages.success(
+        request,
+        "تم إنشاء المجلد." if language == "ar" else "Folder created.",
+    )
+    return redirect(
+        _patient_record_detail_url(
+            patient,
+            language,
+            query_params={"folder": folder.pk},
+            fragment="private-media",
+        )
+    )
+
+
+@_staff_required
+@require_POST
+def dashboard_media_folder_rename(request, patient_id, folder_id):
+    language = _dashboard_language(request)
+    patient = get_object_or_404(Patient, id=patient_id)
+    folder = get_object_or_404(RecordMediaFolder, patient=patient, pk=folder_id)
+    form = StaffRecordMediaFolderForm(
+        request.POST,
+        patient=patient,
+        created_by=request.user,
+        language=language,
+        instance=folder,
+        auto_id=f"id_folder_{folder.pk}_%s",
+    )
+    if not form.is_valid():
+        return _render_patient_record_detail(
+            request,
+            patient,
+            rename_form=form,
+            rename_folder_id=folder.pk,
+            status=400,
+        )
+
+    with transaction.atomic():
+        folder = form.save()
+        _record_media_audit(
+            user=request.user,
+            action=AuditLog.Action.UPDATE,
+            instance=folder,
+            event="media_folder_renamed",
+            metadata={"folder_id": folder.pk},
+        )
+    messages.success(
+        request,
+        "تمت إعادة تسمية المجلد." if language == "ar" else "Folder renamed.",
+    )
+    return redirect(
+        _patient_record_detail_url(
+            patient,
+            language,
+            query_params=_requested_folder_query(request),
+            fragment="private-media",
+        )
+    )
+
+
+@_staff_required
+def dashboard_media_folder_delete(request, patient_id, folder_id):
+    not_allowed = _method_allowed(request, ["GET", "POST"])
+    if not_allowed:
+        return not_allowed
+    language = _dashboard_language(request)
+    patient = get_object_or_404(Patient, id=patient_id)
+    folder = get_object_or_404(RecordMediaFolder, patient=patient, pk=folder_id)
+    requested_query = _requested_folder_query(request)
+
+    if request.method == "POST":
+        deleted_folder_id = folder.pk
+        with transaction.atomic():
+            _record_media_audit(
+                user=request.user,
+                action=AuditLog.Action.DELETE,
+                instance=folder,
+                event="media_folder_deleted",
+                metadata={"folder_id": deleted_folder_id},
+            )
+            folder.delete()
+        messages.success(
+            request,
+            (
+                "تم حذف المجلد ونقل ملفاته إلى بدون مجلد."
+                if language == "ar"
+                else "Folder deleted. Its media is now Unfiled."
+            ),
+        )
+        if requested_query.get("folder") == str(deleted_folder_id):
+            requested_query = {"folder": "unfiled"}
+        return redirect(
+            _patient_record_detail_url(
+                patient,
+                language,
+                query_params=requested_query,
+                fragment="private-media",
+            )
+        )
+
+    return render(
+        request,
+        "dashboard/media_folder_confirm_delete.html",
+        _dashboard_record_context(
+            request,
+            patient=patient,
+            route_name="dashboard_media_folder_delete",
+            route_kwargs={"patient_id": patient.pk, "folder_id": folder.pk},
+            query_params=requested_query,
+            folder=folder,
+            folder_media_count=folder.media_items.count(),
+            form_title=("حذف المجلد" if language == "ar" else "Delete Folder"),
+            delete_url=_dashboard_record_url(
+                "dashboard_media_folder_delete",
+                language,
+                kwargs={"patient_id": patient.pk, "folder_id": folder.pk},
+                query_params=requested_query,
+            ),
+            cancel_url=_patient_record_detail_url(
+                patient,
+                language,
+                query_params=requested_query,
+                fragment="private-media",
             ),
         ),
     )
@@ -3138,14 +3458,32 @@ def dashboard_media_update(request, patient_id, public_id):
     language = _dashboard_language(request)
     patient = get_object_or_404(Patient, id=patient_id)
     media = get_object_or_404(
-        RecordMedia.objects.select_related("patient", "visit", "uploaded_by"),
+        RecordMedia.objects.select_related("patient", "visit", "folder", "uploaded_by"),
         patient=patient,
         public_id=public_id,
     )
     if request.method == "POST":
-        form = StaffRecordMediaUpdateForm(request.POST, instance=media, language=language)
+        original_folder_id = media.folder_id
+        form = StaffRecordMediaUpdateForm(
+            request.POST,
+            instance=media,
+            patient=patient,
+            language=language,
+        )
         if form.is_valid():
-            form.save()
+            with transaction.atomic():
+                media = form.save()
+                if media.folder_id != original_folder_id:
+                    _record_media_audit(
+                        user=request.user,
+                        action=AuditLog.Action.UPDATE,
+                        instance=media,
+                        event="record_media_folder_moved",
+                        metadata={
+                            "media_public_id": str(media.public_id),
+                            "folder_id": media.folder_id,
+                        },
+                    )
             messages.success(
                 request,
                 "تم تحديث الملف." if language == "ar" else "Media updated.",
@@ -3155,7 +3493,11 @@ def dashboard_media_update(request, patient_id, public_id):
             )
         status = 400
     else:
-        form = StaffRecordMediaUpdateForm(instance=media, language=language)
+        form = StaffRecordMediaUpdateForm(
+            instance=media,
+            patient=patient,
+            language=language,
+        )
         status = 200
 
     return render(

@@ -1,9 +1,18 @@
+import unicodedata
+
 from django import forms
 from django.core.exceptions import ValidationError
 
 from apps.booking.models import Appointment
 from apps.clinic.models import ClosedDay, DoctorSchedule, DoctorScheduleOverride, VisitType
-from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
+from apps.records.models import ClinicalNote, RecordMedia, RecordMediaFolder, VisitRecord
+from apps.records.public_cases import (
+    PUBLIC_CASE_ROLE_AFTER,
+    PUBLIC_CASE_ROLE_BEFORE,
+    PUBLIC_CASE_ROLE_VIDEO,
+    PUBLIC_CASE_ROLE_VIDEO_COVER,
+    encode_public_case_title,
+)
 
 
 DATETIME_INPUT_FORMATS = [
@@ -17,8 +26,7 @@ MAX_VISIT_DURATION_MINUTES = 65_535
 MAX_BOOKING_HORIZON_DAYS = 3_650
 MAX_BOOKING_RULE_MINUTES = 5_256_000
 PUBLIC_CASE_NOTE_MAX_LENGTH = 500
-PUBLIC_CASE_BEFORE_TITLE = "Before"
-PUBLIC_CASE_AFTER_TITLE = "After"
+PUBLIC_CASE_TITLE_MAX_LENGTH = 180
 
 RECORD_FIELD_ERROR_MESSAGES = {
     "ar": {
@@ -44,6 +52,11 @@ RECORD_FIELD_ERROR_MESSAGES = {
 RECORD_MODEL_ERROR_TRANSLATIONS_AR = {
     "Appointment must belong to the selected patient.": "يجب أن يكون الموعد مرتبطا بالمريض المحدد.",
     "Visit must belong to the selected patient.": "يجب أن تكون الزيارة مرتبطة بالمريض المحدد.",
+    "Folder must belong to the selected patient.": "يجب أن يكون المجلد مرتبطا بالمريض المحدد.",
+    "Folder name is required.": "اسم المجلد مطلوب.",
+    "A folder with this name already exists for this patient.": (
+        "يوجد مجلد بهذا الاسم لهذا المريض."
+    ),
     "Private media file is required.": "ملف الوسائط الخاصة مطلوب.",
     "Unsupported image file extension.": "امتداد ملف الصورة غير مدعوم.",
     "Unsupported image content type.": "نوع محتوى الصورة غير مدعوم.",
@@ -83,6 +96,61 @@ MEDIA_VISIBILITY_CHOICES = {
 
 def _scheduling_copy(language, arabic, english):
     return english if language == "en" else arabic
+
+
+def _normalized_public_text(value):
+    normalized = unicodedata.normalize("NFKC", str(value or "")).casefold().strip()
+    return " ".join(normalized.split())
+
+
+def _normalized_digits(value):
+    digits = []
+    for character in unicodedata.normalize("NFKC", str(value or "")):
+        if not character.isdigit():
+            continue
+        try:
+            digits.append(str(unicodedata.digit(character)))
+        except (TypeError, ValueError):
+            digits.append(character)
+    return "".join(digits)
+
+
+def _contains_current_patient_pii(value, patient):
+    normalized_value = _normalized_public_text(value)
+    normalized_name = _normalized_public_text(patient.full_name)
+    generic_names = {"patient", "مريض"}
+    if (
+        normalized_name
+        and normalized_name not in generic_names
+        and normalized_name in normalized_value
+    ):
+        return True
+
+    content_digits = _normalized_digits(value)
+    for phone_value in (
+        patient.phone_raw,
+        patient.phone_e164,
+        patient.whatsapp_phone_raw,
+        patient.whatsapp_phone_e164,
+    ):
+        phone_digits = _normalized_digits(phone_value)
+        if phone_digits and len(phone_digits) >= 7 and phone_digits in content_digits:
+            return True
+    return False
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    widget = MultipleFileInput
+
+    def clean(self, data, initial=None):
+        if not data:
+            return []
+        uploaded_files = data if isinstance(data, (list, tuple)) else [data]
+        return [super(MultipleFileField, self).clean(item, initial) for item in uploaded_files]
 
 
 class _LocalizedRecordFormMixin:
@@ -696,11 +764,34 @@ class StaffClinicalNoteForm(_LocalizedRecordFormMixin, forms.ModelForm):
         )
 
 
+class StaffRecordMediaFolderForm(_LocalizedRecordFormMixin, forms.ModelForm):
+    class Meta:
+        model = RecordMediaFolder
+        fields = ["name"]
+
+    def __init__(self, *args, patient, created_by=None, language="ar", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.patient = patient
+        self.created_by = created_by
+        self.instance.patient = patient
+        if not self.instance.created_by_id:
+            self.instance.created_by = created_by
+        self.fields["name"].strip = True
+        self._configure_record_localization(
+            language=language,
+            labels={
+                "ar": {"name": "اسم المجلد"},
+                "en": {"name": "Folder name"},
+            },
+        )
+
+
 class StaffRecordMediaCreateForm(_LocalizedRecordFormMixin, forms.ModelForm):
     class Meta:
         model = RecordMedia
         fields = [
             "visit",
+            "folder",
             "media_type",
             "file",
             "content_type",
@@ -713,6 +804,7 @@ class StaffRecordMediaCreateForm(_LocalizedRecordFormMixin, forms.ModelForm):
         ]
         labels = {
             "visit": "الزيارة المرتبطة",
+            "folder": "المجلد",
             "media_type": "نوع الملف",
             "file": "ملف خاص",
             "content_type": "نوع المحتوى",
@@ -745,6 +837,13 @@ class StaffRecordMediaCreateForm(_LocalizedRecordFormMixin, forms.ModelForm):
             "-visit_date",
             "-created_at",
         )
+        self.fields["folder"].required = False
+        self.fields["folder"].empty_label = _scheduling_copy(
+            language,
+            "بدون مجلد",
+            "Unfiled",
+        )
+        self.fields["folder"].queryset = RecordMediaFolder.objects.filter(patient=patient)
         self.fields["content_type"].required = False
         self.fields["file_size"].required = False
         self._configure_record_localization(
@@ -752,6 +851,7 @@ class StaffRecordMediaCreateForm(_LocalizedRecordFormMixin, forms.ModelForm):
             labels={
                 "ar": {
                     "visit": "الزيارة المرتبطة",
+                    "folder": "المجلد",
                     "media_type": "نوع الملف",
                     "file": "ملف خاص",
                     "content_type": "نوع المحتوى",
@@ -764,6 +864,7 @@ class StaffRecordMediaCreateForm(_LocalizedRecordFormMixin, forms.ModelForm):
                 },
                 "en": {
                     "visit": "Linked visit",
+                    "folder": "Folder",
                     "media_type": "Media type",
                     "file": "Private media file",
                     "content_type": "Content type",
@@ -800,21 +901,37 @@ class StaffRecordMediaCreateForm(_LocalizedRecordFormMixin, forms.ModelForm):
 
 class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
     visit = forms.ModelChoiceField(queryset=VisitRecord.objects.none())
-    before_image = forms.FileField(
+    folder = forms.ModelChoiceField(
+        queryset=RecordMediaFolder.objects.none(),
+        required=False,
+    )
+    case_title = forms.CharField(
+        required=True,
+        max_length=PUBLIC_CASE_TITLE_MAX_LENGTH,
+        strip=True,
+        widget=forms.TextInput(attrs={"maxlength": str(PUBLIC_CASE_TITLE_MAX_LENGTH)}),
+    )
+    before_images = MultipleFileField(
+        required=False,
+        widget=MultipleFileInput(
+            attrs={"accept": "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"}
+        ),
+    )
+    after_images = MultipleFileField(
+        required=False,
+        widget=MultipleFileInput(
+            attrs={"accept": "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"}
+        ),
+    )
+    videos = MultipleFileField(
+        required=False,
+        widget=MultipleFileInput(attrs={"accept": "video/mp4,.mp4"}),
+    )
+    video_cover = forms.FileField(
         required=False,
         widget=forms.ClearableFileInput(
             attrs={"accept": "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"}
         ),
-    )
-    after_image = forms.FileField(
-        required=False,
-        widget=forms.ClearableFileInput(
-            attrs={"accept": "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"}
-        ),
-    )
-    video = forms.FileField(
-        required=False,
-        widget=forms.ClearableFileInput(attrs={"accept": "video/mp4,.mp4"}),
     )
     short_note = forms.CharField(
         required=False,
@@ -840,25 +957,37 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
             "اختر الزيارة",
             "Select a visit",
         )
+        self.fields["folder"].queryset = RecordMediaFolder.objects.filter(patient=patient)
+        self.fields["folder"].empty_label = _scheduling_copy(
+            language,
+            "بدون مجلد",
+            "Unfiled",
+        )
         self._configure_record_localization(
             language=language,
             labels={
                 "ar": {
                     "visit": "الزيارة المرتبطة",
-                    "before_image": "صورة قبل",
-                    "after_image": "صورة بعد",
-                    "video": "فيديو",
-                    "short_note": "ملاحظة قصيرة عن الحالة (اختياري)",
+                    "folder": "المجلد (اختياري)",
+                    "case_title": "عنوان الحالة",
+                    "before_images": "صور قبل",
+                    "after_images": "صور بعد",
+                    "videos": "فيديوهات",
+                    "video_cover": "غلاف الفيديو (اختياري)",
+                    "short_note": "ملاحظة عامة قصيرة (اختياري)",
                     "consent_confirmed": (
                         "أؤكد أن موافقة المريض على النشر تم الحصول عليها في العيادة."
                     ),
                 },
                 "en": {
                     "visit": "Linked visit",
-                    "before_image": "Before image",
-                    "after_image": "After image",
-                    "video": "Video",
-                    "short_note": "Short case note (optional)",
+                    "folder": "Folder (optional)",
+                    "case_title": "Case title",
+                    "before_images": "Before images",
+                    "after_images": "After images",
+                    "videos": "Videos",
+                    "video_cover": "Video cover image (optional)",
+                    "short_note": "Short public note (optional)",
                     "consent_confirmed": (
                         "I confirm that the patient's consent for public display was obtained "
                         "in the clinic."
@@ -867,21 +996,30 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
             },
             help_texts={
                 "ar": {
+                    "case_title": (
+                        "سيظهر هذا العنوان للزوار. لا تكتب اسم المريض أو أي معلومات تعريفية."
+                    ),
                     "short_note": (
-                        "تظهر هذه الملاحظة للعامة. لا تُدخل تشخيصاً أو خطة علاج أو معلومات خاصة."
+                        "تظهر هذه الملاحظة للزوار. لا تكتب اسم المريض أو رقم الهاتف أو أي "
+                        "معلومات طبية خاصة."
                     ),
                 },
                 "en": {
+                    "case_title": (
+                        "This title is public. Do not enter the patient's name or identifying "
+                        "information."
+                    ),
                     "short_note": (
-                        "This note is public. Do not include a diagnosis, treatment plan, or "
-                        "private information."
+                        "This note is visible to visitors. Do not enter the patient's name, "
+                        "phone number, or private medical information."
                     ),
                 },
             },
         )
-        for validator in self.fields["short_note"].validators:
-            if getattr(validator, "code", "") == "max_length":
-                validator.message = RECORD_FIELD_ERROR_MESSAGES[self.language]["max_length"]
+        for field_name in ("case_title", "short_note"):
+            for validator in self.fields[field_name].validators:
+                if getattr(validator, "code", "") == "max_length":
+                    validator.message = RECORD_FIELD_ERROR_MESSAGES[self.language]["max_length"]
 
     def _localized_model_error(self, message):
         if self.language == "ar":
@@ -902,25 +1040,12 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
 
     def clean(self):
         cleaned_data = super().clean()
-        media_specs = (
-            (
-                "before_image",
-                RecordMedia.MediaType.IMAGE,
-                PUBLIC_CASE_BEFORE_TITLE,
-            ),
-            (
-                "after_image",
-                RecordMedia.MediaType.IMAGE,
-                PUBLIC_CASE_AFTER_TITLE,
-            ),
-            ("video", RecordMedia.MediaType.SHORT_VIDEO, ""),
-        )
-        supplied_specs = [
-            (field_name, media_type, title, cleaned_data.get(field_name))
-            for field_name, media_type, title in media_specs
-            if cleaned_data.get(field_name)
-        ]
-        if not supplied_specs:
+        before_images = cleaned_data.get("before_images") or []
+        after_images = cleaned_data.get("after_images") or []
+        videos = cleaned_data.get("videos") or []
+        video_cover = cleaned_data.get("video_cover")
+        actual_media_count = len(before_images) + len(after_images) + len(videos)
+        if not actual_media_count:
             self.add_error(
                 None,
                 _scheduling_copy(
@@ -929,20 +1054,70 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
                     "Add at least one before image, after image, or video.",
                 ),
             )
+        if video_cover and not videos:
+            self.add_error(
+                "video_cover",
+                _scheduling_copy(
+                    self.language,
+                    "لا يمكن إضافة غلاف فيديو بدون إضافة فيديو.",
+                    "A video cover requires at least one video.",
+                ),
+            )
+
+        pii_error = _scheduling_copy(
+            self.language,
+            "لا يمكن نشر اسم المريض أو رقم هاتفه ضمن المحتوى العام.",
+            "The patient's name or phone number cannot be published in public content.",
+        )
+        for field_name in ("case_title", "short_note"):
+            value = cleaned_data.get(field_name, "")
+            if value and _contains_current_patient_pii(value, self.patient):
+                self.add_error(field_name, pii_error)
 
         visit = cleaned_data.get("visit")
-        if not visit or not cleaned_data.get("consent_confirmed") or not supplied_specs:
+        case_title = cleaned_data.get("case_title", "")
+        if (
+            not visit
+            or not case_title
+            or not cleaned_data.get("consent_confirmed")
+            or not actual_media_count
+        ):
             return cleaned_data
 
         note = cleaned_data.get("short_note", "")
+        folder = cleaned_data.get("folder")
+        media_specs = []
+        media_specs.extend(
+            ("before_images", RecordMedia.MediaType.IMAGE, PUBLIC_CASE_ROLE_BEFORE, item)
+            for item in before_images
+        )
+        media_specs.extend(
+            ("after_images", RecordMedia.MediaType.IMAGE, PUBLIC_CASE_ROLE_AFTER, item)
+            for item in after_images
+        )
+        media_specs.extend(
+            ("videos", RecordMedia.MediaType.SHORT_VIDEO, PUBLIC_CASE_ROLE_VIDEO, item)
+            for item in videos
+        )
+        if video_cover:
+            media_specs.append(
+                (
+                    "video_cover",
+                    RecordMedia.MediaType.IMAGE,
+                    PUBLIC_CASE_ROLE_VIDEO_COVER,
+                    video_cover,
+                )
+            )
+
         media_instances = []
-        for field_name, media_type, title, uploaded_file in supplied_specs:
+        for field_name, media_type, role, uploaded_file in media_specs:
             media = RecordMedia(
                 patient=self.patient,
                 visit=visit,
+                folder=folder,
                 media_type=media_type,
                 file=uploaded_file,
-                title=title,
+                title=encode_public_case_title(role, case_title),
                 description=note,
                 visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
                 consent_confirmed=True,
@@ -964,6 +1139,7 @@ class StaffRecordMediaUpdateForm(_LocalizedRecordFormMixin, forms.ModelForm):
     class Meta:
         model = RecordMedia
         fields = [
+            "folder",
             "title",
             "description",
             "visibility",
@@ -971,6 +1147,7 @@ class StaffRecordMediaUpdateForm(_LocalizedRecordFormMixin, forms.ModelForm):
             "is_active",
         ]
         labels = {
+            "folder": "المجلد",
             "title": "العنوان",
             "description": "الوصف",
             "visibility": "حالة الظهور",
@@ -981,12 +1158,20 @@ class StaffRecordMediaUpdateForm(_LocalizedRecordFormMixin, forms.ModelForm):
             "description": forms.Textarea(attrs={"rows": 3}),
         }
 
-    def __init__(self, *args, language="ar", **kwargs):
+    def __init__(self, *args, patient, language="ar", **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["folder"].required = False
+        self.fields["folder"].empty_label = _scheduling_copy(
+            language,
+            "بدون مجلد",
+            "Unfiled",
+        )
+        self.fields["folder"].queryset = RecordMediaFolder.objects.filter(patient=patient)
         self._configure_record_localization(
             language=language,
             labels={
                 "ar": {
+                    "folder": "المجلد",
                     "title": "العنوان",
                     "description": "الوصف",
                     "visibility": "حالة الظهور",
@@ -994,6 +1179,7 @@ class StaffRecordMediaUpdateForm(_LocalizedRecordFormMixin, forms.ModelForm):
                     "is_active": "نشط",
                 },
                 "en": {
+                    "folder": "Folder",
                     "title": "Title",
                     "description": "Description",
                     "visibility": "Visibility",
