@@ -73,6 +73,14 @@
         <div class="dashboard-sidebar-footer">
             <a
                 class="dashboard-language-switch"
+                data-dashboard-public-site
+                href="{% if is_arabic %}{% url 'home' %}{% else %}{% url 'home_en' %}{% endif %}"
+            >
+                <span aria-hidden="true">↗</span>
+                <span>{% if is_arabic %}العودة للموقع العام{% else %}View Public Site{% endif %}</span>
+            </a>
+            <a
+                class="dashboard-language-switch"
                 href="{{ dashboard_language_switch_url }}"
                 hreflang="{% if is_arabic %}en{% else %}ar{% endif %}"
             >
