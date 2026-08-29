@@ -5,13 +5,18 @@ from django.core.exceptions import ValidationError
 
 from apps.booking.models import Appointment
 from apps.clinic.models import ClosedDay, DoctorSchedule, DoctorScheduleOverride, VisitType
-from apps.records.models import ClinicalNote, RecordMedia, RecordMediaFolder, VisitRecord
+from apps.records.models import (
+    ClinicalNote,
+    PublicCase,
+    RecordMedia,
+    RecordMediaFolder,
+    VisitRecord,
+)
 from apps.records.public_cases import (
     PUBLIC_CASE_ROLE_AFTER,
     PUBLIC_CASE_ROLE_BEFORE,
     PUBLIC_CASE_ROLE_VIDEO,
     PUBLIC_CASE_ROLE_VIDEO_COVER,
-    encode_public_case_title,
 )
 
 
@@ -53,6 +58,12 @@ RECORD_MODEL_ERROR_TRANSLATIONS_AR = {
     "Appointment must belong to the selected patient.": "يجب أن يكون الموعد مرتبطا بالمريض المحدد.",
     "Visit must belong to the selected patient.": "يجب أن تكون الزيارة مرتبطة بالمريض المحدد.",
     "Folder must belong to the selected patient.": "يجب أن يكون المجلد مرتبطا بالمريض المحدد.",
+    "Reference visit must belong to the selected patient.": (
+        "يجب أن تكون الزيارة المرجعية مرتبطة بالمريض المحدد."
+    ),
+    "Public case must belong to the selected patient.": (
+        "يجب أن تكون الحالة العامة مرتبطة بالمريض المحدد."
+    ),
     "Folder name is required.": "اسم المجلد مطلوب.",
     "A folder with this name already exists for this patient.": (
         "يوجد مجلد بهذا الاسم لهذا المريض."
@@ -84,13 +95,15 @@ MEDIA_TYPE_CHOICES = {
     "en": RecordMedia.MediaType.choices,
 }
 
-MEDIA_VISIBILITY_CHOICES = {
+PRIVATE_MEDIA_VISIBILITY_CHOICES = {
     "ar": (
         (RecordMedia.Visibility.PRIVATE_ONLY, "خاص فقط"),
         (RecordMedia.Visibility.VISIBLE_TO_PATIENT, "ظاهر للمريض"),
-        (RecordMedia.Visibility.APPROVED_PUBLIC_CASE, "حالة عامة بموافقة"),
     ),
-    "en": RecordMedia.Visibility.choices,
+    "en": (
+        (RecordMedia.Visibility.PRIVATE_ONLY, "Private only"),
+        (RecordMedia.Visibility.VISIBLE_TO_PATIENT, "Visible to patient"),
+    ),
 }
 
 
@@ -889,18 +902,21 @@ class StaffRecordMediaCreateForm(_LocalizedRecordFormMixin, forms.ModelForm):
             choices={
                 "ar": {
                     "media_type": MEDIA_TYPE_CHOICES["ar"],
-                    "visibility": MEDIA_VISIBILITY_CHOICES["ar"],
+                    "visibility": PRIVATE_MEDIA_VISIBILITY_CHOICES["ar"],
                 },
                 "en": {
                     "media_type": MEDIA_TYPE_CHOICES["en"],
-                    "visibility": MEDIA_VISIBILITY_CHOICES["en"],
+                    "visibility": PRIVATE_MEDIA_VISIBILITY_CHOICES["en"],
                 },
             },
         )
 
 
 class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
-    visit = forms.ModelChoiceField(queryset=VisitRecord.objects.none())
+    reference_visit = forms.ModelChoiceField(
+        queryset=VisitRecord.objects.none(),
+        required=False,
+    )
     folder = forms.ModelChoiceField(
         queryset=RecordMediaFolder.objects.none(),
         required=False,
@@ -943,19 +959,31 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
     )
     consent_confirmed = forms.BooleanField(required=True)
 
-    def __init__(self, *args, patient, uploaded_by, language="ar", **kwargs):
+    def __init__(
+        self,
+        *args,
+        patient,
+        uploaded_by,
+        public_case=None,
+        language="ar",
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.patient = patient
         self.uploaded_by = uploaded_by
+        self.public_case = public_case
         self.media_instances = []
-        self.fields["visit"].queryset = VisitRecord.objects.filter(patient=patient).order_by(
+        self.media_specs = []
+        self.fields["reference_visit"].queryset = VisitRecord.objects.filter(
+            patient=patient
+        ).order_by(
             "-visit_date",
             "-created_at",
         )
-        self.fields["visit"].empty_label = _scheduling_copy(
+        self.fields["reference_visit"].empty_label = _scheduling_copy(
             language,
-            "اختر الزيارة",
-            "Select a visit",
+            "بدون زيارة مرجعية",
+            "No reference visit",
         )
         self.fields["folder"].queryset = RecordMediaFolder.objects.filter(patient=patient)
         self.fields["folder"].empty_label = _scheduling_copy(
@@ -967,7 +995,7 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
             language=language,
             labels={
                 "ar": {
-                    "visit": "الزيارة المرتبطة",
+                    "reference_visit": "الزيارة المرجعية (اختياري)",
                     "folder": "المجلد (اختياري)",
                     "case_title": "عنوان الحالة",
                     "before_images": "صور قبل",
@@ -980,7 +1008,7 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
                     ),
                 },
                 "en": {
-                    "visit": "Linked visit",
+                    "reference_visit": "Reference visit (optional)",
                     "folder": "Folder (optional)",
                     "case_title": "Case title",
                     "before_images": "Before images",
@@ -996,6 +1024,9 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
             },
             help_texts={
                 "ar": {
+                    "reference_visit": (
+                        "للتنظيم الداخلي فقط، ولا تحدد كيفية تجميع الحالة في الموقع."
+                    ),
                     "case_title": (
                         "سيظهر هذا العنوان للزوار. لا تكتب اسم المريض أو أي معلومات تعريفية."
                     ),
@@ -1005,6 +1036,10 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
                     ),
                 },
                 "en": {
+                    "reference_visit": (
+                        "For internal record context only. It does not determine public case "
+                        "grouping."
+                    ),
                     "case_title": (
                         "This title is public. Do not enter the patient's name or identifying "
                         "information."
@@ -1017,6 +1052,8 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
             },
         )
         for field_name in ("case_title", "short_note"):
+            if field_name not in self.fields:
+                continue
             for validator in self.fields[field_name].validators:
                 if getattr(validator, "code", "") == "max_length":
                     validator.message = RECORD_FIELD_ERROR_MESSAGES[self.language]["max_length"]
@@ -1045,7 +1082,16 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
         videos = cleaned_data.get("videos") or []
         video_cover = cleaned_data.get("video_cover")
         actual_media_count = len(before_images) + len(after_images) + len(videos)
-        if not actual_media_count:
+        existing_video = bool(
+            self.public_case
+            and self.public_case.media_items.filter(
+                public_case_role=RecordMedia.PublicCaseRole.VIDEO,
+                media_type=RecordMedia.MediaType.SHORT_VIDEO,
+                is_active=True,
+            ).exists()
+        )
+        cover_only_replacement = bool(video_cover and existing_video)
+        if not actual_media_count and not cover_only_replacement:
             self.add_error(
                 None,
                 _scheduling_copy(
@@ -1054,7 +1100,7 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
                     "Add at least one before image, after image, or video.",
                 ),
             )
-        if video_cover and not videos:
+        if video_cover and not videos and not existing_video:
             self.add_error(
                 "video_cover",
                 _scheduling_copy(
@@ -1070,21 +1116,22 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
             "The patient's name or phone number cannot be published in public content.",
         )
         for field_name in ("case_title", "short_note"):
+            if field_name not in self.fields:
+                continue
             value = cleaned_data.get(field_name, "")
             if value and _contains_current_patient_pii(value, self.patient):
                 self.add_error(field_name, pii_error)
 
-        visit = cleaned_data.get("visit")
+        reference_visit = cleaned_data.get("reference_visit")
         case_title = cleaned_data.get("case_title", "")
-        if (
-            not visit
-            or not case_title
-            or not cleaned_data.get("consent_confirmed")
-            or not actual_media_count
+        requires_case_metadata = "case_title" in self.fields
+        if requires_case_metadata and (
+            not case_title or not cleaned_data.get("consent_confirmed")
         ):
             return cleaned_data
+        if not actual_media_count and not cover_only_replacement:
+            return cleaned_data
 
-        note = cleaned_data.get("short_note", "")
         folder = cleaned_data.get("folder")
         media_specs = []
         media_specs.extend(
@@ -1113,14 +1160,14 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
         for field_name, media_type, role, uploaded_file in media_specs:
             media = RecordMedia(
                 patient=self.patient,
-                visit=visit,
+                visit=reference_visit,
                 folder=folder,
                 media_type=media_type,
                 file=uploaded_file,
-                title=encode_public_case_title(role, case_title),
-                description=note,
-                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-                consent_confirmed=True,
+                title="",
+                description="",
+                visibility=RecordMedia.Visibility.PRIVATE_ONLY,
+                consent_confirmed=False,
                 is_active=True,
                 uploaded_by=self.uploaded_by,
             )
@@ -1132,7 +1179,144 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
 
         if not self.errors:
             self.media_instances = media_instances
+            self.media_specs = media_specs
         return cleaned_data
+
+    def build_media_instances(self, public_case):
+        if not self.is_valid():
+            raise ValueError("Cannot build public case media from an invalid form.")
+        instances = []
+        for media, media_spec in zip(self.media_instances, self.media_specs, strict=True):
+            media.public_case = public_case
+            media.public_case_role = media_spec[2]
+            media.visibility = RecordMedia.Visibility.APPROVED_PUBLIC_CASE
+            media.consent_confirmed = True
+            media.full_clean()
+            instances.append(media)
+        return instances
+
+
+class StaffPublicCaseAddMediaForm(StaffPublicCaseCreateForm):
+    def __init__(self, *args, public_case, **kwargs):
+        super().__init__(*args, public_case=public_case, **kwargs)
+        self.fields.pop("case_title")
+        self.fields.pop("short_note")
+        self.fields.pop("consent_confirmed")
+
+
+class StaffPublicCaseUpdateForm(_LocalizedRecordFormMixin, forms.ModelForm):
+    class Meta:
+        model = PublicCase
+        fields = ["title", "note", "reference_visit"]
+        widgets = {
+            "title": forms.TextInput(attrs={"maxlength": str(PUBLIC_CASE_TITLE_MAX_LENGTH)}),
+            "note": forms.Textarea(
+                attrs={"rows": 3, "maxlength": str(PUBLIC_CASE_NOTE_MAX_LENGTH)}
+            ),
+        }
+
+    def __init__(self, *args, patient, language="ar", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.patient = patient
+        self.instance.patient = patient
+        self.fields["title"].required = True
+        self.fields["title"].strip = True
+        self.fields["note"].required = False
+        self.fields["note"].strip = True
+        self.fields["note"].validators = [
+            validator
+            for validator in forms.CharField(max_length=PUBLIC_CASE_NOTE_MAX_LENGTH).validators
+        ]
+        self.fields["reference_visit"].required = False
+        self.fields["reference_visit"].queryset = VisitRecord.objects.filter(
+            patient=patient
+        ).order_by("-visit_date", "-created_at")
+        self.fields["reference_visit"].empty_label = _scheduling_copy(
+            language,
+            "بدون زيارة مرجعية",
+            "No reference visit",
+        )
+        self._configure_record_localization(
+            language=language,
+            labels={
+                "ar": {
+                    "title": "عنوان الحالة",
+                    "note": "ملاحظة عامة قصيرة (اختياري)",
+                    "reference_visit": "الزيارة المرجعية (اختياري)",
+                },
+                "en": {
+                    "title": "Case title",
+                    "note": "Short public note (optional)",
+                    "reference_visit": "Reference visit (optional)",
+                },
+            },
+            help_texts={
+                "ar": {
+                    "title": (
+                        "سيظهر هذا العنوان للزوار. لا تكتب اسم المريض أو أي معلومات تعريفية."
+                    ),
+                    "note": (
+                        "تظهر هذه الملاحظة للزوار. لا تكتب اسم المريض أو رقم الهاتف أو أي "
+                        "معلومات طبية خاصة."
+                    ),
+                    "reference_visit": (
+                        "للتنظيم الداخلي فقط، ولا تحدد كيفية تجميع الحالة في الموقع."
+                    ),
+                },
+                "en": {
+                    "title": (
+                        "This title is public. Do not enter the patient's name or identifying "
+                        "information."
+                    ),
+                    "note": (
+                        "This note is visible to visitors. Do not enter the patient's name, "
+                        "phone number, or private medical information."
+                    ),
+                    "reference_visit": (
+                        "For internal record context only. It does not determine public case "
+                        "grouping."
+                    ),
+                },
+            },
+        )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        pii_error = _scheduling_copy(
+            self.language,
+            "لا يمكن نشر اسم المريض أو رقم هاتفه ضمن المحتوى العام.",
+            "The patient's name or phone number cannot be published in public content.",
+        )
+        for field_name in ("title", "note"):
+            value = cleaned_data.get(field_name, "")
+            if value and _contains_current_patient_pii(value, self.patient):
+                self.add_error(field_name, pii_error)
+        return cleaned_data
+
+
+class StaffPublicCaseMergeForm(_LocalizedRecordFormMixin, forms.Form):
+    destination_case = forms.ModelChoiceField(queryset=PublicCase.objects.none())
+
+    def __init__(self, *args, patient, source_case, language="ar", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["destination_case"].queryset = PublicCase.objects.filter(
+            patient=patient
+        ).exclude(pk=source_case.pk)
+        self._configure_record_localization(
+            language=language,
+            labels={
+                "ar": {"destination_case": "الحالة الوجهة"},
+                "en": {"destination_case": "Destination case"},
+            },
+            help_texts={
+                "ar": {
+                    "destination_case": "ستبقى بيانات الحالة الوجهة هي المعتمدة."
+                },
+                "en": {
+                    "destination_case": "The destination case metadata remains authoritative."
+                },
+            },
+        )
 
 
 class StaffRecordMediaUpdateForm(_LocalizedRecordFormMixin, forms.ModelForm):
@@ -1198,7 +1382,10 @@ class StaffRecordMediaUpdateForm(_LocalizedRecordFormMixin, forms.ModelForm):
                 },
             },
             choices={
-                "ar": {"visibility": MEDIA_VISIBILITY_CHOICES["ar"]},
-                "en": {"visibility": MEDIA_VISIBILITY_CHOICES["en"]},
+                "ar": {"visibility": PRIVATE_MEDIA_VISIBILITY_CHOICES["ar"]},
+                "en": {"visibility": PRIVATE_MEDIA_VISIBILITY_CHOICES["en"]},
             },
         )
+        if self.instance.public_case_id:
+            self.fields.pop("visibility")
+            self.fields.pop("consent_confirmed")

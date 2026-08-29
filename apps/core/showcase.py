@@ -63,10 +63,17 @@ def _public_media_queryset():
             visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
             consent_confirmed=True,
             is_active=True,
+            public_case__consent_confirmed=True,
+            public_case__is_published=True,
         )
         .exclude(file="")
-        .select_related("visit")
-        .order_by("-uploaded_at", "-public_id")
+        .select_related("public_case")
+        .order_by(
+            "-public_case__created_at",
+            "-public_case_id",
+            "-uploaded_at",
+            "-public_id",
+        )
     )
 
 
@@ -79,7 +86,8 @@ def grouped_public_cases(language="ar", limit=None):
     language = "en" if language == "en" else "ar"
     groups = OrderedDict()
     for media in _public_media_queryset():
-        group_key = f"visit:{media.visit_id}" if media.visit_id else f"media:{media.public_id}"
+        public_case = media.public_case
+        group_key = f"case:{public_case.pk}"
         group = groups.setdefault(
             group_key,
             {
@@ -92,12 +100,12 @@ def grouped_public_cases(language="ar", limit=None):
                 "after_items": [],
                 "video_items": [],
                 "video_cover": None,
-                "description": "",
-                "public_title": "",
+                "description": public_case.note,
+                "public_title": public_case.title,
             },
         )
-        role, clean_title, is_encoded = decode_public_case_title(media.title)
-        decoded_role = role
+        decoded_role, clean_title, is_encoded = decode_public_case_title(media.title)
+        role = media.public_case_role or decoded_role
         if media.media_type == RecordMedia.MediaType.SHORT_VIDEO:
             role = PUBLIC_CASE_ROLE_VIDEO
         elif role == PUBLIC_CASE_ROLE_VIDEO:
@@ -112,7 +120,7 @@ def grouped_public_cases(language="ar", limit=None):
             "poster_url": "",
         }
         group["items"].append(item)
-        if media.description and not group["description"]:
+        if not group["description"] and media.description:
             group["description"] = media.description
         if clean_title and (is_encoded or decoded_role == "primary") and not group["public_title"]:
             group["public_title"] = clean_title

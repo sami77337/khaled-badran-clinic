@@ -377,7 +377,8 @@
     margin-block-start: 0.9rem;
 }
 
-.record-media-actions a {
+.record-media-actions a,
+.record-media-actions button {
     display: inline-flex;
     min-height: 2.65rem;
     min-width: 0;
@@ -393,11 +394,55 @@
     line-height: 1.3;
     text-align: center;
     overflow-wrap: anywhere;
+    cursor: pointer;
 }
 
-.record-media-actions a:hover {
+.record-media-actions button {
+    font: inherit;
+}
+
+.record-media-actions a:hover,
+.record-media-actions button:hover {
     border-color: rgba(74, 15, 20, 0.32);
     background: var(--dashboard-soft-burgundy);
+}
+
+.record-media-actions form {
+    min-width: 0;
+    margin: 0;
+}
+
+.public-case-counts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin: 0.9rem 0 0;
+}
+
+.public-case-counts > div {
+    min-width: 0;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.65rem;
+    background: var(--dashboard-white);
+    padding: 0.55rem 0.65rem;
+}
+
+.public-case-counts dt {
+    color: var(--dashboard-muted);
+    font-size: 0.73rem;
+    font-weight: 600;
+}
+
+.public-case-counts dd {
+    margin: 0.1rem 0 0;
+    color: var(--dashboard-ink);
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.record-media-actions .record-case-danger-link {
+    border-color: rgba(129, 33, 41, 0.3);
+    color: #812129;
 }
 
 .record-folder-organizer {
@@ -839,6 +884,10 @@
     .record-media-summary dl {
         grid-template-columns: minmax(0, 1fr);
     }
+
+    .public-case-counts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 35rem) {
@@ -859,6 +908,11 @@
     .record-media-actions a {
         width: 100%;
         min-width: 0;
+    }
+
+    .record-media-actions form,
+    .record-media-actions button {
+        width: 100%;
     }
 
     .record-patient-details {

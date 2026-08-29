@@ -28,11 +28,11 @@ from apps.patients.models import Patient
 from apps.records.models import (
     IMAGE_MAX_BYTES,
     ClinicalNote,
+    PublicCase,
     RecordMedia,
     RecordMediaFolder,
     VisitRecord,
 )
-from apps.records.public_cases import decode_public_case_title
 
 
 class DashboardRecordWorkflowMixin:
@@ -154,6 +154,24 @@ class DashboardRecordWorkflowMixin:
                 self.synthetic_video_file()
                 if media_type == RecordMedia.MediaType.SHORT_VIDEO
                 else self.synthetic_image_file()
+            )
+        if (
+            kwargs.get("visibility") == RecordMedia.Visibility.APPROVED_PUBLIC_CASE
+            and "public_case" not in kwargs
+        ):
+            kwargs["public_case"] = PublicCase.objects.create(
+                patient=patient,
+                title=kwargs.get("title", "Synthetic dashboard public case")[:180],
+                consent_confirmed=True,
+                is_published=True,
+            )
+            kwargs.setdefault(
+                "public_case_role",
+                (
+                    RecordMedia.PublicCaseRole.VIDEO
+                    if media_type == RecordMedia.MediaType.SHORT_VIDEO
+                    else RecordMedia.PublicCaseRole.PRIMARY
+                ),
             )
         return RecordMedia.objects.create(
             patient=patient,
@@ -865,7 +883,7 @@ class DashboardCreateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
                     ):
                         self.assertNotContains(response, legacy_fragment)
 
-    def test_media_create_form_preserves_multipart_and_three_visibility_states(self):
+    def test_media_create_form_limits_generic_upload_to_private_visibility_states(self):
         response = self.client.get(
             reverse("dashboard_media_create", kwargs={"patient_id": self.patient.id}),
             {"lang": "en"},
@@ -874,10 +892,10 @@ class DashboardCreateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertContains(response, 'enctype="multipart/form-data"')
         self.assertContains(response, 'value="private_only"')
         self.assertContains(response, 'value="visible_to_patient"')
-        self.assertContains(response, 'value="approved_public_case"')
         self.assertContains(response, "Private only")
         self.assertContains(response, "Visible to patient")
-        self.assertContains(response, "Approved public case")
+        self.assertNotContains(response, 'value="approved_public_case"')
+        self.assertNotContains(response, "Approved public case")
 
     def test_english_form_language_switch_and_cancel_keep_patient_context(self):
         cases = (
@@ -960,7 +978,7 @@ class DashboardCreateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
             fetch_redirect_response=False,
         )
 
-    def test_media_consent_validation_error_is_localized_without_changing_rule(self):
+    def test_generic_media_rejects_public_visibility_in_both_languages(self):
         route = reverse("dashboard_media_create", kwargs={"patient_id": self.patient.id})
         payload = {
             "visit": "",
@@ -980,12 +998,12 @@ class DashboardCreateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
 
         self.assertContains(
             arabic,
-            "تتطلب وسائط الحالة العامة موافقة مؤكدة.",
+            "حدد خيارا صحيحا.",
             status_code=400,
         )
         self.assertContains(
             english,
-            "Public case media requires confirmed consent.",
+            "Select a valid choice.",
             status_code=400,
         )
         self.assertEqual(RecordMedia.objects.filter(patient=self.patient).count(), 0)
@@ -1108,7 +1126,7 @@ class DashboardCreateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertContains(response, "امتداد ملف الصورة غير مدعوم.", status_code=400)
         self.assertEqual(RecordMedia.objects.filter(patient=self.patient).count(), 0)
 
-    def test_approved_public_case_without_consent_is_rejected(self):
+    def test_generic_media_cannot_create_approved_public_case_orphan(self):
         response = self.client.post(
             reverse("dashboard_media_create", kwargs={"patient_id": self.patient.id}),
             {
@@ -1123,7 +1141,7 @@ class DashboardCreateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertContains(response, "تتطلب وسائط الحالة العامة موافقة مؤكدة.", status_code=400)
+        self.assertContains(response, "حدد خيارا صحيحا.", status_code=400)
         self.assertEqual(RecordMedia.objects.filter(patient=self.patient).count(), 0)
 
     def test_dashboard_posts_are_csrf_protected(self):
@@ -1443,7 +1461,7 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
         consent=True,
     ):
         payload = {
-            "visit": str((visit or self.visit).id),
+            "reference_visit": str((visit or self.visit).id),
             "case_title": title,
             "short_note": note,
         }
@@ -1525,7 +1543,8 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
                 "ar",
                 "rtl",
                 (
-                    "الزيارة المرتبطة",
+                    "الزيارة المرجعية (اختياري)",
+                    "للتنظيم الداخلي فقط، ولا تحدد كيفية تجميع الحالة في الموقع.",
                     "المجلد (اختياري)",
                     "عنوان الحالة",
                     "صور قبل",
@@ -1543,7 +1562,8 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
                 "en",
                 "ltr",
                 (
-                    "Linked visit",
+                    "Reference visit (optional)",
+                    "For internal record context only. It does not determine public case grouping.",
                     "Folder (optional)",
                     "Case title",
                     "Before images",
@@ -1587,11 +1607,11 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
             self.patient_record_url(
                 self.patient,
                 language="en",
-                fragment="private-media",
+                fragment="public-cases",
             ),
         )
 
-    def test_no_visit_shows_add_visit_state_and_cannot_publish(self):
+    def test_patient_without_visit_can_publish_without_fake_visit(self):
         patient_without_visit = self.create_patient(
             full_name="Synthetic Patient Without Visit",
             phone_raw="+962700000099",
@@ -1603,10 +1623,10 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
         )
 
         response = self.client.get(f"{url}?lang=en")
-        blocked_post = self.client.post(
+        published = self.client.post(
             f"{url}?lang=en",
             {
-                "visit": str(self.visit.id),
+                "reference_visit": "",
                 "case_title": "Synthetic no-visit public case",
                 "before_images": [self.synthetic_image_file()],
                 "consent_confirmed": "on",
@@ -1614,20 +1634,15 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Add a patient visit before publishing a public case.")
-        self.assertContains(
-            response,
-            (
-                f'href="{reverse("dashboard_visit_create", kwargs={"patient_id": patient_without_visit.id})}'
-                '?lang=en"'
-            ),
-        )
-        self.assertNotContains(response, 'name="before_images"')
-        self.assertNotContains(response, 'enctype="multipart/form-data"')
-        self.assertEqual(blocked_post.status_code, 400)
-        self.assertFalse(RecordMedia.objects.filter(patient=patient_without_visit).exists())
+        self.assertContains(response, 'name="reference_visit"')
+        self.assertContains(response, 'name="before_images"')
+        self.assertContains(response, 'enctype="multipart/form-data"')
+        self.assertEqual(published.status_code, 302)
+        public_case = PublicCase.objects.get(patient=patient_without_visit)
+        self.assertIsNone(public_case.reference_visit_id)
+        self.assertIsNone(RecordMedia.objects.get(patient=patient_without_visit).visit_id)
 
-    def test_visit_media_and_consent_validation_are_required_and_patient_scoped(self):
+    def test_reference_visit_is_optional_but_patient_scoped_and_other_fields_remain_required(self):
         other_patient = self.create_patient(
             full_name="Synthetic Other Public Case Patient",
             phone_raw="+962700000088",
@@ -1635,10 +1650,10 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
         )
         other_visit = self.create_visit(patient=other_patient)
 
-        missing_visit = self.client.post(
+        no_reference_visit = self.client.post(
             f"{self.url}?lang=en",
             {
-                "visit": "",
+                "reference_visit": "",
                 "case_title": "Synthetic missing visit case",
                 "before_images": [self.synthetic_image_file(name="missing-visit.jpg")],
                 "consent_confirmed": "on",
@@ -1670,7 +1685,11 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
             ),
         )
 
-        self.assertContains(missing_visit, "This field is required.", status_code=400)
+        self.assertEqual(no_reference_visit.status_code, 302)
+        no_reference_case = PublicCase.objects.get(patient=self.patient)
+        self.assertIsNone(no_reference_case.reference_visit_id)
+        RecordMedia.objects.filter(public_case=no_reference_case).delete()
+        no_reference_case.delete()
         self.assertContains(cross_patient, "Select a valid choice.", status_code=400)
         self.assertContains(
             missing_media,
@@ -1681,7 +1700,10 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertContains(arabic_missing_consent, "هذا الحقل مطلوب.", status_code=400)
         self.assertFalse(RecordMedia.objects.filter(patient=self.patient).exists())
         self.assertFalse(RecordMedia.objects.filter(patient=other_patient).exists())
-        self.assertNotIn(other_visit, cross_patient.context["form"].fields["visit"].queryset)
+        self.assertNotIn(
+            other_visit,
+            cross_patient.context["form"].fields["reference_visit"].queryset,
+        )
 
     def test_all_supported_media_combinations_create_one_visit_group(self):
         combinations = (
@@ -1717,7 +1739,7 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
 
                 self.assertRedirects(
                     response,
-                    self.patient_record_url(self.patient, fragment="private-media"),
+                    self.patient_record_url(self.patient, fragment="public-cases"),
                     fetch_redirect_response=False,
                 )
                 rows = list(RecordMedia.objects.filter(patient=self.patient).order_by("id"))
@@ -1730,29 +1752,36 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
                 self.assertTrue(all(row.consent_confirmed for row in rows))
                 self.assertTrue(all(row.is_active for row in rows))
                 self.assertTrue(all(row.uploaded_by_id == self.staff.id for row in rows))
+                public_case = PublicCase.objects.get(patient=self.patient)
+                self.assertEqual({row.public_case_id for row in rows}, {public_case.pk})
+                self.assertEqual(public_case.reference_visit_id, self.visit.pk)
+                self.assertEqual(public_case.title, "Synthetic public-safe case title")
+                self.assertTrue(public_case.consent_confirmed and public_case.is_published)
+                self.assertTrue(all(row.title == "" and row.description == "" for row in rows))
                 self.assertEqual(
                     sum(row.media_type == RecordMedia.MediaType.SHORT_VIDEO for row in rows),
                     int("video" in supplied),
                 )
                 if "before" in supplied:
                     self.assertTrue(
-                        any(decode_public_case_title(row.title)[0] == "before" for row in rows)
+                        any(row.public_case_role == RecordMedia.PublicCaseRole.BEFORE for row in rows)
                     )
                 if "after" in supplied:
                     self.assertTrue(
-                        any(decode_public_case_title(row.title)[0] == "after" for row in rows)
+                        any(row.public_case_role == RecordMedia.PublicCaseRole.AFTER for row in rows)
                     )
                 if "video" in supplied:
                     self.assertTrue(
                         any(
                             row.media_type == RecordMedia.MediaType.SHORT_VIDEO
-                            and decode_public_case_title(row.title)[0] == "video"
+                            and row.public_case_role == RecordMedia.PublicCaseRole.VIDEO
                             for row in rows
                         )
                     )
                 RecordMedia.objects.filter(patient=self.patient).delete()
+                PublicCase.objects.filter(patient=self.patient).delete()
 
-    def test_short_note_is_optional_limited_and_stored_consistently_once_per_row(self):
+    def test_short_note_is_optional_limited_and_stored_once_on_public_case(self):
         note = "Synthetic short public-facing case note."
         response = self.client.post(
             f"{self.url}?lang=en",
@@ -1769,13 +1798,17 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
             self.patient_record_url(
                 self.patient,
                 language="en",
-                fragment="private-media",
+                fragment="public-cases",
             ),
             fetch_redirect_response=False,
         )
         self.assertEqual(
+            PublicCase.objects.get(patient=self.patient).note,
+            note,
+        )
+        self.assertEqual(
             set(RecordMedia.objects.filter(patient=self.patient).values_list("description", flat=True)),
-            {note},
+            {""},
         )
         detail = self.client.get(
             self.patient_record_url(self.patient, language="en", fragment="private-media")
@@ -1792,6 +1825,7 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertNotContains(detail, 'href="/media/')
 
         RecordMedia.objects.filter(patient=self.patient).delete()
+        PublicCase.objects.filter(patient=self.patient).delete()
         too_long = self.client.post(
             f"{self.url}?lang=en",
             self.publish_payload(
@@ -1920,10 +1954,11 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
         )
         self.assertEqual(generic.status_code, 302)
         media = RecordMedia.objects.get(patient=self.patient)
-        role, clean_title, is_encoded = decode_public_case_title(media.title)
-        self.assertEqual(role, "before")
-        self.assertEqual(clean_title, "مريض")
-        self.assertTrue(is_encoded)
+        public_case = PublicCase.objects.get(patient=self.patient)
+        self.assertEqual(media.public_case_role, RecordMedia.PublicCaseRole.BEFORE)
+        self.assertEqual(media.title, "")
+        self.assertEqual(public_case.title, "مريض")
+        self.assertEqual(public_case.note, "محتوى عام غير معرّف.")
 
     def test_multiple_media_cover_and_internal_folder_publish_atomically(self):
         folder = self.create_media_folder(
@@ -1965,17 +2000,16 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
         )
         self.assertTrue(all(row.consent_confirmed and row.is_active for row in rows))
         self.assertTrue(all(row.uploaded_by_id == self.staff.pk for row in rows))
-        roles = [decode_public_case_title(row.title)[0] for row in rows]
+        public_case = PublicCase.objects.get(patient=self.patient)
+        self.assertEqual({row.public_case_id for row in rows}, {public_case.pk})
+        self.assertEqual(public_case.title, "Functional recovery overview")
+        self.assertEqual(public_case.note, "Public-safe short note.")
+        roles = [row.public_case_role for row in rows]
         self.assertEqual(roles.count("before"), 3)
         self.assertEqual(roles.count("after"), 2)
         self.assertEqual(roles.count("video"), 2)
         self.assertEqual(roles.count("video_cover"), 1)
-        self.assertTrue(
-            all(
-                decode_public_case_title(row.title)[1] == "Functional recovery overview"
-                for row in rows
-            )
-        )
+        self.assertTrue(all(row.title == "" and row.description == "" for row in rows))
 
     def test_video_cover_rules_and_validation(self):
         cover_only = self.client.post(
@@ -2014,13 +2048,12 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
             ),
         )
         self.assertEqual(accepted.status_code, 302)
-        roles = {
-            decode_public_case_title(title)[0]
-            for title in RecordMedia.objects.filter(patient=self.patient).values_list(
-                "title",
+        roles = set(
+            RecordMedia.objects.filter(patient=self.patient).values_list(
+                "public_case_role",
                 flat=True,
             )
-        }
+        )
         self.assertEqual(roles, {"video", "video_cover"})
 
     def test_any_invalid_file_in_each_multiple_field_creates_zero_rows(self):
@@ -2111,7 +2144,445 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
             },
             patient_snapshot,
         )
-        self.assertFalse(AuditLog.objects.exists())
+        audit = AuditLog.objects.get(metadata__action="public_case_created")
+        self.assertEqual(audit.metadata["public_case_id"], PublicCase.objects.get().pk)
+        self.assertEqual(audit.metadata["media_count"], 1)
+        self.assertNotIn(self.patient.full_name, str(audit.metadata))
+
+
+class DashboardPublicCaseLifecycleTests(DashboardRecordWorkflowMixin, TestCase):
+    def setUp(self):
+        self.staff = self.create_staff()
+        self.patient = self.create_patient()
+        self.other_patient = self.create_patient(
+            full_name="Synthetic Other Lifecycle Patient",
+            phone_raw="+962700000777",
+            phone_e164="+962700000777",
+        )
+        self.reference_visit = self.create_visit(patient=self.patient)
+        self.later_visit = self.create_visit(patient=self.patient)
+        self.folder = self.create_media_folder(patient=self.patient, name="Lifecycle Folder")
+        self.public_case = self.create_public_case(
+            patient=self.patient,
+            reference_visit=self.reference_visit,
+            title="Lifecycle public case",
+        )
+        self.before = self.create_case_asset(
+            self.public_case,
+            role=RecordMedia.PublicCaseRole.BEFORE,
+            visit=self.reference_visit,
+            folder=self.folder,
+        )
+        self.client.force_login(self.staff)
+
+    def create_public_case(
+        self,
+        *,
+        patient,
+        title,
+        reference_visit=None,
+        consent_confirmed=True,
+        is_published=True,
+    ):
+        return PublicCase.objects.create(
+            patient=patient,
+            reference_visit=reference_visit,
+            title=title,
+            note="Synthetic public-safe lifecycle note.",
+            consent_confirmed=consent_confirmed,
+            is_published=is_published,
+            created_by=self.staff,
+        )
+
+    def create_case_asset(
+        self,
+        public_case,
+        *,
+        role,
+        visit=None,
+        folder=None,
+        file=None,
+    ):
+        media_type = (
+            RecordMedia.MediaType.SHORT_VIDEO
+            if role == RecordMedia.PublicCaseRole.VIDEO
+            else RecordMedia.MediaType.IMAGE
+        )
+        return self.create_media(
+            patient=public_case.patient,
+            visit=visit,
+            folder=folder,
+            public_case=public_case,
+            public_case_role=role,
+            media_type=media_type,
+            file=file,
+            visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+            consent_confirmed=True,
+            is_active=True,
+            title="",
+            description="",
+            uploaded_by=self.staff,
+        )
+
+    def case_url(self, route_name, public_case=None, *, patient=None, **kwargs):
+        public_case = public_case or self.public_case
+        patient = patient or self.patient
+        return reverse(
+            route_name,
+            kwargs={"patient_id": patient.pk, "case_id": public_case.pk, **kwargs},
+        )
+
+    def test_manager_is_bilingual_compact_and_keeps_case_identity_outside_visit(self):
+        response = self.client.get(
+            reverse("dashboard_patient_record_detail", kwargs={"patient_id": self.patient.pk}),
+            {"lang": "en"},
+        )
+
+        self.assertContains(response, 'id="public-cases"')
+        self.assertContains(response, "Public Cases")
+        self.assertContains(response, self.public_case.title)
+        self.assertContains(response, "Published")
+        self.assertContains(response, "Reference visit")
+        for label in (
+            "All media",
+            "Before",
+            "After",
+            "Video",
+            "Edit Case",
+            "Add Media",
+            "Manage Assets",
+            "Remove from Website",
+        ):
+            self.assertContains(response, label)
+        self.assertContains(
+            response,
+            f'{self.case_url("dashboard_public_case_edit")}?lang=en',
+        )
+
+    def test_lifecycle_routes_are_staff_only_owned_and_csrf_protected(self):
+        edit_url = self.case_url("dashboard_public_case_edit")
+        anonymous = Client().get(edit_url)
+        self.assertEqual(anonymous.status_code, 302)
+        self.assertIn(f"{reverse('login')}?role=doctor&next=", anonymous["Location"])
+
+        normal_client = Client()
+        normal_client.force_login(self.create_user(username="lifecycle-normal-user"))
+        self.assertEqual(normal_client.get(edit_url).status_code, 403)
+
+        remove_url = self.case_url(
+            "dashboard_public_case_asset_remove",
+            public_id=self.before.public_id,
+        )
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.staff)
+        self.assertEqual(csrf_client.post(remove_url).status_code, 403)
+        self.before.refresh_from_db()
+        self.assertEqual(self.before.public_case, self.public_case)
+
+        other_case = self.create_public_case(
+            patient=self.other_patient,
+            title="Other patient lifecycle case",
+        )
+        self.assertEqual(
+            self.client.get(
+                self.case_url(
+                    "dashboard_public_case_edit",
+                    public_case=other_case,
+                    patient=self.patient,
+                )
+            ).status_code,
+            404,
+        )
+
+    def test_edit_updates_metadata_with_pii_and_ownership_guards_only(self):
+        stored_name = self.before.file.name
+        response = self.client.post(
+            f'{self.case_url("dashboard_public_case_edit")}?lang=en',
+            {
+                "title": "Updated public-safe title",
+                "note": "Updated public-safe note.",
+                "reference_visit": str(self.later_visit.pk),
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            self.patient_record_url(self.patient, language="en", fragment="public-cases"),
+            fetch_redirect_response=False,
+        )
+        self.public_case.refresh_from_db()
+        self.before.refresh_from_db()
+        self.assertEqual(self.public_case.title, "Updated public-safe title")
+        self.assertEqual(self.public_case.note, "Updated public-safe note.")
+        self.assertEqual(self.public_case.reference_visit, self.later_visit)
+        self.assertEqual(self.before.file.name, stored_name)
+
+        rejected = self.client.post(
+            f'{self.case_url("dashboard_public_case_edit")}?lang=en',
+            {
+                "title": f"Result for {self.patient.full_name}",
+                "note": "Public-safe note.",
+                "reference_visit": "",
+            },
+        )
+        self.assertContains(
+            rejected,
+            "The patient&#x27;s name or phone number cannot be published in public content.",
+            status_code=400,
+        )
+        audit = AuditLog.objects.get(metadata__action="public_case_metadata_updated")
+        self.assertEqual(audit.metadata, {
+            "action": "public_case_metadata_updated",
+            "public_case_id": self.public_case.pk,
+        })
+
+    def test_add_media_uses_later_visit_without_changing_case_identity_and_is_atomic(self):
+        add_url = self.case_url("dashboard_public_case_add_media")
+        response = self.client.post(
+            f"{add_url}?lang=en",
+            {
+                "reference_visit": str(self.later_visit.pk),
+                "folder": str(self.folder.pk),
+                "after_images": [
+                    self.synthetic_image_file(name="later-after-1.jpg"),
+                    self.synthetic_image_file(name="later-after-2.jpg"),
+                ],
+                "videos": [self.synthetic_video_file(name="later-video.mp4")],
+                "video_cover": self.synthetic_image_file(name="later-cover.jpg"),
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        rows = list(RecordMedia.objects.filter(public_case=self.public_case).order_by("pk"))
+        self.assertEqual(len(rows), 5)
+        new_rows = [row for row in rows if row.pk != self.before.pk]
+        self.assertEqual({row.public_case_id for row in new_rows}, {self.public_case.pk})
+        self.assertEqual({row.visit_id for row in new_rows}, {self.later_visit.pk})
+        self.assertEqual({row.folder_id for row in new_rows}, {self.folder.pk})
+        self.assertEqual(
+            {row.public_case_role for row in new_rows},
+            {
+                RecordMedia.PublicCaseRole.AFTER,
+                RecordMedia.PublicCaseRole.VIDEO,
+                RecordMedia.PublicCaseRole.VIDEO_COVER,
+            },
+        )
+        self.public_case.refresh_from_db()
+        self.assertEqual(self.public_case.reference_visit, self.reference_visit)
+
+        count_before_invalid = RecordMedia.objects.filter(public_case=self.public_case).count()
+        invalid = self.client.post(
+            f"{add_url}?lang=en",
+            {
+                "after_images": [
+                    self.synthetic_image_file(name="valid-later.jpg"),
+                    self.synthetic_image_file(
+                        name="invalid-later.gif",
+                        content_type="image/gif",
+                    ),
+                ],
+            },
+        )
+        self.assertContains(invalid, "Unsupported image file extension.", status_code=400)
+        self.assertEqual(
+            RecordMedia.objects.filter(public_case=self.public_case).count(),
+            count_before_invalid,
+        )
+
+    def test_video_cover_replacement_detaches_old_cover_without_deleting_file(self):
+        video = self.create_case_asset(
+            self.public_case,
+            role=RecordMedia.PublicCaseRole.VIDEO,
+            visit=self.later_visit,
+            folder=self.folder,
+        )
+        old_cover = self.create_case_asset(
+            self.public_case,
+            role=RecordMedia.PublicCaseRole.VIDEO_COVER,
+            visit=self.later_visit,
+            folder=self.folder,
+        )
+        old_file_name = old_cover.file.name
+
+        response = self.client.post(
+            self.case_url("dashboard_public_case_add_media"),
+            {"video_cover": self.synthetic_image_file(name="replacement-cover.jpg")},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        old_cover.refresh_from_db()
+        self.assertEqual(old_cover.visibility, RecordMedia.Visibility.PRIVATE_ONLY)
+        self.assertIsNone(old_cover.public_case_id)
+        self.assertEqual(old_cover.public_case_role, "")
+        self.assertEqual(old_cover.file.name, old_file_name)
+        self.assertEqual(old_cover.folder, self.folder)
+        self.assertEqual(old_cover.visit, self.later_visit)
+        self.assertTrue(RecordMedia.objects.filter(pk=old_cover.pk).exists())
+        self.assertEqual(
+            RecordMedia.objects.filter(
+                public_case=self.public_case,
+                public_case_role=RecordMedia.PublicCaseRole.VIDEO_COVER,
+            ).count(),
+            1,
+        )
+        self.assertTrue(RecordMedia.objects.filter(pk=video.pk).exists())
+
+    def test_remove_asset_and_unpublish_republish_never_delete_medical_media(self):
+        stored_name = self.before.file.name
+        remove_response = self.client.post(
+            self.case_url(
+                "dashboard_public_case_asset_remove",
+                public_id=self.before.public_id,
+            )
+        )
+        self.assertEqual(remove_response.status_code, 302)
+        self.before.refresh_from_db()
+        self.assertEqual(self.before.visibility, RecordMedia.Visibility.PRIVATE_ONLY)
+        self.assertIsNone(self.before.public_case_id)
+        self.assertEqual(self.before.public_case_role, "")
+        self.assertTrue(self.before.consent_confirmed)
+        self.assertEqual(self.before.folder, self.folder)
+        self.assertEqual(self.before.visit, self.reference_visit)
+        self.assertEqual(self.before.file.name, stored_name)
+
+        replacement = self.create_case_asset(
+            self.public_case,
+            role=RecordMedia.PublicCaseRole.AFTER,
+            visit=self.later_visit,
+        )
+        unpublish_url = self.case_url("dashboard_public_case_unpublish")
+        confirmation = self.client.get(f"{unpublish_url}?lang=en")
+        self.assertContains(confirmation, "Remove Case from Public Website")
+        self.assertContains(
+            confirmation,
+            "All medical files will remain in the patient record.",
+        )
+        self.assertEqual(self.client.post(unpublish_url).status_code, 302)
+        self.public_case.refresh_from_db()
+        self.assertFalse(self.public_case.is_published)
+        self.assertTrue(RecordMedia.objects.filter(pk=replacement.pk).exists())
+        self.assertEqual(
+            self.client.get(
+                reverse("public_case_media", kwargs={"public_id": replacement.public_id})
+            ).status_code,
+            404,
+        )
+
+        self.assertEqual(
+            self.client.post(self.case_url("dashboard_public_case_republish")).status_code,
+            302,
+        )
+        self.public_case.refresh_from_db()
+        self.assertTrue(self.public_case.is_published)
+
+        self.public_case.is_published = False
+        self.public_case.consent_confirmed = False
+        self.public_case.save(update_fields=["is_published", "consent_confirmed"])
+        self.client.post(self.case_url("dashboard_public_case_republish"))
+        self.public_case.refresh_from_db()
+        self.assertFalse(self.public_case.is_published)
+
+    def test_merge_preserves_assets_roles_paths_and_blocks_cross_patient_or_cover_conflict(self):
+        destination = self.create_public_case(
+            patient=self.patient,
+            title="Authoritative destination case",
+        )
+        destination_asset = self.create_case_asset(
+            destination,
+            role=RecordMedia.PublicCaseRole.AFTER,
+            visit=self.reference_visit,
+        )
+        source_path = self.before.file.name
+        destination_path = destination_asset.file.name
+        response = self.client.post(
+            f'{self.case_url("dashboard_public_case_merge")}?lang=en',
+            {"destination_case": str(destination.pk)},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(PublicCase.objects.filter(pk=self.public_case.pk).exists())
+        self.before.refresh_from_db()
+        destination_asset.refresh_from_db()
+        self.assertEqual(self.before.public_case, destination)
+        self.assertEqual(self.before.public_case_role, RecordMedia.PublicCaseRole.BEFORE)
+        self.assertEqual(self.before.file.name, source_path)
+        self.assertEqual(destination_asset.file.name, destination_path)
+        destination.refresh_from_db()
+        self.assertEqual(destination.title, "Authoritative destination case")
+
+        other_case = self.create_public_case(
+            patient=self.other_patient,
+            title="Cross-patient destination",
+        )
+        cross_source = self.create_public_case(
+            patient=self.patient,
+            title="Cross-patient source",
+        )
+        cross = self.client.post(
+            self.case_url("dashboard_public_case_merge", public_case=cross_source),
+            {"destination_case": str(other_case.pk)},
+        )
+        self.assertContains(cross, "حدد خيارا صحيحا.", status_code=400)
+        self.assertTrue(PublicCase.objects.filter(pk=cross_source.pk).exists())
+
+        cover_source = self.create_public_case(
+            patient=self.patient,
+            title="Cover source",
+        )
+        cover_destination = self.create_public_case(
+            patient=self.patient,
+            title="Cover destination",
+        )
+        self.create_case_asset(
+            cover_source,
+            role=RecordMedia.PublicCaseRole.VIDEO_COVER,
+        )
+        self.create_case_asset(
+            cover_destination,
+            role=RecordMedia.PublicCaseRole.VIDEO_COVER,
+        )
+        conflict = self.client.post(
+            f'{self.case_url("dashboard_public_case_merge", public_case=cover_source)}?lang=en',
+            {"destination_case": str(cover_destination.pk)},
+        )
+        self.assertContains(
+            conflict,
+            "Both cases contain a video cover. Remove or replace one cover first.",
+            status_code=400,
+        )
+        self.assertTrue(PublicCase.objects.filter(pk=cover_source.pk).exists())
+        self.assertEqual(
+            AuditLog.objects.get(metadata__action="public_cases_merged").metadata[
+                "media_count"
+            ],
+            1,
+        )
+
+    def test_linked_media_generic_edit_preserves_public_lifecycle_fields(self):
+        route = reverse(
+            "dashboard_media_update",
+            kwargs={"patient_id": self.patient.pk, "public_id": self.before.public_id},
+        )
+        form_page = self.client.get(f"{route}?lang=en")
+        self.assertNotContains(form_page, 'name="visibility"')
+        self.assertNotContains(form_page, 'name="consent_confirmed"')
+
+        response = self.client.post(
+            route,
+            {
+                "folder": "",
+                "title": "Internal asset label",
+                "description": "Internal asset description.",
+                "visibility": RecordMedia.Visibility.PRIVATE_ONLY,
+                "is_active": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.before.refresh_from_db()
+        self.assertEqual(self.before.public_case, self.public_case)
+        self.assertEqual(self.before.public_case_role, RecordMedia.PublicCaseRole.BEFORE)
+        self.assertEqual(self.before.visibility, RecordMedia.Visibility.APPROVED_PUBLIC_CASE)
+        self.assertTrue(self.before.consent_confirmed)
 
 
 class DashboardUpdateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
@@ -2245,10 +2716,10 @@ class DashboardUpdateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertEqual(other_response.status_code, 404)
         own_response.close()
 
-    def test_staff_can_mark_media_approved_public_case_only_with_confirmed_consent(self):
+    def test_generic_media_edit_cannot_create_approved_public_orphan(self):
         media = self.create_media(patient=self.patient, visibility=RecordMedia.Visibility.PRIVATE_ONLY)
 
-        rejected = self.client.post(
+        rejected_without_consent = self.client.post(
             self.media_update_url(media),
             {
                 "title": media.title,
@@ -2258,7 +2729,7 @@ class DashboardUpdateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
             },
         )
         media.refresh_from_db()
-        accepted = self.client.post(
+        rejected_with_consent = self.client.post(
             self.media_update_url(media),
             {
                 "title": media.title,
@@ -2279,14 +2750,14 @@ class DashboardUpdateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
             )
         )
 
-        self.assertEqual(rejected.status_code, 400)
-        self.assertContains(rejected, "تتطلب وسائط الحالة العامة موافقة مؤكدة.", status_code=400)
-        self.assertEqual(accepted.status_code, 302)
-        self.assertEqual(media.visibility, RecordMedia.Visibility.APPROVED_PUBLIC_CASE)
-        self.assertTrue(media.consent_confirmed)
-        self.assertEqual(public_response.status_code, 200)
+        self.assertEqual(rejected_without_consent.status_code, 400)
+        self.assertEqual(rejected_with_consent.status_code, 400)
+        self.assertContains(rejected_with_consent, "حدد خيارا صحيحا.", status_code=400)
+        self.assertEqual(media.visibility, RecordMedia.Visibility.PRIVATE_ONLY)
+        self.assertFalse(media.consent_confirmed)
+        self.assertIsNone(media.public_case_id)
+        self.assertEqual(public_response.status_code, 404)
         self.assertEqual(patient_response.status_code, 404)
-        public_response.close()
 
     def test_staff_can_deactivate_media_and_patient_or_public_routes_stop_serving(self):
         visible_media = self.create_media(

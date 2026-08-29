@@ -27,7 +27,7 @@ from apps.patients.forms import (
     auth_error_message,
 )
 from apps.patients import rate_limits
-from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
+from apps.records.models import ClinicalNote, PublicCase, RecordMedia, VisitRecord
 from .models import Patient
 
 
@@ -1658,6 +1658,7 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         description="Synthetic visible media description.",
         file=None,
     ):
+        patient = patient or self.patient
         if file is None:
             file = (
                 self.synthetic_video_file()
@@ -1666,8 +1667,24 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
             )
         if visibility == RecordMedia.Visibility.APPROVED_PUBLIC_CASE:
             consent_confirmed = True
+            public_case = PublicCase.objects.create(
+                patient=patient,
+                title=title[:180],
+                consent_confirmed=True,
+                is_published=True,
+            )
+            public_case_role = (
+                RecordMedia.PublicCaseRole.VIDEO
+                if media_type == RecordMedia.MediaType.SHORT_VIDEO
+                else RecordMedia.PublicCaseRole.PRIMARY
+            )
+        else:
+            public_case = None
+            public_case_role = ""
         return RecordMedia.objects.create(
-            patient=patient or self.patient,
+            patient=patient,
+            public_case=public_case,
+            public_case_role=public_case_role,
             media_type=media_type,
             file=file,
             visibility=visibility,

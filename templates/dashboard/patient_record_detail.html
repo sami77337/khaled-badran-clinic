@@ -178,6 +178,54 @@
             {% endif %}
         </section>
 
+        <section class="record-section" id="public-cases" aria-labelledby="public-cases-title">
+            <div class="record-section-heading">
+                <h2 id="public-cases-title">{% if is_arabic %}الحالات العامة{% else %}Public Cases{% endif %}</h2>
+                <span class="record-count" aria-label="{% if is_arabic %}عدد الحالات العامة{% else %}Public case count{% endif %}">{{ public_case_count }}</span>
+            </div>
+            {% if public_case_items %}
+                <div class="record-list public-case-manager-list">
+                    {% for item in public_case_items %}
+                        <article class="record-entry public-case-manager-card">
+                            <header class="record-entry-header">
+                                <div>
+                                    <p class="record-entry-kicker">{% if is_arabic %}حالة عامة{% else %}Public Case{% endif %}</p>
+                                    <h3>{{ item.case.title|default_if_none:""|default:"—" }}</h3>
+                                    <p class="record-entry-date"><time datetime="{{ item.case.created_at|date:'c' }}" dir="ltr">{{ item.case.created_at|date:"Y-m-d H:i" }}</time></p>
+                                </div>
+                                <span class="record-status status-{% if item.case.is_published %}visible_to_patient{% else %}private_only{% endif %}">{{ item.status_label }}</span>
+                            </header>
+                            <dl class="public-case-counts">
+                                <div><dt>{% if is_arabic %}كل الوسائط{% else %}All media{% endif %}</dt><dd>{{ item.case.media_count }}</dd></div>
+                                <div><dt>{% if is_arabic %}قبل{% else %}Before{% endif %}</dt><dd>{{ item.case.before_count }}</dd></div>
+                                <div><dt>{% if is_arabic %}بعد{% else %}After{% endif %}</dt><dd>{{ item.case.after_count }}</dd></div>
+                                <div><dt>{% if is_arabic %}فيديو{% else %}Video{% endif %}</dt><dd>{{ item.case.video_count }}</dd></div>
+                            </dl>
+                            {% if item.case.reference_visit %}
+                                <p class="record-related-meta">{% if is_arabic %}الزيارة المرجعية{% else %}Reference visit{% endif %}: <time datetime="{{ item.case.reference_visit.visit_date|date:'c' }}" dir="ltr">{{ item.case.reference_visit.visit_date|date:"Y-m-d H:i" }}</time></p>
+                            {% endif %}
+                            <div class="record-media-actions public-case-manager-actions">
+                                <a href="{{ item.edit_url }}">{% if is_arabic %}تعديل الحالة{% else %}Edit Case{% endif %}</a>
+                                <a href="{{ item.add_media_url }}">{% if is_arabic %}إضافة وسائط{% else %}Add Media{% endif %}</a>
+                                <a href="{{ item.assets_url }}">{% if is_arabic %}إدارة الأصول{% else %}Manage Assets{% endif %}</a>
+                                {% if item.case.is_published %}
+                                    <a class="record-case-danger-link" href="{{ item.unpublish_url }}">{% if is_arabic %}حذف الحالة من العرض العام{% else %}Remove from Website{% endif %}</a>
+                                {% else %}
+                                    <form method="post" action="{{ item.republish_url }}">
+                                        {% csrf_token %}
+                                        <button type="submit">{% if is_arabic %}إعادة النشر{% else %}Republish{% endif %}</button>
+                                    </form>
+                                {% endif %}
+                                {% if item.merge_url %}<a href="{{ item.merge_url }}">{% if is_arabic %}دمج{% else %}Merge{% endif %}</a>{% endif %}
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="record-empty-state">{% if is_arabic %}لا توجد حالات عامة بعد.{% else %}No public cases yet.{% endif %}</p>
+            {% endif %}
+        </section>
+
         <section class="record-section" id="private-media" aria-labelledby="private-media-title">
             <div class="record-section-heading">
                 <h2 id="private-media-title">{% if is_arabic %}الوسائط الخاصة{% else %}Private Media{% endif %}</h2>

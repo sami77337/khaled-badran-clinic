@@ -1,0 +1,62 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block dashboard_styles %}
+    <link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content patient-record-content record-form-page">
+    <header class="record-page-header record-form-header">
+        <a class="record-back-link" href="{{ cancel_url }}">
+            <span aria-hidden="true">←</span>
+            <span>{% if is_arabic %}العودة إلى الحالات العامة{% else %}Back to Public Cases{% endif %}</span>
+        </a>
+        <p class="record-eyebrow">{% if is_arabic %}إدارة أصول الحالة{% else %}Manage Case Assets{% endif %}</p>
+        <h1>{{ public_case.title }}</h1>
+    </header>
+
+    <nav class="record-action-bar" aria-label="{% if is_arabic %}إجراءات أصول الحالة{% else %}Case asset actions{% endif %}">
+        <a class="record-action record-action-primary" href="{{ add_media_url }}">{% if is_arabic %}إضافة وسائط{% else %}Add Media{% endif %}</a>
+        <a class="record-action record-action-secondary" href="{{ cancel_url }}">{% if is_arabic %}العودة إلى سجل المريض{% else %}Back to Patient Record{% endif %}</a>
+    </nav>
+
+    <section class="record-section" aria-labelledby="case-assets-title">
+        <div class="record-section-heading">
+            <h2 id="case-assets-title">{% if is_arabic %}ملفات الحالة{% else %}Case Assets{% endif %}</h2>
+            <span class="record-count">{{ asset_items|length }}</span>
+        </div>
+        {% if asset_items %}
+            <div class="record-list">
+                {% for item in asset_items %}
+                    <article class="record-entry media-entry">
+                        <header class="record-entry-header">
+                            <div>
+                                <p class="record-entry-kicker">{{ item.role_label }}</p>
+                                <h3>{{ item.media_type_label }}</h3>
+                                <p class="record-entry-date"><time datetime="{{ item.media.uploaded_at|date:'c' }}" dir="ltr">{{ item.media.uploaded_at|date:"Y-m-d H:i" }}</time></p>
+                            </div>
+                            <div class="record-status-group">
+                                {% for status in item.status_labels %}<span class="record-status {{ status.class }}">{{ status.label }}</span>{% endfor %}
+                            </div>
+                        </header>
+                        <div class="record-media-meta">
+                            <span>{% if is_arabic %}المجلد{% else %}Folder{% endif %}: {{ item.folder_label }}</span>
+                            {% if item.media.visit %}<span>{% if is_arabic %}زيارة دفعة الرفع{% else %}Upload batch visit{% endif %}: <time datetime="{{ item.media.visit.visit_date|date:'c' }}" dir="ltr">{{ item.media.visit.visit_date|date:"Y-m-d H:i" }}</time></span>{% endif %}
+                        </div>
+                        <div class="record-media-actions">
+                            {% if item.staff_download_url %}<a href="{{ item.staff_download_url }}">{% if is_arabic %}فتح للطاقم{% else %}Open for Staff{% endif %}</a>{% endif %}
+                            <form method="post" action="{{ item.remove_url }}">
+                                {% csrf_token %}
+                                <button type="submit">{% if is_arabic %}إزالة من الحالة{% else %}Remove from Case{% endif %}</button>
+                            </form>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="record-empty-state">{% if is_arabic %}لا توجد وسائط مرتبطة بهذه الحالة.{% else %}No media is linked to this case.{% endif %}</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

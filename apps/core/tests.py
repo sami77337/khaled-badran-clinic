@@ -26,8 +26,14 @@ from apps.clinic.models import ClinicProfile, Doctor, VisitType
 from apps.core import views as core_views
 from apps.core.checks import production_readiness_checks
 from apps.patients.models import Patient
-from apps.records.models import ClinicalNote, RecordMedia, RecordMediaFolder, VisitRecord
-from apps.records.public_cases import encode_public_case_title
+from apps.records.models import (
+    ClinicalNote,
+    PublicCase,
+    RecordMedia,
+    RecordMediaFolder,
+    VisitRecord,
+)
+from apps.records.public_cases import decode_public_case_title, encode_public_case_title
 from config.settings.helpers import (
     build_cache_config,
     build_database_config,
@@ -1106,6 +1112,8 @@ class PublicCasesTestDataMixin:
         patient=None,
         visit=None,
         folder=None,
+        public_case=None,
+        public_case_role=None,
         media_type=RecordMedia.MediaType.IMAGE,
         visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
         consent_confirmed=None,
@@ -1123,10 +1131,38 @@ class PublicCasesTestDataMixin:
             )
         if consent_confirmed is None:
             consent_confirmed = visibility == RecordMedia.Visibility.APPROVED_PUBLIC_CASE
+        if visibility == RecordMedia.Visibility.APPROVED_PUBLIC_CASE:
+            if public_case is None:
+                if visit is not None:
+                    public_case = PublicCase.objects.filter(
+                        patient=patient,
+                        reference_visit=visit,
+                    ).first()
+                if public_case is None:
+                    public_case = PublicCase.objects.create(
+                        patient=patient,
+                        reference_visit=visit,
+                        consent_confirmed=True,
+                        is_published=True,
+                    )
+            if public_case_role is None:
+                decoded_role = decode_public_case_title(title)[0]
+                if media_type == RecordMedia.MediaType.SHORT_VIDEO:
+                    public_case_role = RecordMedia.PublicCaseRole.VIDEO
+                elif decoded_role in {
+                    RecordMedia.PublicCaseRole.BEFORE,
+                    RecordMedia.PublicCaseRole.AFTER,
+                    RecordMedia.PublicCaseRole.VIDEO_COVER,
+                }:
+                    public_case_role = decoded_role
+                else:
+                    public_case_role = RecordMedia.PublicCaseRole.PRIMARY
         return RecordMedia.objects.create(
             patient=patient,
             visit=visit,
             folder=folder,
+            public_case=public_case,
+            public_case_role=public_case_role or "",
             media_type=media_type,
             file=file,
             visibility=visibility,

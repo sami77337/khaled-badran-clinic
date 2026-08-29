@@ -118,6 +118,41 @@ urlpatterns = [
         name="dashboard_public_case_create",
     ),
     path(
+        "patients/<int:patient_id>/records/public-cases/<int:case_id>/edit/",
+        views.dashboard_public_case_edit,
+        name="dashboard_public_case_edit",
+    ),
+    path(
+        "patients/<int:patient_id>/records/public-cases/<int:case_id>/media/add/",
+        views.dashboard_public_case_add_media,
+        name="dashboard_public_case_add_media",
+    ),
+    path(
+        "patients/<int:patient_id>/records/public-cases/<int:case_id>/assets/",
+        views.dashboard_public_case_assets,
+        name="dashboard_public_case_assets",
+    ),
+    path(
+        "patients/<int:patient_id>/records/public-cases/<int:case_id>/assets/<uuid:public_id>/remove/",
+        views.dashboard_public_case_asset_remove,
+        name="dashboard_public_case_asset_remove",
+    ),
+    path(
+        "patients/<int:patient_id>/records/public-cases/<int:case_id>/unpublish/",
+        views.dashboard_public_case_unpublish,
+        name="dashboard_public_case_unpublish",
+    ),
+    path(
+        "patients/<int:patient_id>/records/public-cases/<int:case_id>/republish/",
+        views.dashboard_public_case_republish,
+        name="dashboard_public_case_republish",
+    ),
+    path(
+        "patients/<int:patient_id>/records/public-cases/<int:case_id>/merge/",
+        views.dashboard_public_case_merge,
+        name="dashboard_public_case_merge",
+    ),
+    path(
         "patients/<int:patient_id>/records/media/<uuid:public_id>/edit/",
         views.dashboard_media_update,
         name="dashboard_media_update",

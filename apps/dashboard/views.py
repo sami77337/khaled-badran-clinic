@@ -29,7 +29,13 @@ from apps.clinic.models import (
 from apps.core.models import AuditLog, SystemSetting
 from apps.core.views import _base_context
 from apps.patients.models import Patient
-from apps.records.models import ClinicalNote, RecordMedia, RecordMediaFolder, VisitRecord
+from apps.records.models import (
+    ClinicalNote,
+    PublicCase,
+    RecordMedia,
+    RecordMediaFolder,
+    VisitRecord,
+)
 
 from .forms import (
     BookingRulesForm,
@@ -37,7 +43,10 @@ from .forms import (
     SpecialHoursDateForm,
     SpecialHoursForm,
     StaffClinicalNoteForm,
+    StaffPublicCaseAddMediaForm,
     StaffPublicCaseCreateForm,
+    StaffPublicCaseMergeForm,
+    StaffPublicCaseUpdateForm,
     StaffRecordMediaCreateForm,
     StaffRecordMediaFolderForm,
     StaffRecordMediaUpdateForm,
@@ -75,6 +84,16 @@ RECORD_MEDIA_TYPE_LABELS = {
         RecordMedia.MediaType.SHORT_VIDEO: "فيديو قصير",
     },
     "en": dict(RecordMedia.MediaType.choices),
+}
+PUBLIC_CASE_ROLE_LABELS = {
+    "ar": {
+        RecordMedia.PublicCaseRole.PRIMARY: "أساسي",
+        RecordMedia.PublicCaseRole.BEFORE: "قبل",
+        RecordMedia.PublicCaseRole.AFTER: "بعد",
+        RecordMedia.PublicCaseRole.VIDEO: "فيديو",
+        RecordMedia.PublicCaseRole.VIDEO_COVER: "غلاف فيديو",
+    },
+    "en": dict(RecordMedia.PublicCaseRole.choices),
 }
 PATIENT_GENDER_LABELS = {
     "ar": {
@@ -2757,6 +2776,78 @@ def _media_items(media_queryset, language):
     return items
 
 
+def _public_case_items(patient, language):
+    cases = (
+        PublicCase.objects.filter(patient=patient)
+        .select_related("reference_visit")
+        .annotate(
+            media_count=Count("media_items"),
+            before_count=Count(
+                "media_items",
+                filter=Q(media_items__public_case_role=RecordMedia.PublicCaseRole.BEFORE),
+            ),
+            after_count=Count(
+                "media_items",
+                filter=Q(media_items__public_case_role=RecordMedia.PublicCaseRole.AFTER),
+            ),
+            video_count=Count(
+                "media_items",
+                filter=Q(media_items__public_case_role=RecordMedia.PublicCaseRole.VIDEO),
+            ),
+        )
+        .order_by("-created_at", "-id")
+    )
+    case_count = cases.count()
+    items = []
+    for public_case in cases:
+        route_kwargs = {"patient_id": patient.pk, "case_id": public_case.pk}
+        items.append(
+            {
+                "case": public_case,
+                "status_label": (
+                    ("منشورة" if language == "ar" else "Published")
+                    if public_case.is_published
+                    else ("غير منشورة" if language == "ar" else "Unpublished")
+                ),
+                "edit_url": _dashboard_record_url(
+                    "dashboard_public_case_edit",
+                    language,
+                    kwargs=route_kwargs,
+                ),
+                "add_media_url": _dashboard_record_url(
+                    "dashboard_public_case_add_media",
+                    language,
+                    kwargs=route_kwargs,
+                ),
+                "assets_url": _dashboard_record_url(
+                    "dashboard_public_case_assets",
+                    language,
+                    kwargs=route_kwargs,
+                ),
+                "unpublish_url": _dashboard_record_url(
+                    "dashboard_public_case_unpublish",
+                    language,
+                    kwargs=route_kwargs,
+                ),
+                "republish_url": _dashboard_record_url(
+                    "dashboard_public_case_republish",
+                    language,
+                    kwargs=route_kwargs,
+                ),
+                "merge_url": (
+                    _dashboard_record_url(
+                        "dashboard_public_case_merge",
+                        language,
+                        kwargs=route_kwargs,
+                    )
+                    if case_count > 1
+                    else ""
+                ),
+            }
+        )
+    return items
+
+
 def _record_media_audit(*, user, action, instance, event, metadata):
     AuditLog.objects.create(
         user=user,
@@ -2915,7 +3006,7 @@ def _render_patient_record_detail(
     total_media_count = RecordMedia.objects.filter(patient=patient).count()
     unfiled_count = RecordMedia.objects.filter(patient=patient, folder__isnull=True).count()
     media = list(
-        media_queryset.select_related("visit", "folder", "uploaded_by")
+        media_queryset.select_related("visit", "folder", "public_case", "uploaded_by")
         .order_by("-uploaded_at", "-id")
     )
     selected_query = {"folder": selected_filter} if selected_filter != "all" else {}
@@ -3002,6 +3093,8 @@ def _render_patient_record_detail(
             media_items=_media_items(media, language),
             visit_count=len(visits),
             note_count=len(notes),
+            public_case_items=_public_case_items(patient, language),
+            public_case_count=PublicCase.objects.filter(patient=patient).count(),
             media_count=total_media_count,
             filtered_media_count=len(media),
             media_folders=folder_items,
@@ -3382,47 +3475,61 @@ def dashboard_public_case_create(request, patient_id):
         return not_allowed
     language = _dashboard_language(request)
     patient = get_object_or_404(Patient, id=patient_id)
-    has_visits = VisitRecord.objects.filter(patient=patient).exists()
-    form = None
-    status = 200
-
-    if has_visits:
-        if request.method == "POST":
-            form = StaffPublicCaseCreateForm(
-                request.POST,
-                request.FILES,
-                patient=patient,
-                uploaded_by=request.user,
-                language=language,
-            )
-            if form.is_valid():
-                with transaction.atomic():
-                    for media in form.media_instances:
-                        media.full_clean()
-                    for media in form.media_instances:
-                        media.save()
-                messages.success(
-                    request,
-                    "تم نشر الحالة العامة."
-                    if language == "ar"
-                    else "Public case published.",
+    if request.method == "POST":
+        form = StaffPublicCaseCreateForm(
+            request.POST,
+            request.FILES,
+            patient=patient,
+            uploaded_by=request.user,
+            language=language,
+        )
+        if form.is_valid():
+            with transaction.atomic():
+                public_case = PublicCase(
+                    patient=patient,
+                    reference_visit=form.cleaned_data.get("reference_visit"),
+                    title=form.cleaned_data["case_title"],
+                    note=form.cleaned_data.get("short_note", ""),
+                    consent_confirmed=True,
+                    is_published=True,
+                    created_by=request.user,
                 )
-                return redirect(
-                    _patient_record_detail_url(
-                        patient,
-                        language,
-                        fragment="private-media",
-                    )
+                public_case.full_clean()
+                public_case.save()
+                media_instances = form.build_media_instances(public_case)
+                for media in media_instances:
+                    media.save()
+                _record_media_audit(
+                    user=request.user,
+                    action=AuditLog.Action.CREATE,
+                    instance=public_case,
+                    event="public_case_created",
+                    metadata={
+                        "public_case_id": public_case.pk,
+                        "media_count": len(media_instances),
+                    },
                 )
-            status = 400
-        else:
-            form = StaffPublicCaseCreateForm(
-                patient=patient,
-                uploaded_by=request.user,
-                language=language,
+            messages.success(
+                request,
+                "تم نشر الحالة العامة."
+                if language == "ar"
+                else "Public case published.",
             )
-    elif request.method == "POST":
+            return redirect(
+                _patient_record_detail_url(
+                    patient,
+                    language,
+                    fragment="public-cases",
+                )
+            )
         status = 400
+    else:
+        form = StaffPublicCaseCreateForm(
+            patient=patient,
+            uploaded_by=request.user,
+            language=language,
+        )
+        status = 200
 
     return render(
         request,
@@ -3437,13 +3544,494 @@ def dashboard_public_case_create(request, patient_id):
             cancel_url=_patient_record_detail_url(
                 patient,
                 language,
-                fragment="private-media",
+                fragment="public-cases",
             ),
-            has_visits=has_visits,
-            visit_create_url=_dashboard_record_url(
-                "dashboard_visit_create",
+            submit_label="نشر الحالة" if language == "ar" else "Publish Case",
+        ),
+        status=status,
+    )
+
+
+def _detach_existing_video_covers(public_case):
+    existing_covers = list(
+        RecordMedia.objects.select_for_update().filter(
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.VIDEO_COVER,
+        )
+    )
+    for cover in existing_covers:
+        cover.visibility = RecordMedia.Visibility.PRIVATE_ONLY
+        cover.public_case = None
+        cover.public_case_role = ""
+        cover.save(update_fields=["visibility", "public_case", "public_case_role"])
+    return existing_covers
+
+
+@_staff_required
+def dashboard_public_case_edit(request, patient_id, case_id):
+    not_allowed = _method_allowed(request, ["GET", "POST"])
+    if not_allowed:
+        return not_allowed
+    language = _dashboard_language(request)
+    patient = get_object_or_404(Patient, id=patient_id)
+    public_case = get_object_or_404(
+        PublicCase.objects.select_related("reference_visit"),
+        patient=patient,
+        pk=case_id,
+    )
+    if request.method == "POST":
+        form = StaffPublicCaseUpdateForm(
+            request.POST,
+            instance=public_case,
+            patient=patient,
+            language=language,
+        )
+        if form.is_valid():
+            with transaction.atomic():
+                public_case = form.save()
+                _record_media_audit(
+                    user=request.user,
+                    action=AuditLog.Action.UPDATE,
+                    instance=public_case,
+                    event="public_case_metadata_updated",
+                    metadata={"public_case_id": public_case.pk},
+                )
+            messages.success(
+                request,
+                "تم تحديث الحالة العامة."
+                if language == "ar"
+                else "Public case updated.",
+            )
+            return redirect(
+                _patient_record_detail_url(patient, language, fragment="public-cases")
+            )
+        status = 400
+    else:
+        form = StaffPublicCaseUpdateForm(
+            instance=public_case,
+            patient=patient,
+            language=language,
+        )
+        status = 200
+
+    return render(
+        request,
+        "dashboard/public_case_metadata_form.html",
+        _dashboard_record_context(
+            request,
+            patient=patient,
+            route_name="dashboard_public_case_edit",
+            route_kwargs={"patient_id": patient.pk, "case_id": public_case.pk},
+            public_case=public_case,
+            form=form,
+            form_title="تعديل الحالة العامة" if language == "ar" else "Edit Public Case",
+            submit_label="حفظ التعديلات" if language == "ar" else "Save Changes",
+            cancel_url=_patient_record_detail_url(
+                patient,
                 language,
-                kwargs={"patient_id": patient.id},
+                fragment="public-cases",
+            ),
+        ),
+        status=status,
+    )
+
+
+@_staff_required
+def dashboard_public_case_add_media(request, patient_id, case_id):
+    not_allowed = _method_allowed(request, ["GET", "POST"])
+    if not_allowed:
+        return not_allowed
+    language = _dashboard_language(request)
+    patient = get_object_or_404(Patient, id=patient_id)
+    public_case = get_object_or_404(PublicCase, patient=patient, pk=case_id)
+    form_kwargs = {
+        "patient": patient,
+        "uploaded_by": request.user,
+        "public_case": public_case,
+        "language": language,
+    }
+    if request.method == "POST":
+        form = StaffPublicCaseAddMediaForm(
+            request.POST,
+            request.FILES,
+            **form_kwargs,
+        )
+        if form.is_valid():
+            with transaction.atomic():
+                locked_case = PublicCase.objects.select_for_update().get(
+                    patient=patient,
+                    pk=public_case.pk,
+                )
+                media_instances = form.build_media_instances(locked_case)
+                replacing_cover = any(
+                    media.public_case_role == RecordMedia.PublicCaseRole.VIDEO_COVER
+                    for media in media_instances
+                )
+                replaced_covers = (
+                    _detach_existing_video_covers(locked_case) if replacing_cover else []
+                )
+                for media in media_instances:
+                    media.save()
+                _record_media_audit(
+                    user=request.user,
+                    action=AuditLog.Action.CREATE,
+                    instance=locked_case,
+                    event="public_case_media_added",
+                    metadata={
+                        "public_case_id": locked_case.pk,
+                        "media_count": len(media_instances),
+                        "replaced_cover_count": len(replaced_covers),
+                    },
+                )
+            messages.success(
+                request,
+                "تمت إضافة الوسائط إلى الحالة."
+                if language == "ar"
+                else "Media added to the case.",
+            )
+            return redirect(
+                _dashboard_record_url(
+                    "dashboard_public_case_assets",
+                    language,
+                    kwargs={"patient_id": patient.pk, "case_id": public_case.pk},
+                )
+            )
+        status = 400
+    else:
+        form = StaffPublicCaseAddMediaForm(**form_kwargs)
+        status = 200
+
+    return render(
+        request,
+        "dashboard/public_case_form.html",
+        _dashboard_record_context(
+            request,
+            patient=patient,
+            route_name="dashboard_public_case_add_media",
+            route_kwargs={"patient_id": patient.pk, "case_id": public_case.pk},
+            public_case=public_case,
+            form=form,
+            form_title="إضافة وسائط للحالة" if language == "ar" else "Add Case Media",
+            submit_label="إضافة الوسائط" if language == "ar" else "Add Media",
+            cancel_url=_dashboard_record_url(
+                "dashboard_public_case_assets",
+                language,
+                kwargs={"patient_id": patient.pk, "case_id": public_case.pk},
+            ),
+        ),
+        status=status,
+    )
+
+
+@_staff_required
+@require_GET
+def dashboard_public_case_assets(request, patient_id, case_id):
+    language = _dashboard_language(request)
+    patient = get_object_or_404(Patient, id=patient_id)
+    public_case = get_object_or_404(PublicCase, patient=patient, pk=case_id)
+    media = list(
+        RecordMedia.objects.filter(patient=patient, public_case=public_case)
+        .select_related("visit", "folder", "public_case", "uploaded_by")
+        .order_by("-uploaded_at", "-public_id")
+    )
+    asset_items = _media_items(media, language)
+    for item in asset_items:
+        item["role_label"] = PUBLIC_CASE_ROLE_LABELS[language].get(
+            item["media"].public_case_role,
+            item["media"].get_public_case_role_display(),
+        )
+        item["remove_url"] = _dashboard_record_url(
+            "dashboard_public_case_asset_remove",
+            language,
+            kwargs={
+                "patient_id": patient.pk,
+                "case_id": public_case.pk,
+                "public_id": item["media"].public_id,
+            },
+        )
+
+    return render(
+        request,
+        "dashboard/public_case_assets.html",
+        _dashboard_record_context(
+            request,
+            patient=patient,
+            route_name="dashboard_public_case_assets",
+            route_kwargs={"patient_id": patient.pk, "case_id": public_case.pk},
+            public_case=public_case,
+            asset_items=asset_items,
+            add_media_url=_dashboard_record_url(
+                "dashboard_public_case_add_media",
+                language,
+                kwargs={"patient_id": patient.pk, "case_id": public_case.pk},
+            ),
+            cancel_url=_patient_record_detail_url(
+                patient,
+                language,
+                fragment="public-cases",
+            ),
+        ),
+    )
+
+
+@_staff_required
+@require_POST
+def dashboard_public_case_asset_remove(request, patient_id, case_id, public_id):
+    language = _dashboard_language(request)
+    patient = get_object_or_404(Patient, id=patient_id)
+    with transaction.atomic():
+        public_case = get_object_or_404(
+            PublicCase.objects.select_for_update(),
+            patient=patient,
+            pk=case_id,
+        )
+        media = get_object_or_404(
+            RecordMedia.objects.select_for_update(),
+            patient=patient,
+            public_case=public_case,
+            public_id=public_id,
+        )
+        media.visibility = RecordMedia.Visibility.PRIVATE_ONLY
+        media.public_case = None
+        media.public_case_role = ""
+        media.save(update_fields=["visibility", "public_case", "public_case_role"])
+        _record_media_audit(
+            user=request.user,
+            action=AuditLog.Action.UPDATE,
+            instance=media,
+            event="public_case_asset_removed",
+            metadata={
+                "public_case_id": public_case.pk,
+                "media_public_id": str(media.public_id),
+            },
+        )
+    messages.success(
+        request,
+        "تمت إزالة الوسائط من الحالة دون حذف الملف."
+        if language == "ar"
+        else "Asset removed from the case. The medical file was kept.",
+    )
+    return redirect(
+        _dashboard_record_url(
+            "dashboard_public_case_assets",
+            language,
+            kwargs={"patient_id": patient.pk, "case_id": public_case.pk},
+        )
+    )
+
+
+@_staff_required
+def dashboard_public_case_unpublish(request, patient_id, case_id):
+    not_allowed = _method_allowed(request, ["GET", "POST"])
+    if not_allowed:
+        return not_allowed
+    language = _dashboard_language(request)
+    patient = get_object_or_404(Patient, id=patient_id)
+    public_case = get_object_or_404(PublicCase, patient=patient, pk=case_id)
+    if request.method == "POST":
+        with transaction.atomic():
+            public_case = PublicCase.objects.select_for_update().get(
+                patient=patient,
+                pk=public_case.pk,
+            )
+            public_case.is_published = False
+            public_case.save(update_fields=["is_published", "updated_at"])
+            _record_media_audit(
+                user=request.user,
+                action=AuditLog.Action.UPDATE,
+                instance=public_case,
+                event="public_case_unpublished",
+                metadata={"public_case_id": public_case.pk},
+            )
+        messages.success(
+            request,
+            "تم إخفاء الحالة من الموقع العام."
+            if language == "ar"
+            else "Case removed from the public website.",
+        )
+        return redirect(
+            _patient_record_detail_url(patient, language, fragment="public-cases")
+        )
+
+    return render(
+        request,
+        "dashboard/public_case_confirm_unpublish.html",
+        _dashboard_record_context(
+            request,
+            patient=patient,
+            route_name="dashboard_public_case_unpublish",
+            route_kwargs={"patient_id": patient.pk, "case_id": public_case.pk},
+            public_case=public_case,
+            cancel_url=_patient_record_detail_url(
+                patient,
+                language,
+                fragment="public-cases",
+            ),
+        ),
+    )
+
+
+@_staff_required
+@require_POST
+def dashboard_public_case_republish(request, patient_id, case_id):
+    language = _dashboard_language(request)
+    patient = get_object_or_404(Patient, id=patient_id)
+    with transaction.atomic():
+        public_case = get_object_or_404(
+            PublicCase.objects.select_for_update(),
+            patient=patient,
+            pk=case_id,
+        )
+        has_approved_asset = (
+            RecordMedia.objects.filter(
+                patient=patient,
+                public_case=public_case,
+                public_case_role__in=(
+                    RecordMedia.PublicCaseRole.PRIMARY,
+                    RecordMedia.PublicCaseRole.BEFORE,
+                    RecordMedia.PublicCaseRole.AFTER,
+                    RecordMedia.PublicCaseRole.VIDEO,
+                ),
+                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+                consent_confirmed=True,
+                is_active=True,
+            )
+            .exclude(file="")
+            .exists()
+        )
+        if public_case.consent_confirmed and has_approved_asset:
+            public_case.is_published = True
+            public_case.save(update_fields=["is_published", "updated_at"])
+            _record_media_audit(
+                user=request.user,
+                action=AuditLog.Action.UPDATE,
+                instance=public_case,
+                event="public_case_republished",
+                metadata={"public_case_id": public_case.pk},
+            )
+            success = True
+        else:
+            success = False
+    if success:
+        messages.success(
+            request,
+            "تمت إعادة نشر الحالة." if language == "ar" else "Case republished.",
+        )
+    else:
+        messages.error(
+            request,
+            (
+                "تتطلب إعادة النشر موافقة مؤكدة وملف حالة عام صالحاً واحداً على الأقل."
+                if language == "ar"
+                else "Republishing requires confirmed consent and at least one valid public case asset."
+            ),
+        )
+    return redirect(_patient_record_detail_url(patient, language, fragment="public-cases"))
+
+
+@_staff_required
+def dashboard_public_case_merge(request, patient_id, case_id):
+    not_allowed = _method_allowed(request, ["GET", "POST"])
+    if not_allowed:
+        return not_allowed
+    language = _dashboard_language(request)
+    patient = get_object_or_404(Patient, id=patient_id)
+    source_case = get_object_or_404(PublicCase, patient=patient, pk=case_id)
+    if request.method == "POST":
+        form = StaffPublicCaseMergeForm(
+            request.POST,
+            patient=patient,
+            source_case=source_case,
+            language=language,
+        )
+        if form.is_valid():
+            destination_case = form.cleaned_data["destination_case"]
+            with transaction.atomic():
+                locked_source = get_object_or_404(
+                    PublicCase.objects.select_for_update(),
+                    patient=patient,
+                    pk=source_case.pk,
+                )
+                locked_destination = get_object_or_404(
+                    PublicCase.objects.select_for_update(),
+                    patient=patient,
+                    pk=destination_case.pk,
+                )
+                source_has_cover = RecordMedia.objects.filter(
+                    public_case=locked_source,
+                    public_case_role=RecordMedia.PublicCaseRole.VIDEO_COVER,
+                ).exists()
+                destination_has_cover = RecordMedia.objects.filter(
+                    public_case=locked_destination,
+                    public_case_role=RecordMedia.PublicCaseRole.VIDEO_COVER,
+                ).exists()
+                if source_has_cover and destination_has_cover:
+                    merge_conflict = True
+                    moved_count = 0
+                else:
+                    merge_conflict = False
+                    source_media = RecordMedia.objects.select_for_update().filter(
+                        public_case=locked_source
+                    )
+                    moved_count = source_media.count()
+                    source_media.update(public_case=locked_destination)
+                    source_id = locked_source.pk
+                    locked_source.delete()
+                    _record_media_audit(
+                        user=request.user,
+                        action=AuditLog.Action.UPDATE,
+                        instance=locked_destination,
+                        event="public_cases_merged",
+                        metadata={
+                            "source_public_case_id": source_id,
+                            "destination_public_case_id": locked_destination.pk,
+                            "media_count": moved_count,
+                        },
+                    )
+            if merge_conflict:
+                form.add_error(
+                    None,
+                    (
+                        "تحتوي الحالتان على غلاف فيديو. أزل أو استبدل أحد الغلافين أولاً."
+                        if language == "ar"
+                        else "Both cases contain a video cover. Remove or replace one cover first."
+                    ),
+                )
+                status = 400
+            else:
+                messages.success(
+                    request,
+                    "تم دمج الحالتين دون نقل أو حذف الملفات."
+                    if language == "ar"
+                    else "Cases merged without moving or deleting files.",
+                )
+                return redirect(
+                    _patient_record_detail_url(patient, language, fragment="public-cases")
+                )
+        else:
+            status = 400
+    else:
+        form = StaffPublicCaseMergeForm(
+            patient=patient,
+            source_case=source_case,
+            language=language,
+        )
+        status = 200
+
+    return render(
+        request,
+        "dashboard/public_case_merge.html",
+        _dashboard_record_context(
+            request,
+            patient=patient,
+            route_name="dashboard_public_case_merge",
+            route_kwargs={"patient_id": patient.pk, "case_id": source_case.pk},
+            source_case=source_case,
+            form=form,
+            cancel_url=_patient_record_detail_url(
+                patient,
+                language,
+                fragment="public-cases",
             ),
         ),
         status=status,
@@ -3458,7 +4046,13 @@ def dashboard_media_update(request, patient_id, public_id):
     language = _dashboard_language(request)
     patient = get_object_or_404(Patient, id=patient_id)
     media = get_object_or_404(
-        RecordMedia.objects.select_related("patient", "visit", "folder", "uploaded_by"),
+        RecordMedia.objects.select_related(
+            "patient",
+            "visit",
+            "folder",
+            "public_case",
+            "uploaded_by",
+        ),
         patient=patient,
         public_id=public_id,
     )

@@ -634,6 +634,8 @@ def _public_case_media_queryset():
             visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
             consent_confirmed=True,
             is_active=True,
+            public_case__consent_confirmed=True,
+            public_case__is_published=True,
         )
         .exclude(file="")
         .order_by("-uploaded_at", "-public_id")

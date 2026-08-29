@@ -9,7 +9,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.patients.models import Patient
-from apps.records.models import RecordMedia, RecordMediaFolder, VisitRecord
+from apps.records.models import PublicCase, RecordMedia, RecordMediaFolder, VisitRecord
 from apps.records.public_cases import encode_public_case_title
 
 from .models import PublicReview, SystemSetting
@@ -132,13 +132,72 @@ class PublicReviewShowcaseTests(TestCase):
 
 
 class PublicCaseGroupingTests(TestCase):
+    def test_explicit_case_groups_media_across_different_visits_and_honors_case_gate(self):
+        with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
+            patient = Patient.objects.create(
+                full_name="Synthetic Cross Visit Case Patient",
+                phone_raw="0000000099",
+            )
+            before_visit = VisitRecord.objects.create(patient=patient)
+            after_visit = VisitRecord.objects.create(patient=patient)
+            public_case = PublicCase.objects.create(
+                patient=patient,
+                reference_visit=before_visit,
+                title="Explicit cross-visit public case",
+                note="One case-level note.",
+                consent_confirmed=True,
+                is_published=True,
+            )
+            before = RecordMedia.objects.create(
+                patient=patient,
+                visit=before_visit,
+                public_case=public_case,
+                public_case_role=RecordMedia.PublicCaseRole.BEFORE,
+                media_type=RecordMedia.MediaType.IMAGE,
+                file=SimpleUploadedFile("cross-before.jpg", b"before", content_type="image/jpeg"),
+                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+                consent_confirmed=True,
+                is_active=True,
+            )
+            after = RecordMedia.objects.create(
+                patient=patient,
+                visit=after_visit,
+                public_case=public_case,
+                public_case_role=RecordMedia.PublicCaseRole.AFTER,
+                media_type=RecordMedia.MediaType.IMAGE,
+                file=SimpleUploadedFile("cross-after.jpg", b"after", content_type="image/jpeg"),
+                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+                consent_confirmed=True,
+                is_active=True,
+            )
+
+            groups = grouped_public_cases("en")
+
+            self.assertEqual(len(groups), 1)
+            self.assertEqual(groups[0]["display_title"], public_case.title)
+            self.assertEqual(groups[0]["description"], public_case.note)
+            self.assertEqual(groups[0]["before"]["public_id"], before.public_id)
+            self.assertEqual(groups[0]["after"]["public_id"], after.public_id)
+
+            public_case.is_published = False
+            public_case.save(update_fields=["is_published"])
+            self.assertEqual(grouped_public_cases("en"), [])
+
     def test_same_visit_media_are_grouped_and_before_after_are_recognized(self):
         with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
             patient = Patient.objects.create(full_name="Synthetic Patient", phone_raw="0000000000")
             visit = VisitRecord.objects.create(patient=patient)
+            public_case = PublicCase.objects.create(
+                patient=patient,
+                reference_visit=visit,
+                consent_confirmed=True,
+                is_published=True,
+            )
             before = RecordMedia.objects.create(
                 patient=patient,
                 visit=visit,
+                public_case=public_case,
+                public_case_role=RecordMedia.PublicCaseRole.BEFORE,
                 media_type=RecordMedia.MediaType.IMAGE,
                 file=SimpleUploadedFile("before.png", b"before", content_type="image/png"),
                 title="قبل",
@@ -149,6 +208,8 @@ class PublicCaseGroupingTests(TestCase):
             after = RecordMedia.objects.create(
                 patient=patient,
                 visit=visit,
+                public_case=public_case,
+                public_case_role=RecordMedia.PublicCaseRole.AFTER,
                 media_type=RecordMedia.MediaType.IMAGE,
                 file=SimpleUploadedFile("after.png", b"after", content_type="image/png"),
                 title="بعد",
@@ -159,6 +220,8 @@ class PublicCaseGroupingTests(TestCase):
             video = RecordMedia.objects.create(
                 patient=patient,
                 visit=visit,
+                public_case=public_case,
+                public_case_role=RecordMedia.PublicCaseRole.VIDEO,
                 media_type=RecordMedia.MediaType.SHORT_VIDEO,
                 file=SimpleUploadedFile("case.mp4", b"video", content_type="video/mp4"),
                 title="حالة مصرح بعرضها",
@@ -181,15 +244,24 @@ class PublicCaseGroupingTests(TestCase):
             )
             visit = VisitRecord.objects.create(patient=patient)
             note = "Synthetic consistent public case note."
-            rows = (
-                (RecordMedia.MediaType.IMAGE, "before.jpg", "image/jpeg", "Before"),
-                (RecordMedia.MediaType.IMAGE, "after.jpg", "image/jpeg", "After"),
-                (RecordMedia.MediaType.SHORT_VIDEO, "case.mp4", "video/mp4", ""),
+            public_case = PublicCase.objects.create(
+                patient=patient,
+                reference_visit=visit,
+                note=note,
+                consent_confirmed=True,
+                is_published=True,
             )
-            for media_type, filename, content_type, title in rows:
+            rows = (
+                (RecordMedia.MediaType.IMAGE, "before.jpg", "image/jpeg", "Before", "before"),
+                (RecordMedia.MediaType.IMAGE, "after.jpg", "image/jpeg", "After", "after"),
+                (RecordMedia.MediaType.SHORT_VIDEO, "case.mp4", "video/mp4", "", "video"),
+            )
+            for media_type, filename, content_type, title, role in rows:
                 RecordMedia.objects.create(
                     patient=patient,
                     visit=visit,
+                    public_case=public_case,
+                    public_case_role=role,
                     media_type=media_type,
                     file=SimpleUploadedFile(filename, b"synthetic", content_type=content_type),
                     title=title,
@@ -218,8 +290,16 @@ class PublicCaseGroupingTests(TestCase):
                 full_name="Synthetic Legitimate Title Patient",
                 phone_raw="0000000002",
             )
+            public_case = PublicCase.objects.create(
+                patient=patient,
+                title="Synthetic public-safe case title",
+                consent_confirmed=True,
+                is_published=True,
+            )
             media = RecordMedia.objects.create(
                 patient=patient,
+                public_case=public_case,
+                public_case_role=RecordMedia.PublicCaseRole.PRIMARY,
                 media_type=RecordMedia.MediaType.IMAGE,
                 file=SimpleUploadedFile("case.jpg", b"synthetic", content_type="image/jpeg"),
                 title="Synthetic public-safe case title",
@@ -246,6 +326,14 @@ class PublicCaseGroupingTests(TestCase):
             )
             public_title = "Public-safe encoded case title"
             note = "One public-safe note."
+            public_case = PublicCase.objects.create(
+                patient=patient,
+                reference_visit=visit,
+                title=public_title,
+                note=note,
+                consent_confirmed=True,
+                is_published=True,
+            )
             specs = (
                 (RecordMedia.MediaType.IMAGE, "before-1.jpg", "image/jpeg", "before"),
                 (RecordMedia.MediaType.IMAGE, "before-2.png", "image/png", "before"),
@@ -259,6 +347,8 @@ class PublicCaseGroupingTests(TestCase):
                     patient=patient,
                     visit=visit,
                     folder=folder,
+                    public_case=public_case,
+                    public_case_role=role,
                     media_type=media_type,
                     file=SimpleUploadedFile(filename, b"synthetic", content_type=content_type),
                     title=encode_public_case_title(role, public_title),
