@@ -1,3 +1,4 @@
+from pathlib import PurePosixPath
 from urllib.parse import urlencode
 
 from django.contrib import messages
@@ -183,12 +184,18 @@ def _patient_media_response(media):
 
     response = FileResponse(
         media.file.open("rb"),
-        as_attachment=True,
-        filename=media.download_filename,
+        as_attachment=False,
+        filename=_patient_media_presentation_filename(media),
         content_type=media.content_type or "application/octet-stream",
     )
     response["X-Content-Type-Options"] = "nosniff"
     return response
+
+
+def _patient_media_presentation_filename(media):
+    source_name = PurePosixPath(str(media.download_filename or "").replace("\\", "/")).name
+    extension = PurePosixPath(source_name).suffix.lower()
+    return f"patient-media-{media.public_id}{extension}"
 
 
 @_login_required
@@ -522,7 +529,7 @@ def patient_portal_medical_records(request, language="ar"):
         media_items = [
             {
                 "media": media,
-                "download_url": _portal_url(
+                "media_url": _portal_url(
                     "patient_portal_medical_record_media_download",
                     language,
                     public_id=media.public_id,

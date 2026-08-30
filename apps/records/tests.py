@@ -790,6 +790,7 @@ class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "image/jpeg")
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
+        self.assertTrue(response.get("Content-Disposition", "").startswith("attachment;"))
         self.assertNotIn(str(settings.PRIVATE_MEDIA_ROOT), response.get("Content-Disposition", ""))
         self.assertEqual(b"".join(response.streaming_content), b"i" * 32)
 

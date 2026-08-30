@@ -233,7 +233,7 @@
 .record-section-summary {
     display: grid;
     min-width: 0;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 0.75rem;
     border-radius: inherit;
@@ -265,22 +265,6 @@
     overflow-wrap: anywhere;
     font-size: clamp(1.15rem, 2vw, 1.4rem);
     font-weight: 700;
-}
-
-.record-section-chevron {
-    display: inline-grid;
-    inline-size: 1.5rem;
-    block-size: 1.5rem;
-    flex: 0 0 auto;
-    place-items: center;
-    color: var(--dashboard-burgundy);
-    font-size: 1.2rem;
-    line-height: 1;
-    transition: transform 150ms ease;
-}
-
-.record-collapsible-section[open] > .record-section-summary .record-section-chevron {
-    transform: rotate(180deg);
 }
 
 .record-section-body {
@@ -1052,8 +1036,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .record-action,
-    .record-section-chevron {
+    .record-action {
         transition: none;
     }
 }

@@ -1776,7 +1776,7 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         self.assertNotContains(response, "Private note body hidden from patient.")
         self.assertNotContains(response, "Other patient visible note hidden from current user")
 
-    def test_patient_sees_visible_media_metadata_and_patient_route_links_only(self):
+    def test_patient_sees_visible_media_inline_without_download_actions(self):
         image = self.create_media(
             title="Visible image metadata for patient",
             description="Visible image description for patient.",
@@ -1791,18 +1791,30 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
 
         response = self.client.get(reverse("patient_portal_medical_records_en"))
 
-        image_download_url = reverse(
+        image_media_url = reverse(
             "patient_portal_medical_record_media_download_en",
             kwargs={"public_id": image.public_id},
         )
-        video_download_url = reverse(
+        video_media_url = reverse(
             "patient_portal_medical_record_media_download_en",
             kwargs={"public_id": video.public_id},
         )
         self.assertContains(response, "Visible image metadata for patient")
         self.assertContains(response, "Visible short video metadata for patient")
-        self.assertContains(response, f'href="{image_download_url}"')
-        self.assertContains(response, f'href="{video_download_url}"')
+        self.assertContains(response, f'<img src="{image_media_url}"')
+        self.assertContains(response, f'<video src="{video_media_url}"')
+        self.assertContains(response, 'controlsList="nodownload"', count=1)
+        self.assertContains(response, ' controls controlsList="nodownload"', count=1)
+        self.assertContains(response, " playsinline ", count=1)
+        self.assertNotContains(response, "autoplay")
+        self.assertNotContains(response, "View or download file")
+        self.assertNotContains(response, "عرض أو تنزيل الملف")
+        self.assertNotContains(response, f'href="{image_media_url}"')
+        self.assertNotContains(response, f'href="{video_media_url}"')
+        self.assertNotRegex(
+            response.content.decode(),
+            r"<(?:a|img|video)\b[^>]*\sdownload(?:\s|=|>)",
+        )
         self.assertNotContains(response, image.file.name)
         self.assertNotContains(response, video.file.name)
         self.assertNotContains(response, str(settings.PRIVATE_MEDIA_ROOT))
@@ -1841,7 +1853,7 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
 
         self.assertEqual(response.status_code, 405)
 
-    def test_anonymous_user_cannot_download_patient_media(self):
+    def test_anonymous_user_cannot_access_patient_media(self):
         media = self.create_media()
         self.client.logout()
 
@@ -1852,10 +1864,10 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response["Location"])
 
-    def test_linked_patient_can_download_own_visible_active_media_by_public_id(self):
+    def test_linked_patient_can_view_own_visible_active_media_inline_by_public_id(self):
         media = self.create_media(
             file=self.synthetic_image_file(name="patient-visible-download.jpg", content=b"download-bytes"),
-            title="Downloadable visible media",
+            title="Patient-visible inline media",
         )
 
         response = self.client.get(
@@ -1865,13 +1877,19 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "image/jpeg")
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
-        self.assertIn("patient-visible-download.jpg", response.get("Content-Disposition", ""))
-        self.assertNotIn(str(settings.PRIVATE_MEDIA_ROOT), response.get("Content-Disposition", ""))
-        self.assertNotIn(media.file.name, response.get("Content-Disposition", ""))
+        content_disposition = response.get("Content-Disposition", "")
+        self.assertTrue(content_disposition.startswith("inline;"))
+        self.assertNotIn("attachment", content_disposition.lower())
+        self.assertIn(f"patient-media-{media.public_id}.jpg", content_disposition)
+        self.assertNotIn("patient-visible-download.jpg", content_disposition)
+        self.assertNotIn(str(settings.PRIVATE_MEDIA_ROOT), content_disposition)
+        self.assertNotIn(media.file.name, content_disposition)
         self.assertEqual(b"".join(response.streaming_content), b"download-bytes")
         response.close()
 
-    def test_linked_patient_cannot_download_non_patient_visible_media(self):
+    def test_linked_patient_cannot_access_disallowed_or_trashed_media(self):
+        trashed_media = self.create_media(title="Trashed patient media blocked from view")
+        RecordMedia.objects.filter(pk=trashed_media.pk).update(trashed_at=timezone.now())
         blocked_media = [
             self.create_media(
                 visibility=RecordMedia.Visibility.PRIVATE_ONLY,
@@ -1889,6 +1907,7 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
                 patient=self.other_patient,
                 title="Other patient media blocked from download",
             ),
+            trashed_media,
         ]
 
         for media in blocked_media:

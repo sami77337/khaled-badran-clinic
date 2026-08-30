@@ -24,7 +24,7 @@
                 <div class="public-case-video-grid">
                     {% for video in public_case.video_items %}
                         <div class="public-case-video-frame">
-                            <video src="{{ video.url }}"{% if video.poster_url %} poster="{{ video.poster_url }}"{% endif %} muted playsinline controls preload="metadata" data-public-case-video></video>
+                            <video src="{{ video.url }}"{% if video.poster_url %} poster="{{ video.poster_url }}"{% endif %} muted playsinline controls controlsList="nodownload" preload="metadata" data-public-case-video></video>
                         </div>
                     {% endfor %}
                 </div>

@@ -132,9 +132,11 @@
                                 <p class="muted">
                                     {{ item.media.get_media_type_display }} · {{ item.media.uploaded_at|date:"Y-m-d H:i" }}
                                 </p>
-                                <a class="btn btn-secondary" href="{{ item.download_url }}">
-                                    {% if is_arabic %}عرض أو تنزيل الملف{% else %}View or download file{% endif %}
-                                </a>
+                                {% if item.media.media_type == 'short_video' %}
+                                    <video src="{{ item.media_url }}" controls controlsList="nodownload" playsinline preload="metadata"></video>
+                                {% else %}
+                                    <img src="{{ item.media_url }}" alt="{% if item.media.title %}{{ item.media.title }}{% elif is_arabic %}صورة طبية معتمدة{% else %}Approved medical image{% endif %}" loading="lazy">
+                                {% endif %}
                             </article>
                         {% endfor %}
                     </div>

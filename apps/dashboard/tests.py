@@ -2330,6 +2330,64 @@ class DashboardPublicCaseLifecycleTests(DashboardRecordWorkflowMixin, TestCase):
             f'{self.case_url("dashboard_public_case_edit")}?lang=en',
         )
 
+    def test_manager_only_shows_cases_with_attached_non_trashed_media(self):
+        empty_case = self.create_public_case(
+            patient=self.patient,
+            title="Hidden empty public case metadata",
+        )
+        trashed_only_case = self.create_public_case(
+            patient=self.patient,
+            title="Hidden trashed-only public case metadata",
+        )
+        trashed_asset = self.create_case_asset(
+            trashed_only_case,
+            role=RecordMedia.PublicCaseRole.AFTER,
+        )
+        RecordMedia.objects.filter(pk=trashed_asset.pk).update(
+            trashed_at=timezone.now(),
+            is_active=False,
+        )
+        unpublished_case = self.create_public_case(
+            patient=self.patient,
+            title="Manageable unpublished public case",
+            is_published=False,
+        )
+        unpublished_asset = self.create_case_asset(
+            unpublished_case,
+            role=RecordMedia.PublicCaseRole.VIDEO,
+        )
+        RecordMedia.objects.filter(pk=unpublished_asset.pk).update(is_active=False)
+
+        response = self.client.get(
+            reverse("dashboard_patient_record_detail", kwargs={"patient_id": self.patient.pk}),
+            {"lang": "en"},
+        )
+
+        rendered_case_ids = {
+            item["case"].pk for item in response.context["public_case_items"]
+        }
+        self.assertEqual(
+            rendered_case_ids,
+            {self.public_case.pk, unpublished_case.pk},
+        )
+        self.assertEqual(response.context["public_case_count"], 2)
+        self.assertContains(response, self.public_case.title, count=1)
+        self.assertContains(response, unpublished_case.title, count=1)
+        self.assertContains(response, "Unpublished", count=1)
+        self.assertNotContains(response, empty_case.title)
+        self.assertNotContains(response, trashed_only_case.title)
+        self.assertEqual(
+            PublicCase.objects.filter(
+                pk__in=(
+                    self.public_case.pk,
+                    empty_case.pk,
+                    trashed_only_case.pk,
+                    unpublished_case.pk,
+                )
+            ).count(),
+            4,
+        )
+
     def test_lifecycle_routes_are_staff_only_owned_and_csrf_protected(self):
         edit_url = self.case_url("dashboard_public_case_edit")
         anonymous = Client().get(edit_url)
@@ -3023,14 +3081,17 @@ class DashboardPatientRecordResponsiveContractTests(TestCase):
             ".record-collapsible-section",
             ".record-section-summary",
             ".record-section-title",
-            ".record-section-chevron",
             ".record-section-body",
             ".record-section-summary:focus-visible",
-            ".record-collapsible-section[open]",
+            "list-style: none;",
+            ".record-section-summary::-webkit-details-marker",
+            ".record-section-summary::marker",
+            'content: "";',
             "grid-template-columns: minmax(0, 1fr);",
         ):
             with self.subTest(contract=contract):
                 self.assertIn(contract, css)
+        self.assertNotIn(".record-section-chevron", css)
 
     def test_public_media_styles_keep_video_inset_contained_and_responsive(self):
         css = (
@@ -3262,13 +3323,22 @@ class DashboardPatientRecordPresentationTests(DashboardRecordWorkflowMixin, Test
 
         self.assertEqual(english_content.count(" data-record-section "), 6)
         self.assertEqual(english_content.count('class="record-section-summary"'), 6)
-        self.assertEqual(english_content.count('class="record-section-chevron"'), 6)
+        self.assertNotIn('class="record-section-chevron"', english_content)
+        self.assertNotIn("⌄", english_content)
+        self.assertNotIn("∨", english_content)
+        self.assertNotIn("⌄", arabic_content)
+        self.assertNotIn("∨", arabic_content)
         self.assertEqual(english_content.count('class="record-count"'), 6)
         for section_id, english_label, arabic_label in expected_sections:
             with self.subTest(section=section_id):
                 self.assertRegex(
                     english_content,
                     rf'<details[^>]+id="{re.escape(section_id)}"[^>]*>',
+                )
+                self.assertRegex(
+                    english_content,
+                    rf'<details[^>]+id="{re.escape(section_id)}"[^>]*>\s*'
+                    r'<summary class="record-section-summary">',
                 )
                 self.assertNotRegex(
                     english_content,
@@ -6371,6 +6441,16 @@ class RecordMediaTrashLifecycleTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertNotIn("filename", str(audit.metadata).lower())
         self.assertNotIn(stored_name, str(audit.metadata))
 
+        staff_page = self.client.get(self.patient_record_url(self.patient, language="en"))
+        deletion_date = timezone.localdate(audit.created_at).isoformat()
+        self.assertNotContains(staff_page, public_case.title)
+        self.assertEqual(staff_page.context["public_case_count"], 0)
+        self.assertContains(staff_page, "Image deleted on")
+        self.assertContains(staff_page, deletion_date)
+        self.assertContains(staff_page, f"by {self.uploader.get_username()}")
+        self.assertContains(staff_page, "In Trash")
+        self.assertTrue(PublicCase.objects.filter(pk=public_case.pk).exists())
+
         self.assertEqual(self.client.get(public_media_url).status_code, 404)
         self.assertEqual(self.client.get(detail_url).status_code, 404)
         self.assertNotContains(self.client.get(reverse("public_cases_en")), public_case.title)
@@ -6460,7 +6540,20 @@ class RecordMediaTrashLifecycleTests(DashboardRecordWorkflowMixin, TestCase):
         )
 
     def test_deletion_history_survives_purge_and_is_staff_only(self):
-        media = self.create_owned_media(media_type=RecordMedia.MediaType.SHORT_VIDEO)
+        public_case = PublicCase.objects.create(
+            patient=self.patient,
+            title="Hidden purged public case metadata",
+            consent_confirmed=True,
+            is_published=True,
+            created_by=self.uploader,
+        )
+        media = self.create_owned_media(
+            media_type=RecordMedia.MediaType.SHORT_VIDEO,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.VIDEO,
+            visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+            consent_confirmed=True,
+        )
         media_public_id = media.public_id
         self.client.force_login(self.uploader)
         self.client.post(self.trash_url(media))
@@ -6474,8 +6567,18 @@ class RecordMediaTrashLifecycleTests(DashboardRecordWorkflowMixin, TestCase):
 
         staff_page = self.client.get(self.patient_record_url(self.patient, language="en"))
         self.assertContains(staff_page, "Media Deletion History")
-        self.assertContains(staff_page, "Deleted by synthetic-media-uploader")
+        moved_audit = AuditLog.objects.get(
+            metadata__action="record_media_moved_to_trash",
+            metadata__media_public_id=str(media_public_id),
+        )
+        deletion_date = timezone.localdate(moved_audit.created_at).isoformat()
+        self.assertContains(staff_page, "Video deleted on")
+        self.assertContains(staff_page, deletion_date)
+        self.assertContains(staff_page, "by synthetic-media-uploader")
         self.assertContains(staff_page, "Permanently deleted")
+        self.assertNotContains(staff_page, public_case.title)
+        self.assertEqual(staff_page.context["public_case_count"], 0)
+        self.assertTrue(PublicCase.objects.filter(pk=public_case.pk).exists())
         self.assertTrue(
             AuditLog.objects.filter(
                 metadata__action="record_media_moved_to_trash",
@@ -6505,10 +6608,15 @@ class RecordMediaTrashLifecycleTests(DashboardRecordWorkflowMixin, TestCase):
         english = self.client.get(self.patient_record_url(self.patient, language="en"))
         arabic = self.client.get(self.patient_record_url(self.patient, language="ar"))
         arabic_content = html.unescape(arabic.content.decode())
+        audit = AuditLog.objects.get(metadata__action="record_media_moved_to_trash")
+        deletion_date = timezone.localdate(audit.created_at).isoformat()
         self.assertContains(english, "Media Deletion History")
         self.assertContains(english, "Restore")
         self.assertIn("\u0633\u0644\u0629 \u0627\u0644\u0645\u062d\u0630\u0648\u0641\u0627\u062a", arabic_content)
         self.assertIn("\u0633\u062c\u0644 \u062d\u0630\u0641 \u0627\u0644\u0648\u0633\u0627\u0626\u0637", arabic_content)
+        self.assertIn("تم حذف صورة بتاريخ", arabic_content)
+        self.assertIn(deletion_date, arabic_content)
+        self.assertIn("بواسطة synthetic-media-uploader", arabic_content)
         self.assertContains(english, 'dir="ltr"')
         self.assertContains(arabic, 'dir="rtl"')
 

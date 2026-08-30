@@ -11,6 +11,7 @@
 
     const prepareSilentVideo = (video) => {
         enforceSilentPlayback(video);
+        video.setAttribute("controlsList", "nodownload");
         if (video.dataset.silentPlaybackReady === "true") {
             return;
         }

@@ -45,7 +45,7 @@
                                                 <p class="public-case-note-slide-text" data-case-note-text>{{ slide.text }}</p>
                                             </div>
                                         {% elif slide.media_type == 'short_video' %}
-                                            <video data-src="{{ slide.url }}"{% if slide.poster_url %} poster="{{ slide.poster_url }}"{% endif %} muted playsinline controls preload="none" data-public-case-video data-case-slide-media aria-label="{{ slide.label }}"></video>
+                                            <video data-src="{{ slide.url }}"{% if slide.poster_url %} poster="{{ slide.poster_url }}"{% endif %} muted playsinline controls controlsList="nodownload" preload="none" data-public-case-video data-case-slide-media aria-label="{{ slide.label }}"></video>
                                         {% else %}
                                             <img src="{{ slide.url }}" alt="{{ slide.label }}" loading="lazy" data-case-slide-media>
                                         {% endif %}

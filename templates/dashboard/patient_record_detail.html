@@ -87,7 +87,6 @@
             <summary class="record-section-summary">
                 <span class="record-section-title" id="visits-title" role="heading" aria-level="2">{% if is_arabic %}الزيارات{% else %}Visits{% endif %}</span>
                 <span class="record-count" aria-label="{% if is_arabic %}عدد الزيارات{% else %}Visit count{% endif %}">{{ visit_count }}</span>
-                <span class="record-section-chevron" aria-hidden="true">⌄</span>
             </summary>
             <div class="record-section-body">
             {% if visit_items %}
@@ -161,7 +160,6 @@
             <summary class="record-section-summary">
                 <span class="record-section-title" id="clinical-notes-title" role="heading" aria-level="2">{% if is_arabic %}الملاحظات السريرية{% else %}Clinical Notes{% endif %}</span>
                 <span class="record-count" aria-label="{% if is_arabic %}عدد الملاحظات{% else %}Clinical note count{% endif %}">{{ note_count }}</span>
-                <span class="record-section-chevron" aria-hidden="true">⌄</span>
             </summary>
             <div class="record-section-body">
             {% if note_items %}
@@ -192,7 +190,6 @@
             <summary class="record-section-summary">
                 <span class="record-section-title" id="public-cases-title" role="heading" aria-level="2">{% if is_arabic %}الحالات العامة{% else %}Public Cases{% endif %}</span>
                 <span class="record-count" aria-label="{% if is_arabic %}عدد الحالات العامة{% else %}Public case count{% endif %}">{{ public_case_count }}</span>
-                <span class="record-section-chevron" aria-hidden="true">⌄</span>
             </summary>
             <div class="record-section-body">
             {% if public_case_items %}
@@ -243,7 +240,6 @@
             <summary class="record-section-summary">
                 <span class="record-section-title" id="private-media-title" role="heading" aria-level="2">{% if is_arabic %}الوسائط الخاصة{% else %}Private Media{% endif %}</span>
                 <span class="record-count" aria-label="{% if is_arabic %}عدد الوسائط الخاصة{% else %}Private media count{% endif %}">{{ media_count }}</span>
-                <span class="record-section-chevron" aria-hidden="true">⌄</span>
             </summary>
             <div class="record-section-body">
             <div class="record-folder-organizer" aria-labelledby="media-folders-title">
@@ -362,7 +358,6 @@
             <summary class="record-section-summary">
                 <span class="record-section-title" id="trash-title" role="heading" aria-level="2">{% if is_arabic %}&#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578;{% else %}Trash{% endif %}</span>
                 <span class="record-count" aria-label="{% if is_arabic %}عدد الوسائط في سلة المحذوفات{% else %}Trash count{% endif %}">{{ trash_count }}</span>
-                <span class="record-section-chevron" aria-hidden="true">⌄</span>
             </summary>
             <div class="record-section-body">
             <p class="record-section-note">{% if is_arabic %}&#1578;&#1615;&#1581;&#1578;&#1601;&#1592; &#1575;&#1604;&#1608;&#1587;&#1575;&#1574;&#1591; &#1607;&#1606;&#1575; &#1604;&#1605;&#1583;&#1577; 30 &#1610;&#1608;&#1605;&#1575;&#1611; &#1602;&#1576;&#1604; &#1575;&#1604;&#1581;&#1584;&#1601; &#1575;&#1604;&#1606;&#1607;&#1575;&#1574;&#1610;.{% else %}Media is retained here for 30 days before permanent deletion.{% endif %}</p>
@@ -404,7 +399,6 @@
             <summary class="record-section-summary">
                 <span class="record-section-title" id="media-deletion-history-title" role="heading" aria-level="2">{% if is_arabic %}&#1587;&#1580;&#1604; &#1581;&#1584;&#1601; &#1575;&#1604;&#1608;&#1587;&#1575;&#1574;&#1591;{% else %}Media Deletion History{% endif %}</span>
                 <span class="record-count" aria-label="{% if is_arabic %}عدد أحداث حذف الوسائط{% else %}Media deletion history count{% endif %}">{{ media_deletion_history_count }}</span>
-                <span class="record-section-chevron" aria-hidden="true">⌄</span>
             </summary>
             <div class="record-section-body">
             {% if media_deletion_history %}
@@ -419,7 +413,13 @@
                                 {% if item.status == 'trash' %}<span class="record-status status-inactive">{% if is_arabic %}&#1601;&#1610; &#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578;{% else %}In Trash{% endif %}</span>{% endif %}
                                 {% if item.status == 'purged' %}<span class="record-status status-inactive">{% if is_arabic %}&#1581;&#1615;&#1584;&#1601; &#1606;&#1607;&#1575;&#1574;&#1610;&#1575;&#1611;{% else %}Permanently deleted{% endif %}</span>{% endif %}
                             </header>
-                            <p class="record-related-meta">{% if is_arabic %}&#1581;&#1615;&#1584;&#1601; &#1576;&#1608;&#1575;&#1587;&#1591;&#1577; {{ item.deleted_by_label }}{% else %}Deleted by {{ item.deleted_by_label }}{% endif %}</p>
+                            <p class="record-related-meta">
+                                {% if is_arabic %}
+                                    تم حذف {{ item.media_type_label }} بتاريخ <time datetime="{{ item.event.created_at|date:'c' }}" dir="ltr">{{ item.event.created_at|date:"Y-m-d" }}</time> بواسطة {{ item.deleted_by_label }}
+                                {% else %}
+                                    {{ item.media_type_label }} deleted on <time datetime="{{ item.event.created_at|date:'c' }}" dir="ltr">{{ item.event.created_at|date:"Y-m-d" }}</time> by {{ item.deleted_by_label }}
+                                {% endif %}
+                            </p>
                         </article>
                     {% endfor %}
                 </div>

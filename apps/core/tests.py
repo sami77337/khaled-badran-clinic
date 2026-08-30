@@ -1465,8 +1465,12 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertEqual(detail_content.count(f'src="{after_url}"'), 1)
         self.assertEqual(detail_content.count(f'src="{video_url}"'), 1)
         self.assertEqual(detail_content.count("<video"), 1)
-        for attribute in ("muted", "playsinline", "controls"):
+        listing_video_tag = re.search(r"<video[^>]*>", content).group(0)
+        for attribute in ("muted", "playsinline", "controls", 'controlsList="nodownload"'):
+            self.assertIn(attribute, listing_video_tag)
             self.assertIn(attribute, video_tag)
+        self.assertNotIn("Download", content)
+        self.assertNotIn("Download", detail_content)
         self.assertNotIn("autoplay", video_tag)
 
         home = self.client.get(reverse("home_en"))
@@ -2011,6 +2015,8 @@ class PublicCaseMediaRouteTests(PublicCasesTestDataMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "image/jpeg")
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
+        self.assertTrue(response.get("Content-Disposition", "").startswith("inline;"))
+        self.assertNotIn("attachment", response.get("Content-Disposition", "").lower())
         self.assertIn(f"public-case-{media.public_id}.jpg", response.get("Content-Disposition", ""))
         self.assertNotIn("synthetic-public-case.jpg", response.get("Content-Disposition", ""))
         headers = "\n".join(f"{key}: {value}" for key, value in response.headers.items())
@@ -2338,6 +2344,7 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
             "video.pause()",
             "video.defaultMuted = true",
             "video.muted = true",
+            'video.setAttribute("controlsList", "nodownload")',
             "initializePublicCloseout",
             "initializeCaseCarousels",
             'document.readyState === "loading"',

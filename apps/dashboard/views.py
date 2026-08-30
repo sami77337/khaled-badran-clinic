@@ -85,6 +85,16 @@ RECORD_MEDIA_TYPE_LABELS = {
     },
     "en": dict(RecordMedia.MediaType.choices),
 }
+DELETION_MEDIA_TYPE_LABELS = {
+    "ar": {
+        RecordMedia.MediaType.IMAGE: "صورة",
+        RecordMedia.MediaType.SHORT_VIDEO: "فيديو",
+    },
+    "en": {
+        RecordMedia.MediaType.IMAGE: "Image",
+        RecordMedia.MediaType.SHORT_VIDEO: "Video",
+    },
+}
 PUBLIC_CASE_ROLE_LABELS = {
     "ar": {
         RecordMedia.PublicCaseRole.PRIMARY: "أساسي",
@@ -2857,7 +2867,7 @@ def _media_deletion_history(patient, language, trashed_media):
         items.append(
             {
                 "event": event,
-                "media_type_label": RECORD_MEDIA_TYPE_LABELS[language].get(
+                "media_type_label": DELETION_MEDIA_TYPE_LABELS[language].get(
                     media_type,
                     "\u0648\u0633\u0627\u0626\u0637" if language == "ar" else "Media",
                 ),
@@ -2869,31 +2879,29 @@ def _media_deletion_history(patient, language, trashed_media):
 
 
 def _public_case_items(patient, language):
-    active_media_filter = Q(
-        media_items__is_active=True,
-        media_items__trashed_at__isnull=True,
-    )
+    management_media_filter = Q(media_items__trashed_at__isnull=True)
     cases = (
         PublicCase.objects.filter(patient=patient)
         .select_related("reference_visit")
         .annotate(
-            media_count=Count("media_items", filter=active_media_filter),
+            media_count=Count("media_items", filter=management_media_filter),
             before_count=Count(
                 "media_items",
-                filter=active_media_filter
+                filter=management_media_filter
                 & Q(media_items__public_case_role=RecordMedia.PublicCaseRole.BEFORE),
             ),
             after_count=Count(
                 "media_items",
-                filter=active_media_filter
+                filter=management_media_filter
                 & Q(media_items__public_case_role=RecordMedia.PublicCaseRole.AFTER),
             ),
             video_count=Count(
                 "media_items",
-                filter=active_media_filter
+                filter=management_media_filter
                 & Q(media_items__public_case_role=RecordMedia.PublicCaseRole.VIDEO),
             ),
         )
+        .filter(media_count__gt=0)
         .order_by("-created_at", "-id")
     )
     case_count = cases.count()
@@ -3168,6 +3176,7 @@ def _render_patient_record_detail(
         language,
         trashed_media,
     )
+    public_case_items = _public_case_items(patient, language)
 
     folder_items = []
     for folder in folders:
@@ -3252,8 +3261,8 @@ def _render_patient_record_detail(
             media_deletion_history_count=len(media_deletion_history),
             visit_count=len(visits),
             note_count=len(notes),
-            public_case_items=_public_case_items(patient, language),
-            public_case_count=PublicCase.objects.filter(patient=patient).count(),
+            public_case_items=public_case_items,
+            public_case_count=len(public_case_items),
             media_count=total_media_count,
             filtered_media_count=len(media),
             media_folders=folder_items,
