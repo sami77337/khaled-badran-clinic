@@ -1628,7 +1628,7 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
                 kwargs={"public_id": media.public_id},
             )
             self.assertEqual(detail_content.count(protected_url), 2 if media in rows else 1)
-        self.assertEqual(detail_content.count(f'poster="{cover_url}"'), 2)
+        self.assertEqual(detail_content.count(f'poster="{cover_url}"'), 1)
         self.assertNotIn(f'src="{cover_url}"', detail_content)
         self.assertNotIn("[[public-case:", cases_content)
         self.assertNotIn(folder.name, cases_content)

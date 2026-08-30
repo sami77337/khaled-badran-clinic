@@ -145,9 +145,8 @@ def grouped_public_cases(language="ar", limit=None, case_id=None):
             if group["video_items"] and group["video_cover"]
             else None
         )
-        if valid_video_cover:
-            for video in group["video_items"]:
-                video["poster_url"] = valid_video_cover["url"]
+        if valid_video_cover and group["video_items"]:
+            group["video_items"][0]["poster_url"] = valid_video_cover["url"]
         primary_images = group["primary_items"]
         group["primary"] = (
             group["video_items"][0]

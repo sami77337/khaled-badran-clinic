@@ -415,6 +415,7 @@ class PublicCaseGroupingTests(TestCase):
                 first_group["video_items"][0]["poster_url"],
                 first_group["video_cover"]["url"],
             )
+            self.assertEqual(first_group["video_items"][1]["poster_url"], "")
             self.assertNotIn(
                 first_group["video_cover"]["public_id"],
                 [item["public_id"] for item in first_group["before_items"]],
