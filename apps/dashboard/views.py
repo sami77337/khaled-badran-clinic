@@ -3159,6 +3159,15 @@ def _render_patient_record_detail(
             created_by=request.user,
             language=language,
         )
+    private_media_has_errors = bool(
+        (folder_create_form.is_bound and folder_create_form.errors)
+        or (rename_form is not None and rename_form.is_bound and rename_form.errors)
+    )
+    media_deletion_history = _media_deletion_history(
+        patient,
+        language,
+        trashed_media,
+    )
 
     folder_items = []
     for folder in folders:
@@ -3197,6 +3206,9 @@ def _render_patient_record_detail(
                     query_params=selected_query,
                 ),
                 "rename_form": item_rename_form,
+                "rename_has_errors": bool(
+                    rename_folder_id == folder.pk and item_rename_form.errors
+                ),
             }
         )
 
@@ -3236,11 +3248,8 @@ def _render_patient_record_detail(
             media_items=_media_items(media, language, request.user),
             trash_items=_trash_items(trashed_media, language, request.user),
             trash_count=len(trashed_media),
-            media_deletion_history=_media_deletion_history(
-                patient,
-                language,
-                trashed_media,
-            ),
+            media_deletion_history=media_deletion_history,
+            media_deletion_history_count=len(media_deletion_history),
             visit_count=len(visits),
             note_count=len(notes),
             public_case_items=_public_case_items(patient, language),
@@ -3249,6 +3258,7 @@ def _render_patient_record_detail(
             filtered_media_count=len(media),
             media_folders=folder_items,
             folder_create_form=folder_create_form,
+            private_media_has_errors=private_media_has_errors,
             folder_create_url=_dashboard_record_url(
                 "dashboard_media_folder_create",
                 language,
@@ -4261,7 +4271,7 @@ def dashboard_media_trash(request, patient_id, public_id):
                 else "Media moved to Trash for the 30-day retention period."
             ),
         )
-        return redirect(_patient_record_detail_url(patient, language, fragment="media-trash"))
+        return redirect(_patient_record_detail_url(patient, language, fragment="trash"))
 
     return render(
         request,

@@ -226,6 +226,69 @@
     padding: clamp(1rem, 2vw, 1.4rem);
 }
 
+.record-collapsible-section {
+    padding: 0;
+}
+
+.record-section-summary {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: inherit;
+    padding: clamp(1rem, 2vw, 1.4rem);
+    cursor: pointer;
+    list-style: none;
+}
+
+.record-section-summary::-webkit-details-marker {
+    display: none;
+}
+
+.record-section-summary::marker {
+    content: "";
+}
+
+.record-section-summary:hover {
+    background: var(--dashboard-soft-burgundy);
+}
+
+.record-section-summary:focus-visible {
+    outline: 3px solid rgba(139, 90, 43, 0.28);
+    outline-offset: 3px;
+}
+
+.record-section-title {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-size: clamp(1.15rem, 2vw, 1.4rem);
+    font-weight: 700;
+}
+
+.record-section-chevron {
+    display: inline-grid;
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
+    flex: 0 0 auto;
+    place-items: center;
+    color: var(--dashboard-burgundy);
+    font-size: 1.2rem;
+    line-height: 1;
+    transition: transform 150ms ease;
+}
+
+.record-collapsible-section[open] > .record-section-summary .record-section-chevron {
+    transform: rotate(180deg);
+}
+
+.record-section-body {
+    min-width: 0;
+    border-block-start: 1px solid var(--dashboard-line);
+    padding: clamp(1rem, 2vw, 1.4rem);
+}
+
 .record-list {
     display: grid;
     min-width: 0;
@@ -989,7 +1052,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .record-action {
+    .record-action,
+    .record-section-chevron {
         transition: none;
     }
 }

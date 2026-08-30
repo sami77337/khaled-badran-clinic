@@ -2197,13 +2197,26 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
         css = (settings.BASE_DIR / "static" / "css" / "public-closeout.css").read_text(
             encoding="utf-8"
         )
+        base_css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(
+            encoding="utf-8"
+        )
 
         base_grid = re.search(r"\.public-case-album-grid\s*\{(?P<body>[^}]*)\}", css)
         card_rule = re.search(r"\.public-case-album-card\s*\{(?P<body>[^}]*)\}", css)
         stage_rule = re.search(r"\.public-case-carousel-stage\s*\{(?P<body>[^}]*)\}", css)
+        slide_rule = re.search(r"\.public-case-carousel-slide\s*\{(?P<body>[^}]*)\}", css)
         media_rule = re.search(
-            r"\.public-case-carousel-slide img,\s*"
-            r"\.public-case-carousel-slide video\s*\{(?P<body>[^}]*)\}",
+            r"\.public-case-carousel-slide > img,\s*"
+            r"\.public-case-carousel-slide > video\s*\{(?P<body>[^}]*)\}",
+            css,
+        )
+        lightbox_viewport_rule = re.search(
+            r"\.public-case-lightbox-media\s*\{(?P<body>[^}]*)\}",
+            css,
+        )
+        lightbox_media_rule = re.search(
+            r"\.public-case-lightbox-media > img,\s*"
+            r"\.public-case-lightbox-media > video\s*\{(?P<body>[^}]*)\}",
             css,
         )
 
@@ -2224,27 +2237,77 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
         for declaration in ("min-height: 0", "height: auto", "align-self: start"):
             self.assertIn(declaration, card_rule.group("body"))
         self.assertIsNotNone(stage_rule)
-        self.assertIn("aspect-ratio: 4 / 3", stage_rule.group("body"))
-        self.assertIn("overflow: hidden", stage_rule.group("body"))
+        stage_body = stage_rule.group("body")
+        self.assertIn("inline-size: 100%", stage_body)
+        self.assertIn("aspect-ratio: 4 / 3", stage_body)
+        self.assertIn("overflow: hidden", stage_body)
+        self.assertIsNotNone(slide_rule)
+        for declaration in (
+            "inline-size: 100%",
+            "block-size: 100%",
+            "min-width: 0",
+            "min-height: 0",
+            "box-sizing: border-box",
+        ):
+            self.assertIn(declaration, slide_rule.group("body"))
+        self.assertNotIn("transform:", slide_rule.group("body"))
         self.assertIsNotNone(media_rule)
         media_body = media_rule.group("body")
         for declaration in (
             "display: block",
-            "inline-size: auto",
-            "block-size: auto",
-            "max-inline-size: 100%",
-            "max-block-size: 100%",
+            "inline-size: 100%",
+            "block-size: 100%",
+            "min-inline-size: 0",
+            "min-block-size: 0",
             "margin: auto",
             "object-fit: contain",
             "object-position: center",
         ):
             with self.subTest(declaration=declaration):
                 self.assertIn(declaration, media_body)
-        self.assertNotRegex(
-            media_body,
-            r"(?m)^\s*(?:width|height|inline-size|block-size):\s*100%;",
-        )
+        self.assertNotIn("inline-size: auto", media_body)
+        self.assertNotIn("block-size: auto", media_body)
         self.assertNotIn("object-fit: cover", media_body)
+
+        self.assertIsNotNone(lightbox_viewport_rule)
+        lightbox_viewport_body = lightbox_viewport_rule.group("body")
+        for declaration in (
+            "inline-size: 100%",
+            "min-width: 0",
+            "min-height: 12rem",
+            "height: min(66svh, 46rem)",
+            "box-sizing: border-box",
+            "overflow: hidden",
+        ):
+            self.assertIn(declaration, lightbox_viewport_body)
+        self.assertIsNotNone(lightbox_media_rule)
+        lightbox_media_body = lightbox_media_rule.group("body")
+        for declaration in (
+            "inline-size: 100%",
+            "block-size: 100%",
+            "min-inline-size: 0",
+            "min-block-size: 0",
+            "object-fit: contain",
+            "object-position: center",
+        ):
+            self.assertIn(declaration, lightbox_media_body)
+        self.assertNotIn("width: auto", lightbox_media_body)
+        self.assertNotIn("height: auto", lightbox_media_body)
+        self.assertNotIn("object-fit: cover", lightbox_media_body)
+        self.assertIn(".public-case-carousel-note-slide", css)
+        self.assertIn(".public-case-lightbox-note", css)
+        for rule in re.finditer(
+            r"(?P<selectors>[^{}]+)\{(?P<body>[^{}]*)\}",
+            f"{base_css}\n{css}",
+        ):
+            selectors = rule.group("selectors")
+            if not (
+                (".public-case-carousel" in selectors or ".public-case-lightbox-media" in selectors)
+                and ("img" in selectors or "video" in selectors)
+            ):
+                continue
+            with self.subTest(selectors=selectors.strip()):
+                self.assertNotIn("object-fit: cover", rule.group("body"))
         self.assertIn("padding: clamp(", css)
         self.assertIn("-webkit-line-clamp: 2", css)
         self.assertNotIn(".public-case-view-action", css)

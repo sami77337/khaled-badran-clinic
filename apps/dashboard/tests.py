@@ -1267,6 +1267,10 @@ class DashboardMediaFolderWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
             "A folder with this name already exists for this patient.",
             status_code=400,
         )
+        self.assertRegex(
+            duplicate.content.decode(),
+            r'<details[^>]+id="private-media"[^>]+\sopen>',
+        )
         self.assertEqual(RecordMediaFolder.objects.filter(patient=self.patient).count(), 1)
 
         renamed = self.client.post(
@@ -1276,6 +1280,26 @@ class DashboardMediaFolderWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertEqual(renamed.status_code, 302)
         folder.refresh_from_db()
         self.assertEqual(folder.name, "Follow Up")
+
+        self.create_media_folder(patient=self.patient, name="Existing Folder")
+        rename_error = self.client.post(
+            f"{self.folder_route('dashboard_media_folder_rename', folder)}?lang=en",
+            {"name": "existing folder"},
+        )
+        self.assertContains(
+            rename_error,
+            "A folder with this name already exists for this patient.",
+            status_code=400,
+        )
+        self.assertRegex(
+            rename_error.content.decode(),
+            r'<details[^>]+id="private-media"[^>]+\sopen>',
+        )
+        self.assertContains(
+            rename_error,
+            '<details class="record-folder-actions" open>',
+            status_code=400,
+        )
 
         arabic_ui = self.client.get(self.patient_record_url(self.patient))
         english_ui = self.client.get(self.patient_record_url(self.patient, language="en"))
@@ -2996,6 +3020,13 @@ class DashboardPatientRecordResponsiveContractTests(TestCase):
             ".record-folder-organizer",
             ".record-folder-row",
             ".record-folder-create-controls",
+            ".record-collapsible-section",
+            ".record-section-summary",
+            ".record-section-title",
+            ".record-section-chevron",
+            ".record-section-body",
+            ".record-section-summary:focus-visible",
+            ".record-collapsible-section[open]",
             "grid-template-columns: minmax(0, 1fr);",
         ):
             with self.subTest(contract=contract):
@@ -3214,6 +3245,69 @@ class DashboardPatientRecordPresentationTests(DashboardRecordWorkflowMixin, Test
                     'class="trust-note',
                 ):
                     self.assertNotContains(response, legacy_fragment)
+
+    def test_major_record_sections_are_independent_native_details_closed_by_default(self):
+        expected_sections = (
+            ("visits", "Visits", "الزيارات"),
+            ("clinical-notes", "Clinical Notes", "الملاحظات السريرية"),
+            ("public-cases", "Public Cases", "الحالات العامة"),
+            ("private-media", "Private Media", "الوسائط الخاصة"),
+            ("trash", "Trash", "سلة المحذوفات"),
+            ("media-deletion-history", "Media Deletion History", "سجل حذف الوسائط"),
+        )
+        english = self.record_detail(language="en")
+        arabic = self.record_detail(language="ar")
+        english_content = html.unescape(english.content.decode())
+        arabic_content = html.unescape(arabic.content.decode())
+
+        self.assertEqual(english_content.count(" data-record-section "), 6)
+        self.assertEqual(english_content.count('class="record-section-summary"'), 6)
+        self.assertEqual(english_content.count('class="record-section-chevron"'), 6)
+        self.assertEqual(english_content.count('class="record-count"'), 6)
+        for section_id, english_label, arabic_label in expected_sections:
+            with self.subTest(section=section_id):
+                self.assertRegex(
+                    english_content,
+                    rf'<details[^>]+id="{re.escape(section_id)}"[^>]*>',
+                )
+                self.assertNotRegex(
+                    english_content,
+                    rf'<details[^>]+id="{re.escape(section_id)}"[^>]+\sopen(?:\s|>)',
+                )
+                self.assertIn(english_label, english_content)
+                self.assertIn(arabic_label, arabic_content)
+
+        self.assertIn('<section class="record-patient-card"', english_content)
+        self.assertNotRegex(
+            english_content,
+            r'<details[^>]*>\s*.*?Patient Information',
+        )
+        self.assertNotIn('name="record-accordion"', english_content)
+        self.assertIn('data-record-section-aliases="media-trash"', english_content)
+        self.assertContains(english, "js/dashboard-patient-record.js")
+
+    def test_record_fragment_script_opens_targets_and_responds_to_hash_changes(self):
+        javascript = (
+            Path(__file__).resolve().parents[2]
+            / "static"
+            / "js"
+            / "dashboard-patient-record.js"
+        ).read_text(encoding="utf-8")
+
+        for contract in (
+            "window.location.hash.slice(1)",
+            "decodeURIComponent",
+            "document.getElementById(fragment)",
+            "sectionForAlias(fragment)",
+            "openAncestorDetails(target)",
+            "details.open = true",
+            'window.addEventListener("hashchange", openFragmentSection)',
+            'document.addEventListener("DOMContentLoaded"',
+            'target.scrollIntoView({ block: "start" })',
+        ):
+            with self.subTest(contract=contract):
+                self.assertIn(contract, javascript)
+        self.assertNotIn("details.open = false", javascript)
 
     def test_record_language_switch_and_actions_preserve_workflow_language(self):
         detail_path = reverse(

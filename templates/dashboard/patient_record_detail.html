@@ -5,6 +5,10 @@
     <link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">
 {% endblock %}
 
+{% block dashboard_scripts %}
+    <script src="{% static 'js/dashboard-patient-record.js' %}" defer></script>
+{% endblock %}
+
 {% block dashboard_content %}
 <div class="dashboard-content patient-record-content">
     <header class="record-page-header">
@@ -79,11 +83,13 @@
     </section>
 
     <div class="record-flow">
-        <section class="record-section" id="visits" aria-labelledby="visits-title">
-            <div class="record-section-heading">
-                <h2 id="visits-title">{% if is_arabic %}الزيارات{% else %}Visits{% endif %}</h2>
+        <details class="record-section record-collapsible-section" id="visits" data-record-section aria-labelledby="visits-title">
+            <summary class="record-section-summary">
+                <span class="record-section-title" id="visits-title" role="heading" aria-level="2">{% if is_arabic %}الزيارات{% else %}Visits{% endif %}</span>
                 <span class="record-count" aria-label="{% if is_arabic %}عدد الزيارات{% else %}Visit count{% endif %}">{{ visit_count }}</span>
-            </div>
+                <span class="record-section-chevron" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="record-section-body">
             {% if visit_items %}
                 <div class="record-list">
                     {% for item in visit_items %}
@@ -148,13 +154,16 @@
             {% else %}
                 <p class="record-empty-state">{% if is_arabic %}لا توجد زيارات بعد.{% else %}No visits yet.{% endif %}</p>
             {% endif %}
-        </section>
-
-        <section class="record-section" id="clinical-notes" aria-labelledby="clinical-notes-title">
-            <div class="record-section-heading">
-                <h2 id="clinical-notes-title">{% if is_arabic %}الملاحظات السريرية{% else %}Clinical Notes{% endif %}</h2>
-                <span class="record-count" aria-label="{% if is_arabic %}عدد الملاحظات{% else %}Clinical note count{% endif %}">{{ note_count }}</span>
             </div>
+        </details>
+
+        <details class="record-section record-collapsible-section" id="clinical-notes" data-record-section aria-labelledby="clinical-notes-title">
+            <summary class="record-section-summary">
+                <span class="record-section-title" id="clinical-notes-title" role="heading" aria-level="2">{% if is_arabic %}الملاحظات السريرية{% else %}Clinical Notes{% endif %}</span>
+                <span class="record-count" aria-label="{% if is_arabic %}عدد الملاحظات{% else %}Clinical note count{% endif %}">{{ note_count }}</span>
+                <span class="record-section-chevron" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="record-section-body">
             {% if note_items %}
                 <div class="record-list">
                     {% for item in note_items %}
@@ -176,13 +185,16 @@
             {% else %}
                 <p class="record-empty-state">{% if is_arabic %}لا توجد ملاحظات سريرية بعد.{% else %}No clinical notes yet.{% endif %}</p>
             {% endif %}
-        </section>
-
-        <section class="record-section" id="public-cases" aria-labelledby="public-cases-title">
-            <div class="record-section-heading">
-                <h2 id="public-cases-title">{% if is_arabic %}الحالات العامة{% else %}Public Cases{% endif %}</h2>
-                <span class="record-count" aria-label="{% if is_arabic %}عدد الحالات العامة{% else %}Public case count{% endif %}">{{ public_case_count }}</span>
             </div>
+        </details>
+
+        <details class="record-section record-collapsible-section" id="public-cases" data-record-section aria-labelledby="public-cases-title">
+            <summary class="record-section-summary">
+                <span class="record-section-title" id="public-cases-title" role="heading" aria-level="2">{% if is_arabic %}الحالات العامة{% else %}Public Cases{% endif %}</span>
+                <span class="record-count" aria-label="{% if is_arabic %}عدد الحالات العامة{% else %}Public case count{% endif %}">{{ public_case_count }}</span>
+                <span class="record-section-chevron" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="record-section-body">
             {% if public_case_items %}
                 <div class="record-list public-case-manager-list">
                     {% for item in public_case_items %}
@@ -224,13 +236,16 @@
             {% else %}
                 <p class="record-empty-state">{% if is_arabic %}لا توجد حالات عامة بعد.{% else %}No public cases yet.{% endif %}</p>
             {% endif %}
-        </section>
-
-        <section class="record-section" id="private-media" aria-labelledby="private-media-title">
-            <div class="record-section-heading">
-                <h2 id="private-media-title">{% if is_arabic %}الوسائط الخاصة{% else %}Private Media{% endif %}</h2>
-                <span class="record-count" aria-label="{% if is_arabic %}عدد الوسائط الخاصة{% else %}Private media count{% endif %}">{{ media_count }}</span>
             </div>
+        </details>
+
+        <details class="record-section record-collapsible-section" id="private-media" data-record-section aria-labelledby="private-media-title"{% if private_media_has_errors %} open{% endif %}>
+            <summary class="record-section-summary">
+                <span class="record-section-title" id="private-media-title" role="heading" aria-level="2">{% if is_arabic %}الوسائط الخاصة{% else %}Private Media{% endif %}</span>
+                <span class="record-count" aria-label="{% if is_arabic %}عدد الوسائط الخاصة{% else %}Private media count{% endif %}">{{ media_count }}</span>
+                <span class="record-section-chevron" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="record-section-body">
             <div class="record-folder-organizer" aria-labelledby="media-folders-title">
                 <div class="record-folder-organizer-heading">
                     <div>
@@ -265,7 +280,7 @@
                                 <span>{{ item.folder.name }}</span>
                                 <span class="record-folder-count">{{ item.media_count }}</span>
                             </a>
-                            <details class="record-folder-actions">
+                            <details class="record-folder-actions"{% if item.rename_has_errors %} open{% endif %}>
                                 <summary>{% if is_arabic %}إدارة{% else %}Manage{% endif %}</summary>
                                 <div class="record-folder-actions-panel">
                                     <form method="post" action="{{ item.rename_url }}">
@@ -340,13 +355,16 @@
             {% else %}
                 <p class="record-empty-state">{% if selected_media_filter == 'all' %}{% if is_arabic %}لا توجد وسائط خاصة بعد.{% else %}No private media yet.{% endif %}{% else %}{% if is_arabic %}لا توجد وسائط في هذا العرض.{% else %}No media is available in this view.{% endif %}{% endif %}</p>
             {% endif %}
-        </section>
-
-        <section class="record-section" id="media-trash" aria-labelledby="media-trash-title">
-            <div class="record-section-heading">
-                <h2 id="media-trash-title">{% if is_arabic %}&#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578;{% else %}Trash{% endif %}</h2>
-                <span class="record-count">{{ trash_count }}</span>
             </div>
+        </details>
+
+        <details class="record-section record-collapsible-section" id="trash" data-record-section data-record-section-aliases="media-trash" aria-labelledby="trash-title">
+            <summary class="record-section-summary">
+                <span class="record-section-title" id="trash-title" role="heading" aria-level="2">{% if is_arabic %}&#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578;{% else %}Trash{% endif %}</span>
+                <span class="record-count" aria-label="{% if is_arabic %}عدد الوسائط في سلة المحذوفات{% else %}Trash count{% endif %}">{{ trash_count }}</span>
+                <span class="record-section-chevron" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="record-section-body">
             <p class="record-section-note">{% if is_arabic %}&#1578;&#1615;&#1581;&#1578;&#1601;&#1592; &#1575;&#1604;&#1608;&#1587;&#1575;&#1574;&#1591; &#1607;&#1606;&#1575; &#1604;&#1605;&#1583;&#1577; 30 &#1610;&#1608;&#1605;&#1575;&#1611; &#1602;&#1576;&#1604; &#1575;&#1604;&#1581;&#1584;&#1601; &#1575;&#1604;&#1606;&#1607;&#1575;&#1574;&#1610;.{% else %}Media is retained here for 30 days before permanent deletion.{% endif %}</p>
             {% if trash_items %}
                 <div class="record-list record-trash-list">
@@ -379,12 +397,16 @@
             {% else %}
                 <p class="record-empty-state">{% if is_arabic %}&#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578; &#1601;&#1575;&#1585;&#1594;&#1577;.{% else %}Trash is empty.{% endif %}</p>
             {% endif %}
-        </section>
-
-        <section class="record-section" id="media-deletion-history" aria-labelledby="media-deletion-history-title">
-            <div class="record-section-heading">
-                <h2 id="media-deletion-history-title">{% if is_arabic %}&#1587;&#1580;&#1604; &#1581;&#1584;&#1601; &#1575;&#1604;&#1608;&#1587;&#1575;&#1574;&#1591;{% else %}Media Deletion History{% endif %}</h2>
             </div>
+        </details>
+
+        <details class="record-section record-collapsible-section" id="media-deletion-history" data-record-section aria-labelledby="media-deletion-history-title">
+            <summary class="record-section-summary">
+                <span class="record-section-title" id="media-deletion-history-title" role="heading" aria-level="2">{% if is_arabic %}&#1587;&#1580;&#1604; &#1581;&#1584;&#1601; &#1575;&#1604;&#1608;&#1587;&#1575;&#1574;&#1591;{% else %}Media Deletion History{% endif %}</span>
+                <span class="record-count" aria-label="{% if is_arabic %}عدد أحداث حذف الوسائط{% else %}Media deletion history count{% endif %}">{{ media_deletion_history_count }}</span>
+                <span class="record-section-chevron" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="record-section-body">
             {% if media_deletion_history %}
                 <div class="record-list deletion-history-list">
                     {% for item in media_deletion_history %}
@@ -404,7 +426,8 @@
             {% else %}
                 <p class="record-empty-state">{% if is_arabic %}&#1604;&#1575; &#1610;&#1608;&#1580;&#1583; &#1587;&#1580;&#1604; &#1581;&#1584;&#1601; &#1604;&#1604;&#1608;&#1587;&#1575;&#1574;&#1591;.{% else %}No media deletion history.{% endif %}</p>
             {% endif %}
-        </section>
+            </div>
+        </details>
     </div>
 </div>
 {% endblock %}
