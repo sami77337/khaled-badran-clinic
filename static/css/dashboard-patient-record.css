@@ -369,6 +369,28 @@
     margin-block: 0.85rem 0;
 }
 
+.record-section-note {
+    max-width: 68ch;
+    margin-block: 0 1rem;
+    color: var(--dashboard-muted);
+    line-height: 1.65;
+}
+
+.record-trash-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.record-trash-details dt {
+    color: var(--dashboard-muted);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.record-trash-details dd {
+    margin: 0.2rem 0 0;
+    overflow-wrap: anywhere;
+}
+
 .record-media-actions {
     display: flex;
     min-width: 0;
@@ -882,6 +904,10 @@
     }
 
     .record-media-summary dl {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .record-trash-details {
         grid-template-columns: minmax(0, 1fr);
     }
 

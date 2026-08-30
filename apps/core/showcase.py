@@ -62,6 +62,7 @@ def _public_media_queryset():
             visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
             consent_confirmed=True,
             is_active=True,
+            trashed_at__isnull=True,
             public_case__consent_confirmed=True,
             public_case__is_published=True,
         )
@@ -81,10 +82,13 @@ def _media_url(media, language):
     return reverse(route, kwargs={"public_id": media.public_id})
 
 
-def grouped_public_cases(language="ar", limit=None):
+def grouped_public_cases(language="ar", limit=None, case_id=None):
     language = "en" if language == "en" else "ar"
     groups = OrderedDict()
-    for media in _public_media_queryset():
+    queryset = _public_media_queryset()
+    if case_id is not None:
+        queryset = queryset.filter(public_case_id=case_id)
+    for media in queryset:
         public_case = media.public_case
         group_key = f"case:{public_case.pk}"
         group = groups.setdefault(
@@ -98,8 +102,10 @@ def grouped_public_cases(language="ar", limit=None):
                 "after": None,
                 "before_items": [],
                 "after_items": [],
+                "primary_items": [],
                 "video_items": [],
                 "video_cover": None,
+                "case_id": public_case.pk,
                 "description": (public_case.note or "").strip(),
                 "public_title": (public_case.title or "").strip(),
             },
@@ -127,19 +133,22 @@ def grouped_public_cases(language="ar", limit=None):
             group["after_items"].append(item)
         elif media.media_type == RecordMedia.MediaType.SHORT_VIDEO:
             group["video_items"].append(item)
+        elif role == RecordMedia.PublicCaseRole.PRIMARY:
+            group["primary_items"].append(item)
 
     result = []
     for group in groups.values():
         group["before"] = group["before_items"][0] if group["before_items"] else None
         group["after"] = group["after_items"][0] if group["after_items"] else None
-        if group["video_items"] and group["video_cover"]:
-            group["video_items"][0]["poster_url"] = group["video_cover"]["url"]
-        primary_images = [
-            item
-            for item in group["items"]
-            if item["media_type"] == RecordMedia.MediaType.IMAGE
-            and item["role"] == "primary"
-        ]
+        valid_video_cover = (
+            group["video_cover"]
+            if group["video_items"] and group["video_cover"]
+            else None
+        )
+        if valid_video_cover:
+            for video in group["video_items"]:
+                video["poster_url"] = valid_video_cover["url"]
+        primary_images = group["primary_items"]
         group["primary"] = (
             group["video_items"][0]
             if group["video_items"]
@@ -149,16 +158,15 @@ def grouped_public_cases(language="ar", limit=None):
                 else (group["before"] or group["after"])
             )
         )
-        group["teaser"] = (
-            group["video_items"][0]
-            if group["video_items"]
-            else (
-                group["after"]
-                or group["before"]
-                or (primary_images[0] if primary_images else None)
-            )
+        group["cover"] = (
+            valid_video_cover
+            or group["before"]
+            or group["after"]
+            or (primary_images[0] if primary_images else None)
+            or (group["video_items"][0] if group["video_items"] else None)
         )
-        if group["teaser"] is None:
+        group["teaser"] = group["cover"]
+        if group["cover"] is None:
             continue
         index = len(result) + 1
         neutral_title = (
@@ -167,6 +175,16 @@ def grouped_public_cases(language="ar", limit=None):
             else f"Authorized case {index}"
         )
         group["display_title"] = group["public_title"] or neutral_title
+        group["detail_url"] = reverse(
+            "public_case_detail_en" if language == "en" else "public_case_detail",
+            kwargs={"case_id": group["case_id"]},
+        )
+        group["counts"] = {
+            "videos": len(group["video_items"]),
+            "before": len(group["before_items"]),
+            "after": len(group["after_items"]),
+            "primary": len(group["primary_items"]),
+        }
         result.append(group)
         if limit is not None and len(result) >= limit:
             break

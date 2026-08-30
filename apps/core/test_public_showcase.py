@@ -409,7 +409,7 @@ class PublicCaseGroupingTests(TestCase):
             self.assertIsNotNone(first_group["video_cover"])
             self.assertEqual(
                 first_group["teaser"]["public_id"],
-                first_group["video_items"][0]["public_id"],
+                first_group["video_cover"]["public_id"],
             )
             self.assertEqual(
                 first_group["video_items"][0]["poster_url"],

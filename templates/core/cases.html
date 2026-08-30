@@ -10,7 +10,7 @@
 {% public_case_groups language as case_groups %}
 <section class="page-hero">
     <div class="container page-hero-inner">
-        <p class="eyebrow">{% if is_arabic %}الحالات والإنجازات{% else %}Cases and Achievements{% endif %}</p>
+        <p class="eyebrow">{% if is_arabic %}&#1575;&#1604;&#1581;&#1575;&#1604;&#1575;&#1578; &#1608;&#1575;&#1604;&#1573;&#1606;&#1580;&#1575;&#1586;&#1575;&#1578;{% else %}Cases and Achievements{% endif %}</p>
         <h1>{{ page.headline }}</h1>
         <p>{{ page.subtitle }}</p>
     </div>
@@ -19,63 +19,34 @@
 <section class="section">
     <div class="container">
         {% if case_groups %}
-            <div class="public-case-grid public-case-group-grid">
+            <div class="public-case-grid public-case-album-grid">
                 {% for case in case_groups %}
-                    <article class="public-case-card public-case-group-card">
-                        <div class="public-case-copy">
-                            <p class="eyebrow">{% if is_arabic %}محتوى مصرح بعرضه{% else %}Approved public content{% endif %}</p>
-                            <h2>{{ case.display_title }}</h2>
-                            {% if case.description %}<p>{{ case.description }}</p>{% endif %}
-                        </div>
-                        <div class="public-case-galleries">
-                            {% if case.video_items %}
-                                <section class="public-case-category" aria-labelledby="case-videos-{{ forloop.counter }}">
-                                    <h3 id="case-videos-{{ forloop.counter }}">{% if is_arabic %}فيديوهات{% else %}Videos{% endif %}</h3>
-                                    <div class="public-case-video-grid">
-                                        {% for video in case.video_items %}
-                                            <div class="public-case-video-frame">
-                                                <video src="{{ video.url }}"{% if video.poster_url %} poster="{{ video.poster_url }}"{% endif %} muted playsinline controls preload="metadata" data-public-case-video></video>
-                                            </div>
-                                        {% endfor %}
-                                    </div>
-                                </section>
+                    <article class="public-case-card public-case-album-card">
+                        <a class="public-case-album-cover" href="{{ case.detail_url }}" aria-label="{% if is_arabic %}&#1593;&#1585;&#1590; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}View Case{% endif %}">
+                            {% if case.cover.media_type == 'short_video' %}
+                                <video src="{{ case.cover.url }}" muted playsinline preload="metadata"></video>
+                            {% else %}
+                                <img src="{{ case.cover.url }}" alt="{% if is_arabic %}&#1594;&#1604;&#1575;&#1601; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}Case cover{% endif %}" loading="lazy">
                             {% endif %}
-                            {% if case.before_items or case.after_items %}
-                                <div class="public-case-comparison{% if case.before_items and case.after_items %} has-before-after{% endif %}">
-                                    {% if case.before_items %}
-                                        <section class="public-case-category" aria-labelledby="case-before-{{ forloop.counter }}">
-                                            <h3 id="case-before-{{ forloop.counter }}">{% if is_arabic %}قبل{% else %}Before{% endif %}</h3>
-                                            <div class="public-case-image-grid">
-                                                {% for image in case.before_items %}
-                                                    <figure><a href="{{ image.url }}"><img src="{{ image.url }}" alt="{% if is_arabic %}قبل{% else %}Before{% endif %}" loading="lazy"></a></figure>
-                                                {% endfor %}
-                                            </div>
-                                        </section>
-                                    {% endif %}
-                                    {% if case.after_items %}
-                                        <section class="public-case-category" aria-labelledby="case-after-{{ forloop.counter }}">
-                                            <h3 id="case-after-{{ forloop.counter }}">{% if is_arabic %}بعد{% else %}After{% endif %}</h3>
-                                            <div class="public-case-image-grid">
-                                                {% for image in case.after_items %}
-                                                    <figure><a href="{{ image.url }}"><img src="{{ image.url }}" alt="{% if is_arabic %}بعد{% else %}After{% endif %}" loading="lazy"></a></figure>
-                                                {% endfor %}
-                                            </div>
-                                        </section>
-                                    {% endif %}
-                                </div>
-                            {% endif %}
-                            {% if case.primary and case.primary.role == 'primary' and not case.video_items %}
-                                <div class="public-case-legacy-media">
-                                    <a href="{{ case.primary.url }}"><img src="{{ case.primary.url }}" alt="{% if is_arabic %}صورة الحالة{% else %}Case image{% endif %}" loading="lazy"></a>
-                                </div>
-                            {% endif %}
+                        </a>
+                        <div class="public-case-copy public-case-album-copy">
+                            <p class="eyebrow">{% if is_arabic %}&#1605;&#1581;&#1578;&#1608;&#1609; &#1605;&#1589;&#1585;&#1581; &#1576;&#1593;&#1585;&#1590;&#1607;{% else %}Approved public content{% endif %}</p>
+                            <h2><a class="case-card-title-link" href="{{ case.detail_url }}">{{ case.display_title }}</a></h2>
+                            {% if case.description %}<p>{{ case.description|truncatechars:180 }}</p>{% endif %}
+                            <dl class="public-case-album-counts" aria-label="{% if is_arabic %}&#1593;&#1583;&#1583; &#1608;&#1587;&#1575;&#1574;&#1591; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}Case media counts{% endif %}">
+                                {% if case.counts.videos %}<div><dt>{% if is_arabic %}&#1601;&#1610;&#1583;&#1610;&#1608;{% else %}Videos{% endif %}</dt><dd>{{ case.counts.videos }}</dd></div>{% endif %}
+                                {% if case.counts.before %}<div><dt>{% if is_arabic %}&#1602;&#1576;&#1604;{% else %}Before{% endif %}</dt><dd>{{ case.counts.before }}</dd></div>{% endif %}
+                                {% if case.counts.after %}<div><dt>{% if is_arabic %}&#1576;&#1593;&#1583;{% else %}After{% endif %}</dt><dd>{{ case.counts.after }}</dd></div>{% endif %}
+                                {% if case.counts.primary %}<div><dt>{% if is_arabic %}&#1589;&#1608;&#1585;{% else %}Images{% endif %}</dt><dd>{{ case.counts.primary }}</dd></div>{% endif %}
+                            </dl>
+                            <a class="btn btn-secondary public-case-view-action" href="{{ case.detail_url }}">{% if is_arabic %}&#1593;&#1585;&#1590; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}View Case{% endif %}</a>
                         </div>
                     </article>
                 {% endfor %}
             </div>
         {% else %}
             <div class="empty-showcase public-cases-empty" role="status">
-                <span class="privacy-mark" aria-hidden="true">✓</span>
+                <span class="privacy-mark" aria-hidden="true">&#10003;</span>
                 <h2>{{ case_labels.empty_title }}</h2>
             </div>
         {% endif %}

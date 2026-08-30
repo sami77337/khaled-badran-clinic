@@ -76,6 +76,114 @@
     min-width: 0;
 }
 
+.public-case-album-grid {
+    grid-template-columns: minmax(0, 1fr);
+    max-inline-size: 76rem;
+    margin-inline: auto;
+}
+
+.public-case-album-card {
+    min-width: 0;
+    align-content: start;
+}
+
+.public-case-album-cover {
+    display: grid;
+    min-width: 0;
+    min-height: 14rem;
+    aspect-ratio: 4 / 3;
+    place-items: center;
+    overflow: hidden;
+    margin: clamp(0.75rem, 2vw, 1rem) clamp(0.75rem, 2vw, 1rem) 0;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius);
+    background: var(--color-soft);
+    padding: clamp(0.45rem, 1vw, 0.7rem);
+}
+
+.public-case-album-cover img,
+.public-case-album-cover video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 30rem;
+    border-radius: calc(var(--radius) - 0.2rem);
+    object-fit: contain;
+}
+
+.public-case-album-cover video {
+    width: auto;
+    height: auto;
+    max-height: min(48vh, 30rem);
+    max-height: min(48svh, 30rem);
+    background: var(--color-charcoal);
+}
+
+.public-case-album-copy {
+    display: grid;
+    align-content: start;
+    gap: 0.65rem;
+}
+
+.public-case-album-copy > * {
+    margin-block: 0;
+}
+
+.public-case-album-counts {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-block-start: 0.2rem;
+}
+
+.public-case-album-counts > div {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+    background: var(--color-soft);
+    padding: 0.3rem 0.6rem;
+    font-size: 0.78rem;
+}
+
+.public-case-album-counts dd {
+    margin: 0;
+    font-weight: 700;
+}
+
+.public-case-view-action {
+    justify-self: start;
+    margin-block-start: 0.35rem;
+}
+
+.public-case-detail-hero .page-hero-inner {
+    max-width: 68rem;
+}
+
+.public-case-back-link,
+.home-case-detail-link {
+    width: fit-content;
+    color: var(--color-red);
+    font-weight: 700;
+    text-underline-offset: 0.2em;
+}
+
+.public-case-detail-galleries {
+    display: grid;
+    min-width: 0;
+    max-inline-size: 72rem;
+    gap: clamp(1.5rem, 4vw, 2.75rem);
+}
+
+.public-case-detail-galleries .public-case-category h2 {
+    margin-block-end: 0.85rem;
+    color: var(--color-burgundy);
+    font-size: clamp(1.2rem, 2vw, 1.55rem);
+}
+
 .public-case-copy h2,
 .public-case-copy > p:not(.eyebrow),
 .case-card-copy h3,
@@ -223,8 +331,16 @@
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
     }
 
+    .public-case-album-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .public-case-image-grid {
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+    }
+
+    .public-case-detail-galleries .public-case-image-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .public-case-comparison.has-before-after {

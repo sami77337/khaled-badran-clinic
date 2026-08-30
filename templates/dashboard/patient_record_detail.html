@@ -323,6 +323,9 @@
                                 <span>{% if is_arabic %}المجلد{% else %}Folder{% endif %}: {{ item.folder_label }}</span>
                             </div>
                             <div class="record-media-actions">
+                                {% if item.trash_url %}
+                                    <a class="record-case-danger-link" href="{{ item.trash_url }}">{% if is_arabic %}&#1606;&#1602;&#1604; &#1573;&#1604;&#1609; &#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578;{% else %}Move to Trash{% endif %}</a>
+                                {% endif %}
                                 {% if item.staff_download_url %}
                                     <a href="{{ item.staff_download_url }}">{% if is_arabic %}فتح للطاقم{% else %}Open for Staff{% endif %}</a>
                                 {% endif %}
@@ -336,6 +339,70 @@
                 </div>
             {% else %}
                 <p class="record-empty-state">{% if selected_media_filter == 'all' %}{% if is_arabic %}لا توجد وسائط خاصة بعد.{% else %}No private media yet.{% endif %}{% else %}{% if is_arabic %}لا توجد وسائط في هذا العرض.{% else %}No media is available in this view.{% endif %}{% endif %}</p>
+            {% endif %}
+        </section>
+
+        <section class="record-section" id="media-trash" aria-labelledby="media-trash-title">
+            <div class="record-section-heading">
+                <h2 id="media-trash-title">{% if is_arabic %}&#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578;{% else %}Trash{% endif %}</h2>
+                <span class="record-count">{{ trash_count }}</span>
+            </div>
+            <p class="record-section-note">{% if is_arabic %}&#1578;&#1615;&#1581;&#1578;&#1601;&#1592; &#1575;&#1604;&#1608;&#1587;&#1575;&#1574;&#1591; &#1607;&#1606;&#1575; &#1604;&#1605;&#1583;&#1577; 30 &#1610;&#1608;&#1605;&#1575;&#1611; &#1602;&#1576;&#1604; &#1575;&#1604;&#1581;&#1584;&#1601; &#1575;&#1604;&#1606;&#1607;&#1575;&#1574;&#1610;.{% else %}Media is retained here for 30 days before permanent deletion.{% endif %}</p>
+            {% if trash_items %}
+                <div class="record-list record-trash-list">
+                    {% for item in trash_items %}
+                        <article class="record-entry media-trash-entry">
+                            <header class="record-entry-header">
+                                <div>
+                                    <p class="record-entry-kicker">{{ item.media_type_label }}</p>
+                                    <h3>{% if is_arabic %}&#1608;&#1587;&#1575;&#1574;&#1591; &#1601;&#1610; &#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578;{% else %}Media in Trash{% endif %}</h3>
+                                </div>
+                                <span class="record-status status-inactive">{% if is_arabic %}&#1601;&#1610; &#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578;{% else %}In Trash{% endif %}</span>
+                            </header>
+                            <dl class="record-entry-details record-trash-details">
+                                <div><dt>{% if is_arabic %}&#1578;&#1575;&#1585;&#1610;&#1582; &#1575;&#1604;&#1585;&#1601;&#1593;{% else %}Uploaded date{% endif %}</dt><dd><time datetime="{{ item.media.uploaded_at|date:'c' }}" dir="ltr">{{ item.media.uploaded_at|date:"Y-m-d H:i" }}</time></dd></div>
+                                <div><dt>{% if is_arabic %}&#1578;&#1575;&#1585;&#1610;&#1582; &#1575;&#1604;&#1606;&#1602;&#1604; &#1573;&#1604;&#1609; &#1575;&#1604;&#1587;&#1604;&#1577;{% else %}Moved to Trash{% endif %}</dt><dd><time datetime="{{ item.media.trashed_at|date:'c' }}" dir="ltr">{{ item.media.trashed_at|date:"Y-m-d H:i" }}</time></dd></div>
+                                <div><dt>{% if is_arabic %}&#1581;&#1615;&#1584;&#1601; &#1576;&#1608;&#1575;&#1587;&#1591;&#1577;{% else %}Deleted by{% endif %}</dt><dd>{{ item.deleted_by_label }}</dd></div>
+                                <div><dt>{% if is_arabic %}&#1578;&#1575;&#1585;&#1610;&#1582; &#1575;&#1604;&#1581;&#1584;&#1601; &#1575;&#1604;&#1606;&#1607;&#1575;&#1574;&#1610;{% else %}Purge date{% endif %}</dt><dd><time datetime="{{ item.purge_at|date:'c' }}" dir="ltr">{{ item.purge_at|date:"Y-m-d H:i" }}</time></dd></div>
+                            </dl>
+                            {% if item.restore_url %}
+                                <div class="record-media-actions">
+                                    <form method="post" action="{{ item.restore_url }}">
+                                        {% csrf_token %}
+                                        <button type="submit">{% if is_arabic %}&#1575;&#1587;&#1578;&#1593;&#1575;&#1583;&#1577;{% else %}Restore{% endif %}</button>
+                                    </form>
+                                </div>
+                            {% endif %}
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="record-empty-state">{% if is_arabic %}&#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578; &#1601;&#1575;&#1585;&#1594;&#1577;.{% else %}Trash is empty.{% endif %}</p>
+            {% endif %}
+        </section>
+
+        <section class="record-section" id="media-deletion-history" aria-labelledby="media-deletion-history-title">
+            <div class="record-section-heading">
+                <h2 id="media-deletion-history-title">{% if is_arabic %}&#1587;&#1580;&#1604; &#1581;&#1584;&#1601; &#1575;&#1604;&#1608;&#1587;&#1575;&#1574;&#1591;{% else %}Media Deletion History{% endif %}</h2>
+            </div>
+            {% if media_deletion_history %}
+                <div class="record-list deletion-history-list">
+                    {% for item in media_deletion_history %}
+                        <article class="record-entry deletion-history-entry">
+                            <header class="record-entry-header">
+                                <div>
+                                    <p class="record-entry-kicker">{{ item.media_type_label }}</p>
+                                    <p class="record-entry-date"><time datetime="{{ item.event.created_at|date:'c' }}" dir="ltr">{{ item.event.created_at|date:"Y-m-d H:i" }}</time></p>
+                                </div>
+                                {% if item.status == 'trash' %}<span class="record-status status-inactive">{% if is_arabic %}&#1601;&#1610; &#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578;{% else %}In Trash{% endif %}</span>{% endif %}
+                                {% if item.status == 'purged' %}<span class="record-status status-inactive">{% if is_arabic %}&#1581;&#1615;&#1584;&#1601; &#1606;&#1607;&#1575;&#1574;&#1610;&#1575;&#1611;{% else %}Permanently deleted{% endif %}</span>{% endif %}
+                            </header>
+                            <p class="record-related-meta">{% if is_arabic %}&#1581;&#1615;&#1584;&#1601; &#1576;&#1608;&#1575;&#1587;&#1591;&#1577; {{ item.deleted_by_label }}{% else %}Deleted by {{ item.deleted_by_label }}{% endif %}</p>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="record-empty-state">{% if is_arabic %}&#1604;&#1575; &#1610;&#1608;&#1580;&#1583; &#1587;&#1580;&#1604; &#1581;&#1584;&#1601; &#1604;&#1604;&#1608;&#1587;&#1575;&#1574;&#1591;.{% else %}No media deletion history.{% endif %}</p>
             {% endif %}
         </section>
     </div>

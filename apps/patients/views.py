@@ -514,6 +514,7 @@ def patient_portal_medical_records(request, language="ar"):
                 patient=patient,
                 visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
                 is_active=True,
+                trashed_at__isnull=True,
             )
             .select_related("visit")
             .order_by("-uploaded_at")
@@ -558,6 +559,7 @@ def patient_portal_medical_record_media_download(request, public_id, language="a
             patient=patient,
             visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
             is_active=True,
+            trashed_at__isnull=True,
         )
     except RecordMedia.DoesNotExist as exc:
         raise Http404("Media unavailable.") from exc

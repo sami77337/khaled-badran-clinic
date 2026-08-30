@@ -1,9 +1,12 @@
 from datetime import date, timedelta
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, connection, models, transaction
@@ -14,6 +17,7 @@ from django.utils import timezone
 
 from apps.booking.models import Appointment
 from apps.clinic.models import Doctor, VisitType
+from apps.core.models import AuditLog
 from apps.patients.models import Patient
 from apps.records.models import (
     IMAGE_MAX_BYTES,
@@ -850,3 +854,115 @@ class RecordMediaFolderModelTests(PatientRecordTestDataMixin, TestCase):
             "A folder with this name already exists for this patient.",
         ):
             RecordMediaFolder.objects.create(patient=patient, name="procedure photos")
+
+
+class PurgeTrashedRecordMediaCommandTests(PatientRecordTestDataMixin, TestCase):
+    def create_trashed_media(self, *, age, patient=None):
+        patient = patient or self.create_patient()
+        uploader = self.create_user(username=f"purge-uploader-{RecordMedia.objects.count()}")
+        media = self.create_record_media(
+            patient=patient,
+            uploaded_by=uploader,
+            trashed_by=uploader,
+            trashed_at=timezone.now() - age,
+            is_active=False,
+            visibility=RecordMedia.Visibility.PRIVATE_ONLY,
+        )
+        AuditLog.objects.create(
+            user=uploader,
+            action=AuditLog.Action.DELETE,
+            app_label="records",
+            model_name="RecordMedia",
+            object_id=str(media.pk),
+            object_repr=f"RecordMedia {media.pk}",
+            message="record_media_moved_to_trash",
+            metadata={
+                "action": "record_media_moved_to_trash",
+                "patient_id": patient.pk,
+                "media_public_id": str(media.public_id),
+                "media_type": media.media_type,
+            },
+        )
+        return media
+
+    def test_29_day_media_is_not_purged_and_restored_media_is_not_eligible(self):
+        retained = self.create_trashed_media(age=timedelta(days=29))
+        restored = self.create_trashed_media(age=timedelta(days=31))
+        RecordMedia.objects.filter(pk=restored.pk).update(
+            trashed_at=None,
+            trashed_by=None,
+            is_active=True,
+        )
+
+        stdout = StringIO()
+        call_command("purge_trashed_record_media", stdout=stdout)
+
+        self.assertTrue(RecordMedia.objects.filter(pk=retained.pk).exists())
+        self.assertTrue(RecordMedia.objects.filter(pk=restored.pk).exists())
+        self.assertTrue(retained.file.storage.exists(retained.file.name))
+        self.assertTrue(restored.file.storage.exists(restored.file.name))
+        self.assertIn("Purged 0", stdout.getvalue())
+
+    def test_exactly_or_over_30_days_is_purged_with_file_and_audit_history(self):
+        exactly_eligible = self.create_trashed_media(age=timedelta(days=30))
+        over_eligible = self.create_trashed_media(age=timedelta(days=31))
+        public_ids = [str(exactly_eligible.public_id), str(over_eligible.public_id)]
+        storage_names = [exactly_eligible.file.name, over_eligible.file.name]
+
+        stdout = StringIO()
+        call_command("purge_trashed_record_media", stdout=stdout)
+
+        self.assertFalse(
+            RecordMedia.objects.filter(
+                pk__in=[exactly_eligible.pk, over_eligible.pk]
+            ).exists()
+        )
+        for storage_name in storage_names:
+            self.assertFalse(private_record_media_storage.exists(storage_name))
+        for public_id in public_ids:
+            self.assertTrue(
+                AuditLog.objects.filter(
+                    metadata__action="record_media_moved_to_trash",
+                    metadata__media_public_id=public_id,
+                ).exists()
+            )
+            purge_audit = AuditLog.objects.get(
+                metadata__action="record_media_purged_after_retention",
+                metadata__media_public_id=public_id,
+            )
+            self.assertIsNone(purge_audit.user)
+            self.assertNotIn("file", str(purge_audit.metadata).lower())
+        self.assertIn("Purged 2", stdout.getvalue())
+
+    def test_storage_delete_failure_preserves_database_row_and_continues_safely(self):
+        media = self.create_trashed_media(age=timedelta(days=31))
+        stderr = StringIO()
+
+        with patch.object(
+            private_record_media_storage,
+            "delete",
+            side_effect=OSError("synthetic storage failure"),
+        ):
+            call_command("purge_trashed_record_media", stderr=stderr)
+
+        self.assertTrue(RecordMedia.objects.filter(pk=media.pk).exists())
+        self.assertTrue(private_record_media_storage.exists(media.file.name))
+        self.assertFalse(
+            AuditLog.objects.filter(
+                metadata__action="record_media_purged_after_retention",
+                metadata__media_public_id=str(media.public_id),
+            ).exists()
+        )
+        self.assertIn("storage deletion failed", stderr.getvalue())
+        self.assertNotIn(media.file.name, stderr.getvalue())
+
+    def test_dry_run_is_idempotent_and_does_not_delete(self):
+        media = self.create_trashed_media(age=timedelta(days=31))
+        stdout = StringIO()
+
+        call_command("purge_trashed_record_media", "--dry-run", stdout=stdout)
+        call_command("purge_trashed_record_media", "--dry-run", stdout=stdout)
+
+        self.assertTrue(RecordMedia.objects.filter(pk=media.pk).exists())
+        self.assertTrue(private_record_media_storage.exists(media.file.name))
+        self.assertIn("1 RecordMedia row(s) are eligible", stdout.getvalue())

@@ -17,6 +17,8 @@ from apps.clinic.models import (
 )
 from apps.records.models import RecordMedia
 
+from .showcase import grouped_public_cases
+
 
 SUPPORTED_LANGUAGES = {"ar", "en"}
 DEFAULT_LANGUAGE = "ar"
@@ -634,6 +636,7 @@ def _public_case_media_queryset():
             visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
             consent_confirmed=True,
             is_active=True,
+            trashed_at__isnull=True,
             public_case__consent_confirmed=True,
             public_case__is_published=True,
         )
@@ -773,7 +776,6 @@ def home(request, language=DEFAULT_LANGUAGE):
         "home",
         language,
         {
-            "public_case_teasers": _public_case_media_items(language, limit=3),
             "case_labels": PUBLIC_CASE_LABELS[language],
             "public_reviews": (),
             "review_summary": None,
@@ -824,8 +826,42 @@ def public_cases(request, language=DEFAULT_LANGUAGE):
         "cases",
         language,
         {
-            "case_items": _public_case_media_items(language),
             "case_labels": PUBLIC_CASE_LABELS[language],
+        },
+        show_mobile_booking_cta=True,
+    )
+
+
+@require_GET
+@never_cache
+def public_case_detail(request, case_id, language=DEFAULT_LANGUAGE):
+    language = _normalize_language(language)
+    case_groups = grouped_public_cases(language=language, case_id=case_id)
+    if not case_groups:
+        raise Http404("Case unavailable.")
+    public_case = case_groups[0]
+    alternate_language = "en" if language == "ar" else "ar"
+    detail_url = reverse(
+        "public_case_detail_en" if language == "en" else "public_case_detail",
+        kwargs={"case_id": case_id},
+    )
+    alternate_url = reverse(
+        "public_case_detail_en" if alternate_language == "en" else "public_case_detail",
+        kwargs={"case_id": case_id},
+    )
+    return _render_public(
+        request,
+        "core/case_detail.html",
+        "cases",
+        language,
+        {
+            "public_case": public_case,
+            "case_labels": PUBLIC_CASE_LABELS[language],
+            "canonical_url": request.build_absolute_uri(detail_url),
+            "language_switch": {
+                "label": "English" if language == "ar" else "\u0627\u0644\u0639\u0631\u0628\u064a\u0629",
+                "url": alternate_url,
+            },
         },
         show_mobile_booking_cta=True,
     )

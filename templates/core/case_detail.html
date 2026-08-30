@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/public-closeout.css' %}">
+<script src="{% static 'js/public-closeout.js' %}" defer></script>
+{% endblock %}
+
+{% block content %}
+<section class="page-hero public-case-detail-hero">
+    <div class="container page-hero-inner">
+        <a class="public-case-back-link" href="{{ cases_url }}">{% if is_arabic %}&#1575;&#1604;&#1593;&#1608;&#1583;&#1577; &#1573;&#1604;&#1609; &#1605;&#1593;&#1585;&#1590; &#1575;&#1604;&#1581;&#1575;&#1604;&#1575;&#1578;{% else %}Back to Case Gallery{% endif %}</a>
+        <p class="eyebrow">{% if is_arabic %}&#1581;&#1575;&#1604;&#1577; &#1605;&#1589;&#1585;&#1581; &#1576;&#1593;&#1585;&#1590;&#1607;&#1575;{% else %}Authorized case{% endif %}</p>
+        <h1>{{ public_case.display_title }}</h1>
+        {% if public_case.description %}<p>{{ public_case.description }}</p>{% endif %}
+    </div>
+</section>
+
+<main class="section public-case-album-detail" aria-label="{% if is_arabic %}&#1605;&#1593;&#1585;&#1590; &#1608;&#1587;&#1575;&#1574;&#1591; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}Case media album{% endif %}">
+    <div class="container public-case-detail-galleries">
+        {% if public_case.video_items %}
+            <section class="public-case-category" aria-labelledby="case-videos-title">
+                <h2 id="case-videos-title">{% if is_arabic %}&#1601;&#1610;&#1583;&#1610;&#1608;&#1607;&#1575;&#1578;{% else %}Videos{% endif %}</h2>
+                <div class="public-case-video-grid">
+                    {% for video in public_case.video_items %}
+                        <div class="public-case-video-frame">
+                            <video src="{{ video.url }}"{% if video.poster_url %} poster="{{ video.poster_url }}"{% endif %} muted playsinline controls preload="metadata" data-public-case-video></video>
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+
+        {% if public_case.before_items %}
+            <section class="public-case-category" aria-labelledby="case-before-title">
+                <h2 id="case-before-title">{% if is_arabic %}&#1602;&#1576;&#1604;{% else %}Before{% endif %}</h2>
+                <div class="public-case-image-grid">
+                    {% for image in public_case.before_items %}
+                        <figure><a href="{{ image.url }}"><img src="{{ image.url }}" alt="{% if is_arabic %}&#1602;&#1576;&#1604;{% else %}Before{% endif %}" loading="lazy"></a></figure>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+
+        {% if public_case.after_items %}
+            <section class="public-case-category" aria-labelledby="case-after-title">
+                <h2 id="case-after-title">{% if is_arabic %}&#1576;&#1593;&#1583;{% else %}After{% endif %}</h2>
+                <div class="public-case-image-grid">
+                    {% for image in public_case.after_items %}
+                        <figure><a href="{{ image.url }}"><img src="{{ image.url }}" alt="{% if is_arabic %}&#1576;&#1593;&#1583;{% else %}After{% endif %}" loading="lazy"></a></figure>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+
+        {% if public_case.primary_items %}
+            <section class="public-case-category" aria-labelledby="case-primary-title">
+                <h2 id="case-primary-title">{% if is_arabic %}&#1589;&#1608;&#1585; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}Case Images{% endif %}</h2>
+                <div class="public-case-image-grid">
+                    {% for image in public_case.primary_items %}
+                        <figure><a href="{{ image.url }}"><img src="{{ image.url }}" alt="{% if is_arabic %}&#1589;&#1608;&#1585;&#1577; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}Case image{% endif %}" loading="lazy"></a></figure>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+    </div>
+</main>
+
+{% include "partials/cta.html" %}
+{% endblock %}

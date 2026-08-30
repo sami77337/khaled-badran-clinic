@@ -1,11 +1,14 @@
+import html
 import re
 from datetime import date, datetime, time, timedelta
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import parse_qs, urlencode, urlsplit
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.test import Client, RequestFactory, TestCase, override_settings
@@ -6056,3 +6059,272 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             "calc(3rem + var(--appointment-duration) * 0.035rem)",
             stylesheet,
         )
+
+
+class RecordMediaTrashLifecycleTests(DashboardRecordWorkflowMixin, TestCase):
+    def setUp(self):
+        self.portal_user = self.create_user(username="synthetic-trash-patient")
+        self.patient = self.create_patient(user=self.portal_user)
+        self.uploader = self.create_user(username="synthetic-media-uploader", is_staff=True)
+        self.other_staff = self.create_user(username="synthetic-other-staff", is_staff=True)
+        self.folder = self.create_media_folder(
+            patient=self.patient,
+            name="Synthetic retained folder",
+            created_by=self.uploader,
+        )
+        self.visit = self.create_visit(patient=self.patient)
+
+    def trash_url(self, media):
+        return reverse(
+            "dashboard_media_trash",
+            kwargs={"patient_id": self.patient.pk, "public_id": media.public_id},
+        )
+
+    def restore_url(self, media):
+        return reverse(
+            "dashboard_media_restore",
+            kwargs={"patient_id": self.patient.pk, "public_id": media.public_id},
+        )
+
+    def create_owned_media(self, **kwargs):
+        return self.create_media(
+            patient=self.patient,
+            visit=self.visit,
+            folder=self.folder,
+            uploaded_by=self.uploader,
+            **kwargs,
+        )
+
+    def test_uploader_only_delete_visibility_and_authorization(self):
+        owned = self.create_owned_media(title="Uploader-owned synthetic media")
+        legacy = self.create_media(
+            patient=self.patient,
+            uploaded_by=None,
+            title="Synthetic legacy ownership-unknown media",
+        )
+
+        self.client.force_login(self.uploader)
+        uploader_page = self.client.get(self.patient_record_url(self.patient, language="en"))
+        self.assertContains(uploader_page, self.trash_url(owned))
+        self.assertNotContains(uploader_page, self.trash_url(legacy))
+
+        self.client.force_login(self.other_staff)
+        other_page = self.client.get(self.patient_record_url(self.patient, language="en"))
+        self.assertNotContains(other_page, self.trash_url(owned))
+        self.assertEqual(self.client.get(self.trash_url(owned)).status_code, 403)
+        self.assertEqual(self.client.post(self.trash_url(owned)).status_code, 403)
+        self.assertEqual(self.client.get(self.trash_url(legacy)).status_code, 403)
+        self.assertEqual(self.client.post(self.trash_url(legacy)).status_code, 403)
+
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.uploader)
+        self.assertEqual(csrf_client.post(self.trash_url(owned)).status_code, 403)
+
+    def test_trash_preserves_file_and_relations_while_revoking_all_delivery(self):
+        public_case = PublicCase.objects.create(
+            patient=self.patient,
+            reference_visit=self.visit,
+            title="Synthetic public album to unpublish",
+            note="Synthetic public-safe note.",
+            consent_confirmed=True,
+            is_published=True,
+            created_by=self.uploader,
+        )
+        media = self.create_owned_media(
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
+            visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+            consent_confirmed=True,
+            title="Synthetic internal media title",
+        )
+        stored_name = media.file.name
+        public_media_url = reverse(
+            "public_case_media_en",
+            kwargs={"public_id": media.public_id},
+        )
+        detail_url = reverse(
+            "public_case_detail_en",
+            kwargs={"case_id": public_case.pk},
+        )
+        self.assertTrue(media.file.storage.exists(stored_name))
+
+        self.client.force_login(self.uploader)
+        response = self.client.post(self.trash_url(media))
+        self.assertEqual(response.status_code, 302)
+
+        media.refresh_from_db()
+        public_case.refresh_from_db()
+        self.assertTrue(media.is_trashed)
+        self.assertEqual(media.trashed_by, self.uploader)
+        self.assertFalse(media.is_active)
+        self.assertEqual(media.visibility, RecordMedia.Visibility.PRIVATE_ONLY)
+        self.assertIsNone(media.public_case_id)
+        self.assertEqual(media.public_case_role, "")
+        self.assertEqual(media.patient, self.patient)
+        self.assertEqual(media.visit, self.visit)
+        self.assertEqual(media.folder, self.folder)
+        self.assertEqual(media.uploaded_by, self.uploader)
+        self.assertEqual(media.file.name, stored_name)
+        self.assertTrue(media.file.storage.exists(stored_name))
+        self.assertFalse(public_case.is_published)
+
+        audit = AuditLog.objects.get(metadata__action="record_media_moved_to_trash")
+        self.assertEqual(audit.user, self.uploader)
+        self.assertEqual(audit.metadata["patient_id"], self.patient.pk)
+        self.assertEqual(audit.metadata["media_public_id"], str(media.public_id))
+        self.assertEqual(audit.metadata["media_type"], media.media_type)
+        self.assertNotIn("filename", str(audit.metadata).lower())
+        self.assertNotIn(stored_name, str(audit.metadata))
+
+        self.assertEqual(self.client.get(public_media_url).status_code, 404)
+        self.assertEqual(self.client.get(detail_url).status_code, 404)
+        self.assertNotContains(self.client.get(reverse("public_cases_en")), public_case.title)
+        self.assertNotContains(self.client.get(reverse("home_en")), public_case.title)
+        self.assertEqual(
+            self.client.get(
+                reverse(
+                    "record_private_media_download",
+                    kwargs={"public_id": media.public_id},
+                )
+            ).status_code,
+            404,
+        )
+
+    def test_patient_visible_media_is_hidden_and_rejected_when_trashed(self):
+        media = self.create_owned_media(
+            visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
+            title="Synthetic patient-visible media before trash",
+        )
+        self.client.force_login(self.uploader)
+        self.client.post(self.trash_url(media))
+
+        self.client.force_login(self.portal_user)
+        portal = self.client.get(reverse("patient_portal_medical_records_en"))
+        download = self.client.get(
+            reverse(
+                "patient_portal_medical_record_media_download_en",
+                kwargs={"public_id": media.public_id},
+            )
+        )
+        self.assertNotContains(portal, media.title)
+        self.assertEqual(download.status_code, 404)
+        self.assertNotContains(portal, "Media Deletion History")
+
+    def test_non_uploader_cannot_restore_and_uploader_restores_private_only(self):
+        public_case = PublicCase.objects.create(
+            patient=self.patient,
+            title="Synthetic case remains unpublished",
+            consent_confirmed=True,
+            is_published=True,
+        )
+        media = self.create_owned_media(
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.AFTER,
+            visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+            consent_confirmed=True,
+        )
+        stored_name = media.file.name
+        self.client.force_login(self.uploader)
+        self.client.post(self.trash_url(media))
+
+        self.client.force_login(self.other_staff)
+        trash_page = self.client.get(self.patient_record_url(self.patient, language="en"))
+        self.assertContains(trash_page, "In Trash")
+        self.assertNotContains(trash_page, self.restore_url(media))
+        self.assertEqual(self.client.post(self.restore_url(media)).status_code, 403)
+
+        self.client.force_login(self.uploader)
+        owner_trash_page = self.client.get(self.patient_record_url(self.patient, language="en"))
+        self.assertContains(owner_trash_page, self.restore_url(media))
+        self.assertEqual(self.client.post(self.restore_url(media)).status_code, 302)
+
+        media.refresh_from_db()
+        public_case.refresh_from_db()
+        self.assertFalse(media.is_trashed)
+        self.assertIsNone(media.trashed_by_id)
+        self.assertTrue(media.is_active)
+        self.assertEqual(media.visibility, RecordMedia.Visibility.PRIVATE_ONLY)
+        self.assertIsNone(media.public_case_id)
+        self.assertEqual(media.public_case_role, "")
+        self.assertEqual(media.folder, self.folder)
+        self.assertEqual(media.visit, self.visit)
+        self.assertEqual(media.uploaded_by, self.uploader)
+        self.assertEqual(media.file.name, stored_name)
+        self.assertFalse(public_case.is_published)
+        self.assertTrue(
+            AuditLog.objects.filter(
+                user=self.uploader,
+                metadata__action="record_media_restored_from_trash",
+            ).exists()
+        )
+
+        self.client.force_login(self.portal_user)
+        self.assertNotContains(
+            self.client.get(reverse("patient_portal_medical_records_en")),
+            media.title,
+        )
+
+    def test_deletion_history_survives_purge_and_is_staff_only(self):
+        media = self.create_owned_media(media_type=RecordMedia.MediaType.SHORT_VIDEO)
+        media_public_id = media.public_id
+        self.client.force_login(self.uploader)
+        self.client.post(self.trash_url(media))
+        RecordMedia.objects.filter(pk=media.pk).update(
+            trashed_at=timezone.now() - timedelta(days=31)
+        )
+
+        stdout = StringIO()
+        call_command("purge_trashed_record_media", stdout=stdout)
+        self.assertFalse(RecordMedia.objects.filter(public_id=media_public_id).exists())
+
+        staff_page = self.client.get(self.patient_record_url(self.patient, language="en"))
+        self.assertContains(staff_page, "Media Deletion History")
+        self.assertContains(staff_page, "Deleted by synthetic-media-uploader")
+        self.assertContains(staff_page, "Permanently deleted")
+        self.assertTrue(
+            AuditLog.objects.filter(
+                metadata__action="record_media_moved_to_trash",
+                metadata__media_public_id=str(media_public_id),
+                user=self.uploader,
+            ).exists()
+        )
+        self.assertTrue(
+            AuditLog.objects.filter(
+                metadata__action="record_media_purged_after_retention",
+                metadata__media_public_id=str(media_public_id),
+                user__isnull=True,
+            ).exists()
+        )
+
+        self.client.force_login(self.portal_user)
+        portal = self.client.get(reverse("patient_portal_medical_records_en"))
+        public = self.client.get(reverse("public_cases_en"))
+        self.assertNotContains(portal, "Media Deletion History")
+        self.assertNotContains(public, "Media Deletion History")
+
+    def test_trash_controls_and_history_have_bilingual_responsive_contracts(self):
+        media = self.create_owned_media()
+        self.client.force_login(self.uploader)
+        self.client.post(self.trash_url(media))
+
+        english = self.client.get(self.patient_record_url(self.patient, language="en"))
+        arabic = self.client.get(self.patient_record_url(self.patient, language="ar"))
+        arabic_content = html.unescape(arabic.content.decode())
+        self.assertContains(english, "Media Deletion History")
+        self.assertContains(english, "Restore")
+        self.assertIn("\u0633\u0644\u0629 \u0627\u0644\u0645\u062d\u0630\u0648\u0641\u0627\u062a", arabic_content)
+        self.assertIn("\u0633\u062c\u0644 \u062d\u0630\u0641 \u0627\u0644\u0648\u0633\u0627\u0626\u0637", arabic_content)
+        self.assertContains(english, 'dir="ltr"')
+        self.assertContains(arabic, 'dir="rtl"')
+
+        stylesheet = (
+            Path(__file__).resolve().parents[2]
+            / "static"
+            / "css"
+            / "dashboard-patient-record.css"
+        ).read_text(encoding="utf-8")
+        self.assertIn(".record-trash-details", stylesheet)
+        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr))", stylesheet)
+        self.assertIn("@media (max-width: 47.999rem)", stylesheet)
+        self.assertIn("grid-template-columns: minmax(0, 1fr)", stylesheet)
+        self.assertIn("flex-wrap: wrap", stylesheet)

@@ -1088,6 +1088,7 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
                 public_case_role=RecordMedia.PublicCaseRole.VIDEO,
                 media_type=RecordMedia.MediaType.SHORT_VIDEO,
                 is_active=True,
+                trashed_at__isnull=True,
             ).exists()
         )
         cover_only_replacement = bool(video_cover and existing_video)

@@ -1273,7 +1273,7 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertContains(response, approved_video_case.note, count=1)
         self.assertContains(
             response,
-            f'href="{reverse("public_case_media_en", kwargs={"public_id": approved_image.public_id})}"',
+            f'src="{reverse("public_case_media_en", kwargs={"public_id": approved_image.public_id})}"',
         )
         self.assertContains(
             response,
@@ -1404,20 +1404,35 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         before_url = reverse("public_case_media_en", kwargs={"public_id": before.public_id})
         after_url = reverse("public_case_media_en", kwargs={"public_id": after.public_id})
         video_url = reverse("public_case_media_en", kwargs={"public_id": video.public_id})
-        video_tag = re.search(r"<video[^>]*>", content).group(0)
 
-        self.assertContains(response, 'class="public-case-card public-case-group-card"', count=1)
-        self.assertContains(response, "<h2>Authorized case 1</h2>", html=True)
-        self.assertNotContains(response, "<h2>Before</h2>", html=True)
-        self.assertNotContains(response, "<h2>After</h2>", html=True)
+        self.assertContains(response, 'class="public-case-card public-case-album-card"', count=1)
+        self.assertContains(response, "Authorized case 1", count=1)
         self.assertContains(response, note, count=1)
+        self.assertContains(
+            response,
+            reverse("public_case_detail_en", kwargs={"case_id": public_case.pk}),
+        )
         self.assertNotContains(response, "INTERNAL-BEFORE-NOTE-MUST-STAY-HIDDEN")
         self.assertNotContains(response, "INTERNAL-AFTER-NOTE-MUST-STAY-HIDDEN")
         self.assertNotContains(response, "INTERNAL-VIDEO-NOTE-MUST-STAY-HIDDEN")
         self.assertEqual(content.count(f'src="{before_url}"'), 1)
-        self.assertEqual(content.count(f'src="{after_url}"'), 1)
-        self.assertEqual(content.count(f'src="{video_url}"'), 1)
-        self.assertEqual(content.count("<video"), 1)
+        self.assertNotIn(after_url, content)
+        self.assertNotIn(video_url, content)
+        self.assertNotIn("public-case-image-grid", content)
+        self.assertNotIn("public-case-video-grid", content)
+
+        detail = self.client.get(
+            reverse("public_case_detail_en", kwargs={"case_id": public_case.pk})
+        )
+        detail_content = detail.content.decode()
+        video_tag = re.search(r"<video[^>]*>", detail_content).group(0)
+        self.assertEqual(detail.status_code, 200)
+        self.assertContains(detail, "Authorized case 1", count=1)
+        self.assertContains(detail, note, count=1)
+        self.assertEqual(detail_content.count(f'src="{before_url}"'), 1)
+        self.assertEqual(detail_content.count(f'src="{after_url}"'), 1)
+        self.assertEqual(detail_content.count(f'src="{video_url}"'), 1)
+        self.assertEqual(detail_content.count("<video"), 1)
         for attribute in ("muted", "playsinline", "controls"):
             self.assertIn(attribute, video_tag)
         self.assertNotIn("autoplay", video_tag)
@@ -1488,7 +1503,16 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertContains(response, "Synthetic after-only note.", count=1)
         self.assertNotContains(response, "INTERNAL-BEFORE-ONLY-NOTE")
         self.assertNotContains(response, "INTERNAL-AFTER-ONLY-NOTE")
-        self.assertContains(response, 'class="public-case-image-grid"', count=2)
+        self.assertContains(response, 'class="public-case-card public-case-album-card"', count=2)
+        self.assertNotContains(response, 'class="public-case-image-grid"')
+        before_detail = self.client.get(
+            reverse("public_case_detail_en", kwargs={"case_id": before_case.pk})
+        )
+        after_detail = self.client.get(
+            reverse("public_case_detail_en", kwargs={"case_id": after_case.pk})
+        )
+        self.assertContains(before_detail, 'class="public-case-image-grid"', count=1)
+        self.assertContains(after_detail, 'class="public-case-image-grid"', count=1)
 
     def test_full_case_renders_all_assets_once_with_cover_and_home_remains_concise(self):
         patient = self.create_patient(
@@ -1571,23 +1595,41 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
 
         self.assertContains(
             cases_response,
-            'class="public-case-card public-case-group-card"',
+            'class="public-case-card public-case-album-card"',
             count=1,
         )
-        self.assertContains(cases_response, f"<h2>{title}</h2>", html=True, count=1)
+        self.assertContains(cases_response, title, count=1)
         self.assertContains(cases_response, note, count=1)
-        self.assertContains(cases_response, ">Videos</h3>", count=1)
-        self.assertContains(cases_response, ">Before</h3>", count=1)
-        self.assertContains(cases_response, ">After</h3>", count=1)
-        self.assertEqual(cases_content.count("<video"), 2)
+        self.assertNotIn("public-case-video-grid", cases_content)
+        self.assertNotIn("public-case-image-grid", cases_content)
+        self.assertEqual(cases_content.count("<video"), 0)
+        self.assertEqual(cases_content.count(cover_url), 1)
         for media in rows + videos:
             protected_url = reverse(
                 "public_case_media_en",
                 kwargs={"public_id": media.public_id},
             )
-            self.assertEqual(cases_content.count(protected_url), 2 if media in rows else 1)
-        self.assertIn(f'poster="{cover_url}"', cases_content)
-        self.assertEqual(cases_content.count(cover_url), 1)
+            self.assertNotIn(protected_url, cases_content)
+
+        detail_response = self.client.get(
+            reverse("public_case_detail_en", kwargs={"case_id": public_case.pk})
+        )
+        detail_content = detail_response.content.decode()
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, title, count=1)
+        self.assertContains(detail_response, note, count=1)
+        self.assertContains(detail_response, ">Videos</h2>", count=1)
+        self.assertContains(detail_response, ">Before</h2>", count=1)
+        self.assertContains(detail_response, ">After</h2>", count=1)
+        self.assertEqual(detail_content.count("<video"), 2)
+        for media in rows + videos:
+            protected_url = reverse(
+                "public_case_media_en",
+                kwargs={"public_id": media.public_id},
+            )
+            self.assertEqual(detail_content.count(protected_url), 2 if media in rows else 1)
+        self.assertEqual(detail_content.count(f'poster="{cover_url}"'), 2)
+        self.assertNotIn(f'src="{cover_url}"', detail_content)
         self.assertNotIn("[[public-case:", cases_content)
         self.assertNotIn(folder.name, cases_content)
         self.assertNotIn(patient.full_name, cases_content)
@@ -1607,8 +1649,12 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         ]
         self.assertContains(home_response, title, count=1)
         self.assertContains(home_response, note, count=1)
-        self.assertEqual(sum(home_content.count(url) for url in video_urls), 1)
-        self.assertIn(f'poster="{cover_url}"', home_content)
+        self.assertEqual(sum(home_content.count(url) for url in video_urls), 0)
+        self.assertEqual(home_content.count(cover_url), 1)
+        self.assertContains(
+            home_response,
+            reverse("public_case_detail_en", kwargs={"case_id": public_case.pk}),
+        )
         self.assertNotIn(folder.name, home_content)
         for image in rows:
             image_url = reverse(
@@ -1636,29 +1682,31 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         after_url = reverse("public_case_media_en", kwargs={"public_id": after.public_id})
         video_url = reverse("public_case_media_en", kwargs={"public_id": video.public_id})
 
-        initial = self.client.get(reverse("public_cases_en"))
+        detail_url = reverse(
+            "public_case_detail_en",
+            kwargs={"case_id": before.public_case_id},
+        )
+        initial = self.client.get(detail_url)
         for url in (before_url, after_url, video_url):
             self.assertContains(initial, url)
 
         after.is_active = False
         after.save(update_fields=["is_active"])
-        after_removed = self.client.get(reverse("public_cases_en"))
+        after_removed = self.client.get(detail_url)
         self.assertNotContains(after_removed, after_url)
         self.assertContains(after_removed, before_url)
         self.assertContains(after_removed, video_url)
 
         before.visibility = RecordMedia.Visibility.PRIVATE_ONLY
         before.save(update_fields=["visibility"])
-        before_removed = self.client.get(reverse("public_cases_en"))
+        before_removed = self.client.get(detail_url)
         self.assertNotContains(before_removed, before_url)
         self.assertNotContains(before_removed, after_url)
         self.assertContains(before_removed, video_url)
 
         self.force_unconsented_public_case(video)
-        consent_removed = self.client.get(reverse("public_cases_en"))
-        self.assertNotContains(consent_removed, before_url)
-        self.assertNotContains(consent_removed, after_url)
-        self.assertNotContains(consent_removed, video_url)
+        consent_removed = self.client.get(detail_url)
+        self.assertEqual(consent_removed.status_code, 404)
 
     def test_unpublished_and_unconsented_cases_are_absent_from_public_pages(self):
         unpublished_case = self.create_public_case(
@@ -1701,7 +1749,7 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
                     ),
                 )
 
-    def test_home_uses_one_teaser_asset_with_after_before_primary_priority(self):
+    def test_home_uses_one_teaser_asset_with_before_after_primary_priority(self):
         public_case = self.create_public_case(
             title="Home explicit public case teaser",
             note="Concise home teaser note.",
@@ -1750,9 +1798,12 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertContains(response, public_case.title, count=1)
         self.assertContains(response, public_case.note, count=1)
         self.assertContains(response, 'class="case-card"', count=1)
-        self.assertContains(response, reverse("public_cases_en"))
-        self.assertEqual(content.count(after_url), 1)
-        self.assertNotIn(before_url, content)
+        self.assertContains(
+            response,
+            reverse("public_case_detail_en", kwargs={"case_id": public_case.pk}),
+        )
+        self.assertEqual(content.count(before_url), 1)
+        self.assertNotIn(after_url, content)
         self.assertNotIn(primary_url, content)
         self.assertNotIn("INTERNAL-HOME-PRIMARY-TITLE", content)
         self.assertNotIn("INTERNAL-HOME-BEFORE-TITLE", content)
@@ -1765,6 +1816,124 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertNotContains(response, "synthetic-before.jpg")
         self.assertNotContains(response, "synthetic-after.jpg")
         self.assertNotContains(response, str(settings.PRIVATE_MEDIA_ROOT))
+
+
+    def test_listing_cover_priority_and_detail_keep_one_public_case_album(self):
+        public_case = self.create_public_case(
+            title="Synthetic representative cover priority",
+            note="One concise album note.",
+        )
+        primary = self.create_media(
+            patient=public_case.patient,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.PRIMARY,
+        )
+        after = self.create_media(
+            patient=public_case.patient,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.AFTER,
+        )
+        before = self.create_media(
+            patient=public_case.patient,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
+        )
+        video = self.create_media(
+            patient=public_case.patient,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.VIDEO,
+            media_type=RecordMedia.MediaType.SHORT_VIDEO,
+        )
+        cover = self.create_media(
+            patient=public_case.patient,
+            public_case=public_case,
+            public_case_role=RecordMedia.PublicCaseRole.VIDEO_COVER,
+        )
+        urls = {
+            media.pk: reverse(
+                "public_case_media_en",
+                kwargs={"public_id": media.public_id},
+            )
+            for media in (primary, after, before, video, cover)
+        }
+
+        listing = self.client.get(reverse("public_cases_en"))
+        listing_content = listing.content.decode()
+        self.assertContains(listing, 'class="public-case-card public-case-album-card"', count=1)
+        self.assertEqual(listing_content.count(urls[cover.pk]), 1)
+        for media in (primary, after, before, video):
+            self.assertNotIn(urls[media.pk], listing_content)
+
+        detail = self.client.get(
+            reverse("public_case_detail_en", kwargs={"case_id": public_case.pk})
+        )
+        detail_content = detail.content.decode()
+        self.assertEqual(detail.status_code, 200)
+        self.assertContains(detail, public_case.title, count=1)
+        self.assertContains(detail, public_case.note, count=1)
+        self.assertEqual(detail_content.count(f'poster="{urls[cover.pk]}"'), 1)
+        self.assertNotIn(f'src="{urls[cover.pk]}"', detail_content)
+        self.assertEqual(detail_content.count(urls[video.pk]), 1)
+        for media in (primary, after, before):
+            self.assertEqual(detail_content.count(urls[media.pk]), 2)
+
+    def test_detail_hides_unpublished_unconsented_and_trashed_assets(self):
+        visible_case = self.create_public_case(title="Visible album with one retained asset")
+        visible = self.create_media(
+            patient=visible_case.patient,
+            public_case=visible_case,
+            public_case_role=RecordMedia.PublicCaseRole.AFTER,
+        )
+        trashed = self.create_media(
+            patient=visible_case.patient,
+            public_case=visible_case,
+            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
+        )
+        RecordMedia.objects.filter(pk=trashed.pk).update(
+            trashed_at=timezone.now(),
+            is_active=False,
+        )
+
+        detail = self.client.get(
+            reverse("public_case_detail_en", kwargs={"case_id": visible_case.pk})
+        )
+        self.assertEqual(detail.status_code, 200)
+        self.assertContains(
+            detail,
+            reverse("public_case_media_en", kwargs={"public_id": visible.public_id}),
+        )
+        self.assertNotContains(
+            detail,
+            reverse("public_case_media_en", kwargs={"public_id": trashed.public_id}),
+        )
+        self.assertEqual(
+            self.client.get(
+                reverse("public_case_media_en", kwargs={"public_id": trashed.public_id})
+            ).status_code,
+            404,
+        )
+
+        unpublished_case = self.create_public_case(is_published=False)
+        self.create_media(
+            patient=unpublished_case.patient,
+            public_case=unpublished_case,
+        )
+        unconsented_case = self.create_public_case(consent_confirmed=False)
+        self.create_media(
+            patient=unconsented_case.patient,
+            public_case=unconsented_case,
+        )
+        for public_case in (unpublished_case, unconsented_case):
+            with self.subTest(case_id=public_case.pk):
+                self.assertEqual(
+                    self.client.get(
+                        reverse(
+                            "public_case_detail_en",
+                            kwargs={"case_id": public_case.pk},
+                        )
+                    ).status_code,
+                    404,
+                )
 
 
 class PublicCaseMediaRouteTests(PublicCasesTestDataMixin, TestCase):
@@ -1862,21 +2031,30 @@ class PublicCaseMediaRouteTests(PublicCasesTestDataMixin, TestCase):
 
 
 class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
-    def test_full_cases_template_keeps_all_media_inside_one_case_article(self):
+    def test_cases_template_renders_album_cards_without_full_galleries(self):
         template = (settings.BASE_DIR / "templates" / "core" / "cases.html").read_text(
             encoding="utf-8"
         )
 
         self.assertEqual(
-            template.count('<article class="public-case-card public-case-group-card">'),
+            template.count('<article class="public-case-card public-case-album-card">'),
             1,
         )
-        self.assertIn('class="public-case-comparison', template)
-        self.assertLess(template.index("case.before_items"), template.index("case.after_items"))
-        self.assertIn("poster=\"{{ video.poster_url }}\"", template)
-        self.assertNotIn("case.video_cover.url", template)
-        self.assertNotIn("image.title", template)
-        self.assertNotIn("video.title", template)
+        self.assertIn("case.cover.media_type", template)
+        self.assertIn("case.cover.url", template)
+        self.assertIn("case.detail_url", template)
+        self.assertNotIn("case.before_items", template)
+        self.assertNotIn("case.after_items", template)
+        self.assertNotIn("case.video_items", template)
+
+        detail_template = (
+            settings.BASE_DIR / "templates" / "core" / "case_detail.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("public_case.before_items", detail_template)
+        self.assertIn("public_case.after_items", detail_template)
+        self.assertIn("public_case.video_items", detail_template)
+        self.assertIn('poster="{{ video.poster_url }}"', detail_template)
+        self.assertNotIn("public_case.video_cover.url", detail_template)
 
     def test_home_template_uses_only_the_selected_teaser_and_links_to_cases(self):
         template = (settings.BASE_DIR / "templates" / "core" / "home.html").read_text(
@@ -1918,17 +2096,22 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
         self.assertIn("padding-block:", css)
         self.assertNotRegex(css, r"padding-(?:left|right):")
 
-    def test_case_layout_has_one_bounded_outer_column_and_internal_comparison(self):
+    def test_album_listing_and_detail_have_phone_tablet_desktop_contracts(self):
         css = (settings.BASE_DIR / "static" / "css" / "public-closeout.css").read_text(
             encoding="utf-8"
         )
 
-        self.assertIn(".public-case-group-grid", css)
+        self.assertIn(".public-case-album-grid", css)
         self.assertIn("grid-template-columns: minmax(0, 1fr)", css)
         self.assertIn("max-inline-size:", css)
         self.assertIn("margin-inline: auto", css)
-        self.assertIn(".public-case-comparison.has-before-after", css)
+        self.assertIn("@media (min-width: 768px)", css)
         self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr))", css)
+        self.assertIn(".public-case-album-cover", css)
+        self.assertIn("object-fit: contain", css)
+        self.assertIn("padding: clamp(", css)
+        self.assertIn(".public-case-detail-galleries", css)
+        self.assertNotRegex(css, r"padding-(?:left|right):")
 
 
 class PublicCasesRegressionBoundaryTests(PublicCasesTestDataMixin, TestCase):

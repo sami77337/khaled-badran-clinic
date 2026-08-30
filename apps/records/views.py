@@ -33,6 +33,7 @@ def private_media_download(request, public_id):
         RecordMedia.objects.select_related("patient", "visit"),
         public_id=public_id,
         is_active=True,
+        trashed_at__isnull=True,
     )
     if not media.file:
         raise Http404("Private media file is unavailable.")

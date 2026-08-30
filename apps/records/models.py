@@ -325,6 +325,14 @@ class RecordMedia(models.Model):
         blank=True,
         related_name="record_media_uploaded",
     )
+    trashed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    trashed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="record_media_trashed",
+    )
     uploaded_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -361,7 +369,11 @@ class RecordMedia(models.Model):
 
     @property
     def is_visible_to_patient(self):
-        return self.visibility == self.Visibility.VISIBLE_TO_PATIENT
+        return self.trashed_at is None and self.visibility == self.Visibility.VISIBLE_TO_PATIENT
+
+    @property
+    def is_trashed(self):
+        return self.trashed_at is not None
 
     @property
     def is_public_case_approved(self):
@@ -369,6 +381,7 @@ class RecordMedia(models.Model):
             self.visibility == self.Visibility.APPROVED_PUBLIC_CASE
             and self.consent_confirmed
             and self.is_active
+            and self.trashed_at is None
             and self.public_case_id is not None
             and self.public_case.consent_confirmed
             and self.public_case.is_published
@@ -507,7 +520,7 @@ class RecordMedia(models.Model):
         return super().save(*args, **kwargs)
 
     def get_patient_visible_metadata(self):
-        if not self.is_active or not self.is_visible_to_patient:
+        if not self.is_active or self.is_trashed or not self.is_visible_to_patient:
             return {}
         return {
             "media_type": self.media_type,

@@ -2736,7 +2736,7 @@ def _media_status_labels(media, language):
     return labels
 
 
-def _media_items(media_queryset, language):
+def _media_items(media_queryset, language, request_user=None):
     items = []
     for media in media_queryset:
         staff_download_url = ""
@@ -2771,28 +2771,127 @@ def _media_items(media_queryset, language):
                         "public_id": media.public_id,
                     },
                 ),
+                "trash_url": (
+                    _dashboard_record_url(
+                        "dashboard_media_trash",
+                        language,
+                        kwargs={
+                            "patient_id": media.patient_id,
+                            "public_id": media.public_id,
+                        },
+                    )
+                    if request_user is not None
+                    and media.trashed_at is None
+                    and media.uploaded_by_id == request_user.id
+                    else ""
+                ),
+            }
+        )
+    return items
+
+
+def _staff_display_name(user, language):
+    if user is None:
+        return "\u0645\u0648\u0638\u0641 \u0633\u0627\u0628\u0642" if language == "ar" else "Former staff"
+    return user.get_full_name().strip() or user.get_username()
+
+
+def _trash_items(media_queryset, language, request_user):
+    items = []
+    for media in media_queryset:
+        items.append(
+            {
+                "media": media,
+                "media_type_label": RECORD_MEDIA_TYPE_LABELS[language].get(
+                    media.media_type,
+                    media.get_media_type_display(),
+                ),
+                "deleted_by_label": _staff_display_name(media.trashed_by, language),
+                "purge_at": media.trashed_at + timedelta(days=30),
+                "restore_url": (
+                    _dashboard_record_url(
+                        "dashboard_media_restore",
+                        language,
+                        kwargs={
+                            "patient_id": media.patient_id,
+                            "public_id": media.public_id,
+                        },
+                    )
+                    if media.uploaded_by_id == request_user.id
+                    else ""
+                ),
+            }
+        )
+    return items
+
+
+def _media_deletion_history(patient, language, trashed_media):
+    moved_events = list(
+        AuditLog.objects.filter(
+            app_label="records",
+            model_name="RecordMedia",
+            metadata__action="record_media_moved_to_trash",
+            metadata__patient_id=patient.pk,
+        )
+        .select_related("user")
+        .order_by("-created_at", "-pk")
+    )
+    purged_public_ids = set(
+        AuditLog.objects.filter(
+            app_label="records",
+            model_name="RecordMedia",
+            metadata__action="record_media_purged_after_retention",
+            metadata__patient_id=patient.pk,
+        ).values_list("metadata__media_public_id", flat=True)
+    )
+    trashed_public_ids = {str(media.public_id) for media in trashed_media}
+    items = []
+    for event in moved_events:
+        media_public_id = str(event.metadata.get("media_public_id") or "")
+        status = ""
+        if media_public_id in purged_public_ids:
+            status = "purged"
+        elif media_public_id in trashed_public_ids:
+            status = "trash"
+        media_type = event.metadata.get("media_type")
+        items.append(
+            {
+                "event": event,
+                "media_type_label": RECORD_MEDIA_TYPE_LABELS[language].get(
+                    media_type,
+                    "\u0648\u0633\u0627\u0626\u0637" if language == "ar" else "Media",
+                ),
+                "deleted_by_label": _staff_display_name(event.user, language),
+                "status": status,
             }
         )
     return items
 
 
 def _public_case_items(patient, language):
+    active_media_filter = Q(
+        media_items__is_active=True,
+        media_items__trashed_at__isnull=True,
+    )
     cases = (
         PublicCase.objects.filter(patient=patient)
         .select_related("reference_visit")
         .annotate(
-            media_count=Count("media_items"),
+            media_count=Count("media_items", filter=active_media_filter),
             before_count=Count(
                 "media_items",
-                filter=Q(media_items__public_case_role=RecordMedia.PublicCaseRole.BEFORE),
+                filter=active_media_filter
+                & Q(media_items__public_case_role=RecordMedia.PublicCaseRole.BEFORE),
             ),
             after_count=Count(
                 "media_items",
-                filter=Q(media_items__public_case_role=RecordMedia.PublicCaseRole.AFTER),
+                filter=active_media_filter
+                & Q(media_items__public_case_role=RecordMedia.PublicCaseRole.AFTER),
             ),
             video_count=Count(
                 "media_items",
-                filter=Q(media_items__public_case_role=RecordMedia.PublicCaseRole.VIDEO),
+                filter=active_media_filter
+                & Q(media_items__public_case_role=RecordMedia.PublicCaseRole.VIDEO),
             ),
         )
         .order_by("-created_at", "-id")
@@ -2861,6 +2960,26 @@ def _record_media_audit(*, user, action, instance, event, metadata):
     )
 
 
+def _public_case_has_publishable_assets(public_case):
+    return (
+        RecordMedia.objects.filter(
+            public_case=public_case,
+            public_case_role__in=(
+                RecordMedia.PublicCaseRole.PRIMARY,
+                RecordMedia.PublicCaseRole.BEFORE,
+                RecordMedia.PublicCaseRole.AFTER,
+                RecordMedia.PublicCaseRole.VIDEO,
+            ),
+            visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+            consent_confirmed=True,
+            is_active=True,
+            trashed_at__isnull=True,
+        )
+        .exclude(file="")
+        .exists()
+    )
+
+
 def _validated_e164(phone_number):
     candidate = (phone_number or "").strip()
     return candidate if E164_PHONE_RE.fullmatch(candidate) else ""
@@ -2911,7 +3030,11 @@ def dashboard_patient_list(request):
         patients.annotate(
             visit_count=Count("visit_records", distinct=True),
             note_count=Count("clinical_notes", distinct=True),
-            media_count=Count("record_media", distinct=True),
+            media_count=Count(
+                "record_media",
+                filter=Q(record_media__trashed_at__isnull=True),
+                distinct=True,
+            ),
         ).order_by("full_name", "id")
     )
     for row_number, patient in enumerate(patients, start=1):
@@ -2984,13 +3107,21 @@ def _render_patient_record_detail(
     )
     folders = list(
         RecordMediaFolder.objects.filter(patient=patient)
-        .annotate(media_count=Count("media_items"))
+        .annotate(
+            media_count=Count(
+                "media_items",
+                filter=Q(media_items__trashed_at__isnull=True),
+            )
+        )
         .order_by("name", "id")
     )
     folder_param = (request.GET.get("folder") or "").strip()
     selected_folder = None
     selected_filter = "all"
-    media_queryset = RecordMedia.objects.filter(patient=patient)
+    media_queryset = RecordMedia.objects.filter(
+        patient=patient,
+        trashed_at__isnull=True,
+    )
     if folder_param == "unfiled":
         selected_filter = "unfiled"
         media_queryset = media_queryset.filter(folder__isnull=True)
@@ -3003,11 +3134,23 @@ def _render_patient_record_detail(
             selected_filter = str(selected_folder.pk)
             media_queryset = media_queryset.filter(folder=selected_folder)
 
-    total_media_count = RecordMedia.objects.filter(patient=patient).count()
-    unfiled_count = RecordMedia.objects.filter(patient=patient, folder__isnull=True).count()
+    total_media_count = RecordMedia.objects.filter(
+        patient=patient,
+        trashed_at__isnull=True,
+    ).count()
+    unfiled_count = RecordMedia.objects.filter(
+        patient=patient,
+        folder__isnull=True,
+        trashed_at__isnull=True,
+    ).count()
     media = list(
         media_queryset.select_related("visit", "folder", "public_case", "uploaded_by")
         .order_by("-uploaded_at", "-id")
+    )
+    trashed_media = list(
+        RecordMedia.objects.filter(patient=patient, trashed_at__isnull=False)
+        .select_related("uploaded_by", "trashed_by")
+        .order_by("-trashed_at", "-id")
     )
     selected_query = {"folder": selected_filter} if selected_filter != "all" else {}
     if folder_create_form is None:
@@ -3090,7 +3233,14 @@ def _render_patient_record_detail(
                 }
                 for note in notes
             ],
-            media_items=_media_items(media, language),
+            media_items=_media_items(media, language, request.user),
+            trash_items=_trash_items(trashed_media, language, request.user),
+            trash_count=len(trashed_media),
+            media_deletion_history=_media_deletion_history(
+                patient,
+                language,
+                trashed_media,
+            ),
             visit_count=len(visits),
             note_count=len(notes),
             public_case_items=_public_case_items(patient, language),
@@ -3299,7 +3449,9 @@ def dashboard_media_folder_delete(request, patient_id, folder_id):
             route_kwargs={"patient_id": patient.pk, "folder_id": folder.pk},
             query_params=requested_query,
             folder=folder,
-            folder_media_count=folder.media_items.count(),
+            folder_media_count=folder.media_items.filter(
+                trashed_at__isnull=True,
+            ).count(),
             form_title=("حذف المجلد" if language == "ar" else "Delete Folder"),
             delete_url=_dashboard_record_url(
                 "dashboard_media_folder_delete",
@@ -3557,6 +3709,7 @@ def _detach_existing_video_covers(public_case):
         RecordMedia.objects.select_for_update().filter(
             public_case=public_case,
             public_case_role=RecordMedia.PublicCaseRole.VIDEO_COVER,
+            trashed_at__isnull=True,
         )
     )
     for cover in existing_covers:
@@ -3730,7 +3883,11 @@ def dashboard_public_case_assets(request, patient_id, case_id):
     patient = get_object_or_404(Patient, id=patient_id)
     public_case = get_object_or_404(PublicCase, patient=patient, pk=case_id)
     media = list(
-        RecordMedia.objects.filter(patient=patient, public_case=public_case)
+        RecordMedia.objects.filter(
+            patient=patient,
+            public_case=public_case,
+            trashed_at__isnull=True,
+        )
         .select_related("visit", "folder", "public_case", "uploaded_by")
         .order_by("-uploaded_at", "-public_id")
     )
@@ -3790,6 +3947,7 @@ def dashboard_public_case_asset_remove(request, patient_id, case_id, public_id):
             patient=patient,
             public_case=public_case,
             public_id=public_id,
+            trashed_at__isnull=True,
         )
         media.visibility = RecordMedia.Visibility.PRIVATE_ONLY
         media.public_case = None
@@ -3882,23 +4040,7 @@ def dashboard_public_case_republish(request, patient_id, case_id):
             patient=patient,
             pk=case_id,
         )
-        has_approved_asset = (
-            RecordMedia.objects.filter(
-                patient=patient,
-                public_case=public_case,
-                public_case_role__in=(
-                    RecordMedia.PublicCaseRole.PRIMARY,
-                    RecordMedia.PublicCaseRole.BEFORE,
-                    RecordMedia.PublicCaseRole.AFTER,
-                    RecordMedia.PublicCaseRole.VIDEO,
-                ),
-                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-                consent_confirmed=True,
-                is_active=True,
-            )
-            .exclude(file="")
-            .exists()
-        )
+        has_approved_asset = _public_case_has_publishable_assets(public_case)
         if public_case.consent_confirmed and has_approved_asset:
             public_case.is_published = True
             public_case.save(update_fields=["is_published", "updated_at"])
@@ -3960,10 +4102,12 @@ def dashboard_public_case_merge(request, patient_id, case_id):
                 source_has_cover = RecordMedia.objects.filter(
                     public_case=locked_source,
                     public_case_role=RecordMedia.PublicCaseRole.VIDEO_COVER,
+                    trashed_at__isnull=True,
                 ).exists()
                 destination_has_cover = RecordMedia.objects.filter(
                     public_case=locked_destination,
                     public_case_role=RecordMedia.PublicCaseRole.VIDEO_COVER,
+                    trashed_at__isnull=True,
                 ).exists()
                 if source_has_cover and destination_has_cover:
                     merge_conflict = True
@@ -3971,7 +4115,8 @@ def dashboard_public_case_merge(request, patient_id, case_id):
                 else:
                     merge_conflict = False
                     source_media = RecordMedia.objects.select_for_update().filter(
-                        public_case=locked_source
+                        public_case=locked_source,
+                        trashed_at__isnull=True,
                     )
                     moved_count = source_media.count()
                     source_media.update(public_case=locked_destination)
@@ -4039,6 +4184,155 @@ def dashboard_public_case_merge(request, patient_id, case_id):
 
 
 @_staff_required
+def dashboard_media_trash(request, patient_id, public_id):
+    not_allowed = _method_allowed(request, ["GET", "POST"])
+    if not_allowed:
+        return not_allowed
+    language = _dashboard_language(request)
+    patient = get_object_or_404(Patient, id=patient_id)
+    media = get_object_or_404(
+        RecordMedia.objects.select_related("uploaded_by"),
+        patient=patient,
+        public_id=public_id,
+        trashed_at__isnull=True,
+    )
+    if media.uploaded_by_id is None or media.uploaded_by_id != request.user.id:
+        return HttpResponseForbidden("Only the original uploader may move this media to Trash.")
+
+    if request.method == "POST":
+        with transaction.atomic():
+            media = get_object_or_404(
+                RecordMedia.objects.select_for_update(),
+                patient=patient,
+                public_id=public_id,
+                trashed_at__isnull=True,
+            )
+            if media.uploaded_by_id is None or media.uploaded_by_id != request.user.id:
+                return HttpResponseForbidden(
+                    "Only the original uploader may move this media to Trash."
+                )
+
+            public_case = None
+            if media.public_case_id:
+                public_case = PublicCase.objects.select_for_update().filter(
+                    patient=patient,
+                    pk=media.public_case_id,
+                ).first()
+
+            media.trashed_at = timezone.now()
+            media.trashed_by = request.user
+            media.is_active = False
+            media.visibility = RecordMedia.Visibility.PRIVATE_ONLY
+            media.public_case = None
+            media.public_case_role = ""
+            media.save(
+                update_fields=[
+                    "trashed_at",
+                    "trashed_by",
+                    "is_active",
+                    "visibility",
+                    "public_case",
+                    "public_case_role",
+                ]
+            )
+            _record_media_audit(
+                user=request.user,
+                action=AuditLog.Action.DELETE,
+                instance=media,
+                event="record_media_moved_to_trash",
+                metadata={
+                    "patient_id": patient.pk,
+                    "media_public_id": str(media.public_id),
+                    "media_type": media.media_type,
+                },
+            )
+
+            if public_case is not None and not _public_case_has_publishable_assets(public_case):
+                if public_case.is_published:
+                    public_case.is_published = False
+                    public_case.save(update_fields=["is_published", "updated_at"])
+
+        messages.success(
+            request,
+            (
+                "\u062a\u0645 \u0646\u0642\u0644 \u0627\u0644\u0648\u0633\u0627\u0626\u0637 \u0625\u0644\u0649 \u0633\u0644\u0629 \u0627\u0644\u0645\u062d\u0630\u0648\u0641\u0627\u062a \u0644\u0645\u062f\u0629 30 \u064a\u0648\u0645\u0627\u064b."
+                if language == "ar"
+                else "Media moved to Trash for the 30-day retention period."
+            ),
+        )
+        return redirect(_patient_record_detail_url(patient, language, fragment="media-trash"))
+
+    return render(
+        request,
+        "dashboard/media_confirm_trash.html",
+        _dashboard_record_context(
+            request,
+            patient=patient,
+            route_name="dashboard_media_trash",
+            route_kwargs={"patient_id": patient.pk, "public_id": media.public_id},
+            media=media,
+            media_type_label=RECORD_MEDIA_TYPE_LABELS[language].get(
+                media.media_type,
+                media.get_media_type_display(),
+            ),
+            cancel_url=_patient_record_detail_url(patient, language, fragment="private-media"),
+        ),
+    )
+
+
+@_staff_required
+@require_POST
+def dashboard_media_restore(request, patient_id, public_id):
+    language = _dashboard_language(request)
+    patient = get_object_or_404(Patient, id=patient_id)
+    with transaction.atomic():
+        media = get_object_or_404(
+            RecordMedia.objects.select_for_update(),
+            patient=patient,
+            public_id=public_id,
+            trashed_at__isnull=False,
+        )
+        if media.uploaded_by_id is None or media.uploaded_by_id != request.user.id:
+            return HttpResponseForbidden("Only the original uploader may restore this media.")
+
+        media.trashed_at = None
+        media.trashed_by = None
+        media.is_active = True
+        media.visibility = RecordMedia.Visibility.PRIVATE_ONLY
+        media.public_case = None
+        media.public_case_role = ""
+        media.save(
+            update_fields=[
+                "trashed_at",
+                "trashed_by",
+                "is_active",
+                "visibility",
+                "public_case",
+                "public_case_role",
+            ]
+        )
+        _record_media_audit(
+            user=request.user,
+            action=AuditLog.Action.UPDATE,
+            instance=media,
+            event="record_media_restored_from_trash",
+            metadata={
+                "patient_id": patient.pk,
+                "media_public_id": str(media.public_id),
+                "media_type": media.media_type,
+            },
+        )
+
+    messages.success(
+        request,
+        "\u062a\u0645\u062a \u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0648\u0633\u0627\u0626\u0637 \u0643\u0645\u0644\u0641 \u062e\u0627\u0635."
+        if language == "ar"
+        else "Media restored as private.",
+    )
+    return redirect(_patient_record_detail_url(patient, language, fragment="private-media"))
+
+
+@_staff_required
 def dashboard_media_update(request, patient_id, public_id):
     not_allowed = _method_allowed(request, ["GET", "POST"])
     if not_allowed:
@@ -4055,6 +4349,7 @@ def dashboard_media_update(request, patient_id, public_id):
         ),
         patient=patient,
         public_id=public_id,
+        trashed_at__isnull=True,
     )
     if request.method == "POST":
         original_folder_id = media.folder_id

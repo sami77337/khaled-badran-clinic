@@ -83,6 +83,7 @@
         {% if public_case_teasers %}
             <div class="case-card-row" data-card-carousel>
                 {% for case in public_case_teasers %}
+                    {% with cases_url=case.detail_url %}
                     <article class="case-card">
                         {% if case.teaser %}
                             <div class="case-media">
@@ -96,11 +97,13 @@
                             </div>
                         {% endif %}
                         <div class="case-card-copy">
+                            <a class="home-case-detail-link" href="{{ case.detail_url }}">{% if is_arabic %}&#1593;&#1585;&#1590; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}View Case{% endif %}</a>
                             <p class="eyebrow">{% if is_arabic %}حالة مصرح بعرضها{% else %}Authorized case{% endif %}</p>
                             <h3><a class="case-card-title-link" href="{{ cases_url }}">{{ case.display_title }}</a></h3>
-                            {% if case.description %}<p>{{ case.description }}</p>{% endif %}
+                            {% if case.description %}<p>{{ case.description|truncatechars:180 }}</p>{% endif %}
                         </div>
                     </article>
+                    {% endwith %}
                 {% endfor %}
             </div>
             {% if public_case_teasers|length > 1 %}

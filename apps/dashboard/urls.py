@@ -157,4 +157,14 @@ urlpatterns = [
         views.dashboard_media_update,
         name="dashboard_media_update",
     ),
+    path(
+        "patients/<int:patient_id>/records/media/<uuid:public_id>/trash/",
+        views.dashboard_media_trash,
+        name="dashboard_media_trash",
+    ),
+    path(
+        "patients/<int:patient_id>/records/media/<uuid:public_id>/restore/",
+        views.dashboard_media_restore,
+        name="dashboard_media_restore",
+    ),
 ]
