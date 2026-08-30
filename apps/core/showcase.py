@@ -17,6 +17,21 @@ from .models import PublicReview, SystemSetting
 GOOGLE_REVIEW_AVERAGE_KEY = "google_review_average_rating"
 GOOGLE_REVIEW_COUNT_KEY = "google_review_count"
 
+CAROUSEL_ROLE_LABELS = {
+    "ar": {
+        RecordMedia.PublicCaseRole.BEFORE: "\u0642\u0628\u0644",
+        RecordMedia.PublicCaseRole.AFTER: "\u0628\u0639\u062f",
+        RecordMedia.PublicCaseRole.VIDEO: "\u0641\u064a\u062f\u064a\u0648",
+        RecordMedia.PublicCaseRole.PRIMARY: "\u0635\u0648\u0631\u0629 \u0627\u0644\u062d\u0627\u0644\u0629",
+    },
+    "en": {
+        RecordMedia.PublicCaseRole.BEFORE: "Before",
+        RecordMedia.PublicCaseRole.AFTER: "After",
+        RecordMedia.PublicCaseRole.VIDEO: "Video",
+        RecordMedia.PublicCaseRole.PRIMARY: "Case Image",
+    },
+}
+
 
 def approved_reviews(*, language=None, limit=None):
     queryset = PublicReview.objects.filter(
@@ -82,6 +97,17 @@ def _media_url(media, language):
     return reverse(route, kwargs={"public_id": media.public_id})
 
 
+def _label_carousel_category(items, role, language):
+    total = len(items)
+    role_label = CAROUSEL_ROLE_LABELS[language][role]
+    for position, item in enumerate(items, start=1):
+        separator = " \u0645\u0646 " if language == "ar" else " of "
+        item["label"] = f"{role_label} {position}{separator}{total}"
+        item["category_position"] = position
+        item["category_total"] = total
+    return items
+
+
 def grouped_public_cases(language="ar", limit=None, case_id=None):
     language = "en" if language == "en" else "ar"
     groups = OrderedDict()
@@ -105,6 +131,7 @@ def grouped_public_cases(language="ar", limit=None, case_id=None):
                 "primary_items": [],
                 "video_items": [],
                 "video_cover": None,
+                "carousel_items": [],
                 "case_id": public_case.pk,
                 "description": (public_case.note or "").strip(),
                 "public_title": (public_case.title or "").strip(),
@@ -148,6 +175,31 @@ def grouped_public_cases(language="ar", limit=None, case_id=None):
         if valid_video_cover and group["video_items"]:
             group["video_items"][0]["poster_url"] = valid_video_cover["url"]
         primary_images = group["primary_items"]
+        before_slides = _label_carousel_category(
+            group["before_items"],
+            RecordMedia.PublicCaseRole.BEFORE,
+            language,
+        )
+        after_slides = _label_carousel_category(
+            group["after_items"],
+            RecordMedia.PublicCaseRole.AFTER,
+            language,
+        )
+        primary_slides = _label_carousel_category(
+            primary_images,
+            RecordMedia.PublicCaseRole.PRIMARY,
+            language,
+        )
+        video_slides = _label_carousel_category(
+            group["video_items"],
+            RecordMedia.PublicCaseRole.VIDEO,
+            language,
+        )
+        group["carousel_items"] = (
+            video_slides + before_slides + after_slides + primary_slides
+            if valid_video_cover
+            else before_slides + after_slides + primary_slides + video_slides
+        )
         group["primary"] = (
             group["video_items"][0]
             if group["video_items"]

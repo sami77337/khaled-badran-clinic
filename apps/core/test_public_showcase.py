@@ -179,6 +179,14 @@ class PublicCaseGroupingTests(TestCase):
             self.assertEqual(groups[0]["description"], public_case.note)
             self.assertEqual(groups[0]["before"]["public_id"], before.public_id)
             self.assertEqual(groups[0]["after"]["public_id"], after.public_id)
+            self.assertEqual(
+                [item["public_id"] for item in groups[0]["carousel_items"]],
+                [before.public_id, after.public_id],
+            )
+            self.assertEqual(
+                [item["label"] for item in groups[0]["carousel_items"]],
+                ["Before 1 of 1", "After 1 of 1"],
+            )
 
             public_case.is_published = False
             public_case.save(update_fields=["is_published"])
@@ -241,6 +249,10 @@ class PublicCaseGroupingTests(TestCase):
             self.assertEqual(groups[0]["before"]["public_id"], before.public_id)
             self.assertEqual(groups[0]["after"]["public_id"], after.public_id)
             self.assertEqual(groups[0]["primary"]["public_id"], video.public_id)
+            self.assertEqual(
+                {item["label"] for item in groups[0]["carousel_items"]},
+                {"\u0642\u0628\u0644 1 \u0645\u0646 1", "\u0628\u0639\u062f 1 \u0645\u0646 1", "\u0641\u064a\u062f\u064a\u0648 1 \u0645\u0646 1"},
+            )
 
     def test_canonical_role_titles_are_not_public_headlines_and_note_is_resolved_once(self):
         with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
@@ -260,6 +272,7 @@ class PublicCaseGroupingTests(TestCase):
             rows = (
                 (RecordMedia.MediaType.IMAGE, "before.jpg", "image/jpeg", "Before", "before"),
                 (RecordMedia.MediaType.IMAGE, "after.jpg", "image/jpeg", "After", "after"),
+                (RecordMedia.MediaType.IMAGE, "primary.jpg", "image/jpeg", "Primary", "primary"),
                 (RecordMedia.MediaType.SHORT_VIDEO, "case.mp4", "video/mp4", "", "video"),
             )
             for media_type, filename, content_type, title, role in rows:
@@ -271,7 +284,7 @@ class PublicCaseGroupingTests(TestCase):
                     media_type=media_type,
                     file=SimpleUploadedFile(filename, b"synthetic", content_type=content_type),
                     title=title,
-                    description=note,
+                    description=f"INTERNAL-{role.upper()}-DESCRIPTION-MUST-STAY-HIDDEN",
                     visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
                     consent_confirmed=True,
                     is_active=True,
@@ -281,7 +294,7 @@ class PublicCaseGroupingTests(TestCase):
 
             self.assertEqual(len(groups), 1)
             group = groups[0]
-            self.assertEqual(len(group["items"]), 3)
+            self.assertEqual(len(group["items"]), 4)
             self.assertEqual(group["before"]["role"], "before")
             self.assertEqual(group["after"]["role"], "after")
             self.assertNotIn("title", group["before"])
@@ -289,6 +302,34 @@ class PublicCaseGroupingTests(TestCase):
             self.assertEqual(group["primary"]["media_type"], RecordMedia.MediaType.SHORT_VIDEO)
             self.assertEqual(group["display_title"], "Authorized case 1")
             self.assertEqual(group["description"], note)
+            self.assertEqual(
+                [item["label"] for item in group["carousel_items"]],
+                [
+                    "Before 1 of 1",
+                    "After 1 of 1",
+                    "Case Image 1 of 1",
+                    "Video 1 of 1",
+                ],
+            )
+            self.assertNotIn("INTERNAL-", str(group["carousel_items"]))
+            self.assertTrue(
+                all(
+                    "title" not in item and "description" not in item
+                    for item in group["carousel_items"]
+                )
+            )
+            arabic_labels = [
+                item["label"] for item in grouped_public_cases("ar")[0]["carousel_items"]
+            ]
+            self.assertEqual(
+                arabic_labels,
+                [
+                    "\u0642\u0628\u0644 1 \u0645\u0646 1",
+                    "\u0628\u0639\u062f 1 \u0645\u0646 1",
+                    "\u0635\u0648\u0631\u0629 \u0627\u0644\u062d\u0627\u0644\u0629 1 \u0645\u0646 1",
+                    "\u0641\u064a\u062f\u064a\u0648 1 \u0645\u0646 1",
+                ],
+            )
 
     def test_case_metadata_never_falls_back_to_record_media_metadata(self):
         with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
@@ -416,6 +457,19 @@ class PublicCaseGroupingTests(TestCase):
                 first_group["video_cover"]["url"],
             )
             self.assertEqual(first_group["video_items"][1]["poster_url"], "")
+            self.assertEqual(
+                first_group["carousel_items"][0]["public_id"],
+                first_group["video_items"][0]["public_id"],
+            )
+            self.assertEqual(
+                first_group["carousel_items"][0]["poster_url"],
+                first_group["video_cover"]["url"],
+            )
+            self.assertEqual(first_group["carousel_items"][1]["poster_url"], "")
+            self.assertNotIn(
+                first_group["video_cover"]["public_id"],
+                [item["public_id"] for item in first_group["carousel_items"]],
+            )
             self.assertNotIn(
                 first_group["video_cover"]["public_id"],
                 [item["public_id"] for item in first_group["before_items"]],

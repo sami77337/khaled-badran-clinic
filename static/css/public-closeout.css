@@ -78,56 +78,171 @@
 
 .public-case-album-grid {
     grid-template-columns: minmax(0, 1fr);
-    max-inline-size: 76rem;
+    max-inline-size: 80rem;
     margin-inline: auto;
+    align-items: start;
 }
 
 .public-case-album-card {
     min-width: 0;
+    min-height: 0;
+    height: auto;
+    align-self: start;
     align-content: start;
 }
 
-.public-case-album-cover {
+.public-case-carousel {
     display: grid;
     min-width: 0;
-    min-height: 14rem;
+    gap: 0.55rem;
+    margin: clamp(0.65rem, 1.5vw, 0.85rem) clamp(0.65rem, 1.5vw, 0.85rem) 0;
+}
+
+.public-case-carousel-stage {
+    position: relative;
+    display: grid;
+    min-width: 0;
     aspect-ratio: 4 / 3;
     place-items: center;
     overflow: hidden;
-    margin: clamp(0.75rem, 2vw, 1rem) clamp(0.75rem, 2vw, 1rem) 0;
     border: 1px solid var(--color-line);
     border-radius: var(--radius);
     background: var(--color-soft);
-    padding: clamp(0.45rem, 1vw, 0.7rem);
+    padding: clamp(0.35rem, 1vw, 0.55rem);
 }
 
-.public-case-album-cover img,
-.public-case-album-cover video {
+.public-case-carousel-slide {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    place-items: center;
+    overflow: hidden;
+    margin: 0;
+    border-radius: calc(var(--radius) - 0.2rem);
+}
+
+.public-case-carousel-slide[hidden] {
+    display: none !important;
+}
+
+.public-case-carousel-slide img,
+.public-case-carousel-slide video {
     display: block;
     width: 100%;
     height: 100%;
     max-width: 100%;
-    max-height: 30rem;
+    max-height: 100%;
     border-radius: calc(var(--radius) - 0.2rem);
     object-fit: contain;
 }
 
-.public-case-album-cover video {
-    width: auto;
-    height: auto;
-    max-height: min(48vh, 30rem);
-    max-height: min(48svh, 30rem);
+.public-case-carousel-slide video {
     background: var(--color-charcoal);
+}
+
+.public-case-expand,
+.public-case-carousel-control {
+    display: inline-grid;
+    width: 2.35rem;
+    height: 2.35rem;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    border-radius: 999px;
+    background: rgba(74, 15, 20, 0.9);
+    box-shadow: 0 6px 18px rgba(51, 44, 41, 0.22);
+    color: var(--color-white);
+    cursor: pointer;
+    font: inherit;
+    line-height: 1;
+}
+
+.public-case-expand {
+    position: absolute;
+    inset-block-start: 0.65rem;
+    inset-inline-end: 0.65rem;
+    z-index: 2;
+    font-size: 1.1rem;
+}
+
+.public-case-carousel-nav {
+    position: absolute;
+    inset-inline: 0.65rem;
+    inset-block-start: 50%;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+    transform: translateY(-50%);
+}
+
+.public-case-carousel-control {
+    pointer-events: auto;
+    font-size: 1.7rem;
+}
+
+.is-rtl .public-case-carousel-control span {
+    transform: scaleX(-1);
+}
+
+.public-case-expand:hover,
+.public-case-expand:focus-visible,
+.public-case-carousel-control:hover,
+.public-case-carousel-control:focus-visible {
+    background: var(--color-red);
+}
+
+.public-case-slide-meta {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    color: var(--color-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding-inline: 0.15rem;
+}
+
+.public-case-slide-meta > :first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.public-case-slide-counter {
+    flex: 0 0 auto;
+    direction: ltr;
 }
 
 .public-case-album-copy {
     display: grid;
     align-content: start;
-    gap: 0.65rem;
+    gap: 0.5rem;
+    padding: 0.8rem 1rem 1rem;
 }
 
 .public-case-album-copy > * {
     margin-block: 0;
+}
+
+.public-case-album-card .public-case-album-copy h2 {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: clamp(1.05rem, 1.5vw, 1.25rem);
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.public-case-album-note {
+    display: -webkit-box;
+    overflow: hidden;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 }
 
 .public-case-album-counts {
@@ -145,8 +260,8 @@
     border: 1px solid var(--color-line);
     border-radius: 999px;
     background: var(--color-soft);
-    padding: 0.3rem 0.6rem;
-    font-size: 0.78rem;
+    padding: 0.22rem 0.5rem;
+    font-size: 0.7rem;
 }
 
 .public-case-album-counts dd {
@@ -154,9 +269,144 @@
     font-weight: 700;
 }
 
-.public-case-view-action {
-    justify-self: start;
-    margin-block-start: 0.35rem;
+.public-case-fallback-link {
+    color: var(--color-red);
+    font-weight: 700;
+    text-underline-offset: 0.2em;
+}
+
+.public-case-lightbox {
+    width: min(96vw, 76rem);
+    max-width: none;
+    max-height: calc(100vh - 1rem);
+    max-height: calc(100svh - 1rem);
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    color: var(--color-charcoal);
+    padding: 0;
+}
+
+.public-case-lightbox::backdrop {
+    background: rgba(24, 18, 18, 0.82);
+    backdrop-filter: blur(4px);
+}
+
+.public-case-lightbox-panel {
+    display: grid;
+    max-height: calc(100vh - 1rem);
+    max-height: calc(100svh - 1rem);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    gap: clamp(0.65rem, 1.5vw, 1rem);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: var(--radius-card);
+    background: var(--color-white);
+    box-shadow: 0 28px 80px rgba(20, 12, 12, 0.42);
+    padding: clamp(0.8rem, 2vw, 1.25rem);
+}
+
+.public-case-lightbox-header,
+.public-case-lightbox-meta,
+.public-case-lightbox-nav {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.public-case-lightbox-header h2 {
+    margin: 0;
+    font-size: clamp(1.05rem, 2.4vw, 1.5rem);
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.public-case-lightbox-close {
+    display: inline-grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+    background: var(--color-soft);
+    color: var(--color-burgundy);
+    cursor: pointer;
+    font: inherit;
+    font-size: 1.7rem;
+    line-height: 1;
+}
+
+.public-case-lightbox-meta {
+    color: var(--color-muted);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.public-case-lightbox-meta [data-lightbox-counter] {
+    flex: 0 0 auto;
+    direction: ltr;
+}
+
+.public-case-lightbox-media {
+    display: grid;
+    min-width: 0;
+    min-height: 12rem;
+    height: min(66vh, 46rem);
+    height: min(66svh, 46rem);
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius);
+    background: var(--color-soft);
+    padding: clamp(0.45rem, 1vw, 0.8rem);
+}
+
+.public-case-lightbox-media img,
+.public-case-lightbox-media video {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    margin: auto;
+    border-radius: calc(var(--radius) - 0.2rem);
+    object-fit: contain;
+}
+
+.public-case-lightbox-media video {
+    background: var(--color-charcoal);
+}
+
+.public-case-lightbox-nav button {
+    min-height: 2.65rem;
+    border: 1px solid var(--color-burgundy);
+    border-radius: 999px;
+    background: var(--color-white);
+    color: var(--color-burgundy);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    padding: 0.55rem 1rem;
+}
+
+.public-case-lightbox-nav button:hover,
+.public-case-lightbox-nav button:focus-visible,
+.public-case-lightbox-close:hover,
+.public-case-lightbox-close:focus-visible {
+    border-color: var(--color-red);
+    background: var(--color-red);
+    color: var(--color-white);
+}
+
+.public-case-lightbox button:focus-visible,
+.public-case-expand:focus-visible,
+.public-case-carousel-control:focus-visible,
+.public-case-album-card:focus-visible {
+    outline: 3px solid rgba(139, 30, 40, 0.35);
+    outline-offset: 3px;
 }
 
 .public-case-detail-hero .page-hero-inner {
@@ -322,6 +572,12 @@
     color: var(--color-red);
 }
 
+@media (min-width: 48rem) {
+    .public-case-album-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @media (min-width: 768px) {
     .reviews-page-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -329,10 +585,6 @@
 
     .public-case-video-grid {
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
-    }
-
-    .public-case-album-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .public-case-image-grid {
@@ -358,6 +610,12 @@
     }
 }
 
+@media (min-width: 64rem) {
+    .public-case-album-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 767px) {
     .page-doctor .doctor-profile-content {
         display: none;
@@ -375,5 +633,15 @@
     .reviews-filter .btn {
         flex: 1 1 auto;
         min-width: 0;
+    }
+
+    .public-case-lightbox {
+        width: calc(100vw - 0.75rem);
+    }
+
+    .public-case-lightbox-media {
+        min-height: 10rem;
+        height: min(58vh, 34rem);
+        height: min(58svh, 34rem);
     }
 }

@@ -1277,7 +1277,7 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         )
         self.assertContains(
             response,
-            f'src="{reverse("public_case_media_en", kwargs={"public_id": approved_video.public_id})}"',
+            f'data-src="{reverse("public_case_media_en", kwargs={"public_id": approved_video.public_id})}"',
         )
         self.assertNotContains(response, "Private-only media must stay hidden")
         self.assertNotContains(response, "Patient-visible media must stay hidden")
@@ -1416,8 +1416,14 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertNotContains(response, "INTERNAL-AFTER-NOTE-MUST-STAY-HIDDEN")
         self.assertNotContains(response, "INTERNAL-VIDEO-NOTE-MUST-STAY-HIDDEN")
         self.assertEqual(content.count(f'src="{before_url}"'), 1)
-        self.assertNotIn(after_url, content)
-        self.assertNotIn(video_url, content)
+        self.assertEqual(content.count(f'src="{after_url}"'), 1)
+        self.assertEqual(content.count(f'data-src="{video_url}"'), 1)
+        self.assertContains(response, 'data-slide-label="Before 1 of 1"', count=1)
+        self.assertContains(response, 'data-slide-label="After 1 of 1"', count=1)
+        self.assertContains(response, 'data-slide-label="Video 1 of 1"', count=1)
+        self.assertContains(response, "data-case-controls", count=1)
+        self.assertContains(response, "data-case-current-label", count=1)
+        self.assertContains(response, "data-case-counter", count=1)
         self.assertNotIn("public-case-image-grid", content)
         self.assertNotIn("public-case-video-grid", content)
 
@@ -1504,6 +1510,8 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertNotContains(response, "INTERNAL-BEFORE-ONLY-NOTE")
         self.assertNotContains(response, "INTERNAL-AFTER-ONLY-NOTE")
         self.assertContains(response, 'class="public-case-card public-case-album-card"', count=2)
+        self.assertContains(response, "data-case-carousel", count=2)
+        self.assertNotContains(response, "data-case-controls")
         self.assertNotContains(response, 'class="public-case-image-grid"')
         before_detail = self.client.get(
             reverse("public_case_detail_en", kwargs={"case_id": before_case.pk})
@@ -1602,14 +1610,23 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertContains(cases_response, note, count=1)
         self.assertNotIn("public-case-video-grid", cases_content)
         self.assertNotIn("public-case-image-grid", cases_content)
-        self.assertEqual(cases_content.count("<video"), 0)
+        self.assertEqual(cases_content.count("<video"), 2)
         self.assertEqual(cases_content.count(cover_url), 1)
         for media in rows + videos:
             protected_url = reverse(
                 "public_case_media_en",
                 kwargs={"public_id": media.public_id},
             )
-            self.assertNotIn(protected_url, cases_content)
+            self.assertIn(protected_url, cases_content)
+        self.assertContains(cases_response, "data-case-carousel", count=1)
+        self.assertContains(cases_response, "data-case-slide\n", count=7)
+        self.assertContains(cases_response, "data-case-controls", count=1)
+        self.assertContains(cases_response, "data-case-lightbox", count=1)
+        self.assertContains(cases_response, 'data-slide-label="Video 1 of 2"', count=1)
+        self.assertContains(cases_response, 'data-slide-label="Video 2 of 2"', count=1)
+        self.assertContains(cases_response, 'data-slide-label="Before 1 of 3"', count=1)
+        self.assertContains(cases_response, 'data-slide-label="After 1 of 2"', count=1)
+        self.assertNotContains(cases_response, "public-case-view-action")
 
         detail_response = self.client.get(
             reverse("public_case_detail_en", kwargs={"case_id": public_case.pk})
@@ -1862,7 +1879,10 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertContains(listing, 'class="public-case-card public-case-album-card"', count=1)
         self.assertEqual(listing_content.count(urls[cover.pk]), 1)
         for media in (primary, after, before, video):
-            self.assertNotIn(urls[media.pk], listing_content)
+            self.assertIn(urls[media.pk], listing_content)
+        self.assertEqual(listing_content.count("data-case-slide\n"), 4)
+        self.assertNotIn(f'data-media-public-id="{cover.public_id}"', listing_content)
+        self.assertIn(f'poster="{urls[cover.pk]}"', listing_content)
 
         detail = self.client.get(
             reverse("public_case_detail_en", kwargs={"case_id": public_case.pk})
@@ -1893,6 +1913,18 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
             trashed_at=timezone.now(),
             is_active=False,
         )
+
+        listing = self.client.get(reverse("public_cases_en"))
+        self.assertContains(
+            listing,
+            reverse("public_case_media_en", kwargs={"public_id": visible.public_id}),
+        )
+        self.assertNotContains(
+            listing,
+            reverse("public_case_media_en", kwargs={"public_id": trashed.public_id}),
+        )
+        self.assertContains(listing, "data-case-slide\n", count=1)
+        self.assertNotContains(listing, "data-case-controls")
 
         detail = self.client.get(
             reverse("public_case_detail_en", kwargs={"case_id": visible_case.pk})
@@ -2037,15 +2069,45 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
         )
 
         self.assertEqual(
-            template.count('<article class="public-case-card public-case-album-card">'),
+            template.count('<article class="public-case-card public-case-album-card"'),
             1,
         )
-        self.assertIn("case.cover.media_type", template)
-        self.assertIn("case.cover.url", template)
+        self.assertIn("case.carousel_items", template)
+        self.assertIn("data-case-carousel", template)
+        self.assertIn("data-case-slide", template)
+        self.assertIn("data-case-current-label", template)
+        self.assertIn("data-case-counter", template)
+        self.assertIn("data-case-prev", template)
+        self.assertIn("data-case-next", template)
+        self.assertIn("data-case-expand", template)
+        self.assertIn("data-media-public-id", template)
+        self.assertIn("data-media-type", template)
+        self.assertIn("data-media-role", template)
+        self.assertIn("data-media-url", template)
+        self.assertIn("data-slide-label", template)
+        self.assertIn('preload="none"', template)
+        self.assertIn("muted playsinline controls", template)
+        self.assertNotIn("autoplay", template)
+        self.assertNotIn("media.title", template)
+        self.assertNotIn("media.description", template)
+        self.assertNotIn("media.file", template)
         self.assertIn("case.detail_url", template)
+        self.assertIn("<noscript>", template)
+        self.assertNotIn("public-case-view-action", template)
+        self.assertNotIn('class="btn btn-secondary', template)
         self.assertNotIn("case.before_items", template)
         self.assertNotIn("case.after_items", template)
         self.assertNotIn("case.video_items", template)
+
+        self.assertEqual(template.count("<dialog"), 1)
+        self.assertIn("data-case-lightbox", template)
+        self.assertIn("data-lightbox-title", template)
+        self.assertIn("data-lightbox-label", template)
+        self.assertIn("data-lightbox-counter", template)
+        self.assertIn("data-lightbox-media", template)
+        self.assertIn("data-lightbox-prev", template)
+        self.assertIn("data-lightbox-next", template)
+        self.assertIn("data-lightbox-close", template)
 
         detail_template = (
             settings.BASE_DIR / "templates" / "core" / "case_detail.html"
@@ -2101,17 +2163,101 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
             encoding="utf-8"
         )
 
-        self.assertIn(".public-case-album-grid", css)
-        self.assertIn("grid-template-columns: minmax(0, 1fr)", css)
-        self.assertIn("max-inline-size:", css)
-        self.assertIn("margin-inline: auto", css)
-        self.assertIn("@media (min-width: 768px)", css)
-        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr))", css)
-        self.assertIn(".public-case-album-cover", css)
+        base_grid = re.search(r"\.public-case-album-grid\s*\{(?P<body>[^}]*)\}", css)
+        card_rule = re.search(r"\.public-case-album-card\s*\{(?P<body>[^}]*)\}", css)
+        stage_rule = re.search(r"\.public-case-carousel-stage\s*\{(?P<body>[^}]*)\}", css)
+
+        self.assertIsNotNone(base_grid)
+        self.assertIn("grid-template-columns: minmax(0, 1fr)", base_grid.group("body"))
+        self.assertIn("max-inline-size: 80rem", base_grid.group("body"))
+        self.assertIn("margin-inline: auto", base_grid.group("body"))
+        self.assertIn("align-items: start", base_grid.group("body"))
+        self.assertRegex(
+            css,
+            r"(?s)@media \(min-width: 48rem\).*?\.public-case-album-grid\s*\{[^}]*repeat\(2, minmax\(0, 1fr\)\)",
+        )
+        self.assertRegex(
+            css,
+            r"(?s)@media \(min-width: 64rem\).*?\.public-case-album-grid\s*\{[^}]*repeat\(3, minmax\(0, 1fr\)\)",
+        )
+        self.assertIsNotNone(card_rule)
+        for declaration in ("min-height: 0", "height: auto", "align-self: start"):
+            self.assertIn(declaration, card_rule.group("body"))
+        self.assertIsNotNone(stage_rule)
+        self.assertIn("aspect-ratio: 4 / 3", stage_rule.group("body"))
+        self.assertIn("overflow: hidden", stage_rule.group("body"))
         self.assertIn("object-fit: contain", css)
         self.assertIn("padding: clamp(", css)
+        self.assertIn("-webkit-line-clamp: 2", css)
+        self.assertNotIn(".public-case-view-action", css)
         self.assertIn(".public-case-detail-galleries", css)
         self.assertNotRegex(css, r"padding-(?:left|right):")
+
+    def test_case_carousel_and_lightbox_javascript_contracts(self):
+        javascript = (
+            settings.BASE_DIR / "static" / "js" / "public-closeout.js"
+        ).read_text(encoding="utf-8")
+
+        for contract in (
+            "enforceSilentPlayback",
+            "pauseCaseVideos",
+            "showCaseSlide",
+            "caseNavigationOffsetForKey",
+            "openCaseLightbox",
+            "renderLightboxSlide",
+            "closeCaseLightbox",
+            'querySelectorAll("[data-case-album]")',
+            "caseState.index",
+            "video.pause()",
+            "video.defaultMuted = true",
+            "video.muted = true",
+            "video.volume = 0",
+            "lightbox.showModal()",
+            "lightbox.close()",
+            "lightboxMedia.replaceChildren()",
+            'event.key === "Escape"',
+            '"ArrowLeft"',
+            '"ArrowRight"',
+            'document.documentElement.dir === "rtl"',
+            "opener.focus({ preventScroll: true })",
+            "event.stopPropagation()",
+            'target.closest(interactiveCaseSelector)',
+            'querySelectorAll("[data-review-carousel]")',
+        ):
+            with self.subTest(contract=contract):
+                self.assertIn(contract, javascript)
+        self.assertNotIn(".play()", javascript)
+
+    def test_case_carousel_and_lightbox_runtime_behavior(self):
+        runtime_test = (
+            settings.BASE_DIR
+            / "apps"
+            / "core"
+            / "js_tests"
+            / "public_case_carousel_runtime_test.js"
+        )
+        public_closeout_script = (
+            settings.BASE_DIR / "static" / "js" / "public-closeout.js"
+        )
+
+        result = subprocess.run(
+            ["node", str(runtime_test), str(public_closeout_script)],
+            cwd=settings.BASE_DIR,
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=15,
+        )
+
+        self.assertEqual(
+            result.returncode,
+            0,
+            msg=(
+                "Public case carousel behavior failed:\n"
+                f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+            ),
+        )
+        self.assertIn("public case carousel runtime behavior passed", result.stdout)
 
 
 class PublicCasesRegressionBoundaryTests(PublicCasesTestDataMixin, TestCase):

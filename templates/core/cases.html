@@ -21,29 +21,82 @@
         {% if case_groups %}
             <div class="public-case-grid public-case-album-grid">
                 {% for case in case_groups %}
-                    <article class="public-case-card public-case-album-card">
-                        <a class="public-case-album-cover" href="{{ case.detail_url }}" aria-label="{% if is_arabic %}&#1593;&#1585;&#1590; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}View Case{% endif %}">
-                            {% if case.cover.media_type == 'short_video' %}
-                                <video src="{{ case.cover.url }}" muted playsinline preload="metadata"></video>
-                            {% else %}
-                                <img src="{{ case.cover.url }}" alt="{% if is_arabic %}&#1594;&#1604;&#1575;&#1601; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}Case cover{% endif %}" loading="lazy">
-                            {% endif %}
-                        </a>
+                    <article class="public-case-card public-case-album-card" data-case-album tabindex="0" aria-labelledby="case-title-{{ case.case_id }}">
+                        <div class="public-case-carousel" data-case-carousel>
+                            <div class="public-case-carousel-stage" data-case-stage>
+                                {% for media in case.carousel_items %}
+                                    <figure
+                                        class="public-case-carousel-slide"
+                                        data-case-slide
+                                        data-media-public-id="{{ media.public_id }}"
+                                        data-media-type="{{ media.media_type }}"
+                                        data-media-role="{{ media.role }}"
+                                        data-media-url="{{ media.url }}"
+                                        data-slide-label="{{ media.label }}"
+                                        aria-hidden="{% if forloop.first %}false{% else %}true{% endif %}"
+                                        {% if not forloop.first %}hidden{% endif %}
+                                    >
+                                        {% if media.media_type == 'short_video' %}
+                                            <video data-src="{{ media.url }}"{% if media.poster_url %} poster="{{ media.poster_url }}"{% endif %} muted playsinline controls preload="none" data-public-case-video data-case-slide-media aria-label="{{ media.label }}"></video>
+                                        {% else %}
+                                            <img src="{{ media.url }}" alt="{{ media.label }}" loading="lazy" data-case-slide-media>
+                                        {% endif %}
+                                        <button class="public-case-expand" type="button" data-case-expand aria-label="{% if is_arabic %}&#1601;&#1578;&#1581; &#1605;&#1593;&#1585;&#1590; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577; &#1575;&#1604;&#1605;&#1603;&#1576;&#1585;{% else %}Open enlarged case gallery{% endif %}">
+                                            <span aria-hidden="true">&#x26F6;</span>
+                                        </button>
+                                    </figure>
+                                {% endfor %}
+                                {% if case.carousel_items|length > 1 %}
+                                    <div class="public-case-carousel-nav" data-case-controls>
+                                        <button class="public-case-carousel-control" type="button" data-case-prev aria-label="{% if is_arabic %}&#1575;&#1604;&#1608;&#1587;&#1610;&#1591; &#1575;&#1604;&#1587;&#1575;&#1576;&#1602;{% else %}Previous case media{% endif %}">
+                                            <span aria-hidden="true">&#8249;</span>
+                                        </button>
+                                        <button class="public-case-carousel-control" type="button" data-case-next aria-label="{% if is_arabic %}&#1575;&#1604;&#1608;&#1587;&#1610;&#1591; &#1575;&#1604;&#1578;&#1575;&#1604;&#1610;{% else %}Next case media{% endif %}">
+                                            <span aria-hidden="true">&#8250;</span>
+                                        </button>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="public-case-slide-meta" aria-live="polite" aria-atomic="true">
+                                <span data-case-current-label>{{ case.carousel_items.0.label }}</span>
+                                <span class="public-case-slide-counter" data-case-counter>1 / {{ case.carousel_items|length }}</span>
+                            </div>
+                        </div>
                         <div class="public-case-copy public-case-album-copy">
                             <p class="eyebrow">{% if is_arabic %}&#1605;&#1581;&#1578;&#1608;&#1609; &#1605;&#1589;&#1585;&#1581; &#1576;&#1593;&#1585;&#1590;&#1607;{% else %}Approved public content{% endif %}</p>
-                            <h2><a class="case-card-title-link" href="{{ case.detail_url }}">{{ case.display_title }}</a></h2>
-                            {% if case.description %}<p>{{ case.description|truncatechars:180 }}</p>{% endif %}
+                            <h2 id="case-title-{{ case.case_id }}">{{ case.display_title }}</h2>
+                            {% if case.description %}<p class="public-case-album-note">{{ case.description }}</p>{% endif %}
                             <dl class="public-case-album-counts" aria-label="{% if is_arabic %}&#1593;&#1583;&#1583; &#1608;&#1587;&#1575;&#1574;&#1591; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}Case media counts{% endif %}">
                                 {% if case.counts.videos %}<div><dt>{% if is_arabic %}&#1601;&#1610;&#1583;&#1610;&#1608;{% else %}Videos{% endif %}</dt><dd>{{ case.counts.videos }}</dd></div>{% endif %}
                                 {% if case.counts.before %}<div><dt>{% if is_arabic %}&#1602;&#1576;&#1604;{% else %}Before{% endif %}</dt><dd>{{ case.counts.before }}</dd></div>{% endif %}
                                 {% if case.counts.after %}<div><dt>{% if is_arabic %}&#1576;&#1593;&#1583;{% else %}After{% endif %}</dt><dd>{{ case.counts.after }}</dd></div>{% endif %}
                                 {% if case.counts.primary %}<div><dt>{% if is_arabic %}&#1589;&#1608;&#1585;{% else %}Images{% endif %}</dt><dd>{{ case.counts.primary }}</dd></div>{% endif %}
                             </dl>
-                            <a class="btn btn-secondary public-case-view-action" href="{{ case.detail_url }}">{% if is_arabic %}&#1593;&#1585;&#1590; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}View Case{% endif %}</a>
+                            <noscript><a class="public-case-fallback-link" href="{{ case.detail_url }}">{% if is_arabic %}&#1593;&#1585;&#1590; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}View Case{% endif %}</a></noscript>
                         </div>
                     </article>
                 {% endfor %}
             </div>
+
+            <dialog class="public-case-lightbox" data-case-lightbox aria-labelledby="public-case-lightbox-title">
+                <div class="public-case-lightbox-panel">
+                    <header class="public-case-lightbox-header">
+                        <h2 id="public-case-lightbox-title" data-lightbox-title></h2>
+                        <button class="public-case-lightbox-close" type="button" data-lightbox-close aria-label="{% if is_arabic %}&#1573;&#1594;&#1604;&#1575;&#1602; &#1605;&#1593;&#1585;&#1590; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}Close case gallery{% endif %}">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </header>
+                    <div class="public-case-lightbox-meta" aria-live="polite" aria-atomic="true">
+                        <span data-lightbox-label></span>
+                        <span data-lightbox-counter></span>
+                    </div>
+                    <div class="public-case-lightbox-media" data-lightbox-media></div>
+                    <div class="public-case-lightbox-nav">
+                        <button type="button" data-lightbox-prev>{% if is_arabic %}&#1575;&#1604;&#1587;&#1575;&#1576;&#1602;{% else %}Previous{% endif %}</button>
+                        <button type="button" data-lightbox-next>{% if is_arabic %}&#1575;&#1604;&#1578;&#1575;&#1604;&#1610;{% else %}Next{% endif %}</button>
+                    </div>
+                </div>
+            </dialog>
         {% else %}
             <div class="empty-showcase public-cases-empty" role="status">
                 <span class="privacy-mark" aria-hidden="true">&#10003;</span>
