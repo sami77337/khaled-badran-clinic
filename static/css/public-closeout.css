@@ -130,12 +130,14 @@
 .public-case-carousel-slide img,
 .public-case-carousel-slide video {
     display: block;
-    width: 100%;
-    height: 100%;
-    max-width: 100%;
-    max-height: 100%;
+    inline-size: auto;
+    block-size: auto;
+    max-inline-size: 100%;
+    max-block-size: 100%;
+    margin: auto;
     border-radius: calc(var(--radius) - 0.2rem);
     object-fit: contain;
+    object-position: center;
 }
 
 .public-case-carousel-slide video {

@@ -25,20 +25,30 @@ class FakeEventTarget {
 
     dispatch(type, properties = {}) {
         const event = {
+            currentTarget: this,
             defaultPrevented: false,
             key: "",
+            propagationStopped: false,
             relatedTarget: null,
+            target: this,
             stopPropagation() {
                 this.propagationStopped = true;
             },
             preventDefault() {
                 this.defaultPrevented = true;
             },
-            target: this,
             ...properties,
             type,
         };
-        (this.listeners.get(type) || []).forEach((callback) => callback(event));
+        let currentTarget = this;
+        while (currentTarget) {
+            event.currentTarget = currentTarget;
+            (currentTarget.listeners.get(type) || []).forEach((callback) => callback(event));
+            if (event.propagationStopped) {
+                break;
+            }
+            currentTarget = currentTarget.parentElement || null;
+        }
         return event;
     }
 }
@@ -50,6 +60,10 @@ class FakeClassList {
 
     add(value) {
         this.values.add(value);
+    }
+
+    contains(value) {
+        return this.values.has(value);
     }
 }
 
@@ -176,7 +190,12 @@ const makeSlide = ({ label, mediaType, mediaUrl, posterUrl = "" }, index) => {
     return { expand, media, slide };
 };
 
-const buildRuntime = (direction = "ltr") => {
+const buildRuntime = ({
+    dialogSupported = true,
+    direction = "ltr",
+    matchMediaSupported = true,
+    readyState = "complete",
+} = {}) => {
     const slideParts = [
         makeSlide({ label: "Before 1 of 1", mediaType: "image", mediaUrl: "/before" }, 0),
         makeSlide({
@@ -197,12 +216,15 @@ const buildRuntime = (direction = "ltr") => {
     currentLabel.dataset.caseCurrentLabel = "";
     const currentCounter = new FakeElement("span", "card-counter");
     currentCounter.dataset.caseCounter = "";
+    const carousel = new FakeElement("div", "case-carousel");
+    carousel.dataset.caseCarousel = "";
+    carousel.append(...slides, previousButton, nextButton, currentLabel, currentCounter);
     const title = new FakeElement("h2", "card-title");
     title.textContent = "Safe public case title";
     const card = new FakeElement("article", "case-card");
     card.dataset.caseAlbum = "";
-    slides.forEach((slide) => card.append(slide));
-    card.append(previousButton, nextButton, currentLabel, currentCounter, title);
+    card.dataset.caseDetailUrl = "/en/cases/42/";
+    card.append(carousel, title);
 
     const lightboxTitle = new FakeElement("h2", "lightbox-title");
     lightboxTitle.dataset.lightboxTitle = "";
@@ -227,18 +249,30 @@ const buildRuntime = (direction = "ltr") => {
         lightboxNext,
         lightboxClose,
     );
-    lightbox.showModal = () => {
-        lightbox.open = true;
-    };
-    lightbox.close = () => {
-        lightbox.open = false;
-        lightbox.dispatch("close", { target: lightbox });
-    };
+    if (dialogSupported) {
+        lightbox.showModal = () => {
+            lightbox.open = true;
+        };
+        lightbox.close = () => {
+            lightbox.open = false;
+            lightbox.dispatch("close", { target: lightbox });
+        };
+    }
+
+    const reviewCarousel = new FakeElement("div", "review-carousel");
+    reviewCarousel.dataset.reviewCarousel = "";
+    const reviewCards = [1, 2, 3, 4].map((index) => {
+        const reviewCard = new FakeElement("article", `review-${index}`);
+        reviewCard.dataset.reviewCard = "";
+        return reviewCard;
+    });
+    reviewCarousel.append(...reviewCards);
 
     const document = new FakeEventTarget();
     document.body = new FakeElement("body", "body");
     document.documentElement = { dir: direction };
     document.hidden = false;
+    document.readyState = readyState;
     document.createElement = (tagName) => new FakeElement(tagName, `created-${tagName}`);
     document.querySelector = (selector) => (
         selector === "[data-case-lightbox]" ? lightbox : null
@@ -246,20 +280,29 @@ const buildRuntime = (direction = "ltr") => {
     document.querySelectorAll = (selector) => ({
         "[data-case-album]": [card],
         "[data-public-case-video]": [cardVideo],
-        "[data-review-carousel]": [],
+        "[data-review-carousel]": [reviewCarousel],
     })[selector] || [];
 
+    const navigations = [];
     const window = new FakeEventTarget();
     window.clearInterval = () => {};
-    window.matchMedia = () => {
-        const mediaQuery = new FakeEventTarget();
-        mediaQuery.matches = false;
-        return mediaQuery;
+    if (matchMediaSupported) {
+        window.matchMedia = () => {
+            const mediaQuery = new FakeEventTarget();
+            mediaQuery.matches = false;
+            return mediaQuery;
+        };
+    }
+    window.location = {
+        assign(url) {
+            navigations.push(url);
+        },
     };
     window.setInterval = () => 1;
 
     const context = vm.createContext({
         Array,
+        Boolean,
         document,
         Element: FakeElement,
         getComputedStyle: () => ({ direction }),
@@ -270,54 +313,90 @@ const buildRuntime = (direction = "ltr") => {
     });
     vm.runInContext(publicCloseoutScript, context, { filename: publicCloseoutScriptPath });
 
+    const fireDomReady = () => {
+        document.readyState = "interactive";
+        document.dispatch("DOMContentLoaded", { target: document });
+    };
+
     return {
         card,
         cardVideo,
+        carousel,
         currentCounter,
         currentLabel,
         document,
         expandButtons,
+        fireDomReady,
         lightbox,
         lightboxClose,
         lightboxCounter,
         lightboxLabel,
         lightboxMedia,
-        lightboxNext,
+        navigations,
         nextButton,
         previousButton,
+        reviewCards,
+        reviewCarousel,
         slideParts,
         slides,
     };
 };
 
 {
-    const runtime = buildRuntime("ltr");
+    const runtime = buildRuntime({ direction: "ltr", readyState: "loading" });
+    assert.equal(
+        runtime.carousel.dataset.caseCarouselReady,
+        undefined,
+        "a loading document must wait for DOMContentLoaded",
+    );
+
+    runtime.fireDomReady();
+    assert.equal(runtime.carousel.dataset.caseCarouselReady, "true");
     assert.equal(runtime.currentLabel.textContent, "Before 1 of 1");
     assert.equal(runtime.currentCounter.textContent, "1 / 3");
     assert.equal(runtime.slides[0].hidden, false);
+    assert.equal(runtime.slides[0].getAttribute("aria-hidden"), "false");
     assert.equal(runtime.slides[1].hidden, true);
+    assert.equal(runtime.slides[1].getAttribute("aria-hidden"), "true");
     assert.equal(runtime.cardVideo.getAttribute("src"), null, "hidden video must remain unhydrated");
+    assert.equal(runtime.reviewCarousel.classList.contains("is-carousel-ready"), true);
+    assert.equal(runtime.reviewCards[0].hidden, false);
+    assert.equal(runtime.reviewCards[1].hidden, true);
 
-    runtime.nextButton.dispatch("click");
+    const mediaAreaClick = runtime.slideParts[0].media.dispatch("click");
+    assert.equal(mediaAreaClick.propagationStopped, false);
+    assert.equal(runtime.lightbox.open, true, "non-interactive media may open the current slide");
+    assert.equal(runtime.lightboxLabel.textContent, "Before 1 of 1");
+    runtime.lightboxClose.dispatch("click");
+    assert.equal(runtime.card.focused, true, "media-area close must restore focus to the card");
+
+    const nextClick = runtime.nextButton.dispatch("click");
+    assert.equal(nextClick.defaultPrevented, true);
+    assert.equal(nextClick.propagationStopped, true);
     assert.equal(runtime.lightbox.open, false, "card next must only change the slide");
     assert.equal(runtime.currentLabel.textContent, "Video 1 of 1");
     assert.equal(runtime.currentCounter.textContent, "2 / 3");
+    assert.equal(runtime.slides[0].hidden, true);
+    assert.equal(runtime.slides[0].getAttribute("aria-hidden"), "true");
+    assert.equal(runtime.slides[1].hidden, false);
+    assert.equal(runtime.slides[1].getAttribute("aria-hidden"), "false");
     assert.equal(runtime.cardVideo.getAttribute("src"), "/video");
     assert.ok(runtime.cardVideo.pauseCount > 0, "slide changes must pause card videos");
 
-    const cardNextKey = runtime.card.dispatch("keydown", {
-        key: "ArrowRight",
-        target: runtime.card,
-    });
-    assert.equal(cardNextKey.defaultPrevented, true);
-    assert.equal(runtime.currentLabel.textContent, "After 1 of 1");
-    runtime.card.dispatch("keydown", { key: "ArrowLeft", target: runtime.card });
-    assert.equal(runtime.currentLabel.textContent, "Video 1 of 1");
+    const previousClick = runtime.previousButton.dispatch("click");
+    assert.equal(previousClick.defaultPrevented, true);
+    assert.equal(previousClick.propagationStopped, true);
+    assert.equal(runtime.currentLabel.textContent, "Before 1 of 1");
+    assert.equal(runtime.currentCounter.textContent, "1 / 3");
+    assert.equal(runtime.lightbox.open, false, "card previous must only change the slide");
+    runtime.nextButton.dispatch("click");
 
-    runtime.card.dispatch("click", { target: runtime.cardVideo });
+    runtime.cardVideo.dispatch("click");
     assert.equal(runtime.lightbox.open, false, "native video controls must not open the lightbox");
 
-    runtime.expandButtons[1].dispatch("click");
+    const expandClick = runtime.expandButtons[1].dispatch("click");
+    assert.equal(expandClick.defaultPrevented, true);
+    assert.equal(expandClick.propagationStopped, true);
     assert.equal(runtime.lightbox.open, true);
     assert.equal(runtime.lightboxLabel.textContent, "Video 1 of 1");
     assert.equal(runtime.lightboxCounter.textContent, "2 / 3");
@@ -337,12 +416,61 @@ const buildRuntime = (direction = "ltr") => {
     assert.equal(runtime.lightboxMedia.children.length, 0);
     assert.equal(runtime.expandButtons[1].focused, true, "close must restore focus to the opener");
 
-    runtime.previousButton.dispatch("click");
-    assert.equal(runtime.lightbox.open, false, "card previous must only change the slide");
+    const cardNextKey = runtime.card.dispatch("keydown", {
+        key: "ArrowRight",
+        target: runtime.card,
+    });
+    assert.equal(cardNextKey.defaultPrevented, true);
+    assert.equal(runtime.currentLabel.textContent, "After 1 of 1");
+    runtime.card.dispatch("keydown", { key: "ArrowLeft", target: runtime.card });
+    assert.equal(runtime.currentLabel.textContent, "Video 1 of 1");
+
+    runtime.fireDomReady();
+    assert.equal(
+        runtime.nextButton.listeners.get("click").length,
+        1,
+        "the DOM-ready initializer must be idempotent",
+    );
 }
 
 {
-    const runtime = buildRuntime("rtl");
+    const runtime = buildRuntime({
+        dialogSupported: false,
+        matchMediaSupported: false,
+        readyState: "loading",
+    });
+    runtime.fireDomReady();
+
+    assert.equal(runtime.carousel.dataset.caseCarouselReady, "true");
+    assert.equal(
+        runtime.reviewCarousel.classList.contains("is-carousel-ready"),
+        true,
+        "Reviews initialization must remain independent of optional matchMedia APIs",
+    );
+    runtime.nextButton.dispatch("click");
+    assert.equal(runtime.currentLabel.textContent, "Video 1 of 1");
+    assert.equal(runtime.currentCounter.textContent, "2 / 3");
+    runtime.previousButton.dispatch("click");
+    assert.equal(runtime.currentLabel.textContent, "Before 1 of 1");
+    assert.equal(runtime.currentCounter.textContent, "1 / 3");
+    assert.equal(runtime.lightbox.open, false);
+
+    runtime.expandButtons[0].dispatch("click");
+    assert.deepEqual(
+        runtime.navigations,
+        ["/en/cases/42/"],
+        "unsupported dialog must use only the existing safe case-detail fallback",
+    );
+    runtime.nextButton.dispatch("click");
+    assert.equal(
+        runtime.currentLabel.textContent,
+        "Video 1 of 1",
+        "unsupported dialog must never disable in-card navigation",
+    );
+}
+
+{
+    const runtime = buildRuntime({ direction: "rtl" });
     runtime.card.dispatch("keydown", { key: "ArrowLeft", target: runtime.card });
     assert.equal(runtime.currentLabel.textContent, "Video 1 of 1", "RTL ArrowLeft must move next");
     runtime.card.dispatch("keydown", { key: "ArrowRight", target: runtime.card });

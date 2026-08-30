@@ -2166,6 +2166,11 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
         base_grid = re.search(r"\.public-case-album-grid\s*\{(?P<body>[^}]*)\}", css)
         card_rule = re.search(r"\.public-case-album-card\s*\{(?P<body>[^}]*)\}", css)
         stage_rule = re.search(r"\.public-case-carousel-stage\s*\{(?P<body>[^}]*)\}", css)
+        media_rule = re.search(
+            r"\.public-case-carousel-slide img,\s*"
+            r"\.public-case-carousel-slide video\s*\{(?P<body>[^}]*)\}",
+            css,
+        )
 
         self.assertIsNotNone(base_grid)
         self.assertIn("grid-template-columns: minmax(0, 1fr)", base_grid.group("body"))
@@ -2186,7 +2191,25 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
         self.assertIsNotNone(stage_rule)
         self.assertIn("aspect-ratio: 4 / 3", stage_rule.group("body"))
         self.assertIn("overflow: hidden", stage_rule.group("body"))
-        self.assertIn("object-fit: contain", css)
+        self.assertIsNotNone(media_rule)
+        media_body = media_rule.group("body")
+        for declaration in (
+            "display: block",
+            "inline-size: auto",
+            "block-size: auto",
+            "max-inline-size: 100%",
+            "max-block-size: 100%",
+            "margin: auto",
+            "object-fit: contain",
+            "object-position: center",
+        ):
+            with self.subTest(declaration=declaration):
+                self.assertIn(declaration, media_body)
+        self.assertNotRegex(
+            media_body,
+            r"(?m)^\s*(?:width|height|inline-size|block-size):\s*100%;",
+        )
+        self.assertNotIn("object-fit: cover", media_body)
         self.assertIn("padding: clamp(", css)
         self.assertIn("-webkit-line-clamp: 2", css)
         self.assertNotIn(".public-case-view-action", css)
@@ -2197,6 +2220,9 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
         javascript = (
             settings.BASE_DIR / "static" / "js" / "public-closeout.js"
         ).read_text(encoding="utf-8")
+        template = (settings.BASE_DIR / "templates" / "core" / "cases.html").read_text(
+            encoding="utf-8"
+        )
 
         for contract in (
             "enforceSilentPlayback",
@@ -2211,7 +2237,13 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
             "video.pause()",
             "video.defaultMuted = true",
             "video.muted = true",
-            "video.volume = 0",
+            "initializePublicCloseout",
+            "initializeCaseCarousels",
+            'document.readyState === "loading"',
+            'document.addEventListener("DOMContentLoaded"',
+            'typeof lightbox.showModal === "function"',
+            'carousel.dataset.caseCarouselReady = "true"',
+            "window.location.assign(caseState.detailUrl)",
             "lightbox.showModal()",
             "lightbox.close()",
             "lightboxMedia.replaceChildren()",
@@ -2220,13 +2252,16 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
             '"ArrowRight"',
             'document.documentElement.dir === "rtl"',
             "opener.focus({ preventScroll: true })",
+            "event.preventDefault()",
             "event.stopPropagation()",
             'target.closest(interactiveCaseSelector)',
             'querySelectorAll("[data-review-carousel]")',
+            "addMediaQueryChangeListener",
         ):
             with self.subTest(contract=contract):
                 self.assertIn(contract, javascript)
         self.assertNotIn(".play()", javascript)
+        self.assertIn('data-case-detail-url="{{ case.detail_url }}"', template)
 
     def test_case_carousel_and_lightbox_runtime_behavior(self):
         runtime_test = (

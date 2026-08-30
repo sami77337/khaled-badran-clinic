@@ -21,7 +21,7 @@
         {% if case_groups %}
             <div class="public-case-grid public-case-album-grid">
                 {% for case in case_groups %}
-                    <article class="public-case-card public-case-album-card" data-case-album tabindex="0" aria-labelledby="case-title-{{ case.case_id }}">
+                    <article class="public-case-card public-case-album-card" data-case-album data-case-detail-url="{{ case.detail_url }}" tabindex="0" aria-labelledby="case-title-{{ case.case_id }}">
                         <div class="public-case-carousel" data-case-carousel>
                             <div class="public-case-carousel-stage" data-case-stage>
                                 {% for media in case.carousel_items %}
