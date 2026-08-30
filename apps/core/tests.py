@@ -1113,6 +1113,7 @@ class PublicCasesTestDataMixin:
         reference_visit=None,
         title="",
         note="",
+        detail_note="",
         consent_confirmed=True,
         is_published=True,
     ):
@@ -1122,6 +1123,7 @@ class PublicCasesTestDataMixin:
             reference_visit=reference_visit,
             title=title,
             note=note,
+            detail_note=detail_note,
             consent_confirmed=consent_confirmed,
             is_published=is_published,
         )
@@ -1365,10 +1367,15 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         appointment = self.create_appointment(patient=patient)
         visit = self.create_visit(patient=patient, appointment=appointment)
         note = "Synthetic explicit short public case note."
+        detail_note = (
+            "Synthetic complete detailed case note.\n"
+            "This text belongs only to the final case-note slide."
+        )
         public_case = self.create_public_case(
             patient=patient,
             reference_visit=visit,
             note=note,
+            detail_note=detail_note,
         )
         before = self.create_media(
             patient=patient,
@@ -1408,6 +1415,7 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertContains(response, 'class="public-case-card public-case-album-card"', count=1)
         self.assertContains(response, "Authorized case 1", count=1)
         self.assertContains(response, note, count=1)
+        self.assertContains(response, detail_note, count=1)
         self.assertContains(
             response,
             reverse("public_case_detail_en", kwargs={"case_id": public_case.pk}),
@@ -1421,6 +1429,21 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertContains(response, 'data-slide-label="Before 1 of 1"', count=1)
         self.assertContains(response, 'data-slide-label="After 1 of 1"', count=1)
         self.assertContains(response, 'data-slide-label="Video 1 of 1"', count=1)
+        self.assertContains(response, 'data-slide-label="Case Notes"', count=1)
+        self.assertContains(response, 'data-slide-kind="note"', count=1)
+        self.assertContains(response, "data-case-note-text", count=1)
+        self.assertContains(response, "1 / 4", count=1)
+        note_slide = re.search(
+            r'<figure\s+class="public-case-carousel-slide public-case-carousel-note-slide"(?P<body>.*?)</figure>',
+            content,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(note_slide)
+        self.assertNotIn("data-media-public-id", note_slide.group("body"))
+        self.assertNotIn("data-media-url", note_slide.group("body"))
+        self.assertNotIn("<img", note_slide.group("body"))
+        self.assertNotIn("<video", note_slide.group("body"))
+        self.assertNotIn(note, note_slide.group("body"))
         self.assertContains(response, "data-case-controls", count=1)
         self.assertContains(response, "data-case-current-label", count=1)
         self.assertContains(response, "data-case-counter", count=1)
@@ -1435,6 +1458,9 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         self.assertEqual(detail.status_code, 200)
         self.assertContains(detail, "Authorized case 1", count=1)
         self.assertContains(detail, note, count=1)
+        self.assertContains(detail, "Case Notes", count=1)
+        for detail_line in detail_note.splitlines():
+            self.assertContains(detail, detail_line, count=1)
         self.assertEqual(detail_content.count(f'src="{before_url}"'), 1)
         self.assertEqual(detail_content.count(f'src="{after_url}"'), 1)
         self.assertEqual(detail_content.count(f'src="{video_url}"'), 1)
@@ -1442,6 +1468,10 @@ class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
         for attribute in ("muted", "playsinline", "controls"):
             self.assertIn(attribute, video_tag)
         self.assertNotIn("autoplay", video_tag)
+
+        home = self.client.get(reverse("home_en"))
+        self.assertContains(home, note, count=1)
+        self.assertNotContains(home, detail_note)
 
         blocked_fragments = (
             patient.full_name,
@@ -2075,6 +2105,7 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
         self.assertIn("case.carousel_items", template)
         self.assertIn("data-case-carousel", template)
         self.assertIn("data-case-slide", template)
+        self.assertIn("data-slide-kind", template)
         self.assertIn("data-case-current-label", template)
         self.assertIn("data-case-counter", template)
         self.assertIn("data-case-prev", template)
@@ -2085,6 +2116,8 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
         self.assertIn("data-media-role", template)
         self.assertIn("data-media-url", template)
         self.assertIn("data-slide-label", template)
+        self.assertIn("data-case-note-text", template)
+        self.assertIn("slide.kind == 'note'", template)
         self.assertIn('preload="none"', template)
         self.assertIn("muted playsinline controls", template)
         self.assertNotIn("autoplay", template)
@@ -2115,6 +2148,8 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
         self.assertIn("public_case.before_items", detail_template)
         self.assertIn("public_case.after_items", detail_template)
         self.assertIn("public_case.video_items", detail_template)
+        self.assertIn("public_case.detail_note", detail_template)
+        self.assertIn("Case Notes", detail_template)
         self.assertIn('poster="{{ video.poster_url }}"', detail_template)
         self.assertNotIn("public_case.video_cover.url", detail_template)
 
@@ -2231,6 +2266,9 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
             "caseNavigationOffsetForKey",
             "openCaseLightbox",
             "renderLightboxSlide",
+            'slide.dataset.slideKind === "note"',
+            'slide.querySelector("[data-case-note-text]")',
+            'noteCard.className = "public-case-lightbox-note"',
             "closeCaseLightbox",
             'querySelectorAll("[data-case-album]")',
             "caseState.index",
@@ -2261,6 +2299,7 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
             with self.subTest(contract=contract):
                 self.assertIn(contract, javascript)
         self.assertNotIn(".play()", javascript)
+        self.assertNotIn("detailNote", javascript)
         self.assertIn('data-case-detail-url="{{ case.detail_url }}"', template)
 
     def test_case_carousel_and_lightbox_runtime_behavior(self):

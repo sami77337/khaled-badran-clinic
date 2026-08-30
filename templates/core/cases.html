@@ -24,22 +24,30 @@
                     <article class="public-case-card public-case-album-card" data-case-album data-case-detail-url="{{ case.detail_url }}" tabindex="0" aria-labelledby="case-title-{{ case.case_id }}">
                         <div class="public-case-carousel" data-case-carousel>
                             <div class="public-case-carousel-stage" data-case-stage>
-                                {% for media in case.carousel_items %}
+                                {% for slide in case.carousel_items %}
                                     <figure
-                                        class="public-case-carousel-slide"
+                                        class="public-case-carousel-slide{% if slide.kind == 'note' %} public-case-carousel-note-slide{% endif %}"
                                         data-case-slide
-                                        data-media-public-id="{{ media.public_id }}"
-                                        data-media-type="{{ media.media_type }}"
-                                        data-media-role="{{ media.role }}"
-                                        data-media-url="{{ media.url }}"
-                                        data-slide-label="{{ media.label }}"
+                                        data-slide-kind="{{ slide.kind }}"
+                                        data-slide-label="{{ slide.label }}"
+                                        {% if slide.kind == 'media' %}
+                                            data-media-public-id="{{ slide.public_id }}"
+                                            data-media-type="{{ slide.media_type }}"
+                                            data-media-role="{{ slide.role }}"
+                                            data-media-url="{{ slide.url }}"
+                                        {% endif %}
                                         aria-hidden="{% if forloop.first %}false{% else %}true{% endif %}"
                                         {% if not forloop.first %}hidden{% endif %}
                                     >
-                                        {% if media.media_type == 'short_video' %}
-                                            <video data-src="{{ media.url }}"{% if media.poster_url %} poster="{{ media.poster_url }}"{% endif %} muted playsinline controls preload="none" data-public-case-video data-case-slide-media aria-label="{{ media.label }}"></video>
+                                        {% if slide.kind == 'note' %}
+                                            <div class="public-case-note-slide-card">
+                                                <h3>{{ slide.label }}</h3>
+                                                <p class="public-case-note-slide-text" data-case-note-text>{{ slide.text }}</p>
+                                            </div>
+                                        {% elif slide.media_type == 'short_video' %}
+                                            <video data-src="{{ slide.url }}"{% if slide.poster_url %} poster="{{ slide.poster_url }}"{% endif %} muted playsinline controls preload="none" data-public-case-video data-case-slide-media aria-label="{{ slide.label }}"></video>
                                         {% else %}
-                                            <img src="{{ media.url }}" alt="{{ media.label }}" loading="lazy" data-case-slide-media>
+                                            <img src="{{ slide.url }}" alt="{{ slide.label }}" loading="lazy" data-case-slide-media>
                                         {% endif %}
                                         <button class="public-case-expand" type="button" data-case-expand aria-label="{% if is_arabic %}&#1601;&#1578;&#1581; &#1605;&#1593;&#1585;&#1590; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577; &#1575;&#1604;&#1605;&#1603;&#1576;&#1585;{% else %}Open enlarged case gallery{% endif %}">
                                             <span aria-hidden="true">&#x26F6;</span>

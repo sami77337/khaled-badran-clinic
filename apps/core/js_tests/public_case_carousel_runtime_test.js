@@ -167,27 +167,48 @@ const makeButton = (name, datasetKey) => {
     return button;
 };
 
-const makeSlide = ({ label, mediaType, mediaUrl, posterUrl = "" }, index) => {
+const makeSlide = ({
+    kind = "media",
+    label,
+    mediaType = "",
+    mediaUrl = "",
+    noteText = "",
+    posterUrl = "",
+}, index) => {
     const slide = new FakeElement("figure", `slide-${index + 1}`);
     slide.dataset.caseSlide = "";
-    slide.dataset.mediaType = mediaType;
-    slide.dataset.mediaUrl = mediaUrl;
+    slide.dataset.slideKind = kind;
     slide.dataset.slideLabel = label;
-
-    const media = new FakeElement(mediaType === "short_video" ? "video" : "img", `media-${index + 1}`);
-    media.dataset.caseSlideMedia = "";
-    if (mediaType === "short_video") {
-        media.dataset.publicCaseVideo = "";
-        media.dataset.src = mediaUrl;
-        if (posterUrl) {
-            media.setAttribute("poster", posterUrl);
+    let media = null;
+    let note = null;
+    if (kind === "note") {
+        const noteCard = new FakeElement("div", `note-card-${index + 1}`);
+        note = new FakeElement("p", `note-text-${index + 1}`);
+        note.dataset.caseNoteText = "";
+        note.textContent = noteText;
+        noteCard.append(note);
+        slide.append(noteCard);
+    } else {
+        slide.dataset.mediaType = mediaType;
+        slide.dataset.mediaUrl = mediaUrl;
+        media = new FakeElement(
+            mediaType === "short_video" ? "video" : "img",
+            `media-${index + 1}`,
+        );
+        media.dataset.caseSlideMedia = "";
+        if (mediaType === "short_video") {
+            media.dataset.publicCaseVideo = "";
+            media.dataset.src = mediaUrl;
+            if (posterUrl) {
+                media.setAttribute("poster", posterUrl);
+            }
         }
+        slide.append(media);
     }
-    slide.append(media);
 
     const expand = makeButton(`expand-${index + 1}`, "caseExpand");
     slide.append(expand);
-    return { expand, media, slide };
+    return { expand, media, note, slide };
 };
 
 const buildRuntime = ({
@@ -205,6 +226,11 @@ const buildRuntime = ({
             posterUrl: "/video-cover",
         }, 1),
         makeSlide({ label: "After 1 of 1", mediaType: "image", mediaUrl: "/after" }, 2),
+        makeSlide({
+            kind: "note",
+            label: "Case Notes",
+            noteText: "Complete detailed note text for the public case.",
+        }, 3),
     ];
     const slides = slideParts.map((part) => part.slide);
     const expandButtons = slideParts.map((part) => part.expand);
@@ -332,6 +358,8 @@ const buildRuntime = ({
         lightboxCounter,
         lightboxLabel,
         lightboxMedia,
+        lightboxNext,
+        lightboxPrevious,
         navigations,
         nextButton,
         previousButton,
@@ -353,7 +381,7 @@ const buildRuntime = ({
     runtime.fireDomReady();
     assert.equal(runtime.carousel.dataset.caseCarouselReady, "true");
     assert.equal(runtime.currentLabel.textContent, "Before 1 of 1");
-    assert.equal(runtime.currentCounter.textContent, "1 / 3");
+    assert.equal(runtime.currentCounter.textContent, "1 / 4");
     assert.equal(runtime.slides[0].hidden, false);
     assert.equal(runtime.slides[0].getAttribute("aria-hidden"), "false");
     assert.equal(runtime.slides[1].hidden, true);
@@ -375,7 +403,7 @@ const buildRuntime = ({
     assert.equal(nextClick.propagationStopped, true);
     assert.equal(runtime.lightbox.open, false, "card next must only change the slide");
     assert.equal(runtime.currentLabel.textContent, "Video 1 of 1");
-    assert.equal(runtime.currentCounter.textContent, "2 / 3");
+    assert.equal(runtime.currentCounter.textContent, "2 / 4");
     assert.equal(runtime.slides[0].hidden, true);
     assert.equal(runtime.slides[0].getAttribute("aria-hidden"), "true");
     assert.equal(runtime.slides[1].hidden, false);
@@ -387,7 +415,7 @@ const buildRuntime = ({
     assert.equal(previousClick.defaultPrevented, true);
     assert.equal(previousClick.propagationStopped, true);
     assert.equal(runtime.currentLabel.textContent, "Before 1 of 1");
-    assert.equal(runtime.currentCounter.textContent, "1 / 3");
+    assert.equal(runtime.currentCounter.textContent, "1 / 4");
     assert.equal(runtime.lightbox.open, false, "card previous must only change the slide");
     runtime.nextButton.dispatch("click");
 
@@ -399,7 +427,7 @@ const buildRuntime = ({
     assert.equal(expandClick.propagationStopped, true);
     assert.equal(runtime.lightbox.open, true);
     assert.equal(runtime.lightboxLabel.textContent, "Video 1 of 1");
-    assert.equal(runtime.lightboxCounter.textContent, "2 / 3");
+    assert.equal(runtime.lightboxCounter.textContent, "2 / 4");
     assert.equal(runtime.lightboxMedia.children[0].tagName, "VIDEO");
     assert.equal(runtime.lightboxMedia.children[0].muted, true);
     assert.equal(runtime.lightboxMedia.children[0].getAttribute("poster"), null);
@@ -411,10 +439,37 @@ const buildRuntime = ({
     assert.equal(runtime.lightboxLabel.textContent, "After 1 of 1");
     assert.ok(expandedVideo.pauseCount > 0, "leaving a lightbox video must pause it");
 
+    runtime.lightboxNext.dispatch("click");
+    assert.equal(runtime.lightboxLabel.textContent, "Case Notes");
+    assert.equal(runtime.lightboxCounter.textContent, "4 / 4");
+    assert.equal(runtime.lightboxMedia.children[0].tagName, "DIV");
+    assert.equal(runtime.lightboxMedia.querySelector("img"), null);
+    assert.equal(runtime.lightboxMedia.querySelector("video"), null);
+    assert.equal(
+        runtime.lightboxMedia.children[0].children[1].textContent,
+        "Complete detailed note text for the public case.",
+    );
+    runtime.lightboxNext.dispatch("click");
+    assert.equal(runtime.lightboxLabel.textContent, "Before 1 of 1", "note Next must wrap normally");
+    runtime.lightboxPrevious.dispatch("click");
+    assert.equal(runtime.lightboxLabel.textContent, "Case Notes", "note Previous must wrap normally");
+
     runtime.lightboxClose.dispatch("click");
     assert.equal(runtime.lightbox.open, false);
     assert.equal(runtime.lightboxMedia.children.length, 0);
     assert.equal(runtime.expandButtons[1].focused, true, "close must restore focus to the opener");
+
+    runtime.nextButton.dispatch("click");
+    runtime.nextButton.dispatch("click");
+    assert.equal(runtime.currentLabel.textContent, "Case Notes");
+    runtime.expandButtons[3].dispatch("click");
+    assert.equal(runtime.lightbox.open, true, "the note slide expand control must open the lightbox");
+    assert.equal(runtime.lightboxMedia.children[0].tagName, "DIV");
+    runtime.lightboxClose.dispatch("click");
+    assert.equal(runtime.expandButtons[3].focused, true, "note close must restore focus to its opener");
+
+    runtime.previousButton.dispatch("click");
+    runtime.previousButton.dispatch("click");
 
     const cardNextKey = runtime.card.dispatch("keydown", {
         key: "ArrowRight",
@@ -449,10 +504,10 @@ const buildRuntime = ({
     );
     runtime.nextButton.dispatch("click");
     assert.equal(runtime.currentLabel.textContent, "Video 1 of 1");
-    assert.equal(runtime.currentCounter.textContent, "2 / 3");
+    assert.equal(runtime.currentCounter.textContent, "2 / 4");
     runtime.previousButton.dispatch("click");
     assert.equal(runtime.currentLabel.textContent, "Before 1 of 1");
-    assert.equal(runtime.currentCounter.textContent, "1 / 3");
+    assert.equal(runtime.currentCounter.textContent, "1 / 4");
     assert.equal(runtime.lightbox.open, false);
 
     runtime.expandButtons[0].dispatch("click");

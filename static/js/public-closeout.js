@@ -119,29 +119,39 @@
             );
             const slide = caseState.slides[activeLightboxState.index];
             const label = slide.dataset.slideLabel || "";
-            const mediaUrl = slide.dataset.mediaUrl || "";
-            let media;
-
-            if (slide.dataset.mediaType === "short_video") {
-                media = document.createElement("video");
-                media.src = mediaUrl;
-                const cardVideo = slide.querySelector("video");
-                const posterUrl = cardVideo ? cardVideo.getAttribute("poster") : "";
-                if (posterUrl) {
-                    media.poster = posterUrl;
-                }
-                media.controls = true;
-                media.playsInline = true;
-                media.preload = "metadata";
-                media.setAttribute("aria-label", label);
-                prepareSilentVideo(media);
+            if (slide.dataset.slideKind === "note") {
+                const noteSource = slide.querySelector("[data-case-note-text]");
+                const noteCard = document.createElement("div");
+                const noteHeading = document.createElement("h3");
+                const noteText = document.createElement("p");
+                noteCard.className = "public-case-lightbox-note";
+                noteHeading.textContent = label;
+                noteText.textContent = noteSource ? noteSource.textContent : "";
+                noteCard.append(noteHeading, noteText);
+                lightboxMedia.append(noteCard);
             } else {
-                media = document.createElement("img");
-                media.src = mediaUrl;
-                media.alt = label;
+                const mediaUrl = slide.dataset.mediaUrl || "";
+                let media;
+                if (slide.dataset.mediaType === "short_video") {
+                    media = document.createElement("video");
+                    media.src = mediaUrl;
+                    const cardVideo = slide.querySelector("video");
+                    const posterUrl = cardVideo ? cardVideo.getAttribute("poster") : "";
+                    if (posterUrl) {
+                        media.poster = posterUrl;
+                    }
+                    media.controls = true;
+                    media.playsInline = true;
+                    media.preload = "metadata";
+                    media.setAttribute("aria-label", label);
+                    prepareSilentVideo(media);
+                } else {
+                    media = document.createElement("img");
+                    media.src = mediaUrl;
+                    media.alt = label;
+                }
+                lightboxMedia.append(media);
             }
-
-            lightboxMedia.append(media);
             lightboxTitle.textContent = caseState.title;
             lightboxLabel.textContent = label;
             lightboxCounter.textContent = `${activeLightboxState.index + 1} / ${caseState.slides.length}`;

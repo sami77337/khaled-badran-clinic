@@ -565,6 +565,80 @@ class PublicCaseBackfillMigrationTests(TransactionTestCase):
         )
 
 
+class PublicCaseDetailNoteMigrationTests(TransactionTestCase):
+    migrate_from = ("records", "0006_recordmedia_trashed_at_recordmedia_trashed_by")
+    migrate_to = ("records", "0007_publiccase_detail_note")
+
+    def setUp(self):
+        super().setUp()
+        executor = MigrationExecutor(connection)
+        executor.migrate([self.migrate_from])
+        old_apps = executor.loader.project_state([self.migrate_from]).apps
+        PatientModel = old_apps.get_model("patients", "Patient")
+        PublicCaseModel = old_apps.get_model("records", "PublicCase")
+        MediaModel = old_apps.get_model("records", "RecordMedia")
+
+        patient = PatientModel.objects.create(
+            full_name="Synthetic Detail Note Migration Patient",
+            phone_raw="+962700000011",
+        )
+        self.short_original = "  Short historical public note.  "
+        self.long_original = "  " + ("Long historical public note. " * 12) + "\n"
+        self.short_case = PublicCaseModel.objects.create(
+            patient_id=patient.pk,
+            title="Short historical case",
+            note=self.short_original,
+            consent_confirmed=True,
+            is_published=True,
+        )
+        self.long_case = PublicCaseModel.objects.create(
+            patient_id=patient.pk,
+            title="Long historical case",
+            note=self.long_original,
+            consent_confirmed=True,
+            is_published=True,
+        )
+        self.media = MediaModel.objects.create(
+            patient_id=patient.pk,
+            public_case_id=self.long_case.pk,
+            public_case_role="before",
+            media_type="image",
+            file="records/synthetic-detail-note-migration.jpg",
+            original_filename="synthetic-detail-note-migration.jpg",
+            file_size=10,
+            content_type="image/jpeg",
+            visibility="approved_public_case",
+            consent_confirmed=True,
+            is_active=True,
+        )
+
+        executor = MigrationExecutor(connection)
+        executor.migrate([self.migrate_to])
+        self.apps = executor.loader.project_state([self.migrate_to]).apps
+
+    def tearDown(self):
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes("records"))
+        super().tearDown()
+
+    def test_length_classification_preserves_complete_text_and_relationships(self):
+        PublicCaseModel = self.apps.get_model("records", "PublicCase")
+        MediaModel = self.apps.get_model("records", "RecordMedia")
+        short_case = PublicCaseModel.objects.get(pk=self.short_case.pk)
+        long_case = PublicCaseModel.objects.get(pk=self.long_case.pk)
+        media = MediaModel.objects.get(pk=self.media.pk)
+
+        self.assertEqual(short_case.note, self.short_original)
+        self.assertEqual(short_case.detail_note, "")
+        self.assertEqual(long_case.note, "")
+        self.assertEqual(long_case.detail_note, self.long_original)
+        self.assertGreater(len(long_case.detail_note.strip()), 180)
+        self.assertNotEqual(long_case.note, long_case.detail_note)
+        self.assertEqual(media.public_case_id, long_case.pk)
+        self.assertEqual(PublicCaseModel.objects.count(), 2)
+        self.assertEqual(MediaModel.objects.count(), 1)
+
+
 
 class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
     def test_uploaded_image_is_accepted_with_allowed_type_and_size(self):

@@ -171,6 +171,7 @@ class PublicCase(models.Model):
     )
     title = models.CharField(max_length=180, blank=True)
     note = models.TextField(blank=True)
+    detail_note = models.TextField(blank=True)
     consent_confirmed = models.BooleanField(default=False, db_index=True)
     is_published = models.BooleanField(default=False, db_index=True)
     created_by = models.ForeignKey(

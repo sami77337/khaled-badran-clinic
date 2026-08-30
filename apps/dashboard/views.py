@@ -3642,6 +3642,7 @@ def dashboard_public_case_create(request, patient_id):
                     reference_visit=form.cleaned_data.get("reference_visit"),
                     title=form.cleaned_data["case_title"],
                     note=form.cleaned_data.get("short_note", ""),
+                    detail_note=form.cleaned_data.get("detail_note", ""),
                     consent_confirmed=True,
                     is_published=True,
                     created_by=request.user,

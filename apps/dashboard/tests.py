@@ -1461,12 +1461,14 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
         folder=None,
         title="Synthetic public-safe case title",
         note="",
+        detail_note="",
         consent=True,
     ):
         payload = {
             "reference_visit": str((visit or self.visit).id),
             "case_title": title,
             "short_note": note,
+            "detail_note": detail_note,
         }
         if folder is not None:
             payload["folder"] = str(folder.pk)
@@ -1554,7 +1556,10 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
                     "صور بعد",
                     "فيديوهات",
                     "غلاف الفيديو (اختياري)",
-                    "ملاحظة عامة قصيرة (اختياري)",
+                    "ملاحظة قصيرة (اختياري)",
+                    "تظهر أسفل عنوان الحالة في البطاقة.",
+                    "ملاحظة تفصيلية (اختياري)",
+                    "تظهر كبطاقة نصية أخيرة داخل ألبوم الحالة.",
                     "أؤكد أن موافقة المريض على النشر تم الحصول عليها في العيادة.",
                     "نشر الحالة",
                     "إلغاء",
@@ -1573,7 +1578,10 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
                     "After images",
                     "Videos",
                     "Video cover image (optional)",
-                    "Short public note (optional)",
+                    "Short note (optional)",
+                    "Shown below the case title.",
+                    "Detailed note (optional)",
+                    "Shown as the final text card in the case album.",
                     (
                         "I confirm that the patient&#x27;s consent for public display was "
                         "obtained in the clinic."
@@ -1590,7 +1598,10 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
                 self.assertContains(response, f'<html lang="{language}" dir="{direction}">')
                 self.assertContains(response, 'enctype="multipart/form-data"')
                 self.assertContains(response, 'name="short_note"')
+                self.assertContains(response, 'name="detail_note"')
                 self.assertContains(response, 'maxlength="500"')
+                self.assertContains(response, 'name="short_note"', count=1)
+                self.assertContains(response, 'maxlength="180"', count=2)
                 self.assertContains(response, 'name="case_title"')
                 self.assertContains(response, 'maxlength="180"')
                 self.assertContains(response, 'name="before_images"')
@@ -1784,8 +1795,9 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
                 RecordMedia.objects.filter(patient=self.patient).delete()
                 PublicCase.objects.filter(patient=self.patient).delete()
 
-    def test_short_note_is_optional_limited_and_stored_once_on_public_case(self):
+    def test_public_notes_are_optional_limited_and_stored_only_on_public_case(self):
         note = "Synthetic short public-facing case note."
+        detail_note = "Synthetic detailed public-facing case explanation.\nComplete and safe."
         response = self.client.post(
             f"{self.url}?lang=en",
             self.publish_payload(
@@ -1793,6 +1805,7 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
                 after=self.synthetic_image_file(name="note-after.jpg"),
                 video=self.synthetic_video_file(name="note-video.mp4"),
                 note=note,
+                detail_note=detail_note,
             ),
         )
 
@@ -1808,6 +1821,10 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertEqual(
             PublicCase.objects.get(patient=self.patient).note,
             note,
+        )
+        self.assertEqual(
+            PublicCase.objects.get(patient=self.patient).detail_note,
+            detail_note,
         )
         self.assertEqual(
             set(RecordMedia.objects.filter(patient=self.patient).values_list("description", flat=True)),
@@ -1833,11 +1850,25 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
             f"{self.url}?lang=en",
             self.publish_payload(
                 before=self.synthetic_image_file(name="long-note.jpg"),
-                note="x" * 501,
+                note="x" * 181,
             ),
         )
         self.assertEqual(too_long.status_code, 400)
         self.assertContains(too_long, "Ensure this value does not exceed", status_code=400)
+        self.assertFalse(RecordMedia.objects.filter(patient=self.patient).exists())
+
+        detail_too_long = self.client.post(
+            f"{self.url}?lang=en",
+            self.publish_payload(
+                before=self.synthetic_image_file(name="long-detail-note.jpg"),
+                detail_note="x" * 501,
+            ),
+        )
+        self.assertContains(
+            detail_too_long,
+            "Ensure this value does not exceed",
+            status_code=400,
+        )
         self.assertFalse(RecordMedia.objects.filter(patient=self.patient).exists())
 
     def test_invalid_second_or_third_file_rolls_back_the_entire_case(self):
@@ -1942,6 +1973,19 @@ class DashboardPublicCasePublishTests(DashboardRecordWorkflowMixin, TestCase):
         )
         self.assertContains(
             phone_in_note,
+            "The patient&#x27;s name or phone number cannot be published in public content.",
+            status_code=400,
+        )
+
+        name_in_detail_note = self.client.post(
+            f"{self.url}?lang=en",
+            self.publish_payload(
+                before=self.synthetic_image_file(name="patient-name-detail-note.jpg"),
+                detail_note=f"Detailed result for {self.patient.full_name}.",
+            ),
+        )
+        self.assertContains(
+            name_in_detail_note,
             "The patient&#x27;s name or phone number cannot be published in public content.",
             status_code=400,
         )
@@ -2299,11 +2343,35 @@ class DashboardPublicCaseLifecycleTests(DashboardRecordWorkflowMixin, TestCase):
 
     def test_edit_updates_metadata_with_pii_and_ownership_guards_only(self):
         stored_name = self.before.file.name
+        english_form = self.client.get(
+            f'{self.case_url("dashboard_public_case_edit")}?lang=en'
+        )
+        arabic_form = self.client.get(self.case_url("dashboard_public_case_edit"))
+        for copy in (
+            "Short note (optional)",
+            "Shown below the case title.",
+            "Detailed note (optional)",
+            "Shown as the final text card in the case album.",
+        ):
+            self.assertContains(english_form, copy)
+        for copy in (
+            "ملاحظة قصيرة (اختياري)",
+            "تظهر أسفل عنوان الحالة في البطاقة.",
+            "ملاحظة تفصيلية (اختياري)",
+            "تظهر كبطاقة نصية أخيرة داخل ألبوم الحالة.",
+        ):
+            self.assertContains(arabic_form, copy)
+        self.assertContains(english_form, 'name="note"')
+        self.assertContains(english_form, 'name="detail_note"')
+        self.assertContains(english_form, 'maxlength="180"', count=2)
+        self.assertContains(english_form, 'maxlength="500"', count=1)
+
         response = self.client.post(
             f'{self.case_url("dashboard_public_case_edit")}?lang=en',
             {
                 "title": "Updated public-safe title",
                 "note": "Updated public-safe note.",
+                "detail_note": "Updated public-safe detailed note.",
                 "reference_visit": str(self.later_visit.pk),
             },
         )
@@ -2317,20 +2385,53 @@ class DashboardPublicCaseLifecycleTests(DashboardRecordWorkflowMixin, TestCase):
         self.before.refresh_from_db()
         self.assertEqual(self.public_case.title, "Updated public-safe title")
         self.assertEqual(self.public_case.note, "Updated public-safe note.")
+        self.assertEqual(
+            self.public_case.detail_note,
+            "Updated public-safe detailed note.",
+        )
         self.assertEqual(self.public_case.reference_visit, self.later_visit)
         self.assertEqual(self.before.file.name, stored_name)
 
         rejected = self.client.post(
             f'{self.case_url("dashboard_public_case_edit")}?lang=en',
             {
-                "title": f"Result for {self.patient.full_name}",
+                "title": "Another public-safe title",
                 "note": "Public-safe note.",
+                "detail_note": f"Result for {self.patient.full_name}",
                 "reference_visit": "",
             },
         )
         self.assertContains(
             rejected,
             "The patient&#x27;s name or phone number cannot be published in public content.",
+            status_code=400,
+        )
+        short_too_long = self.client.post(
+            f'{self.case_url("dashboard_public_case_edit")}?lang=en',
+            {
+                "title": "Length validation title",
+                "note": "x" * 181,
+                "detail_note": "Safe detailed note.",
+                "reference_visit": "",
+            },
+        )
+        detail_too_long = self.client.post(
+            f'{self.case_url("dashboard_public_case_edit")}?lang=en',
+            {
+                "title": "Detailed length validation title",
+                "note": "Safe short note.",
+                "detail_note": "x" * 501,
+                "reference_visit": "",
+            },
+        )
+        self.assertContains(
+            short_too_long,
+            "Ensure this value does not exceed",
+            status_code=400,
+        )
+        self.assertContains(
+            detail_too_long,
+            "Ensure this value does not exceed",
             status_code=400,
         )
         audit = AuditLog.objects.get(metadata__action="public_case_metadata_updated")

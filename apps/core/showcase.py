@@ -32,6 +32,11 @@ CAROUSEL_ROLE_LABELS = {
     },
 }
 
+CASE_NOTE_LABELS = {
+    "ar": "\u0645\u0644\u0627\u062d\u0638\u0627\u062a \u0627\u0644\u062d\u0627\u0644\u0629",
+    "en": "Case Notes",
+}
+
 
 def approved_reviews(*, language=None, limit=None):
     queryset = PublicReview.objects.filter(
@@ -134,6 +139,7 @@ def grouped_public_cases(language="ar", limit=None, case_id=None):
                 "carousel_items": [],
                 "case_id": public_case.pk,
                 "description": (public_case.note or "").strip(),
+                "detail_note": (public_case.detail_note or "").strip(),
                 "public_title": (public_case.title or "").strip(),
             },
         )
@@ -143,6 +149,7 @@ def grouped_public_cases(language="ar", limit=None, case_id=None):
         elif role == PUBLIC_CASE_ROLE_VIDEO:
             role = RecordMedia.PublicCaseRole.PRIMARY
         item = {
+            "kind": "media",
             "public_id": media.public_id,
             "media_type": media.media_type,
             "url": _media_url(media, language),
@@ -200,6 +207,14 @@ def grouped_public_cases(language="ar", limit=None, case_id=None):
             if valid_video_cover
             else before_slides + after_slides + primary_slides + video_slides
         )
+        if group["detail_note"]:
+            group["carousel_items"].append(
+                {
+                    "kind": "note",
+                    "label": CASE_NOTE_LABELS[language],
+                    "text": group["detail_note"],
+                }
+            )
         group["primary"] = (
             group["video_items"][0]
             if group["video_items"]

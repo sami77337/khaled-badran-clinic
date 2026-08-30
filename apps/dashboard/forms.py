@@ -30,7 +30,8 @@ TIME_INPUT_FORMATS = ["%H:%M"]
 MAX_VISIT_DURATION_MINUTES = 65_535
 MAX_BOOKING_HORIZON_DAYS = 3_650
 MAX_BOOKING_RULE_MINUTES = 5_256_000
-PUBLIC_CASE_NOTE_MAX_LENGTH = 500
+PUBLIC_CASE_NOTE_MAX_LENGTH = 180
+PUBLIC_CASE_DETAIL_NOTE_MAX_LENGTH = 500
 PUBLIC_CASE_TITLE_MAX_LENGTH = 180
 
 RECORD_FIELD_ERROR_MESSAGES = {
@@ -954,7 +955,15 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
         max_length=PUBLIC_CASE_NOTE_MAX_LENGTH,
         strip=True,
         widget=forms.Textarea(
-            attrs={"rows": 3, "maxlength": str(PUBLIC_CASE_NOTE_MAX_LENGTH)}
+            attrs={"rows": 2, "maxlength": str(PUBLIC_CASE_NOTE_MAX_LENGTH)}
+        ),
+    )
+    detail_note = forms.CharField(
+        required=False,
+        max_length=PUBLIC_CASE_DETAIL_NOTE_MAX_LENGTH,
+        strip=True,
+        widget=forms.Textarea(
+            attrs={"rows": 6, "maxlength": str(PUBLIC_CASE_DETAIL_NOTE_MAX_LENGTH)}
         ),
     )
     consent_confirmed = forms.BooleanField(required=True)
@@ -1002,7 +1011,8 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
                     "after_images": "صور بعد",
                     "videos": "فيديوهات",
                     "video_cover": "غلاف الفيديو (اختياري)",
-                    "short_note": "ملاحظة عامة قصيرة (اختياري)",
+                    "short_note": "ملاحظة قصيرة (اختياري)",
+                    "detail_note": "ملاحظة تفصيلية (اختياري)",
                     "consent_confirmed": (
                         "أؤكد أن موافقة المريض على النشر تم الحصول عليها في العيادة."
                     ),
@@ -1015,7 +1025,8 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
                     "after_images": "After images",
                     "videos": "Videos",
                     "video_cover": "Video cover image (optional)",
-                    "short_note": "Short public note (optional)",
+                    "short_note": "Short note (optional)",
+                    "detail_note": "Detailed note (optional)",
                     "consent_confirmed": (
                         "I confirm that the patient's consent for public display was obtained "
                         "in the clinic."
@@ -1030,10 +1041,8 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
                     "case_title": (
                         "سيظهر هذا العنوان للزوار. لا تكتب اسم المريض أو أي معلومات تعريفية."
                     ),
-                    "short_note": (
-                        "تظهر هذه الملاحظة للزوار. لا تكتب اسم المريض أو رقم الهاتف أو أي "
-                        "معلومات طبية خاصة."
-                    ),
+                    "short_note": "تظهر أسفل عنوان الحالة في البطاقة.",
+                    "detail_note": "تظهر كبطاقة نصية أخيرة داخل ألبوم الحالة.",
                 },
                 "en": {
                     "reference_visit": (
@@ -1044,14 +1053,12 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
                         "This title is public. Do not enter the patient's name or identifying "
                         "information."
                     ),
-                    "short_note": (
-                        "This note is visible to visitors. Do not enter the patient's name, "
-                        "phone number, or private medical information."
-                    ),
+                    "short_note": "Shown below the case title.",
+                    "detail_note": "Shown as the final text card in the case album.",
                 },
             },
         )
-        for field_name in ("case_title", "short_note"):
+        for field_name in ("case_title", "short_note", "detail_note"):
             if field_name not in self.fields:
                 continue
             for validator in self.fields[field_name].validators:
@@ -1116,7 +1123,7 @@ class StaffPublicCaseCreateForm(_LocalizedRecordFormMixin, forms.Form):
             "لا يمكن نشر اسم المريض أو رقم هاتفه ضمن المحتوى العام.",
             "The patient's name or phone number cannot be published in public content.",
         )
-        for field_name in ("case_title", "short_note"):
+        for field_name in ("case_title", "short_note", "detail_note"):
             if field_name not in self.fields:
                 continue
             value = cleaned_data.get(field_name, "")
@@ -1202,17 +1209,21 @@ class StaffPublicCaseAddMediaForm(StaffPublicCaseCreateForm):
         super().__init__(*args, public_case=public_case, **kwargs)
         self.fields.pop("case_title")
         self.fields.pop("short_note")
+        self.fields.pop("detail_note")
         self.fields.pop("consent_confirmed")
 
 
 class StaffPublicCaseUpdateForm(_LocalizedRecordFormMixin, forms.ModelForm):
     class Meta:
         model = PublicCase
-        fields = ["title", "note", "reference_visit"]
+        fields = ["title", "note", "detail_note", "reference_visit"]
         widgets = {
             "title": forms.TextInput(attrs={"maxlength": str(PUBLIC_CASE_TITLE_MAX_LENGTH)}),
             "note": forms.Textarea(
-                attrs={"rows": 3, "maxlength": str(PUBLIC_CASE_NOTE_MAX_LENGTH)}
+                attrs={"rows": 2, "maxlength": str(PUBLIC_CASE_NOTE_MAX_LENGTH)}
+            ),
+            "detail_note": forms.Textarea(
+                attrs={"rows": 6, "maxlength": str(PUBLIC_CASE_DETAIL_NOTE_MAX_LENGTH)}
             ),
         }
 
@@ -1228,6 +1239,14 @@ class StaffPublicCaseUpdateForm(_LocalizedRecordFormMixin, forms.ModelForm):
             validator
             for validator in forms.CharField(max_length=PUBLIC_CASE_NOTE_MAX_LENGTH).validators
         ]
+        self.fields["detail_note"].required = False
+        self.fields["detail_note"].strip = True
+        self.fields["detail_note"].validators = [
+            validator
+            for validator in forms.CharField(
+                max_length=PUBLIC_CASE_DETAIL_NOTE_MAX_LENGTH
+            ).validators
+        ]
         self.fields["reference_visit"].required = False
         self.fields["reference_visit"].queryset = VisitRecord.objects.filter(
             patient=patient
@@ -1242,12 +1261,14 @@ class StaffPublicCaseUpdateForm(_LocalizedRecordFormMixin, forms.ModelForm):
             labels={
                 "ar": {
                     "title": "عنوان الحالة",
-                    "note": "ملاحظة عامة قصيرة (اختياري)",
+                    "note": "ملاحظة قصيرة (اختياري)",
+                    "detail_note": "ملاحظة تفصيلية (اختياري)",
                     "reference_visit": "الزيارة المرجعية (اختياري)",
                 },
                 "en": {
                     "title": "Case title",
-                    "note": "Short public note (optional)",
+                    "note": "Short note (optional)",
+                    "detail_note": "Detailed note (optional)",
                     "reference_visit": "Reference visit (optional)",
                 },
             },
@@ -1256,10 +1277,8 @@ class StaffPublicCaseUpdateForm(_LocalizedRecordFormMixin, forms.ModelForm):
                     "title": (
                         "سيظهر هذا العنوان للزوار. لا تكتب اسم المريض أو أي معلومات تعريفية."
                     ),
-                    "note": (
-                        "تظهر هذه الملاحظة للزوار. لا تكتب اسم المريض أو رقم الهاتف أو أي "
-                        "معلومات طبية خاصة."
-                    ),
+                    "note": "تظهر أسفل عنوان الحالة في البطاقة.",
+                    "detail_note": "تظهر كبطاقة نصية أخيرة داخل ألبوم الحالة.",
                     "reference_visit": (
                         "للتنظيم الداخلي فقط، ولا تحدد كيفية تجميع الحالة في الموقع."
                     ),
@@ -1269,10 +1288,8 @@ class StaffPublicCaseUpdateForm(_LocalizedRecordFormMixin, forms.ModelForm):
                         "This title is public. Do not enter the patient's name or identifying "
                         "information."
                     ),
-                    "note": (
-                        "This note is visible to visitors. Do not enter the patient's name, "
-                        "phone number, or private medical information."
-                    ),
+                    "note": "Shown below the case title.",
+                    "detail_note": "Shown as the final text card in the case album.",
                     "reference_visit": (
                         "For internal record context only. It does not determine public case "
                         "grouping."
@@ -1280,6 +1297,10 @@ class StaffPublicCaseUpdateForm(_LocalizedRecordFormMixin, forms.ModelForm):
                 },
             },
         )
+        for field_name in ("title", "note", "detail_note"):
+            for validator in self.fields[field_name].validators:
+                if getattr(validator, "code", "") == "max_length":
+                    validator.message = RECORD_FIELD_ERROR_MESSAGES[self.language]["max_length"]
 
     def clean(self):
         cleaned_data = super().clean()
@@ -1288,7 +1309,7 @@ class StaffPublicCaseUpdateForm(_LocalizedRecordFormMixin, forms.ModelForm):
             "لا يمكن نشر اسم المريض أو رقم هاتفه ضمن المحتوى العام.",
             "The patient's name or phone number cannot be published in public content.",
         )
-        for field_name in ("title", "note"):
+        for field_name in ("title", "note", "detail_note"):
             value = cleaned_data.get(field_name, "")
             if value and _contains_current_patient_pii(value, self.patient):
                 self.add_error(field_name, pii_error)

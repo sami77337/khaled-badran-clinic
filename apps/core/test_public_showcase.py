@@ -132,6 +132,59 @@ class PublicReviewShowcaseTests(TestCase):
 
 
 class PublicCaseGroupingTests(TestCase):
+    def test_detailed_note_is_one_safe_final_slide_and_never_changes_media_counts(self):
+        with tempfile.TemporaryDirectory() as temp_dir, override_settings(
+            PRIVATE_MEDIA_ROOT=temp_dir
+        ):
+            patient = Patient.objects.create(
+                full_name="Synthetic Detailed Note Group Patient",
+                phone_raw="0000000012",
+            )
+            public_case = PublicCase.objects.create(
+                patient=patient,
+                title="Safe note-slide case",
+                note="Safe compact short note.",
+                detail_note="Complete detailed note text.\nSecond safe line.",
+                consent_confirmed=True,
+                is_published=True,
+            )
+            specs = (
+                (RecordMedia.MediaType.IMAGE, "before.jpg", "image/jpeg", "before"),
+                (RecordMedia.MediaType.IMAGE, "after.jpg", "image/jpeg", "after"),
+                (RecordMedia.MediaType.SHORT_VIDEO, "case.mp4", "video/mp4", "video"),
+            )
+            for media_type, filename, content_type, role in specs:
+                RecordMedia.objects.create(
+                    patient=patient,
+                    public_case=public_case,
+                    public_case_role=role,
+                    media_type=media_type,
+                    file=SimpleUploadedFile(filename, b"synthetic", content_type=content_type),
+                    visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+                    consent_confirmed=True,
+                    is_active=True,
+                )
+
+            english_group = grouped_public_cases("en")[0]
+            arabic_group = grouped_public_cases("ar")[0]
+            note_slide = english_group["carousel_items"][-1]
+
+            self.assertEqual(
+                [item["kind"] for item in english_group["carousel_items"]],
+                ["media", "media", "media", "note"],
+            )
+            self.assertEqual(note_slide["label"], "Case Notes")
+            self.assertEqual(note_slide["text"], public_case.detail_note)
+            self.assertEqual(set(note_slide), {"kind", "label", "text"})
+            self.assertNotIn("public_id", note_slide)
+            self.assertNotIn("url", note_slide)
+            self.assertEqual(english_group["description"], public_case.note)
+            self.assertEqual(
+                english_group["counts"],
+                {"videos": 1, "before": 1, "after": 1, "primary": 0},
+            )
+            self.assertEqual(arabic_group["carousel_items"][-1]["label"], "ملاحظات الحالة")
+
     def test_explicit_case_groups_media_across_different_visits_and_honors_case_gate(self):
         with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
             patient = Patient.objects.create(
@@ -494,6 +547,7 @@ class PublicCaseGroupingTests(TestCase):
             public_case = PublicCase.objects.create(
                 patient=patient,
                 title="Cover-only case must stay absent",
+                detail_note="A detailed note must not make this case publishable.",
                 consent_confirmed=True,
                 is_published=True,
             )

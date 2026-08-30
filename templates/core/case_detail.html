@@ -63,6 +63,13 @@
                 </div>
             </section>
         {% endif %}
+
+        {% if public_case.detail_note %}
+            <section class="public-case-category public-case-detail-note" aria-labelledby="case-notes-title">
+                <h2 id="case-notes-title">{% if is_arabic %}ملاحظات الحالة{% else %}Case Notes{% endif %}</h2>
+                <div class="public-case-detail-note-card">{{ public_case.detail_note|linebreaksbr }}</div>
+            </section>
+        {% endif %}
     </div>
 </main>
 
