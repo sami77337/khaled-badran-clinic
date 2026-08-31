@@ -4193,14 +4193,6 @@ def dashboard_public_case_delete(request, patient_id, case_id):
         )
         public_case.delete()
 
-    messages.success(
-        request,
-        (
-            "تم حذف الحالة العامة نهائيًا، وعادت وسائطها إلى الوسائط الخاصة."
-            if language == "ar"
-            else "Public Case deleted permanently. Its medical media returned to Private Media."
-        ),
-    )
     return redirect(
         _patient_record_detail_url(
             patient,

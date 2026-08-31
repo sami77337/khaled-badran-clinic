@@ -836,6 +836,7 @@ class DashboardPatientRecordDetailTests(DashboardRecordWorkflowMixin, TestCase):
             patient=self.patient,
             uploaded_by=self.staff,
             visibility=RecordMedia.Visibility.PRIVATE_ONLY,
+            title="Exclusive recent media actions",
         )
         response = self.client.get(
             self.patient_record_url(self.patient, language="en")
@@ -849,10 +850,19 @@ class DashboardPatientRecordDetailTests(DashboardRecordWorkflowMixin, TestCase):
             kwargs={"public_id": media.public_id},
         )
 
-        self.assertContains(response, f'data-preview-url="{preview_url}"')
-        self.assertContains(response, f'href="{download_url}"')
-        for label in ("Preview", "Download", "Edit", "Delete", "Discard Upload"):
-            self.assertContains(response, label)
+        media_entries = re.findall(
+            r'<article class="record-entry media-entry">.*?</article>',
+            response.content.decode(),
+            flags=re.DOTALL,
+        )
+        media_entry = next(
+            entry for entry in media_entries if "Exclusive recent media actions" in entry
+        )
+        self.assertIn(f'data-preview-url="{preview_url}"', media_entry)
+        self.assertIn(f'href="{download_url}"', media_entry)
+        for label in ("Preview", "Download", "Edit", "Discard Upload"):
+            self.assertRegex(media_entry, rf">\s*{re.escape(label)}\s*<")
+        self.assertNotRegex(media_entry, r">\s*Delete\s*<")
         self.assertContains(response, "data-media-preview-dialog")
         self.assertContains(response, "controlsList=\"nodownload\"")
         self.assertContains(response, "playsinline")
@@ -2792,6 +2802,13 @@ class DashboardPublicCaseLifecycleTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertEqual(parse_qs(destination.query)["folder"], [str(self.folder.pk)])
         self.assertEqual(parse_qs(destination.query)["lang"], ["en"])
         self.assertFalse(PublicCase.objects.filter(pk=case_id).exists())
+
+        redirected_record = self.client.get(response["Location"])
+        self.assertEqual(list(redirected_record.context["messages"]), [])
+        self.assertNotContains(
+            redirected_record,
+            "Public Case deleted permanently. Its medical media returned to Private Media.",
+        )
 
         for asset in assets:
             with self.subTest(asset=asset.public_id):
@@ -6568,6 +6585,10 @@ class RecordMediaTrashLifecycleTests(DashboardRecordWorkflowMixin, TestCase):
 
     def test_uploader_only_delete_visibility_and_authorization(self):
         owned = self.create_owned_media(title="Uploader-owned synthetic media")
+        RecordMedia.objects.filter(pk=owned.pk).update(
+            uploaded_at=timezone.now() - timedelta(minutes=11)
+        )
+        owned.refresh_from_db()
         legacy = self.create_media(
             patient=self.patient,
             uploaded_by=None,
@@ -7016,7 +7037,16 @@ class RecentUploadDiscardTests(DashboardRecordWorkflowMixin, TestCase):
         public_id = str(media.public_id)
         storage_name = media.file.name
         page = self.client.get(self.patient_record_url(self.patient, language="en"))
-        self.assertContains(page, "Discard Upload")
+        media_entries = re.findall(
+            r'<article class="record-entry media-entry">.*?</article>',
+            page.content.decode(),
+            flags=re.DOTALL,
+        )
+        media_entry = next(
+            entry for entry in media_entries if "Accidental recent upload" in entry
+        )
+        self.assertRegex(media_entry, r">\s*Discard\ Upload\s*<")
+        self.assertNotRegex(media_entry, r">\s*Delete\s*<")
 
         response = self.client.post(
             f"{self.discard_url(media)}?folder={self.folder.pk}&lang=en"
@@ -7038,6 +7068,24 @@ class RecentUploadDiscardTests(DashboardRecordWorkflowMixin, TestCase):
         record = self.client.get(self.patient_record_url(self.patient, language="en"))
         self.assertNotContains(record, "Accidental recent upload")
         self.assertNotContains(record, "record-media-tombstone")
+
+    def test_non_discard_eligible_owned_upload_shows_only_normal_delete_action(self):
+        media = self.create_candidate(title="Established private upload")
+        RecordMedia.objects.filter(pk=media.pk).update(
+            uploaded_at=timezone.now() - timedelta(minutes=11)
+        )
+
+        page = self.client.get(self.patient_record_url(self.patient, language="en"))
+        media_entries = re.findall(
+            r'<article class="record-entry media-entry">.*?</article>',
+            page.content.decode(),
+            flags=re.DOTALL,
+        )
+        media_entry = next(
+            entry for entry in media_entries if "Established private upload" in entry
+        )
+        self.assertRegex(media_entry, r">\s*Delete\s*<")
+        self.assertNotRegex(media_entry, r">\s*Discard\ Upload\s*<")
 
     def test_discard_rejects_every_ineligible_lifecycle_state(self):
         different_uploader = self.create_media(

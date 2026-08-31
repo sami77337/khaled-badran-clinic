@@ -355,17 +355,16 @@
                                         <a href="{{ item.staff_download_url }}">{% if is_arabic %}تنزيل{% else %}Download{% endif %}</a>
                                     {% endif %}
                                     <a href="{{ item.edit_url }}">{% if is_arabic %}تعديل{% else %}Edit{% endif %}</a>
-                                    {% if item.trash_url %}
-                                        <a class="record-case-danger-link" href="{{ item.trash_url }}" data-record-context-action>{% if is_arabic %}حذف{% else %}Delete{% endif %}</a>
-                                    {% endif %}
-                                    {% if item.public_case_url %}
-                                        <a href="{{ item.public_case_url }}">{% if is_arabic %}رابط الحالة العامة{% else %}Public Case Link{% endif %}</a>
-                                    {% endif %}
                                     {% if item.discard_url %}
                                         <form method="post" action="{{ item.discard_url }}" data-record-context-action>
                                             {% csrf_token %}
                                             <button type="submit" class="record-case-danger-link">{% if is_arabic %}إلغاء الرفع{% else %}Discard Upload{% endif %}</button>
                                         </form>
+                                    {% elif item.trash_url %}
+                                        <a class="record-case-danger-link" href="{{ item.trash_url }}" data-record-context-action>{% if is_arabic %}حذف{% else %}Delete{% endif %}</a>
+                                    {% endif %}
+                                    {% if item.public_case_url %}
+                                        <a href="{{ item.public_case_url }}">{% if is_arabic %}رابط الحالة العامة{% else %}Public Case Link{% endif %}</a>
                                     {% endif %}
                                 </div>
                             </article>
