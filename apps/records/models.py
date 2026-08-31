@@ -369,6 +369,12 @@ class RecordMedia(models.Model):
         return f"record-media-{self.public_id}{extension}"
 
     @property
+    def presentation_filename(self):
+        """Return an opaque filename for protected inline presentation."""
+        extension = _filename_extension(self.file.name)
+        return f"record-media-{self.public_id}{extension}"
+
+    @property
     def is_visible_to_patient(self):
         return self.trashed_at is None and self.visibility == self.Visibility.VISIBLE_TO_PATIENT
 

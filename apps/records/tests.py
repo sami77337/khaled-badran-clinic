@@ -794,6 +794,54 @@ class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
         self.assertNotIn(str(settings.PRIVATE_MEDIA_ROOT), response.get("Content-Disposition", ""))
         self.assertEqual(b"".join(response.streaming_content), b"i" * 32)
 
+    def test_staff_inline_view_is_protected_opaque_and_not_an_attachment(self):
+        media = self.create_record_media(
+            file=self.synthetic_image_file(name="private-clinical-name.jpg", size=32)
+        )
+        url = reverse("record_private_media_view", kwargs={"public_id": media.public_id})
+
+        anonymous = self.client.get(url)
+        self.assertEqual(anonymous.status_code, 302)
+        self.assertIn(f"{reverse('login')}?role=doctor&next=", anonymous["Location"])
+
+        self.client.force_login(self.create_user(username="records-view-normal"))
+        self.assertEqual(self.client.get(url).status_code, 403)
+
+        self.client.force_login(
+            self.create_user(username="records-view-staff", is_staff=True)
+        )
+        response = self.client.get(url)
+        disposition = response.get("Content-Disposition", "")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "image/jpeg")
+        self.assertEqual(response["X-Content-Type-Options"], "nosniff")
+        self.assertTrue(disposition.startswith("inline;"))
+        self.assertIn(f"record-media-{media.public_id}.jpg", disposition)
+        self.assertNotIn("private-clinical-name", disposition)
+        self.assertNotIn(str(settings.PRIVATE_MEDIA_ROOT), disposition)
+        self.assertEqual(b"".join(response.streaming_content), b"i" * 32)
+
+    def test_staff_inline_view_rejects_trashed_or_missing_storage_media(self):
+        staff = self.create_user(username="records-unavailable-view-staff", is_staff=True)
+        trashed = self.create_record_media()
+        missing = self.create_record_media()
+        RecordMedia.objects.filter(pk=trashed.pk).update(
+            trashed_at=timezone.now(),
+            is_active=False,
+        )
+        missing.file.storage.delete(missing.file.name)
+        self.client.force_login(staff)
+
+        for media in (trashed, missing):
+            with self.subTest(media=media.public_id):
+                response = self.client.get(
+                    reverse(
+                        "record_private_media_view",
+                        kwargs={"public_id": media.public_id},
+                    )
+                )
+                self.assertEqual(response.status_code, 404)
+
     def test_inactive_media_cannot_be_downloaded(self):
         media = self.create_record_media(is_active=False)
         self.client.force_login(self.create_user(username="records-inactive-staff", is_staff=True))

@@ -12,6 +12,7 @@ from django.http import HttpResponseForbidden, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
@@ -95,6 +96,7 @@ DELETION_MEDIA_TYPE_LABELS = {
         RecordMedia.MediaType.SHORT_VIDEO: "Video",
     },
 }
+RECENT_UPLOAD_DISCARD_WINDOW = timedelta(minutes=10)
 PUBLIC_CASE_ROLE_LABELS = {
     "ar": {
         RecordMedia.PublicCaseRole.PRIMARY: "أساسي",
@@ -2746,11 +2748,38 @@ def _media_status_labels(media, language):
     return labels
 
 
-def _media_items(media_queryset, language, request_user=None):
+def _recent_upload_discard_eligible(media, user, *, now=None):
+    if user is None or not getattr(user, "is_authenticated", False):
+        return False
+    now = now or timezone.now()
+    return (
+        media.uploaded_by_id is not None
+        and media.uploaded_by_id == user.id
+        and media.trashed_at is None
+        and media.is_active
+        and media.visibility == RecordMedia.Visibility.PRIVATE_ONLY
+        and media.public_case_id is None
+        and media.uploaded_at >= now - RECENT_UPLOAD_DISCARD_WINDOW
+    )
+
+
+def _media_items(
+    media_queryset,
+    language,
+    request_user=None,
+    *,
+    query_params=None,
+):
     items = []
+    now = timezone.now()
     for media in media_queryset:
+        staff_preview_url = ""
         staff_download_url = ""
         if media.is_active and media.file:
+            staff_preview_url = reverse(
+                "record_private_media_view",
+                kwargs={"public_id": media.public_id},
+            )
             staff_download_url = reverse(
                 "record_private_media_download",
                 kwargs={"public_id": media.public_id},
@@ -2766,6 +2795,7 @@ def _media_items(media_queryset, language, request_user=None):
                     media.get_media_type_display(),
                 ),
                 "status_labels": _media_status_labels(media, language),
+                "staff_preview_url": staff_preview_url,
                 "staff_download_url": staff_download_url,
                 "public_case_url": public_case_url,
                 "folder_label": (
@@ -2789,10 +2819,28 @@ def _media_items(media_queryset, language, request_user=None):
                             "patient_id": media.patient_id,
                             "public_id": media.public_id,
                         },
+                        query_params=query_params,
                     )
                     if request_user is not None
                     and media.trashed_at is None
                     and media.uploaded_by_id == request_user.id
+                    else ""
+                ),
+                "discard_url": (
+                    _dashboard_record_url(
+                        "dashboard_media_discard_recent",
+                        language,
+                        kwargs={
+                            "patient_id": media.patient_id,
+                            "public_id": media.public_id,
+                        },
+                        query_params=query_params,
+                    )
+                    if _recent_upload_discard_eligible(
+                        media,
+                        request_user,
+                        now=now,
+                    )
                     else ""
                 ),
             }
@@ -2806,7 +2854,7 @@ def _staff_display_name(user, language):
     return user.get_full_name().strip() or user.get_username()
 
 
-def _trash_items(media_queryset, language, request_user):
+def _trash_items(media_queryset, language, request_user, *, query_params=None):
     items = []
     for media in media_queryset:
         items.append(
@@ -2826,6 +2874,7 @@ def _trash_items(media_queryset, language, request_user):
                             "patient_id": media.patient_id,
                             "public_id": media.public_id,
                         },
+                        query_params=query_params,
                     )
                     if media.uploaded_by_id == request_user.id
                     else ""
@@ -2835,50 +2884,85 @@ def _trash_items(media_queryset, language, request_user):
     return items
 
 
-def _media_deletion_history(patient, language, trashed_media):
-    moved_events = list(
+def _media_deletion_tombstones(
+    patient,
+    language,
+    *,
+    active_media_public_ids,
+    selected_filter,
+):
+    lifecycle_events = list(
         AuditLog.objects.filter(
             app_label="records",
             model_name="RecordMedia",
-            metadata__action="record_media_moved_to_trash",
+            metadata__action__in=(
+                "record_media_moved_to_trash",
+                "record_media_restored_from_trash",
+            ),
             metadata__patient_id=patient.pk,
         )
         .select_related("user")
         .order_by("-created_at", "-pk")
     )
-    purged_public_ids = set(
-        AuditLog.objects.filter(
-            app_label="records",
-            model_name="RecordMedia",
-            metadata__action="record_media_purged_after_retention",
-            metadata__patient_id=patient.pk,
-        ).values_list("metadata__media_public_id", flat=True)
-    )
-    trashed_public_ids = {str(media.public_id) for media in trashed_media}
-    items = []
-    for event in moved_events:
+    active_public_ids = {str(public_id) for public_id in active_media_public_ids}
+    latest_events = {}
+    for event in lifecycle_events:
         media_public_id = str(event.metadata.get("media_public_id") or "")
-        status = ""
-        if media_public_id in purged_public_ids:
-            status = "purged"
-        elif media_public_id in trashed_public_ids:
-            status = "trash"
+        if media_public_id and media_public_id not in latest_events:
+            latest_events[media_public_id] = event
+
+    items = []
+    for media_public_id, event in latest_events.items():
+        if event.metadata.get("action") != "record_media_moved_to_trash":
+            continue
+        if media_public_id in active_public_ids:
+            continue
+
+        original_folder_id = event.metadata.get("original_folder_id")
+        if selected_filter == "unfiled" and original_folder_id != "unfiled":
+            continue
+        if selected_filter not in ("all", "unfiled") and str(original_folder_id) != selected_filter:
+            continue
+
+        chronology = parse_datetime(event.metadata.get("original_uploaded_at") or "")
+        if chronology is None:
+            chronology = event.created_at
+        media_public_id = str(event.metadata.get("media_public_id") or "")
         media_type = event.metadata.get("media_type")
         items.append(
             {
+                "kind": "tombstone",
                 "event": event,
+                "chronology": chronology,
                 "media_type_label": DELETION_MEDIA_TYPE_LABELS[language].get(
                     media_type,
                     "\u0648\u0633\u0627\u0626\u0637" if language == "ar" else "Media",
                 ),
                 "deleted_by_label": _staff_display_name(event.user, language),
-                "status": status,
             }
         )
     return items
 
 
-def _public_case_items(patient, language):
+def _private_media_timeline(media_items, tombstones):
+    timeline = []
+    for item in media_items:
+        timeline.append(
+            {
+                **item,
+                "kind": "media",
+                "chronology": item["media"].uploaded_at,
+            }
+        )
+    timeline.extend(tombstones)
+    return sorted(
+        timeline,
+        key=lambda item: item["chronology"],
+        reverse=True,
+    )
+
+
+def _public_case_items(patient, language, *, query_params=None):
     management_media_filter = Q(media_items__trashed_at__isnull=True)
     cases = (
         PublicCase.objects.filter(patient=patient)
@@ -2940,6 +3024,12 @@ def _public_case_items(patient, language):
                     "dashboard_public_case_republish",
                     language,
                     kwargs=route_kwargs,
+                ),
+                "delete_url": _dashboard_record_url(
+                    "dashboard_public_case_delete",
+                    language,
+                    kwargs=route_kwargs,
+                    query_params=query_params,
                 ),
                 "merge_url": (
                     _dashboard_record_url(
@@ -3171,12 +3261,28 @@ def _render_patient_record_detail(
         (folder_create_form.is_bound and folder_create_form.errors)
         or (rename_form is not None and rename_form.is_bound and rename_form.errors)
     )
-    media_deletion_history = _media_deletion_history(
+    active_media_public_ids = RecordMedia.objects.filter(
+        patient=patient,
+        trashed_at__isnull=True,
+    ).values_list("public_id", flat=True)
+    media_items = _media_items(
+        media,
+        language,
+        request.user,
+        query_params=selected_query,
+    )
+    media_tombstones = _media_deletion_tombstones(
         patient,
         language,
-        trashed_media,
+        active_media_public_ids=active_media_public_ids,
+        selected_filter=selected_filter,
     )
-    public_case_items = _public_case_items(patient, language)
+    private_media_timeline = _private_media_timeline(media_items, media_tombstones)
+    public_case_items = _public_case_items(
+        patient,
+        language,
+        query_params=selected_query,
+    )
 
     folder_items = []
     for folder in folders:
@@ -3254,11 +3360,14 @@ def _render_patient_record_detail(
                 }
                 for note in notes
             ],
-            media_items=_media_items(media, language, request.user),
-            trash_items=_trash_items(trashed_media, language, request.user),
+            private_media_timeline=private_media_timeline,
+            trash_items=_trash_items(
+                trashed_media,
+                language,
+                request.user,
+                query_params=selected_query,
+            ),
             trash_count=len(trashed_media),
-            media_deletion_history=media_deletion_history,
-            media_deletion_history_count=len(media_deletion_history),
             visit_count=len(visits),
             note_count=len(notes),
             public_case_items=public_case_items,
@@ -4051,6 +4160,58 @@ def dashboard_public_case_unpublish(request, patient_id, case_id):
 
 @_staff_required
 @require_POST
+def dashboard_public_case_delete(request, patient_id, case_id):
+    language = _dashboard_language(request)
+    patient = get_object_or_404(Patient, id=patient_id)
+    requested_query = _requested_folder_query(request)
+    with transaction.atomic():
+        public_case = get_object_or_404(
+            PublicCase.objects.select_for_update(),
+            patient=patient,
+            pk=case_id,
+        )
+        attached_media = RecordMedia.objects.select_for_update().filter(
+            patient=patient,
+            public_case=public_case,
+        )
+        media_count = attached_media.count()
+        attached_media.update(
+            visibility=RecordMedia.Visibility.PRIVATE_ONLY,
+            public_case=None,
+            public_case_role="",
+        )
+        public_case_id = public_case.pk
+        _record_media_audit(
+            user=request.user,
+            action=AuditLog.Action.DELETE,
+            instance=public_case,
+            event="public_case_deleted",
+            metadata={
+                "public_case_id": public_case_id,
+                "media_count": media_count,
+            },
+        )
+        public_case.delete()
+
+    messages.success(
+        request,
+        (
+            "تم حذف الحالة العامة نهائيًا، وعادت وسائطها إلى الوسائط الخاصة."
+            if language == "ar"
+            else "Public Case deleted permanently. Its medical media returned to Private Media."
+        ),
+    )
+    return redirect(
+        _patient_record_detail_url(
+            patient,
+            language,
+            query_params=requested_query,
+        )
+    )
+
+
+@_staff_required
+@require_POST
 def dashboard_public_case_republish(request, patient_id, case_id):
     language = _dashboard_language(request)
     patient = get_object_or_404(Patient, id=patient_id)
@@ -4210,6 +4371,7 @@ def dashboard_media_trash(request, patient_id, public_id):
         return not_allowed
     language = _dashboard_language(request)
     patient = get_object_or_404(Patient, id=patient_id)
+    requested_query = _requested_folder_query(request)
     media = get_object_or_404(
         RecordMedia.objects.select_related("uploaded_by"),
         patient=patient,
@@ -4264,6 +4426,8 @@ def dashboard_media_trash(request, patient_id, public_id):
                     "patient_id": patient.pk,
                     "media_public_id": str(media.public_id),
                     "media_type": media.media_type,
+                    "original_uploaded_at": media.uploaded_at.isoformat(),
+                    "original_folder_id": media.folder_id or "unfiled",
                 },
             )
 
@@ -4280,7 +4444,13 @@ def dashboard_media_trash(request, patient_id, public_id):
                 else "Media moved to Trash for the 30-day retention period."
             ),
         )
-        return redirect(_patient_record_detail_url(patient, language, fragment="trash"))
+        return redirect(
+            _patient_record_detail_url(
+                patient,
+                language,
+                query_params=requested_query,
+            )
+        )
 
     return render(
         request,
@@ -4295,8 +4465,73 @@ def dashboard_media_trash(request, patient_id, public_id):
                 media.media_type,
                 media.get_media_type_display(),
             ),
-            cancel_url=_patient_record_detail_url(patient, language, fragment="private-media"),
+            cancel_url=_patient_record_detail_url(
+                patient,
+                language,
+                query_params=requested_query,
+                fragment="private-media",
+            ),
         ),
+    )
+
+
+@_staff_required
+@require_POST
+def dashboard_media_discard_recent(request, patient_id, public_id):
+    language = _dashboard_language(request)
+    patient = get_object_or_404(Patient, id=patient_id)
+    requested_query = _requested_folder_query(request)
+    storage_deletion_failed = False
+
+    with transaction.atomic():
+        media = get_object_or_404(
+            RecordMedia.objects.select_for_update(),
+            patient=patient,
+            public_id=public_id,
+        )
+        if not _recent_upload_discard_eligible(media, request.user):
+            return HttpResponseForbidden("This upload is not eligible for immediate discard.")
+
+        try:
+            if media.file and media.file.name:
+                media.file.storage.delete(media.file.name)
+        except Exception:  # Storage providers expose backend-specific exceptions.
+            storage_deletion_failed = True
+
+        if not storage_deletion_failed:
+            _record_media_audit(
+                user=request.user,
+                action=AuditLog.Action.DELETE,
+                instance=media,
+                event="record_media_recent_upload_discarded",
+                metadata={
+                    "patient_id": patient.pk,
+                    "media_public_id": str(media.public_id),
+                    "media_type": media.media_type,
+                },
+            )
+            media.delete()
+
+    if storage_deletion_failed:
+        messages.error(
+            request,
+            (
+                "تعذر إلغاء الرفع بأمان. بقي سجل الوسائط دون تغيير."
+                if language == "ar"
+                else "The upload could not be discarded safely. The media record was preserved."
+            ),
+        )
+    else:
+        messages.success(
+            request,
+            "تم إلغاء الرفع وحذف الملف." if language == "ar" else "Upload discarded.",
+        )
+    return redirect(
+        _patient_record_detail_url(
+            patient,
+            language,
+            query_params=requested_query,
+        )
     )
 
 
@@ -4305,6 +4540,7 @@ def dashboard_media_trash(request, patient_id, public_id):
 def dashboard_media_restore(request, patient_id, public_id):
     language = _dashboard_language(request)
     patient = get_object_or_404(Patient, id=patient_id)
+    requested_query = _requested_folder_query(request)
     with transaction.atomic():
         media = get_object_or_404(
             RecordMedia.objects.select_for_update(),
@@ -4349,7 +4585,13 @@ def dashboard_media_restore(request, patient_id, public_id):
         if language == "ar"
         else "Media restored as private.",
     )
-    return redirect(_patient_record_detail_url(patient, language, fragment="private-media"))
+    return redirect(
+        _patient_record_detail_url(
+            patient,
+            language,
+            query_params=requested_query,
+        )
+    )
 
 
 @_staff_required

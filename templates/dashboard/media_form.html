@@ -5,6 +5,10 @@
     <link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">
 {% endblock %}
 
+{% block dashboard_scripts %}
+    {% if is_multipart %}<script src="{% static 'js/dashboard-media-upload-preview.js' %}" defer></script>{% endif %}
+{% endblock %}
+
 {% block dashboard_content %}
 <div class="dashboard-content patient-record-content record-form-page">
     <header class="record-page-header record-form-header">
@@ -38,9 +42,18 @@
 
     <section class="record-form-panel" aria-labelledby="media-form-title">
         <h2 class="dashboard-sr-only" id="media-form-title">{{ form_title }}</h2>
-        <form class="record-form" method="post" action=""{% if is_multipart %} enctype="multipart/form-data"{% endif %}>
+        <form class="record-form" method="post" action=""{% if is_multipart %} enctype="multipart/form-data" data-media-upload-preview-form{% endif %}>
             {% csrf_token %}
             {% include "dashboard/_form_fields.html" %}
+            {% if is_multipart %}
+                <div class="record-upload-preview" data-media-upload-preview hidden aria-live="polite">
+                    <img data-media-upload-preview-image alt="{% if is_arabic %}معاينة الصورة المحددة{% else %}Selected image preview{% endif %}" hidden>
+                    <video data-media-upload-preview-video controls playsinline controlsList="nodownload" aria-label="{% if is_arabic %}معاينة الفيديو المحدد{% else %}Selected video preview{% endif %}" hidden></video>
+                    <button type="button" class="record-upload-preview-remove" data-media-upload-preview-remove aria-label="{% if is_arabic %}إزالة الملف المحدد{% else %}Remove selected file{% endif %}">
+                        {% if is_arabic %}إزالة الملف{% else %}Remove file{% endif %}
+                    </button>
+                </div>
+            {% endif %}
             <div class="record-form-actions">
                 <button type="submit">{% if is_arabic %}حفظ الملف{% else %}Save Media{% endif %}</button>
                 <a href="{{ cancel_url }}">{% if is_arabic %}إلغاء{% else %}Cancel{% endif %}</a>

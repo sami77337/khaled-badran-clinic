@@ -143,6 +143,11 @@ urlpatterns = [
         name="dashboard_public_case_unpublish",
     ),
     path(
+        "patients/<int:patient_id>/records/public-cases/<int:case_id>/delete/",
+        views.dashboard_public_case_delete,
+        name="dashboard_public_case_delete",
+    ),
+    path(
         "patients/<int:patient_id>/records/public-cases/<int:case_id>/republish/",
         views.dashboard_public_case_republish,
         name="dashboard_public_case_republish",
@@ -161,6 +166,11 @@ urlpatterns = [
         "patients/<int:patient_id>/records/media/<uuid:public_id>/trash/",
         views.dashboard_media_trash,
         name="dashboard_media_trash",
+    ),
+    path(
+        "patients/<int:patient_id>/records/media/<uuid:public_id>/discard/",
+        views.dashboard_media_discard_recent,
+        name="dashboard_media_discard_recent",
     ),
     path(
         "patients/<int:patient_id>/records/media/<uuid:public_id>/restore/",

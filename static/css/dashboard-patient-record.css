@@ -279,6 +279,16 @@
     gap: 0.8rem;
 }
 
+.record-media-tombstone {
+    margin: 0;
+    border-inline-start: 2px solid var(--dashboard-line);
+    color: var(--dashboard-muted);
+    padding: 0.28rem 0.7rem;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+
 .record-entry {
     min-width: 0;
     border: 1px solid var(--dashboard-line);
@@ -837,6 +847,147 @@
     font: inherit;
     font-weight: 700;
     cursor: pointer;
+}
+
+.record-upload-preview {
+    display: grid;
+    justify-items: start;
+    gap: 0.7rem;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.8rem;
+    background: var(--dashboard-ivory);
+    padding: 0.8rem;
+}
+
+.record-upload-preview[hidden],
+.record-upload-preview img[hidden],
+.record-upload-preview video[hidden] {
+    display: none;
+}
+
+.record-upload-preview img,
+.record-upload-preview video {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    max-height: 24rem;
+    border-radius: 0.65rem;
+    background: #171513;
+    object-fit: contain;
+}
+
+.record-upload-preview-remove {
+    min-height: 2.5rem;
+    border: 1px solid rgba(129, 33, 41, 0.3);
+    border-radius: 0.65rem;
+    background: var(--dashboard-white);
+    color: #812129;
+    padding: 0.45rem 0.8rem;
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.record-media-dialog,
+.record-confirm-dialog {
+    width: min(calc(100% - 2rem), 64rem);
+    max-height: calc(100vh - 2rem);
+    border: 0;
+    border-radius: 1rem;
+    background: var(--dashboard-white);
+    color: var(--dashboard-ink);
+    padding: 0;
+    box-shadow: 0 1.5rem 4rem rgba(24, 13, 8, 0.28);
+}
+
+.record-confirm-dialog {
+    width: min(calc(100% - 2rem), 36rem);
+}
+
+.record-media-dialog::backdrop,
+.record-confirm-dialog::backdrop {
+    background: rgba(20, 13, 10, 0.72);
+}
+
+.record-media-dialog-panel,
+.record-confirm-dialog-panel {
+    display: grid;
+    min-width: 0;
+    gap: 1rem;
+    padding: clamp(0.9rem, 2vw, 1.25rem);
+}
+
+.record-media-dialog-heading,
+.record-confirm-dialog-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.record-media-dialog-heading h2,
+.record-confirm-dialog-panel h2,
+.record-confirm-dialog-panel p {
+    margin: 0;
+}
+
+.record-confirm-dialog-panel p {
+    color: var(--dashboard-muted);
+    line-height: 1.7;
+}
+
+.record-media-dialog-heading button,
+.record-confirm-dialog-actions button {
+    min-height: 2.65rem;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.68rem;
+    background: var(--dashboard-white);
+    color: var(--dashboard-burgundy);
+    padding: 0.5rem 0.85rem;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.record-confirm-dialog-actions form {
+    margin: 0;
+}
+
+.record-confirm-dialog-actions .record-case-danger-link {
+    border-color: rgba(129, 33, 41, 0.3);
+    color: #812129;
+}
+
+.record-media-dialog-stage {
+    display: flex;
+    min-height: min(65vh, 34rem);
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.8rem;
+    background: #171513;
+    overflow: hidden;
+}
+
+.record-media-dialog-stage img,
+.record-media-dialog-stage video {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    max-height: 75vh;
+    object-fit: contain;
+}
+
+.record-media-dialog-stage img[hidden],
+.record-media-dialog-stage video[hidden] {
+    display: none;
+}
+
+.record-upload-preview-remove:focus-visible,
+.record-media-dialog button:focus-visible,
+.record-confirm-dialog button:focus-visible {
+    outline: 3px solid rgba(139, 90, 43, 0.28);
+    outline-offset: 3px;
 }
 
 .record-form input:focus,

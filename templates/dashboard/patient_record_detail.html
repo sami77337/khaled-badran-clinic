@@ -218,7 +218,7 @@
                                 <a href="{{ item.add_media_url }}">{% if is_arabic %}إضافة وسائط{% else %}Add Media{% endif %}</a>
                                 <a href="{{ item.assets_url }}">{% if is_arabic %}إدارة الأصول{% else %}Manage Assets{% endif %}</a>
                                 {% if item.case.is_published %}
-                                    <a class="record-case-danger-link" href="{{ item.unpublish_url }}">{% if is_arabic %}حذف الحالة من العرض العام{% else %}Remove from Website{% endif %}</a>
+                                    <a class="record-case-danger-link" href="{{ item.unpublish_url }}">{% if is_arabic %}إلغاء النشر{% else %}Unpublish{% endif %}</a>
                                 {% else %}
                                     <form method="post" action="{{ item.republish_url }}">
                                         {% csrf_token %}
@@ -226,6 +226,9 @@
                                     </form>
                                 {% endif %}
                                 {% if item.merge_url %}<a href="{{ item.merge_url }}">{% if is_arabic %}دمج{% else %}Merge{% endif %}</a>{% endif %}
+                                <button type="button" class="record-case-danger-link" data-public-case-delete-trigger data-delete-url="{{ item.delete_url }}">
+                                    {% if is_arabic %}حذف الحالة نهائيًا{% else %}Delete Case Permanently{% endif %}
+                                </button>
                             </div>
                         </article>
                     {% endfor %}
@@ -310,42 +313,63 @@
                 {% endif %}
                 <span>{{ filtered_media_count }}</span>
             </div>
-            {% if media_items %}
+            {% if private_media_timeline %}
                 <div class="record-list">
-                    {% for item in media_items %}
-                        <article class="record-entry media-entry">
-                            <header class="record-entry-header">
-                                <div>
-                                    <p class="record-entry-kicker">{{ item.media_type_label }}</p>
-                                    <h3>{% if item.media.title %}{{ item.media.title }}{% else %}{{ item.media_type_label }}{% endif %}</h3>
-                                    <p class="record-entry-date"><time datetime="{{ item.media.uploaded_at|date:'c' }}" dir="ltr">{{ item.media.uploaded_at|date:"Y-m-d H:i" }}</time></p>
+                    {% for item in private_media_timeline %}
+                        {% if item.kind == 'tombstone' %}
+                            <p class="record-media-tombstone">
+                                {% if is_arabic %}
+                                    تم حذف {{ item.media_type_label }} بواسطة {{ item.deleted_by_label }} بتاريخ <time datetime="{{ item.event.created_at|date:'c' }}" dir="ltr">{{ item.event.created_at|date:"Y-m-d" }}</time> الساعة <time datetime="{{ item.event.created_at|date:'c' }}" dir="ltr">{{ item.event.created_at|date:"H:i" }}</time>
+                                {% else %}
+                                    {{ item.media_type_label }} deleted by {{ item.deleted_by_label }} on <time datetime="{{ item.event.created_at|date:'c' }}" dir="ltr">{{ item.event.created_at|date:"Y-m-d" }}</time> at <time datetime="{{ item.event.created_at|date:'c' }}" dir="ltr">{{ item.event.created_at|date:"H:i" }}</time>
+                                {% endif %}
+                            </p>
+                        {% else %}
+                            <article class="record-entry media-entry">
+                                <header class="record-entry-header">
+                                    <div>
+                                        <p class="record-entry-kicker">{{ item.media_type_label }}</p>
+                                        <h3>{% if item.media.title %}{{ item.media.title }}{% else %}{{ item.media_type_label }}{% endif %}</h3>
+                                        <p class="record-entry-date"><time datetime="{{ item.media.uploaded_at|date:'c' }}" dir="ltr">{{ item.media.uploaded_at|date:"Y-m-d H:i" }}</time></p>
+                                    </div>
+                                    <div class="record-status-group">
+                                        {% for status in item.status_labels %}
+                                            <span class="record-status {{ status.class }}">{{ status.label }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </header>
+                                {% if item.media.description %}
+                                    <div class="record-clinical-text">{{ item.media.description|linebreaksbr }}</div>
+                                {% endif %}
+                                <div class="record-media-meta">
+                                    <span>{% if is_arabic %}نوع الوسائط{% else %}Media type{% endif %}: {{ item.media_type_label }}</span>
+                                    <span>{% if is_arabic %}المجلد{% else %}Folder{% endif %}: {{ item.folder_label }}</span>
                                 </div>
-                                <div class="record-status-group">
-                                    {% for status in item.status_labels %}
-                                        <span class="record-status {{ status.class }}">{{ status.label }}</span>
-                                    {% endfor %}
+                                <div class="record-media-actions">
+                                    {% if item.staff_preview_url %}
+                                        <button type="button" data-media-preview-trigger data-preview-url="{{ item.staff_preview_url }}" data-media-type="{{ item.media.media_type }}">
+                                            {% if is_arabic %}معاينة{% else %}Preview{% endif %}
+                                        </button>
+                                    {% endif %}
+                                    {% if item.staff_download_url %}
+                                        <a href="{{ item.staff_download_url }}">{% if is_arabic %}تنزيل{% else %}Download{% endif %}</a>
+                                    {% endif %}
+                                    <a href="{{ item.edit_url }}">{% if is_arabic %}تعديل{% else %}Edit{% endif %}</a>
+                                    {% if item.trash_url %}
+                                        <a class="record-case-danger-link" href="{{ item.trash_url }}" data-record-context-action>{% if is_arabic %}حذف{% else %}Delete{% endif %}</a>
+                                    {% endif %}
+                                    {% if item.public_case_url %}
+                                        <a href="{{ item.public_case_url }}">{% if is_arabic %}رابط الحالة العامة{% else %}Public Case Link{% endif %}</a>
+                                    {% endif %}
+                                    {% if item.discard_url %}
+                                        <form method="post" action="{{ item.discard_url }}" data-record-context-action>
+                                            {% csrf_token %}
+                                            <button type="submit" class="record-case-danger-link">{% if is_arabic %}إلغاء الرفع{% else %}Discard Upload{% endif %}</button>
+                                        </form>
+                                    {% endif %}
                                 </div>
-                            </header>
-                            {% if item.media.description %}
-                                <div class="record-clinical-text">{{ item.media.description|linebreaksbr }}</div>
-                            {% endif %}
-                            <div class="record-media-meta">
-                                <span>{% if is_arabic %}نوع الوسائط{% else %}Media type{% endif %}: {{ item.media_type_label }}</span>
-                                <span>{% if is_arabic %}المجلد{% else %}Folder{% endif %}: {{ item.folder_label }}</span>
-                            </div>
-                            <div class="record-media-actions">
-                                {% if item.trash_url %}
-                                    <a class="record-case-danger-link" href="{{ item.trash_url }}">{% if is_arabic %}&#1606;&#1602;&#1604; &#1573;&#1604;&#1609; &#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578;{% else %}Move to Trash{% endif %}</a>
-                                {% endif %}
-                                {% if item.staff_download_url %}
-                                    <a href="{{ item.staff_download_url }}">{% if is_arabic %}فتح للطاقم{% else %}Open for Staff{% endif %}</a>
-                                {% endif %}
-                                {% if item.public_case_url %}
-                                    <a href="{{ item.public_case_url }}">{% if is_arabic %}رابط الحالة العامة{% else %}Public Case Link{% endif %}</a>
-                                {% endif %}
-                                <a href="{{ item.edit_url }}">{% if is_arabic %}تعديل الحالة / الظهور{% else %}Edit Status / Visibility{% endif %}</a>
-                            </div>
-                        </article>
+                            </article>
+                        {% endif %}
                     {% endfor %}
                 </div>
             {% else %}
@@ -380,7 +404,7 @@
                             </dl>
                             {% if item.restore_url %}
                                 <div class="record-media-actions">
-                                    <form method="post" action="{{ item.restore_url }}">
+                                    <form method="post" action="{{ item.restore_url }}" data-record-context-action>
                                         {% csrf_token %}
                                         <button type="submit">{% if is_arabic %}&#1575;&#1587;&#1578;&#1593;&#1575;&#1583;&#1577;{% else %}Restore{% endif %}</button>
                                     </form>
@@ -395,39 +419,39 @@
             </div>
         </details>
 
-        <details class="record-section record-collapsible-section" id="media-deletion-history" data-record-section aria-labelledby="media-deletion-history-title">
-            <summary class="record-section-summary">
-                <span class="record-section-title" id="media-deletion-history-title" role="heading" aria-level="2">{% if is_arabic %}&#1587;&#1580;&#1604; &#1581;&#1584;&#1601; &#1575;&#1604;&#1608;&#1587;&#1575;&#1574;&#1591;{% else %}Media Deletion History{% endif %}</span>
-                <span class="record-count" aria-label="{% if is_arabic %}عدد أحداث حذف الوسائط{% else %}Media deletion history count{% endif %}">{{ media_deletion_history_count }}</span>
-            </summary>
-            <div class="record-section-body">
-            {% if media_deletion_history %}
-                <div class="record-list deletion-history-list">
-                    {% for item in media_deletion_history %}
-                        <article class="record-entry deletion-history-entry">
-                            <header class="record-entry-header">
-                                <div>
-                                    <p class="record-entry-kicker">{{ item.media_type_label }}</p>
-                                    <p class="record-entry-date"><time datetime="{{ item.event.created_at|date:'c' }}" dir="ltr">{{ item.event.created_at|date:"Y-m-d H:i" }}</time></p>
-                                </div>
-                                {% if item.status == 'trash' %}<span class="record-status status-inactive">{% if is_arabic %}&#1601;&#1610; &#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578;{% else %}In Trash{% endif %}</span>{% endif %}
-                                {% if item.status == 'purged' %}<span class="record-status status-inactive">{% if is_arabic %}&#1581;&#1615;&#1584;&#1601; &#1606;&#1607;&#1575;&#1574;&#1610;&#1575;&#1611;{% else %}Permanently deleted{% endif %}</span>{% endif %}
-                            </header>
-                            <p class="record-related-meta">
-                                {% if is_arabic %}
-                                    تم حذف {{ item.media_type_label }} بتاريخ <time datetime="{{ item.event.created_at|date:'c' }}" dir="ltr">{{ item.event.created_at|date:"Y-m-d" }}</time> بواسطة {{ item.deleted_by_label }}
-                                {% else %}
-                                    {{ item.media_type_label }} deleted on <time datetime="{{ item.event.created_at|date:'c' }}" dir="ltr">{{ item.event.created_at|date:"Y-m-d" }}</time> by {{ item.deleted_by_label }}
-                                {% endif %}
-                            </p>
-                        </article>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <p class="record-empty-state">{% if is_arabic %}&#1604;&#1575; &#1610;&#1608;&#1580;&#1583; &#1587;&#1580;&#1604; &#1581;&#1584;&#1601; &#1604;&#1604;&#1608;&#1587;&#1575;&#1574;&#1591;.{% else %}No media deletion history.{% endif %}</p>
-            {% endif %}
-            </div>
-        </details>
     </div>
+
+    <dialog class="record-media-dialog" data-media-preview-dialog aria-labelledby="staff-media-preview-title">
+        <div class="record-media-dialog-panel">
+            <div class="record-media-dialog-heading">
+                <h2 id="staff-media-preview-title">{% if is_arabic %}معاينة الوسائط{% else %}Media Preview{% endif %}</h2>
+                <button type="button" data-media-preview-close aria-label="{% if is_arabic %}إغلاق المعاينة{% else %}Close preview{% endif %}">{% if is_arabic %}إغلاق{% else %}Close{% endif %}</button>
+            </div>
+            <div class="record-media-dialog-stage">
+                <img data-media-preview-image alt="{% if is_arabic %}معاينة الصورة الطبية{% else %}Medical image preview{% endif %}" hidden>
+                <video data-media-preview-video controls playsinline controlsList="nodownload" aria-label="{% if is_arabic %}معاينة الفيديو الطبي{% else %}Medical video preview{% endif %}" hidden></video>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog class="record-confirm-dialog" data-public-case-delete-dialog aria-labelledby="public-case-delete-title">
+        <div class="record-confirm-dialog-panel">
+            <h2 id="public-case-delete-title">{% if is_arabic %}حذف الحالة نهائيًا{% else %}Delete Case Permanently{% endif %}</h2>
+            <p>
+                {% if is_arabic %}
+                    سيتم حذف الحالة العامة نهائيًا. لن يتم حذف الصور أو الفيديوهات الطبية، وستعود إلى الوسائط الخاصة.
+                {% else %}
+                    This Public Case will be permanently deleted. Its medical images/videos will not be deleted and will return to Private Media.
+                {% endif %}
+            </p>
+            <div class="record-confirm-dialog-actions">
+                <form method="post" action="" data-public-case-delete-form data-record-context-action>
+                    {% csrf_token %}
+                    <button type="submit" class="record-case-danger-link">{% if is_arabic %}حذف الحالة نهائيًا{% else %}Delete Case Permanently{% endif %}</button>
+                </form>
+                <button type="button" data-public-case-delete-close>{% if is_arabic %}إلغاء{% else %}Cancel{% endif %}</button>
+            </div>
+        </div>
+    </dialog>
 </div>
 {% endblock %}
