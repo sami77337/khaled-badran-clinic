@@ -807,11 +807,17 @@ class DashboardPatientRecordDetailTests(DashboardRecordWorkflowMixin, TestCase):
 
         private_staff_url = reverse(
             "record_private_media_download",
-            kwargs={"public_id": private_media.public_id},
+            kwargs={
+                "patient_id": private_media.patient_id,
+                "public_id": private_media.public_id,
+            },
         )
         visible_staff_url = reverse(
             "record_private_media_download",
-            kwargs={"public_id": visible_media.public_id},
+            kwargs={
+                "patient_id": visible_media.patient_id,
+                "public_id": visible_media.public_id,
+            },
         )
         self.assertContains(response, f'href="{private_staff_url}"')
         self.assertContains(response, f'href="{visible_staff_url}"')
@@ -841,11 +847,11 @@ class DashboardPatientRecordDetailTests(DashboardRecordWorkflowMixin, TestCase):
         )
         preview_url = reverse(
             "record_private_media_view",
-            kwargs={"public_id": media.public_id},
+            kwargs={"patient_id": media.patient_id, "public_id": media.public_id},
         )
         download_url = reverse(
             "record_private_media_download",
-            kwargs={"public_id": media.public_id},
+            kwargs={"patient_id": media.patient_id, "public_id": media.public_id},
         )
 
         media_entries = re.findall(
@@ -1000,11 +1006,20 @@ class DashboardPatientTimelineTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertContains(response, "Image was moved to Trash", count=1)
         self.assertNotContains(
             response,
-            reverse("record_private_media_view", kwargs={"public_id": missing.public_id}),
+            reverse(
+                "record_private_media_view",
+                kwargs={
+                    "patient_id": missing.patient_id,
+                    "public_id": missing.public_id,
+                },
+            ),
         )
         self.assertNotContains(
             response,
-            reverse("record_private_media_view", kwargs={"public_id": purged_id}),
+            reverse(
+                "record_private_media_view",
+                kwargs={"patient_id": self.patient.pk, "public_id": purged_id},
+            ),
         )
 
     def test_recent_discard_suppresses_its_upload_history_completely(self):
@@ -1763,6 +1778,167 @@ class DashboardStandalonePublicCaseTests(DashboardRecordWorkflowMixin, TestCase)
         defaults.update(kwargs)
         return PublicCase.objects.create(**defaults)
 
+    def test_all_standalone_routes_require_staff_and_scope_asset_ids(self):
+        first_case = self.create_case(title="First authorization case")
+        second_case = self.create_case(title="Second authorization case")
+        second_asset = self.create_public_case_media(public_case=second_case)
+        routes = (
+            reverse("dashboard_public_case_list"),
+            reverse("dashboard_public_case_create"),
+            reverse("dashboard_public_case_edit", kwargs={"case_id": first_case.pk}),
+            reverse("dashboard_public_case_add_media", kwargs={"case_id": first_case.pk}),
+            reverse("dashboard_public_case_assets", kwargs={"case_id": first_case.pk}),
+            reverse(
+                "dashboard_public_case_asset_role",
+                kwargs={"case_id": second_case.pk, "public_id": second_asset.public_id},
+            ),
+            reverse(
+                "dashboard_public_case_asset_preview",
+                kwargs={"case_id": second_case.pk, "public_id": second_asset.public_id},
+            ),
+            reverse(
+                "dashboard_public_case_asset_download",
+                kwargs={"case_id": second_case.pk, "public_id": second_asset.public_id},
+            ),
+            reverse(
+                "dashboard_public_case_asset_remove",
+                kwargs={"case_id": second_case.pk, "public_id": second_asset.public_id},
+            ),
+            reverse("dashboard_public_case_publish", kwargs={"case_id": first_case.pk}),
+            reverse("dashboard_public_case_unpublish", kwargs={"case_id": first_case.pk}),
+            reverse("dashboard_public_case_republish", kwargs={"case_id": first_case.pk}),
+            reverse("dashboard_public_case_delete", kwargs={"case_id": first_case.pk}),
+        )
+
+        self.client.logout()
+        for route in routes:
+            with self.subTest(route=route, user="anonymous"):
+                self.assertEqual(self.client.get(route).status_code, 302)
+
+        self.client.force_login(self.create_user(username="public-case-non-staff"))
+        for route in routes:
+            with self.subTest(route=route, user="non-staff"):
+                self.assertEqual(self.client.get(route).status_code, 403)
+                self.assertEqual(self.client.post(route).status_code, 403)
+
+        self.client.force_login(self.staff)
+        mismatched_routes = (
+            (
+                "get",
+                reverse(
+                    "dashboard_public_case_asset_preview",
+                    kwargs={
+                        "case_id": first_case.pk,
+                        "public_id": second_asset.public_id,
+                    },
+                ),
+            ),
+            (
+                "get",
+                reverse(
+                    "dashboard_public_case_asset_download",
+                    kwargs={
+                        "case_id": first_case.pk,
+                        "public_id": second_asset.public_id,
+                    },
+                ),
+            ),
+            (
+                "post",
+                reverse(
+                    "dashboard_public_case_asset_role",
+                    kwargs={
+                        "case_id": first_case.pk,
+                        "public_id": second_asset.public_id,
+                    },
+                ),
+            ),
+            (
+                "post",
+                reverse(
+                    "dashboard_public_case_asset_remove",
+                    kwargs={
+                        "case_id": first_case.pk,
+                        "public_id": second_asset.public_id,
+                    },
+                ),
+            ),
+        )
+        for method, route in mismatched_routes:
+            with self.subTest(route=route, boundary="case-asset-scope"):
+                self.assertEqual(getattr(self.client, method)(route).status_code, 404)
+        self.assertTrue(PublicCaseMedia.objects.filter(pk=second_asset.pk).exists())
+
+    def test_public_case_mutations_are_csrf_protected_and_get_is_read_only(self):
+        case = self.create_case(title="CSRF boundary case")
+        asset = self.create_public_case_media(public_case=case)
+        read_only_gets = (
+            reverse("dashboard_public_case_create"),
+            reverse("dashboard_public_case_edit", kwargs={"case_id": case.pk}),
+            reverse("dashboard_public_case_add_media", kwargs={"case_id": case.pk}),
+            reverse("dashboard_public_case_publish", kwargs={"case_id": case.pk}),
+            reverse("dashboard_public_case_unpublish", kwargs={"case_id": case.pk}),
+            reverse("dashboard_public_case_republish", kwargs={"case_id": case.pk}),
+            reverse("dashboard_public_case_delete", kwargs={"case_id": case.pk}),
+        )
+        post_only = (
+            reverse(
+                "dashboard_public_case_asset_role",
+                kwargs={"case_id": case.pk, "public_id": asset.public_id},
+            ),
+            reverse(
+                "dashboard_public_case_asset_remove",
+                kwargs={"case_id": case.pk, "public_id": asset.public_id},
+            ),
+        )
+        original_state = (
+            PublicCase.objects.count(),
+            PublicCaseMedia.objects.count(),
+            case.title,
+            case.is_published,
+            asset.role,
+            asset.consent_confirmed,
+            asset.is_active,
+        )
+
+        for route in read_only_gets:
+            with self.subTest(route=route, boundary="GET"):
+                self.assertEqual(self.client.get(route).status_code, 200)
+        for route in post_only:
+            with self.subTest(route=route, boundary="GET"):
+                self.assertEqual(self.client.get(route).status_code, 405)
+
+        case.refresh_from_db()
+        asset.refresh_from_db()
+        self.assertEqual(
+            (
+                PublicCase.objects.count(),
+                PublicCaseMedia.objects.count(),
+                case.title,
+                case.is_published,
+                asset.role,
+                asset.consent_confirmed,
+                asset.is_active,
+            ),
+            original_state,
+        )
+
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.staff)
+        mutation_posts = (
+            reverse("dashboard_public_case_create"),
+            reverse("dashboard_public_case_edit", kwargs={"case_id": case.pk}),
+            reverse("dashboard_public_case_add_media", kwargs={"case_id": case.pk}),
+            *post_only,
+            reverse("dashboard_public_case_publish", kwargs={"case_id": case.pk}),
+            reverse("dashboard_public_case_unpublish", kwargs={"case_id": case.pk}),
+            reverse("dashboard_public_case_republish", kwargs={"case_id": case.pk}),
+            reverse("dashboard_public_case_delete", kwargs={"case_id": case.pk}),
+        )
+        for route in mutation_posts:
+            with self.subTest(route=route, boundary="CSRF"):
+                self.assertEqual(csrf_client.post(route).status_code, 403)
+
     def test_routes_are_standalone_and_dashboard_navigation_is_localized(self):
         case = self.create_case()
         route_names = (
@@ -2464,11 +2640,17 @@ class DashboardRegressionTests(DashboardRecordWorkflowMixin, TestCase):
         normal_user = self.create_user(username="synthetic-dashboard-route-normal-user")
 
         anonymous_response = self.client.get(
-            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
+            reverse(
+                "record_private_media_download",
+                kwargs={"patient_id": media.patient_id, "public_id": media.public_id},
+            )
         )
         self.client.force_login(normal_user)
         normal_response = self.client.get(
-            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
+            reverse(
+                "record_private_media_download",
+                kwargs={"patient_id": media.patient_id, "public_id": media.public_id},
+            )
         )
 
         self.assertEqual(anonymous_response.status_code, 302)
@@ -5818,7 +6000,10 @@ class RecordMediaTrashLifecycleTests(DashboardRecordWorkflowMixin, TestCase):
             self.client.get(
                 reverse(
                     "record_private_media_download",
-                    kwargs={"public_id": media.public_id},
+                    kwargs={
+                        "patient_id": media.patient_id,
+                        "public_id": media.public_id,
+                    },
                 )
             ).status_code,
             404,

@@ -28,9 +28,10 @@ def _staff_required(view_func):
 
 @require_GET
 @_staff_required
-def private_media_download(request, public_id):
+def private_media_download(request, patient_id, public_id):
     media = get_object_or_404(
         RecordMedia.objects.select_related("patient", "visit"),
+        patient_id=patient_id,
         public_id=public_id,
         is_active=True,
         trashed_at__isnull=True,
@@ -52,9 +53,10 @@ def private_media_download(request, public_id):
 
 @require_GET
 @_staff_required
-def private_media_view(request, public_id):
+def private_media_view(request, patient_id, public_id):
     media = get_object_or_404(
         RecordMedia.objects.select_related("patient", "visit"),
+        patient_id=patient_id,
         public_id=public_id,
         is_active=True,
         trashed_at__isnull=True,

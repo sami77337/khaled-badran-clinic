@@ -738,7 +738,10 @@ class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
         media = self.create_record_media()
 
         response = self.client.get(
-            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
+            reverse(
+                "record_private_media_download",
+                kwargs={"patient_id": media.patient_id, "public_id": media.public_id},
+            )
         )
 
         self.assertEqual(response.status_code, 302)
@@ -749,7 +752,10 @@ class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
         self.client.force_login(self.create_user(username="records-normal-user"))
 
         response = self.client.get(
-            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
+            reverse(
+                "record_private_media_download",
+                kwargs={"patient_id": media.patient_id, "public_id": media.public_id},
+            )
         )
 
         self.assertEqual(response.status_code, 403)
@@ -759,7 +765,10 @@ class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
         self.client.force_login(self.create_user(username="records-staff-user", is_staff=True))
 
         response = self.client.get(
-            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
+            reverse(
+                "record_private_media_download",
+                kwargs={"patient_id": media.patient_id, "public_id": media.public_id},
+            )
         )
 
         self.assertEqual(response.status_code, 200)
@@ -769,11 +778,50 @@ class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
         self.assertNotIn(str(settings.PRIVATE_MEDIA_ROOT), response.get("Content-Disposition", ""))
         self.assertEqual(b"".join(response.streaming_content), b"i" * 32)
 
+    def test_staff_delivery_rejects_cross_patient_uuid_substitution(self):
+        media = self.create_record_media(file=self.synthetic_image_file(size=32))
+        other_patient = self.create_patient()
+        self.client.force_login(
+            self.create_user(username="records-patient-scope-staff", is_staff=True)
+        )
+
+        for route_name in (
+            "record_private_media_view",
+            "record_private_media_download",
+        ):
+            with self.subTest(route=route_name, patient="owner"):
+                response = self.client.get(
+                    reverse(
+                        route_name,
+                        kwargs={
+                            "patient_id": media.patient_id,
+                            "public_id": media.public_id,
+                        },
+                    )
+                )
+                self.assertEqual(response.status_code, 200)
+                response.close()
+
+            with self.subTest(route=route_name, patient="other"):
+                response = self.client.get(
+                    reverse(
+                        route_name,
+                        kwargs={
+                            "patient_id": other_patient.pk,
+                            "public_id": media.public_id,
+                        },
+                    )
+                )
+                self.assertEqual(response.status_code, 404)
+
     def test_staff_inline_view_is_protected_opaque_and_not_an_attachment(self):
         media = self.create_record_media(
             file=self.synthetic_image_file(name="private-clinical-name.jpg", size=32)
         )
-        url = reverse("record_private_media_view", kwargs={"public_id": media.public_id})
+        url = reverse(
+            "record_private_media_view",
+            kwargs={"patient_id": media.patient_id, "public_id": media.public_id},
+        )
 
         anonymous = self.client.get(url)
         self.assertEqual(anonymous.status_code, 302)
@@ -812,7 +860,10 @@ class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
                 response = self.client.get(
                     reverse(
                         "record_private_media_view",
-                        kwargs={"public_id": media.public_id},
+                        kwargs={
+                            "patient_id": media.patient_id,
+                            "public_id": media.public_id,
+                        },
                     )
                 )
                 self.assertEqual(response.status_code, 404)
@@ -822,7 +873,10 @@ class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
         self.client.force_login(self.create_user(username="records-inactive-staff", is_staff=True))
 
         response = self.client.get(
-            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
+            reverse(
+                "record_private_media_download",
+                kwargs={"patient_id": media.patient_id, "public_id": media.public_id},
+            )
         )
 
         self.assertEqual(response.status_code, 404)
@@ -831,11 +885,17 @@ class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
         media = self.create_record_media(visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT)
 
         anonymous_response = self.client.get(
-            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
+            reverse(
+                "record_private_media_download",
+                kwargs={"patient_id": media.patient_id, "public_id": media.public_id},
+            )
         )
         self.client.force_login(self.create_user(username="records-visible-normal"))
         non_staff_response = self.client.get(
-            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
+            reverse(
+                "record_private_media_download",
+                kwargs={"patient_id": media.patient_id, "public_id": media.public_id},
+            )
         )
 
         self.assertEqual(anonymous_response.status_code, 302)

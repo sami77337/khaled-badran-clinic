@@ -2784,11 +2784,17 @@ def _media_items(
         if media.is_active and media.file_exists:
             staff_preview_url = reverse(
                 "record_private_media_view",
-                kwargs={"public_id": media.public_id},
+                kwargs={
+                    "patient_id": media.patient_id,
+                    "public_id": media.public_id,
+                },
             )
             staff_download_url = reverse(
                 "record_private_media_download",
-                kwargs={"public_id": media.public_id},
+                kwargs={
+                    "patient_id": media.patient_id,
+                    "public_id": media.public_id,
+                },
             )
         items.append(
             {
@@ -3044,7 +3050,10 @@ def _patient_timeline_items(patient, visits, notes, language):
         ):
             preview_url = reverse(
                 "record_private_media_view",
-                kwargs={"public_id": current_media.public_id},
+                kwargs={
+                    "patient_id": current_media.patient_id,
+                    "public_id": current_media.public_id,
+                },
             )
         timeline.append(
             {

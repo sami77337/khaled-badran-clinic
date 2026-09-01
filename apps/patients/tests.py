@@ -1910,7 +1910,10 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         media = self.create_media()
 
         response = self.client.get(
-            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
+            reverse(
+                "record_private_media_download",
+                kwargs={"patient_id": media.patient_id, "public_id": media.public_id},
+            )
         )
 
         self.assertEqual(response.status_code, 403)
