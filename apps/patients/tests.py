@@ -1173,6 +1173,7 @@ class PatientPortalAccountTests(PatientPortalTestMixin, TestCase):
         self.assertNotContains(response, str(appointment.public_token))
         self.assertNotContains(response, "Internal ID")
         self.assertNotContains(response, "object_id")
+        self.assertContains(response, 'class="portal-ltr-value" dir="ltr"', count=2)
 
     def test_account_page_does_not_expose_private_operational_content(self):
         user = self.create_user()
@@ -1705,6 +1706,25 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         self.assertContains(response, "Approved content only")
         self.assertContains(response, "No approved visits are available yet.")
 
+    def test_arabic_medical_record_type_fallbacks_are_localized(self):
+        self.create_note(
+            is_visible_to_patient=True,
+            note_type=ClinicalNote.NoteType.STAFF_NOTE,
+            title="",
+        )
+        self.create_media(
+            media_type=RecordMedia.MediaType.SHORT_VIDEO,
+            title="",
+            file=self.synthetic_video_file(name="localized-video.mp4"),
+        )
+
+        response = self.client.get(reverse("patient_portal_medical_records"))
+
+        self.assertContains(response, "ملاحظة فريق العيادة")
+        self.assertContains(response, "فيديو قصير")
+        self.assertNotContains(response, ">Staff note<")
+        self.assertNotContains(response, ">Short video<")
+
     def test_patient_sees_visible_visit_only(self):
         self.create_visit(
             is_visible_to_patient=True,
@@ -1786,6 +1806,9 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         self.assertContains(response, 'controlsList="nodownload"', count=1)
         self.assertContains(response, ' controls controlsList="nodownload"', count=1)
         self.assertContains(response, " playsinline ", count=1)
+        self.assertContains(response, 'class="portal-media-frame"', count=2)
+        self.assertContains(response, 'class="portal-media-asset portal-medical-image"', count=1)
+        self.assertContains(response, 'class="portal-media-asset portal-medical-video"', count=1)
         self.assertNotContains(response, "autoplay")
         self.assertNotContains(response, "View or download file")
         self.assertNotContains(response, "عرض أو تنزيل الملف")
@@ -1967,6 +1990,100 @@ class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
         self.assertRedirects(post_response, reverse("login"), fetch_redirect_response=False)
         dashboard_response = self.client.get(reverse("patient_portal_dashboard"))
         self.assertEqual(dashboard_response.status_code, 302)
+
+    def test_audited_portal_surfaces_are_bilingual_and_use_the_closeout_layer(self):
+        user = self.create_user()
+        appointment = self.create_appointment(user=user)
+        self.client.force_login(user)
+        surface_cases = [
+            ("patient_portal_dashboard", "patient_portal_dashboard_en", None),
+            ("patient_portal_appointment_list", "patient_portal_appointment_list_en", None),
+            (
+                "patient_portal_appointment_detail",
+                "patient_portal_appointment_detail_en",
+                {"public_token": appointment.public_token},
+            ),
+            ("patient_portal_medical_records", "patient_portal_medical_records_en", None),
+            ("patient_portal_account", "patient_portal_account_en", None),
+        ]
+
+        for arabic_route, english_route, kwargs in surface_cases:
+            with self.subTest(surface=arabic_route, language="ar"):
+                response = self.client.get(reverse(arabic_route, kwargs=kwargs))
+                self.assertContains(response, '<html lang="ar" dir="rtl">')
+                self.assertContains(response, 'class="site-shell page-patient_portal portal-closeout is-rtl"')
+                self.assertContains(response, f'href="{settings.STATIC_URL}css/patient-portal.css"')
+                self.assertContains(response, "لوحة البوابة")
+
+            with self.subTest(surface=english_route, language="en"):
+                response = self.client.get(reverse(english_route, kwargs=kwargs))
+                self.assertContains(response, '<html lang="en" dir="ltr">')
+                self.assertContains(response, 'class="site-shell page-patient_portal portal-closeout is-ltr"')
+                self.assertContains(response, f'href="{settings.STATIC_URL}css/patient-portal.css"')
+                self.assertContains(response, "Dashboard")
+
+    def test_each_audited_portal_surface_identifies_its_current_navigation_section(self):
+        user = self.create_user()
+        appointment = self.create_appointment(user=user)
+        self.client.force_login(user)
+        surface_cases = [
+            (reverse("patient_portal_dashboard"), reverse("patient_portal_dashboard")),
+            (reverse("patient_portal_appointment_list"), reverse("patient_portal_appointment_list")),
+            (
+                reverse(
+                    "patient_portal_appointment_detail",
+                    kwargs={"public_token": appointment.public_token},
+                ),
+                reverse("patient_portal_appointment_list"),
+            ),
+            (reverse("patient_portal_medical_records"), reverse("patient_portal_medical_records")),
+            (reverse("patient_portal_account"), reverse("patient_portal_account")),
+        ]
+
+        for page_url, active_url in surface_cases:
+            with self.subTest(page=page_url):
+                response = self.client.get(page_url)
+                self.assertContains(response, "data-portal-navigation")
+                self.assertContains(response, 'aria-current="page"', count=1)
+                self.assertContains(response, f'href="{active_url}" aria-current="page"')
+
+    def test_portal_responsive_and_media_styles_cover_required_breakpoints(self):
+        stylesheet = (settings.BASE_DIR / "static" / "css" / "patient-portal.css").read_text(
+            encoding="utf-8"
+        )
+
+        for contract in (
+            "@media (max-width: 479px)",
+            "@media (min-width: 480px) and (max-width: 767px)",
+            "@media (min-width: 720px) and (max-width: 1023px)",
+            "@media (min-width: 768px)",
+            "@media (min-width: 1024px)",
+            "overflow-x: auto",
+            "max-width: 100%",
+            "object-fit: contain",
+            ".portal-nav-link[aria-current=\"page\"]",
+        ):
+            with self.subTest(contract=contract):
+                self.assertIn(contract, stylesheet)
+
+    def test_appointment_list_uses_a_focusable_contained_scroll_region(self):
+        user = self.create_user()
+        appointment = self.create_appointment(user=user)
+        self.client.force_login(user)
+
+        appointment_list = self.client.get(reverse("patient_portal_appointment_list_en"))
+        appointment_detail = self.client.get(
+            reverse(
+                "patient_portal_appointment_detail_en",
+                kwargs={"public_token": appointment.public_token},
+            )
+        )
+
+        self.assertContains(appointment_list, 'class="staff-table-wrap portal-table-scroll"')
+        self.assertContains(appointment_list, 'role="region"')
+        self.assertContains(appointment_list, 'tabindex="0"')
+        self.assertContains(appointment_list, 'class="staff-table portal-appointments-table"')
+        self.assertContains(appointment_detail, 'class="portal-status-row"')
 
 
 class PatientPortalPrivacyTests(PatientPortalTestMixin, TestCase):

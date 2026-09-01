@@ -9,8 +9,8 @@
     </div>
 </section>
 
-<section class="section">
-    <div class="container booking-layout">
+<section class="section portal-page portal-account" data-portal-page="account">
+    <div class="container booking-layout portal-layout">
         {% include "patients/_portal_nav.html" %}
 
         {% if messages %}
@@ -21,8 +21,8 @@
             </div>
         {% endif %}
 
-        <div class="booking-summary">
-            <div class="success-card">
+        <div class="booking-summary portal-summary-grid">
+            <div class="success-card portal-card portal-account-summary">
                 <h2>{% if is_arabic %}معلومات الحساب{% else %}Account Information{% endif %}</h2>
                 <dl class="detail-list">
                     <div>
@@ -31,11 +31,11 @@
                     </div>
                     <div>
                         <dt>{% if is_arabic %}رقم الدخول{% else %}Username / phone{% endif %}</dt>
-                        <dd>{{ masked_username }}</dd>
+                        <dd><bdi class="portal-ltr-value" dir="ltr">{{ masked_username }}</bdi></dd>
                     </div>
                     <div>
                         <dt>{% if is_arabic %}البريد الإلكتروني{% else %}Email{% endif %}</dt>
-                        <dd>{% if email %}{{ email }}{% else %}{% if is_arabic %}غير مضاف{% else %}Not provided{% endif %}{% endif %}</dd>
+                        <dd>{% if email %}<bdi class="portal-ltr-value" dir="ltr">{{ email }}</bdi>{% else %}{% if is_arabic %}غير مضاف{% else %}Not provided{% endif %}{% endif %}</dd>
                     </div>
                     <div>
                         <dt>{% if is_arabic %}المواعيد المرتبطة{% else %}Linked appointments{% endif %}</dt>
@@ -44,7 +44,7 @@
                 </dl>
             </div>
 
-            <div class="success-card">
+            <div class="success-card portal-card portal-account-actions-card">
                 <h2>{% if is_arabic %}إدارة الحساب{% else %}Account Actions{% endif %}</h2>
                 <p class="muted">
                     {% if is_arabic %}
@@ -53,7 +53,7 @@
                         Phone and email changes require clinic support for now until a verified ownership policy is approved.
                     {% endif %}
                 </p>
-                <div class="hero-actions">
+                <div class="hero-actions portal-actions">
                     <a class="btn btn-primary" href="{{ portal_appointments_url }}">
                         {% if is_arabic %}المواعيد{% else %}Appointments{% endif %}
                     </a>

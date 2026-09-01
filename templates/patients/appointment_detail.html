@@ -9,8 +9,8 @@
     </div>
 </section>
 
-<section class="section">
-    <div class="container booking-layout">
+<section class="section portal-page portal-appointment-detail" data-portal-page="appointment-detail">
+    <div class="container booking-layout portal-layout">
         {% include "patients/_portal_nav.html" %}
 
         {% if messages %}
@@ -20,7 +20,7 @@
                 {% endfor %}
             </div>
         {% endif %}
-        <div class="success-card">
+        <div class="success-card portal-card portal-detail-card">
             <h2>{% if is_arabic %}بيانات الموعد{% else %}Appointment information{% endif %}</h2>
             <dl class="detail-list">
                 <div>
@@ -29,9 +29,9 @@
                 </div>
                 <div>
                     <dt>{% if is_arabic %}التاريخ والوقت{% else %}Date and time{% endif %}</dt>
-                    <dd>{{ appointment.starts_at|date:"Y-m-d H:i" }}</dd>
+                    <dd><time class="portal-date-value" datetime="{{ appointment.starts_at|date:'c' }}" dir="ltr">{{ appointment.starts_at|date:"Y-m-d H:i" }}</time></dd>
                 </div>
-                <div>
+                <div class="portal-status-row">
                     <dt>{% if is_arabic %}الحالة{% else %}Status{% endif %}</dt>
                     <dd><span class="status-pill status-{{ appointment.status }}">{{ status_label }}</span></dd>
                 </div>
@@ -49,10 +49,10 @@
                 </div>
                 <div>
                     <dt>{% if is_arabic %}تاريخ الإنشاء{% else %}Created{% endif %}</dt>
-                    <dd>{{ appointment.created_at|date:"Y-m-d H:i" }}</dd>
+                    <dd><time class="portal-date-value" datetime="{{ appointment.created_at|date:'c' }}" dir="ltr">{{ appointment.created_at|date:"Y-m-d H:i" }}</time></dd>
                 </div>
             </dl>
-            <div class="hero-actions">
+            <div class="hero-actions portal-actions">
                 <a class="btn btn-primary" href="{{ portal_appointments_url }}">
                     {% if is_arabic %}كل المواعيد{% else %}All appointments{% endif %}
                 </a>

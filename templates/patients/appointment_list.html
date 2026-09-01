@@ -9,17 +9,22 @@
     </div>
 </section>
 
-<section class="section">
-    <div class="container staff-layout">
+<section class="section portal-page portal-appointments" data-portal-page="appointments">
+    <div class="container staff-layout portal-layout">
         {% include "patients/_portal_nav.html" %}
 
-        <div class="hero-actions">
+        <div class="hero-actions portal-actions">
             <a class="btn btn-primary" href="{{ portal_link_url }}">{% if is_arabic %}ربط موعد{% else %}Link appointment{% endif %}</a>
             <a class="btn btn-secondary" href="{{ portal_dashboard_url }}">{% if is_arabic %}العودة للبوابة{% else %}Back to portal{% endif %}</a>
             <a class="btn btn-secondary" href="{{ portal_account_url }}">{% if is_arabic %}الحساب{% else %}Account{% endif %}</a>
         </div>
-        <div class="staff-table-wrap">
-            <table class="staff-table">
+        <div
+            class="staff-table-wrap portal-table-scroll"
+            role="region"
+            tabindex="0"
+            aria-label="{% if is_arabic %}جدول المواعيد المرتبطة، مرر أفقياً عند الحاجة{% else %}Linked appointments table, scroll horizontally when needed{% endif %}"
+        >
+            <table class="staff-table portal-appointments-table">
                 <thead>
                     <tr>
                         <th>{% if is_arabic %}التاريخ والوقت{% else %}Date and time{% endif %}</th>
@@ -32,12 +37,12 @@
                 <tbody>
                     {% for item in appointments %}
                         <tr>
-                            <td>{{ item.appointment.starts_at|date:"Y-m-d H:i" }}</td>
+                            <td><time class="portal-date-value" datetime="{{ item.appointment.starts_at|date:'c' }}" dir="ltr">{{ item.appointment.starts_at|date:"Y-m-d H:i" }}</time></td>
                             <td>{% if is_arabic %}{{ item.appointment.visit_type.name_ar }}{% else %}{{ item.appointment.visit_type.name_en }}{% endif %}</td>
                             <td>{% if is_arabic %}{{ item.appointment.doctor.display_name_ar }}{% else %}{{ item.appointment.doctor.display_name_en }}{% endif %}</td>
                             <td><span class="status-pill status-{{ item.appointment.status }}">{{ item.status_label }}</span></td>
                             <td>
-                                <a href="{% if is_arabic %}{% url 'patient_portal_appointment_detail' public_token=item.appointment.public_token %}{% else %}{% url 'patient_portal_appointment_detail_en' public_token=item.appointment.public_token %}{% endif %}">
+                                <a class="portal-table-link" href="{% if is_arabic %}{% url 'patient_portal_appointment_detail' public_token=item.appointment.public_token %}{% else %}{% url 'patient_portal_appointment_detail_en' public_token=item.appointment.public_token %}{% endif %}">
                                     {% if is_arabic %}عرض{% else %}View{% endif %}
                                 </a>
                             </td>

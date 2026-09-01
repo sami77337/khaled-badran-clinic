@@ -30,6 +30,31 @@ from apps.patients.forms import (
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
 
 
+_PORTAL_NOTE_TYPE_LABELS = {
+    "ar": {
+        ClinicalNote.NoteType.DOCTOR_NOTE: "ملاحظة الطبيب",
+        ClinicalNote.NoteType.STAFF_NOTE: "ملاحظة فريق العيادة",
+        ClinicalNote.NoteType.FOLLOW_UP: "متابعة",
+    },
+    "en": {
+        ClinicalNote.NoteType.DOCTOR_NOTE: "Doctor note",
+        ClinicalNote.NoteType.STAFF_NOTE: "Clinic staff note",
+        ClinicalNote.NoteType.FOLLOW_UP: "Follow-up",
+    },
+}
+
+_PORTAL_MEDIA_TYPE_LABELS = {
+    "ar": {
+        RecordMedia.MediaType.IMAGE: "صورة",
+        RecordMedia.MediaType.SHORT_VIDEO: "فيديو قصير",
+    },
+    "en": {
+        RecordMedia.MediaType.IMAGE: "Image",
+        RecordMedia.MediaType.SHORT_VIDEO: "Short video",
+    },
+}
+
+
 def _language(language):
     return "en" if language == "en" else "ar"
 
@@ -40,6 +65,18 @@ def _route_name(name, language):
 
 def _portal_url(name, language, **kwargs):
     return reverse(_route_name(name, language), kwargs=kwargs or None)
+
+
+def _portal_note_type_label(note_type, language):
+    language = _language(language)
+    fallback = "ملاحظة" if language == "ar" else "Note"
+    return _PORTAL_NOTE_TYPE_LABELS[language].get(note_type, fallback)
+
+
+def _portal_media_type_label(media_type, language):
+    language = _language(language)
+    fallback = "وسائط معتمدة" if language == "ar" else "Approved media"
+    return _PORTAL_MEDIA_TYPE_LABELS[language].get(media_type, fallback)
 
 
 def _login_url(language):
@@ -213,6 +250,8 @@ def portal_dashboard(request, language="ar"):
             linked_count=linked_count,
             upcoming_appointments=appointment_groups["upcoming"],
             recent_appointments=appointment_groups["recent"],
+            portal_section="dashboard",
+            portal_closeout=True,
         ),
     )
 
@@ -317,7 +356,12 @@ def portal_register(request, language="ar"):
             user = form.save()
             if user is not None:
                 auth_login(request, user)
-                messages.success(request, "Your patient portal account has been created.")
+                messages.success(
+                    request,
+                    "تم إنشاء حساب بوابة المريض."
+                    if language == "ar"
+                    else "Your patient portal account has been created.",
+                )
                 return redirect(next_url or _portal_url("patient_portal_dashboard", language))
     else:
         form = PatientRegistrationForm(language=language)
@@ -380,6 +424,7 @@ def portal_account(request, language="ar"):
             email=request.user.email,
             linked_count=linked_count,
             portal_section="account",
+            portal_closeout=True,
         ),
     )
 
@@ -393,7 +438,12 @@ def portal_password_change(request, language="ar"):
         if form.is_valid():
             user = form.save()
             update_session_auth_hash(request, user)
-            messages.success(request, "Your portal password has been changed.")
+            messages.success(
+                request,
+                "تم تغيير كلمة مرور البوابة."
+                if language == "ar"
+                else "Your portal password has been changed.",
+            )
             return redirect(_portal_url("patient_portal_account", language))
     else:
         form = _password_change_form(request.user, language=language)
@@ -465,9 +515,19 @@ def portal_link_appointment(request, language="ar"):
                 form.add_error(None, exc)
             else:
                 if result.already_linked:
-                    messages.success(request, "This appointment is already linked to your portal.")
+                    messages.success(
+                        request,
+                        "هذا الموعد مرتبط ببوابتك بالفعل."
+                        if language == "ar"
+                        else "This appointment is already linked to your portal.",
+                    )
                 else:
-                    messages.success(request, "Appointment linked to your portal.")
+                    messages.success(
+                        request,
+                        "تم ربط الموعد ببوابتك."
+                        if language == "ar"
+                        else "Appointment linked to your portal.",
+                    )
                 return redirect(
                     _portal_url(
                         "patient_portal_appointment_detail",
@@ -481,7 +541,7 @@ def portal_link_appointment(request, language="ar"):
     return render(
         request,
         "patients/link_appointment.html",
-        _portal_context(request, language, form=form),
+        _portal_context(request, language, form=form, portal_section="link"),
     )
 
 
@@ -492,7 +552,13 @@ def portal_appointment_list(request, language="ar"):
     return render(
         request,
         "patients/appointment_list.html",
-        _portal_context(request, language, appointments=appointments),
+        _portal_context(
+            request,
+            language,
+            appointments=appointments,
+            portal_section="appointments",
+            portal_closeout=True,
+        ),
     )
 
 
@@ -511,11 +577,13 @@ def patient_portal_medical_records(request, language="ar"):
             .select_related("appointment", "appointment__doctor", "appointment__visit_type")
             .order_by("-visit_date", "-created_at")
         )
-        notes = (
+        notes = list(
             ClinicalNote.objects.filter(patient=patient, is_visible_to_patient=True)
             .select_related("visit")
             .order_by("-created_at")
         )
+        for note in notes:
+            note.portal_type_label = _portal_note_type_label(note.note_type, language)
         visible_media = (
             RecordMedia.objects.filter(
                 patient=patient,
@@ -529,6 +597,7 @@ def patient_portal_medical_records(request, language="ar"):
         media_items = [
             {
                 "media": media,
+                "media_type_label": _portal_media_type_label(media.media_type, language),
                 "media_url": _portal_url(
                     "patient_portal_medical_record_media_download",
                     language,
@@ -549,6 +618,7 @@ def patient_portal_medical_records(request, language="ar"):
             notes=notes,
             media_items=media_items,
             portal_section="medical_records",
+            portal_closeout=True,
         ),
     )
 
@@ -590,5 +660,7 @@ def portal_appointment_detail(request, public_token, language="ar"):
             language,
             appointment=appointment,
             status_label=services.patient_status_label(appointment.status, language),
+            portal_section="appointments",
+            portal_closeout=True,
         ),
     )

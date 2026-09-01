@@ -9,11 +9,11 @@
     </div>
 </section>
 
-<section class="section">
-    <div class="container booking-layout">
+<section class="section portal-page portal-medical-records" data-portal-page="medical-records">
+    <div class="container booking-layout portal-layout">
         {% include "patients/_portal_nav.html" %}
 
-        <div class="success-card">
+        <div class="success-card portal-card portal-records-intro">
             <h2>{% if is_arabic %}محتوى معتمد فقط{% else %}Approved content only{% endif %}</h2>
             <p class="muted">
                 {% if is_arabic %}
@@ -25,7 +25,7 @@
         </div>
 
         {% if not patient %}
-            <div class="success-card">
+            <div class="success-card portal-card">
                 <h2>{% if is_arabic %}لا يوجد ملف مريض مرتبط{% else %}No linked patient profile{% endif %}</h2>
                 <p class="muted">
                     {% if is_arabic %}
@@ -34,7 +34,7 @@
                         This account is not linked to a clinic patient profile yet. No medical records can be shown without a secure patient link.
                     {% endif %}
                 </p>
-                <div class="hero-actions">
+                <div class="hero-actions portal-actions">
                     <a class="btn btn-primary" href="{{ portal_link_url }}">
                         {% if is_arabic %}ربط موعد{% else %}Link appointment{% endif %}
                     </a>
@@ -45,13 +45,13 @@
             </div>
         {% else %}
             <div class="staff-detail-grid">
-                <div class="staff-panel">
-                    <h2>{% if is_arabic %}الزيارات المعتمدة{% else %}Approved visits{% endif %}</h2>
+                <div class="staff-panel portal-card portal-record-section" aria-labelledby="portal-visits-title">
+                    <h2 id="portal-visits-title">{% if is_arabic %}الزيارات المعتمدة{% else %}Approved visits{% endif %}</h2>
                     {% if visits %}
                         <div class="slot-day-list">
                             {% for visit in visits %}
-                                <article class="booking-option">
-                                    <h3>{{ visit.visit_date|date:"Y-m-d H:i" }}</h3>
+                                <article class="booking-option portal-list-card">
+                                    <h3><time class="portal-date-value" datetime="{{ visit.visit_date|date:'c' }}" dir="ltr">{{ visit.visit_date|date:"Y-m-d H:i" }}</time></h3>
                                     {% if visit.appointment %}
                                         <p class="muted">
                                             {% if is_arabic %}
@@ -65,31 +65,31 @@
                                         {% if visit.visit_reason %}
                                             <div>
                                                 <dt>{% if is_arabic %}سبب الزيارة{% else %}Visit reason{% endif %}</dt>
-                                                <dd>{{ visit.visit_reason }}</dd>
+                                                <dd class="portal-rich-text">{{ visit.visit_reason }}</dd>
                                             </div>
                                         {% endif %}
                                         {% if visit.doctor_notes %}
                                             <div>
                                                 <dt>{% if is_arabic %}ملاحظات الطبيب{% else %}Doctor notes{% endif %}</dt>
-                                                <dd>{{ visit.doctor_notes }}</dd>
+                                                <dd class="portal-rich-text">{{ visit.doctor_notes }}</dd>
                                             </div>
                                         {% endif %}
                                         {% if visit.diagnosis_plan %}
                                             <div>
                                                 <dt>{% if is_arabic %}الخطة المكتوبة{% else %}Written plan{% endif %}</dt>
-                                                <dd>{{ visit.diagnosis_plan }}</dd>
+                                                <dd class="portal-rich-text">{{ visit.diagnosis_plan }}</dd>
                                             </div>
                                         {% endif %}
                                         {% if visit.instructions %}
                                             <div>
                                                 <dt>{% if is_arabic %}التعليمات{% else %}Instructions{% endif %}</dt>
-                                                <dd>{{ visit.instructions }}</dd>
+                                                <dd class="portal-rich-text">{{ visit.instructions }}</dd>
                                             </div>
                                         {% endif %}
                                         {% if visit.follow_up_notes %}
                                             <div>
                                                 <dt>{% if is_arabic %}المتابعة{% else %}Follow-up{% endif %}</dt>
-                                                <dd>{{ visit.follow_up_notes }}</dd>
+                                                <dd class="portal-rich-text">{{ visit.follow_up_notes }}</dd>
                                             </div>
                                         {% endif %}
                                     </dl>
@@ -101,15 +101,15 @@
                     {% endif %}
                 </div>
 
-                <div class="staff-panel">
-                    <h2>{% if is_arabic %}الملاحظات المعتمدة{% else %}Approved notes{% endif %}</h2>
+                <div class="staff-panel portal-card portal-record-section" aria-labelledby="portal-notes-title">
+                    <h2 id="portal-notes-title">{% if is_arabic %}الملاحظات المعتمدة{% else %}Approved notes{% endif %}</h2>
                     {% if notes %}
                         <div class="slot-day-list">
                             {% for note in notes %}
-                                <article class="booking-option">
-                                    <h3>{% if note.title %}{{ note.title }}{% else %}{{ note.get_note_type_display }}{% endif %}</h3>
-                                    <p class="muted">{{ note.created_at|date:"Y-m-d H:i" }}</p>
-                                    <p>{{ note.body }}</p>
+                                <article class="booking-option portal-list-card">
+                                    <h3>{% if note.title %}{{ note.title }}{% else %}{{ note.portal_type_label }}{% endif %}</h3>
+                                    <p class="muted"><time class="portal-date-value" datetime="{{ note.created_at|date:'c' }}" dir="ltr">{{ note.created_at|date:"Y-m-d H:i" }}</time></p>
+                                    <p class="portal-rich-text">{{ note.body }}</p>
                                 </article>
                             {% endfor %}
                         </div>
@@ -119,24 +119,26 @@
                 </div>
             </div>
 
-            <div class="staff-panel">
-                <h2>{% if is_arabic %}الصور والفيديوهات المعتمدة{% else %}Approved images and short videos{% endif %}</h2>
+            <div class="staff-panel portal-card portal-record-section portal-media-section" aria-labelledby="portal-media-title">
+                <h2 id="portal-media-title">{% if is_arabic %}الصور والفيديوهات المعتمدة{% else %}Approved images and short videos{% endif %}</h2>
                 {% if media_items %}
                     <div class="slot-day-list">
                         {% for item in media_items %}
-                            <article class="booking-option">
-                                <h3>{% if item.media.title %}{{ item.media.title }}{% else %}{{ item.media.get_media_type_display }}{% endif %}</h3>
+                            <article class="booking-option portal-list-card portal-media-card">
+                                <h3>{% if item.media.title %}{{ item.media.title }}{% else %}{{ item.media_type_label }}{% endif %}</h3>
                                 {% if item.media.description %}
-                                    <p>{{ item.media.description }}</p>
+                                    <p class="portal-rich-text">{{ item.media.description }}</p>
                                 {% endif %}
-                                <p class="muted">
-                                    {{ item.media.get_media_type_display }} · {{ item.media.uploaded_at|date:"Y-m-d H:i" }}
+                                <p class="muted portal-media-meta">
+                                    {{ item.media_type_label }} <span aria-hidden="true">·</span> <time class="portal-date-value" datetime="{{ item.media.uploaded_at|date:'c' }}" dir="ltr">{{ item.media.uploaded_at|date:"Y-m-d H:i" }}</time>
                                 </p>
-                                {% if item.media.media_type == 'short_video' %}
-                                    <video src="{{ item.media_url }}" controls controlsList="nodownload" playsinline preload="metadata"></video>
-                                {% else %}
-                                    <img src="{{ item.media_url }}" alt="{% if item.media.title %}{{ item.media.title }}{% elif is_arabic %}صورة طبية معتمدة{% else %}Approved medical image{% endif %}" loading="lazy">
-                                {% endif %}
+                                <div class="portal-media-frame">
+                                    {% if item.media.media_type == 'short_video' %}
+                                        <video src="{{ item.media_url }}" class="portal-media-asset portal-medical-video" controls controlsList="nodownload" playsinline preload="metadata"></video>
+                                    {% else %}
+                                        <img src="{{ item.media_url }}" class="portal-media-asset portal-medical-image" alt="{% if item.media.title %}{{ item.media.title }}{% elif is_arabic %}صورة طبية معتمدة{% else %}Approved medical image{% endif %}" loading="lazy">
+                                    {% endif %}
+                                </div>
                             </article>
                         {% endfor %}
                     </div>

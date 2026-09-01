@@ -18,9 +18,10 @@
     <link rel="icon" href="{% static 'img/icons/site-icon.svg' %}" type="image/svg+xml">
     <link rel="stylesheet" href="{% static 'css/site.css' %}">
     {% if use_public_shell %}<link rel="stylesheet" href="{% static 'css/public.css' %}">{% endif %}
+    {% if page_key == "patient_portal" %}<link rel="stylesheet" href="{% static 'css/patient-portal.css' %}">{% endif %}
     {% block extra_head %}{% endblock %}
 </head>
-<body class="site-shell page-{{ page_key }}{% if use_public_shell %} public-shell{% endif %}{% if show_mobile_booking_cta %} has-mobile-booking-cta{% endif %} {% if is_arabic %}is-rtl{% else %}is-ltr{% endif %}">
+<body class="site-shell page-{{ page_key }}{% if use_public_shell %} public-shell{% endif %}{% if show_mobile_booking_cta %} has-mobile-booking-cta{% endif %}{% if portal_closeout %} portal-closeout{% endif %} {% if is_arabic %}is-rtl{% else %}is-ltr{% endif %}">
     <a class="skip-link" href="#main-content">{% if is_arabic %}تجاوز إلى المحتوى{% else %}Skip to content{% endif %}</a>
     {% if use_public_shell %}
         {% include "partials/header.html" %}
