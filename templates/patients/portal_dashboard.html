@@ -1,17 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">{% if is_arabic %}بوابة اختيارية{% else %}Optional Portal{% endif %}</p>
-        <h1>{% if is_arabic %}بوابة المريض{% else %}Patient Portal{% endif %}</h1>
-        <p>{{ labels.not_emergency }}</p>
-    </div>
-</section>
-
 <section class="section portal-page portal-dashboard" data-portal-page="dashboard">
     <div class="container booking-layout portal-layout">
-        {% include "patients/_portal_nav.html" %}
+        {% include "patients/_portal_header.html" with title_ar="بوابة المريض" title_en="Patient Portal" %}
 
         {% if messages %}
             <div class="staff-messages">
@@ -21,18 +13,20 @@
             </div>
         {% endif %}
 
-        <div class="booking-summary portal-summary-grid">
+        <div class="portal-dashboard-summary">
             <div class="success-card portal-card portal-welcome-card">
-                <p class="eyebrow">{% if is_arabic %}مرحباً{% else %}Welcome{% endif %}</p>
-                <h2>{{ display_name }}</h2>
-                <p class="muted">
-                    {% if is_arabic %}
-                        لديك {{ linked_count }} موعد مرتبط بهذا الحساب.
-                    {% else %}
-                        You have {{ linked_count }} appointment{{ linked_count|pluralize }} linked to this account.
-                    {% endif %}
-                </p>
-                <div class="hero-actions portal-actions">
+                <div class="portal-welcome-copy">
+                    <p class="portal-card-label">{% if is_arabic %}مرحباً{% else %}Welcome{% endif %}</p>
+                    <h2>{{ display_name }}</h2>
+                    <p class="portal-linked-summary">
+                        {% if is_arabic %}
+                            لديك {{ linked_count }} موعد مرتبط بهذا الحساب.
+                        {% else %}
+                            You have {{ linked_count }} appointment{{ linked_count|pluralize }} linked to this account.
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="portal-actions portal-dashboard-actions">
                     <a class="btn btn-primary" href="{{ portal_link_url }}">
                         {% if is_arabic %}ربط موعد{% else %}Link appointment{% endif %}
                     </a>
@@ -47,36 +41,13 @@
                     </a>
                 </div>
             </div>
-            <div class="success-card portal-card portal-limits-card">
-                {% if is_arabic %}
-                <h2>حدود البوابة</h2>
-                <p class="muted">
-                    تظهر هنا المواعيد الآمنة وأجزاء السجل الطبي التي وافق الطبيب أو الفريق على إظهارها فقط. رفع الملفات غير متاح في بوابة المريض حالياً.
-                </p>
-                {% else %}
-                <h2>{% if is_arabic %}حدود البوابة{% else %}Portal Limits{% endif %}</h2>
-                <p class="muted">
-                    {% if is_arabic %}
-                        السجلات الطبية ورفع الملفات غير متاحة حالياً. تظهر هنا بيانات المواعيد الآمنة فقط.
-                    {% else %}
-                        This portal shows safe appointment data and medical-record content approved by the doctor or staff only. Patient uploads are not available.
-                    {% endif %}
-                </p>
-                {% endif %}
-                <form method="post" action="{{ portal_logout_url }}">
-                    {% csrf_token %}
-                    <button class="btn btn-secondary" type="submit">
-                        {% if is_arabic %}تسجيل الخروج{% else %}Log out{% endif %}
-                    </button>
-                </form>
-            </div>
         </div>
 
-        <div class="staff-detail-grid">
+        <div class="portal-dashboard-columns">
             <div class="staff-panel portal-card portal-record-section" aria-labelledby="portal-upcoming-title">
                 <h2 id="portal-upcoming-title">{% if is_arabic %}المواعيد القادمة{% else %}Upcoming appointments{% endif %}</h2>
                 {% if upcoming_appointments %}
-                    <div class="slot-day-list">
+                    <div class="portal-appointment-list">
                         {% for item in upcoming_appointments %}
                             <article class="booking-option portal-list-card">
                                 <h3>{% if is_arabic %}{{ item.appointment.visit_type.name_ar }}{% else %}{{ item.appointment.visit_type.name_en }}{% endif %}</h3>
@@ -96,7 +67,7 @@
             <div class="staff-panel portal-card portal-record-section" aria-labelledby="portal-recent-title">
                 <h2 id="portal-recent-title">{% if is_arabic %}المواعيد السابقة{% else %}Recent appointments{% endif %}</h2>
                 {% if recent_appointments %}
-                    <div class="slot-day-list">
+                    <div class="portal-appointment-list">
                         {% for item in recent_appointments %}
                             <article class="booking-option portal-list-card">
                                 <h3>{% if is_arabic %}{{ item.appointment.visit_type.name_ar }}{% else %}{{ item.appointment.visit_type.name_en }}{% endif %}</h3>

@@ -1,28 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">{% if is_arabic %}السجل الطبي{% else %}Medical Records{% endif %}</p>
-        <h1>{% if is_arabic %}السجل الطبي المعتمد{% else %}Approved Medical Record{% endif %}</h1>
-        <p>{{ labels.not_emergency }}</p>
-    </div>
-</section>
-
 <section class="section portal-page portal-medical-records" data-portal-page="medical-records">
     <div class="container booking-layout portal-layout">
-        {% include "patients/_portal_nav.html" %}
-
-        <div class="success-card portal-card portal-records-intro">
-            <h2>{% if is_arabic %}محتوى معتمد فقط{% else %}Approved content only{% endif %}</h2>
-            <p class="muted">
-                {% if is_arabic %}
-                    تعرض هذه الصفحة أجزاء السجل التي وافق الطبيب أو الفريق على إظهارها للمريض فقط. لا تظهر الملاحظات الداخلية أو الملفات الخاصة هنا.
-                {% else %}
-                    This page shows only record content that the doctor or staff approved for patient visibility. Internal notes and private files are not shown here.
-                {% endif %}
-            </p>
-        </div>
+        {% include "patients/_portal_header.html" with title_ar="السجل الطبي" title_en="Medical Records" %}
 
         {% if not patient %}
             <div class="success-card portal-card">
@@ -44,7 +25,7 @@
                 </div>
             </div>
         {% else %}
-            <div class="staff-detail-grid">
+            <div class="portal-records-grid">
                 <div class="staff-panel portal-card portal-record-section" aria-labelledby="portal-visits-title">
                     <h2 id="portal-visits-title">{% if is_arabic %}الزيارات المعتمدة{% else %}Approved visits{% endif %}</h2>
                     {% if visits %}
@@ -148,13 +129,6 @@
             </div>
         {% endif %}
 
-        <p class="trust-note">
-            {% if is_arabic %}
-                هذه الصفحة للقراءة فقط. لا يمكن تعديل السجل الطبي أو رفع ملفات من بوابة المريض في هذا الإصدار.
-            {% else %}
-                This page is read-only. Patients cannot edit medical records or upload files in this version.
-            {% endif %}
-        </p>
     </div>
 </section>
 {% endblock %}

@@ -186,6 +186,21 @@ def _portal_context(request, language, **extra):
     return context
 
 
+def _authenticated_portal_context(request, language, **extra):
+    language = _language(language)
+    extra.setdefault("portal_closeout", True)
+    extra.setdefault("suppress_footer", True)
+    extra.setdefault(
+        "meta_description",
+        (
+            "الوصول إلى مواعيدك وسجلك الطبي وحسابك في بوابة المريض."
+            if language == "ar"
+            else "Access your appointments, medical records, and account in the Patient Portal."
+        ),
+    )
+    return _portal_context(request, language, **extra)
+
+
 def _login_required(view_func):
     @never_cache
     def wrapped(request, *args, **kwargs):
@@ -243,7 +258,7 @@ def portal_dashboard(request, language="ar"):
     return render(
         request,
         "patients/portal_dashboard.html",
-        _portal_context(
+        _authenticated_portal_context(
             request,
             language,
             display_name=services.patient_display_name(request.user),
@@ -251,7 +266,6 @@ def portal_dashboard(request, language="ar"):
             upcoming_appointments=appointment_groups["upcoming"],
             recent_appointments=appointment_groups["recent"],
             portal_section="dashboard",
-            portal_closeout=True,
         ),
     )
 
@@ -416,7 +430,7 @@ def portal_account(request, language="ar"):
     return render(
         request,
         "patients/account.html",
-        _portal_context(
+        _authenticated_portal_context(
             request,
             language,
             display_name=services.patient_display_name(request.user),
@@ -424,7 +438,6 @@ def portal_account(request, language="ar"):
             email=request.user.email,
             linked_count=linked_count,
             portal_section="account",
-            portal_closeout=True,
         ),
     )
 
@@ -451,7 +464,7 @@ def portal_password_change(request, language="ar"):
     return render(
         request,
         "patients/password_change.html",
-        _portal_context(request, language, form=form, portal_section="password"),
+        _authenticated_portal_context(request, language, form=form, portal_section="password"),
     )
 
 
@@ -541,7 +554,7 @@ def portal_link_appointment(request, language="ar"):
     return render(
         request,
         "patients/link_appointment.html",
-        _portal_context(request, language, form=form, portal_section="link"),
+        _authenticated_portal_context(request, language, form=form, portal_section="link"),
     )
 
 
@@ -552,12 +565,11 @@ def portal_appointment_list(request, language="ar"):
     return render(
         request,
         "patients/appointment_list.html",
-        _portal_context(
+        _authenticated_portal_context(
             request,
             language,
             appointments=appointments,
             portal_section="appointments",
-            portal_closeout=True,
         ),
     )
 
@@ -610,7 +622,7 @@ def patient_portal_medical_records(request, language="ar"):
     return render(
         request,
         "patients/medical_records.html",
-        _portal_context(
+        _authenticated_portal_context(
             request,
             language,
             patient=patient,
@@ -618,7 +630,6 @@ def patient_portal_medical_records(request, language="ar"):
             notes=notes,
             media_items=media_items,
             portal_section="medical_records",
-            portal_closeout=True,
         ),
     )
 
@@ -655,12 +666,11 @@ def portal_appointment_detail(request, public_token, language="ar"):
     return render(
         request,
         "patients/appointment_detail.html",
-        _portal_context(
+        _authenticated_portal_context(
             request,
             language,
             appointment=appointment,
             status_label=services.patient_status_label(appointment.status, language),
             portal_section="appointments",
-            portal_closeout=True,
         ),
     )

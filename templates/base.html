@@ -44,10 +44,12 @@
             <span aria-hidden="true">WA</span>
         </a>
     {% endif %}
-    {% if use_public_shell %}
-        {% include "partials/footer.html" %}
-    {% else %}
-        {% include "partials/legacy_footer.html" %}
+    {% if not suppress_footer %}
+        {% if use_public_shell %}
+            {% include "partials/footer.html" %}
+        {% else %}
+            {% include "partials/legacy_footer.html" %}
+        {% endif %}
     {% endif %}
     <script src="{% static 'js/site.js' %}" defer></script>
 </body>

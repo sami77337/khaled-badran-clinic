@@ -1,0 +1,9 @@
+<header class="portal-header" data-portal-compact-header>
+    <div class="portal-heading">
+        {% if portal_section != "dashboard" %}
+            <p class="portal-context-label">{% if is_arabic %}بوابة المريض{% else %}Patient Portal{% endif %}</p>
+        {% endif %}
+        <h1>{% if is_arabic %}{{ title_ar }}{% else %}{{ title_en }}{% endif %}</h1>
+    </div>
+    {% include "patients/_portal_nav.html" %}
+</header>

@@ -1703,7 +1703,9 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         response = self.client.get(reverse("patient_portal_medical_records_en"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Approved content only")
+        self.assertContains(response, "data-portal-compact-header")
+        self.assertContains(response, "Medical Records")
+        self.assertNotContains(response, "Approved content only")
         self.assertContains(response, "No approved visits are available yet.")
 
     def test_arabic_medical_record_type_fallbacks_are_localized(self):
@@ -1959,6 +1961,7 @@ class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
             reverse("patient_portal_link_appointment"),
             reverse("patient_portal_account"),
             reverse("patient_portal_password_change"),
+            reverse("home"),
         ]
         page_urls = [
             reverse("patient_portal_dashboard"),
@@ -1978,6 +1981,74 @@ class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
                     self.assertContains(response, f'href="{expected_link}"')
                 self.assertContains(response, f'action="{reverse("patient_portal_logout")}"')
                 self.assertContains(response, 'method="post"')
+
+    def test_authenticated_portal_suppresses_footer_while_public_footer_remains(self):
+        user = self.create_user()
+        appointment = self.create_appointment(user=user)
+        self.client.force_login(user)
+        portal_urls = [
+            reverse("patient_portal_dashboard"),
+            reverse("patient_portal_appointment_list"),
+            reverse("patient_portal_medical_records"),
+            reverse("patient_portal_link_appointment"),
+            reverse("patient_portal_account"),
+            reverse("patient_portal_password_change"),
+            reverse(
+                "patient_portal_appointment_detail",
+                kwargs={"public_token": appointment.public_token},
+            ),
+        ]
+
+        for url in portal_urls:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response.context["suppress_footer"])
+                self.assertNotContains(response, "<footer")
+
+        public_response = self.client.get(reverse("home"))
+        self.assertEqual(public_response.status_code, 200)
+        self.assertContains(public_response, '<footer class="site-footer">')
+
+    def test_portal_uses_compact_headers_without_rejected_hero_or_helper_copy(self):
+        user = self.create_user()
+        appointment = self.create_appointment(user=user)
+        self.client.force_login(user)
+        surface_cases = [
+            ("patient_portal_dashboard", "patient_portal_dashboard_en", None),
+            ("patient_portal_appointment_list", "patient_portal_appointment_list_en", None),
+            (
+                "patient_portal_appointment_detail",
+                "patient_portal_appointment_detail_en",
+                {"public_token": appointment.public_token},
+            ),
+            ("patient_portal_medical_records", "patient_portal_medical_records_en", None),
+            ("patient_portal_account", "patient_portal_account_en", None),
+            ("patient_portal_link_appointment", "patient_portal_link_appointment_en", None),
+            ("patient_portal_password_change", "patient_portal_password_change_en", None),
+        ]
+        rejected_copy = (
+            "Optional Portal",
+            "بوابة اختيارية",
+            "Portal Limits",
+            "حدود البوابة",
+            "This website and WhatsApp are not for emergencies.",
+            "الموقع وواتساب غير مخصصين للطوارئ",
+            "This page shows safe account information only.",
+            "Approved content only",
+        )
+
+        for arabic_route, english_route, kwargs in surface_cases:
+            for route in (arabic_route, english_route):
+                with self.subTest(route=route):
+                    response = self.client.get(reverse(route, kwargs=kwargs))
+                    self.assertEqual(response.status_code, 200)
+                    self.assertContains(response, "data-portal-compact-header", count=1)
+                    self.assertNotContains(response, 'class="page-hero"')
+                    self.assertNotContains(response, "trust-note")
+                    self.assertNotContains(response, "portal-limits-card")
+                    for copy in rejected_copy:
+                        self.assertNotContains(response, copy)
 
     def test_logout_remains_post_only(self):
         user = self.create_user()
@@ -2005,6 +2076,8 @@ class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
             ),
             ("patient_portal_medical_records", "patient_portal_medical_records_en", None),
             ("patient_portal_account", "patient_portal_account_en", None),
+            ("patient_portal_link_appointment", "patient_portal_link_appointment_en", None),
+            ("patient_portal_password_change", "patient_portal_password_change_en", None),
         ]
 
         for arabic_route, english_route, kwargs in surface_cases:
@@ -2038,6 +2111,8 @@ class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
             ),
             (reverse("patient_portal_medical_records"), reverse("patient_portal_medical_records")),
             (reverse("patient_portal_account"), reverse("patient_portal_account")),
+            (reverse("patient_portal_link_appointment"), reverse("patient_portal_link_appointment")),
+            (reverse("patient_portal_password_change"), reverse("patient_portal_password_change")),
         ]
 
         for page_url, active_url in surface_cases:
@@ -2055,11 +2130,13 @@ class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
         for contract in (
             "@media (max-width: 479px)",
             "@media (min-width: 480px) and (max-width: 767px)",
-            "@media (min-width: 720px) and (max-width: 1023px)",
+            "@media (min-width: 768px) and (max-width: 1023px)",
             "@media (min-width: 768px)",
             "@media (min-width: 1024px)",
             "overflow-x: auto",
             "max-width: 100%",
+            "min-height: 44px",
+            "grid-template-columns: repeat(2, minmax(0, 1fr))",
             "object-fit: contain",
             ".portal-nav-link[aria-current=\"page\"]",
         ):

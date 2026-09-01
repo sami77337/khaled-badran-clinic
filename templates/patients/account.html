@@ -1,17 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">{% if is_arabic %}حساب البوابة{% else %}Portal Account{% endif %}</p>
-        <h1>{% if is_arabic %}بيانات حسابك{% else %}Your Account{% endif %}</h1>
-        <p>{{ labels.not_emergency }}</p>
-    </div>
-</section>
-
 <section class="section portal-page portal-account" data-portal-page="account">
     <div class="container booking-layout portal-layout">
-        {% include "patients/_portal_nav.html" %}
+        {% include "patients/_portal_header.html" with title_ar="بيانات حسابك" title_en="Your Account" %}
 
         {% if messages %}
             <div class="staff-messages">
@@ -21,7 +13,7 @@
             </div>
         {% endif %}
 
-        <div class="booking-summary portal-summary-grid">
+        <div class="portal-account-grid">
             <div class="success-card portal-card portal-account-summary">
                 <h2>{% if is_arabic %}معلومات الحساب{% else %}Account Information{% endif %}</h2>
                 <dl class="detail-list">
@@ -46,14 +38,7 @@
 
             <div class="success-card portal-card portal-account-actions-card">
                 <h2>{% if is_arabic %}إدارة الحساب{% else %}Account Actions{% endif %}</h2>
-                <p class="muted">
-                    {% if is_arabic %}
-                        تعديل الهاتف أو البريد الإلكتروني يتطلب التواصل مع العيادة حاليا حتى يتم اعتماد سياسة تحقق آمنة.
-                    {% else %}
-                        Phone and email changes require clinic support for now until a verified ownership policy is approved.
-                    {% endif %}
-                </p>
-                <div class="hero-actions portal-actions">
+                <div class="portal-actions portal-account-actions">
                     <a class="btn btn-primary" href="{{ portal_appointments_url }}">
                         {% if is_arabic %}المواعيد{% else %}Appointments{% endif %}
                     </a>
@@ -69,14 +54,6 @@
                 </div>
             </div>
         </div>
-
-        <p class="trust-note">
-            {% if is_arabic %}
-                تعرض هذه الصفحة معلومات حساب آمنة فقط. السجلات الطبية ورفع الملفات والمدفوعات ورسائل واتساب غير متاحة في البوابة حاليا.
-            {% else %}
-                This page shows safe account information only. Medical records, uploads, payments, and WhatsApp messages are not available in the portal yet.
-            {% endif %}
-        </p>
     </div>
 </section>
 {% endblock %}

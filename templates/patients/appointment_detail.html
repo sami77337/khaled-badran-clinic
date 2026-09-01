@@ -1,17 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">{% if is_arabic %}تفاصيل الموعد{% else %}Appointment Details{% endif %}</p>
-        <h1>{% if is_arabic %}موعدك في العيادة{% else %}Your Clinic Appointment{% endif %}</h1>
-        <p>{{ labels.not_emergency }}</p>
-    </div>
-</section>
-
 <section class="section portal-page portal-appointment-detail" data-portal-page="appointment-detail">
     <div class="container booking-layout portal-layout">
-        {% include "patients/_portal_nav.html" %}
+        {% include "patients/_portal_header.html" with title_ar="تفاصيل الموعد" title_en="Appointment Details" %}
 
         {% if messages %}
             <div class="staff-messages">
@@ -52,7 +44,7 @@
                     <dd><time class="portal-date-value" datetime="{{ appointment.created_at|date:'c' }}" dir="ltr">{{ appointment.created_at|date:"Y-m-d H:i" }}</time></dd>
                 </div>
             </dl>
-            <div class="hero-actions portal-actions">
+            <div class="portal-actions portal-detail-actions">
                 <a class="btn btn-primary" href="{{ portal_appointments_url }}">
                     {% if is_arabic %}كل المواعيد{% else %}All appointments{% endif %}
                 </a>
@@ -64,13 +56,6 @@
                 </a>
             </div>
         </div>
-        <p class="trust-note">
-            {% if is_arabic %}
-                هذه الصفحة لا تعرض ملاحظات الطبيب الداخلية أو سجل الحالة أو سجل التدقيق أو أي سجلات طبية أو مرفقات.
-            {% else %}
-                This page does not show internal doctor notes, status history, audit logs, medical records, or uploads.
-            {% endif %}
-        </p>
     </div>
 </section>
 {% endblock %}
