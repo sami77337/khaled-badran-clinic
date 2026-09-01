@@ -27,7 +27,7 @@ from apps.patients.forms import (
     auth_error_message,
 )
 from apps.patients import rate_limits
-from apps.records.models import ClinicalNote, PublicCase, RecordMedia, VisitRecord
+from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
 from .models import Patient
 
 
@@ -1653,7 +1653,6 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         media_type=RecordMedia.MediaType.IMAGE,
         visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
         is_active=True,
-        consent_confirmed=False,
         title="Synthetic visible media",
         description="Synthetic visible media description.",
         file=None,
@@ -1665,30 +1664,11 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
                 if media_type == RecordMedia.MediaType.SHORT_VIDEO
                 else self.synthetic_image_file()
             )
-        if visibility == RecordMedia.Visibility.APPROVED_PUBLIC_CASE:
-            consent_confirmed = True
-            public_case = PublicCase.objects.create(
-                patient=patient,
-                title=title[:180],
-                consent_confirmed=True,
-                is_published=True,
-            )
-            public_case_role = (
-                RecordMedia.PublicCaseRole.VIDEO
-                if media_type == RecordMedia.MediaType.SHORT_VIDEO
-                else RecordMedia.PublicCaseRole.PRIMARY
-            )
-        else:
-            public_case = None
-            public_case_role = ""
         return RecordMedia.objects.create(
             patient=patient,
-            public_case=public_case,
-            public_case_role=public_case_role,
             media_type=media_type,
             file=file,
             visibility=visibility,
-            consent_confirmed=consent_confirmed,
             is_active=is_active,
             title=title,
             description=description,
@@ -1823,14 +1803,10 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         with self.assertRaises(ValueError):
             image.file.url
 
-    def test_patient_does_not_see_private_public_case_inactive_or_other_patient_media(self):
+    def test_patient_does_not_see_private_inactive_or_other_patient_media(self):
         self.create_media(
             visibility=RecordMedia.Visibility.PRIVATE_ONLY,
             title="Private-only media hidden from patient",
-        )
-        self.create_media(
-            visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-            title="Approved public case media hidden from patient",
         )
         self.create_media(
             is_active=False,
@@ -1844,7 +1820,6 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         response = self.client.get(reverse("patient_portal_medical_records_en"))
 
         self.assertNotContains(response, "Private-only media hidden from patient")
-        self.assertNotContains(response, "Approved public case media hidden from patient")
         self.assertNotContains(response, "Inactive media hidden from patient")
         self.assertNotContains(response, "Other patient visible media hidden from current user")
 
@@ -1894,10 +1869,6 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
             self.create_media(
                 visibility=RecordMedia.Visibility.PRIVATE_ONLY,
                 title="Private media blocked from download",
-            ),
-            self.create_media(
-                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-                title="Public case media blocked from download",
             ),
             self.create_media(
                 is_active=False,

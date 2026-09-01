@@ -30,8 +30,8 @@
         <a class="record-action record-action-primary" href="{{ media_create_url }}">
             {% if is_arabic %}رفع ملف{% else %}Upload Media{% endif %}
         </a>
-        <a class="record-action record-action-secondary" href="{{ public_case_create_url }}">
-            {% if is_arabic %}نشر حالة عامة{% else %}Publish Public Case{% endif %}
+        <a class="record-action record-action-secondary" href="#new-folder">
+            {% if is_arabic %}مجلد جديد{% else %}New Folder{% endif %}
         </a>
         <a class="record-action record-action-secondary" href="{{ dashboard_patients_url }}">
             {% if is_arabic %}العودة إلى المرضى{% else %}Back to Patients{% endif %}
@@ -83,6 +83,51 @@
     </section>
 
     <div class="record-flow">
+        <details class="record-section record-collapsible-section" id="patient-timeline" data-record-section aria-labelledby="patient-timeline-title">
+            <summary class="record-section-summary">
+                <span class="record-section-title" id="patient-timeline-title" role="heading" aria-level="2">{% if is_arabic %}تسلسل حالة المريض{% else %}Patient Timeline{% endif %}</span>
+                <span class="record-count" aria-label="{% if is_arabic %}عدد أحداث التسلسل{% else %}Timeline event count{% endif %}">{{ patient_timeline_count }}</span>
+            </summary>
+            <div class="record-section-body">
+            {% if patient_timeline %}
+                <ol class="record-patient-timeline">
+                    {% for event in patient_timeline %}
+                        <li class="record-timeline-event record-timeline-{{ event.kind }}">
+                            <span class="record-timeline-marker" aria-hidden="true"></span>
+                            <div class="record-timeline-content">
+                                <time class="record-timeline-date" datetime="{{ event.occurred_at|date:'c' }}" dir="ltr">{{ event.occurred_at|date:"Y-m-d H:i" }}</time>
+                                <p>
+                                    {% if event.kind == 'visit' %}
+                                        {% if is_arabic %}&#1578;&#1605;&#1578; &#1586;&#1610;&#1575;&#1585;&#1577; &#1575;&#1604;&#1605;&#1585;&#1610;&#1590; &#1576;&#1578;&#1575;&#1585;&#1610;&#1582; {{ event.occurred_at|date:"Y-m-d H:i" }}.{% else %}The patient visited on {{ event.occurred_at|date:"Y-m-d H:i" }}.{% endif %}
+                                    {% elif event.kind == 'clinical_note' %}
+                                        {% if is_arabic %}&#1578;&#1605; &#1578;&#1587;&#1580;&#1610;&#1604; &#1605;&#1604;&#1575;&#1581;&#1592;&#1577; &#1587;&#1585;&#1610;&#1585;&#1610;&#1577; &#1576;&#1608;&#1575;&#1587;&#1591;&#1577; {{ event.actor_label }} &#1576;&#1578;&#1575;&#1585;&#1610;&#1582; {{ event.occurred_at|date:"Y-m-d H:i" }}.{% else %}A clinical note was recorded by {{ event.actor_label }} on {{ event.occurred_at|date:"Y-m-d H:i" }}.{% endif %}
+                                    {% elif event.kind == 'media_uploaded' %}
+                                        {% if is_arabic %}&#1578;&#1605; &#1585;&#1601;&#1593; {{ event.media_type_label }} &#1591;&#1576;&#1610;&#1577; &#1576;&#1608;&#1575;&#1587;&#1591;&#1577; {{ event.actor_label }} &#1576;&#1578;&#1575;&#1585;&#1610;&#1582; {{ event.occurred_at|date:"Y-m-d H:i" }}.{% else %}Medical {{ event.media_type_label|lower }} was uploaded by {{ event.actor_label }} on {{ event.occurred_at|date:"Y-m-d H:i" }}.{% endif %}
+                                    {% elif event.kind == 'media_deleted' %}
+                                        {% if is_arabic %}&#1578;&#1605; &#1581;&#1584;&#1601; {{ event.media_type_label }} &#1576;&#1608;&#1575;&#1587;&#1591;&#1577; {{ event.actor_label }} &#1576;&#1578;&#1575;&#1585;&#1610;&#1582; {{ event.occurred_at|date:"Y-m-d" }} &#1575;&#1604;&#1587;&#1575;&#1593;&#1577; {{ event.occurred_at|date:"H:i" }}.{% else %}{{ event.media_type_label }} was moved to Trash by {{ event.actor_label }} on {{ event.occurred_at|date:"Y-m-d" }} at {{ event.occurred_at|date:"H:i" }}.{% endif %}
+                                    {% elif event.kind == 'media_restored' %}
+                                        {% if is_arabic %}&#1578;&#1605;&#1578; &#1575;&#1587;&#1578;&#1593;&#1575;&#1583;&#1577; {{ event.media_type_label }} &#1605;&#1606; &#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578; &#1576;&#1608;&#1575;&#1587;&#1591;&#1577; {{ event.actor_label }} &#1576;&#1578;&#1575;&#1585;&#1610;&#1582; {{ event.occurred_at|date:"Y-m-d H:i" }}.{% else %}{{ event.media_type_label }} was restored from Trash by {{ event.actor_label }} on {{ event.occurred_at|date:"Y-m-d H:i" }}.{% endif %}
+                                    {% elif event.kind == 'public_case_published' %}
+                                        {% if is_arabic %}&#1578;&#1605; &#1606;&#1588;&#1585; &#1581;&#1575;&#1604;&#1577; &#1593;&#1575;&#1605;&#1577; &#1576;&#1578;&#1575;&#1585;&#1610;&#1582; {{ event.occurred_at|date:"Y-m-d H:i" }}.{% else %}A Public Case was published on {{ event.occurred_at|date:"Y-m-d H:i" }}.{% endif %}
+                                    {% endif %}
+                                </p>
+                                {% if event.kind == 'visit' %}
+                                    <a class="record-timeline-action" href="#{{ event.target_fragment }}">{% if is_arabic %}&#1593;&#1585;&#1590; &#1575;&#1604;&#1586;&#1610;&#1575;&#1585;&#1577;{% else %}View Visit{% endif %}</a>
+                                {% elif event.kind == 'clinical_note' %}
+                                    <a class="record-timeline-action" href="#{{ event.target_fragment }}">{% if is_arabic %}&#1593;&#1585;&#1590; &#1575;&#1604;&#1605;&#1604;&#1575;&#1581;&#1592;&#1577;{% else %}View Note{% endif %}</a>
+                                {% elif event.preview_url %}
+                                    <button class="record-timeline-action" type="button" data-media-preview-trigger data-preview-url="{{ event.preview_url }}" data-media-type="{{ event.media_type }}">{% if is_arabic %}&#1605;&#1593;&#1575;&#1610;&#1606;&#1577;{% else %}Preview{% endif %}</button>
+                                {% endif %}
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ol>
+            {% else %}
+                <p class="record-empty-state">{% if is_arabic %}&#1604;&#1575; &#1578;&#1608;&#1580;&#1583; &#1571;&#1581;&#1583;&#1575;&#1579; &#1576;&#1593;&#1583;.{% else %}No history events yet.{% endif %}</p>
+            {% endif %}
+            </div>
+        </details>
+
         <details class="record-section record-collapsible-section" id="visits" data-record-section aria-labelledby="visits-title">
             <summary class="record-section-summary">
                 <span class="record-section-title" id="visits-title" role="heading" aria-level="2">{% if is_arabic %}الزيارات{% else %}Visits{% endif %}</span>
@@ -92,7 +137,7 @@
             {% if visit_items %}
                 <div class="record-list">
                     {% for item in visit_items %}
-                        <article class="record-entry visit-entry">
+                        <article class="record-entry visit-entry" id="visit-{{ item.visit.pk }}">
                             <header class="record-entry-header">
                                 <div>
                                     <p class="record-entry-kicker">{% if is_arabic %}زيارة{% else %}Visit{% endif %}</p>
@@ -165,7 +210,7 @@
             {% if note_items %}
                 <div class="record-list">
                     {% for item in note_items %}
-                        <article class="record-entry note-entry">
+                        <article class="record-entry note-entry" id="clinical-note-{{ item.note.pk }}">
                             <header class="record-entry-header">
                                 <div>
                                     <p class="record-entry-kicker">{{ item.note_type_label }}</p>
@@ -186,59 +231,6 @@
             </div>
         </details>
 
-        <details class="record-section record-collapsible-section" id="public-cases" data-record-section aria-labelledby="public-cases-title">
-            <summary class="record-section-summary">
-                <span class="record-section-title" id="public-cases-title" role="heading" aria-level="2">{% if is_arabic %}الحالات العامة{% else %}Public Cases{% endif %}</span>
-                <span class="record-count" aria-label="{% if is_arabic %}عدد الحالات العامة{% else %}Public case count{% endif %}">{{ public_case_count }}</span>
-            </summary>
-            <div class="record-section-body">
-            {% if public_case_items %}
-                <div class="record-list public-case-manager-list">
-                    {% for item in public_case_items %}
-                        <article class="record-entry public-case-manager-card">
-                            <header class="record-entry-header">
-                                <div>
-                                    <p class="record-entry-kicker">{% if is_arabic %}حالة عامة{% else %}Public Case{% endif %}</p>
-                                    <h3>{{ item.case.title|default_if_none:""|default:"—" }}</h3>
-                                    <p class="record-entry-date"><time datetime="{{ item.case.created_at|date:'c' }}" dir="ltr">{{ item.case.created_at|date:"Y-m-d H:i" }}</time></p>
-                                </div>
-                                <span class="record-status status-{% if item.case.is_published %}visible_to_patient{% else %}private_only{% endif %}">{{ item.status_label }}</span>
-                            </header>
-                            <dl class="public-case-counts">
-                                <div><dt>{% if is_arabic %}كل الوسائط{% else %}All media{% endif %}</dt><dd>{{ item.case.media_count }}</dd></div>
-                                <div><dt>{% if is_arabic %}قبل{% else %}Before{% endif %}</dt><dd>{{ item.case.before_count }}</dd></div>
-                                <div><dt>{% if is_arabic %}بعد{% else %}After{% endif %}</dt><dd>{{ item.case.after_count }}</dd></div>
-                                <div><dt>{% if is_arabic %}فيديو{% else %}Video{% endif %}</dt><dd>{{ item.case.video_count }}</dd></div>
-                            </dl>
-                            {% if item.case.reference_visit %}
-                                <p class="record-related-meta">{% if is_arabic %}الزيارة المرجعية{% else %}Reference visit{% endif %}: <time datetime="{{ item.case.reference_visit.visit_date|date:'c' }}" dir="ltr">{{ item.case.reference_visit.visit_date|date:"Y-m-d H:i" }}</time></p>
-                            {% endif %}
-                            <div class="record-media-actions public-case-manager-actions">
-                                <a href="{{ item.edit_url }}">{% if is_arabic %}تعديل الحالة{% else %}Edit Case{% endif %}</a>
-                                <a href="{{ item.add_media_url }}">{% if is_arabic %}إضافة وسائط{% else %}Add Media{% endif %}</a>
-                                <a href="{{ item.assets_url }}">{% if is_arabic %}إدارة الأصول{% else %}Manage Assets{% endif %}</a>
-                                {% if item.case.is_published %}
-                                    <a class="record-case-danger-link" href="{{ item.unpublish_url }}">{% if is_arabic %}إلغاء النشر{% else %}Unpublish{% endif %}</a>
-                                {% else %}
-                                    <form method="post" action="{{ item.republish_url }}">
-                                        {% csrf_token %}
-                                        <button type="submit">{% if is_arabic %}إعادة النشر{% else %}Republish{% endif %}</button>
-                                    </form>
-                                {% endif %}
-                                {% if item.merge_url %}<a href="{{ item.merge_url }}">{% if is_arabic %}دمج{% else %}Merge{% endif %}</a>{% endif %}
-                                <button type="button" class="record-case-danger-link" data-public-case-delete-trigger data-delete-url="{{ item.delete_url }}">
-                                    {% if is_arabic %}حذف الحالة نهائيًا{% else %}Delete Case Permanently{% endif %}
-                                </button>
-                            </div>
-                        </article>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <p class="record-empty-state">{% if is_arabic %}لا توجد حالات عامة بعد.{% else %}No public cases yet.{% endif %}</p>
-            {% endif %}
-            </div>
-        </details>
-
         <details class="record-section record-collapsible-section" id="private-media" data-record-section aria-labelledby="private-media-title"{% if private_media_has_errors %} open{% endif %}>
             <summary class="record-section-summary">
                 <span class="record-section-title" id="private-media-title" role="heading" aria-level="2">{% if is_arabic %}الوسائط الخاصة{% else %}Private Media{% endif %}</span>
@@ -254,7 +246,7 @@
                     <span class="record-folder-safety">{% if is_arabic %}لا تظهر للمرضى أو للزوار{% else %}Never shown to patients or visitors{% endif %}</span>
                 </div>
 
-                <form class="record-folder-create" method="post" action="{{ folder_create_url }}">
+                <form class="record-folder-create" id="new-folder" method="post" action="{{ folder_create_url }}" data-folder-create-form>
                     {% csrf_token %}
                     <p class="record-entry-kicker">{% if is_arabic %}مجلد جديد{% else %}New Folder{% endif %}</p>
                     <label for="{{ folder_create_form.name.id_for_label }}">{% if is_arabic %}اسم المجلد{% else %}Folder name{% endif %}</label>
@@ -363,9 +355,6 @@
                                     {% elif item.trash_url %}
                                         <a class="record-case-danger-link" href="{{ item.trash_url }}" data-record-context-action>{% if is_arabic %}حذف{% else %}Delete{% endif %}</a>
                                     {% endif %}
-                                    {% if item.public_case_url %}
-                                        <a href="{{ item.public_case_url }}">{% if is_arabic %}رابط الحالة العامة{% else %}Public Case Link{% endif %}</a>
-                                    {% endif %}
                                 </div>
                             </article>
                         {% endif %}
@@ -433,24 +422,5 @@
         </div>
     </dialog>
 
-    <dialog class="record-confirm-dialog" data-public-case-delete-dialog aria-labelledby="public-case-delete-title">
-        <div class="record-confirm-dialog-panel">
-            <h2 id="public-case-delete-title">{% if is_arabic %}حذف الحالة نهائيًا{% else %}Delete Case Permanently{% endif %}</h2>
-            <p>
-                {% if is_arabic %}
-                    سيتم حذف الحالة العامة نهائيًا. لن يتم حذف الصور أو الفيديوهات الطبية، وستعود إلى الوسائط الخاصة.
-                {% else %}
-                    This Public Case will be permanently deleted. Its medical images/videos will not be deleted and will return to Private Media.
-                {% endif %}
-            </p>
-            <div class="record-confirm-dialog-actions">
-                <form method="post" action="" data-public-case-delete-form data-record-context-action>
-                    {% csrf_token %}
-                    <button type="submit" class="record-case-danger-link">{% if is_arabic %}حذف الحالة نهائيًا{% else %}Delete Case Permanently{% endif %}</button>
-                </form>
-                <button type="button" data-public-case-delete-close>{% if is_arabic %}إلغاء{% else %}Cancel{% endif %}</button>
-            </div>
-        </div>
-    </dialog>
 </div>
 {% endblock %}

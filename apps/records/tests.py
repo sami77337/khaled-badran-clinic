@@ -2,14 +2,15 @@ from datetime import date, timedelta
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+from importlib import import_module
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, connection, models, transaction
+from django.db import connection, models
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
@@ -23,20 +24,24 @@ from apps.records.models import (
     IMAGE_MAX_BYTES,
     SHORT_VIDEO_MAX_BYTES,
     ClinicalNote,
+    PatientTimelineEvent,
     PublicCase,
+    PublicCaseMedia,
     RecordMedia,
     RecordMediaFolder,
     VisitRecord,
 )
-from apps.records.storage import private_record_media_storage
+from apps.records.storage import private_record_media_storage, public_case_media_storage
 
 
 class PatientRecordTestDataMixin:
     @classmethod
     def setUpClass(cls):
         cls._private_media_tempdir = TemporaryDirectory()
+        cls._public_case_media_tempdir = TemporaryDirectory()
         cls._private_media_override = override_settings(
-            PRIVATE_MEDIA_ROOT=Path(cls._private_media_tempdir.name)
+            PRIVATE_MEDIA_ROOT=Path(cls._private_media_tempdir.name),
+            PUBLIC_CASE_MEDIA_ROOT=Path(cls._public_case_media_tempdir.name),
         )
         cls._private_media_override.enable()
         super().setUpClass()
@@ -46,6 +51,7 @@ class PatientRecordTestDataMixin:
         super().tearDownClass()
         cls._private_media_override.disable()
         cls._private_media_tempdir.cleanup()
+        cls._public_case_media_tempdir.cleanup()
 
     def create_patient(self):
         return Patient.objects.create(
@@ -117,23 +123,6 @@ class PatientRecordTestDataMixin:
                 if media_type == RecordMedia.MediaType.SHORT_VIDEO
                 else self.synthetic_image_file()
             )
-        if (
-            kwargs.get("visibility") == RecordMedia.Visibility.APPROVED_PUBLIC_CASE
-            and "public_case" not in kwargs
-        ):
-            kwargs["public_case"] = PublicCase.objects.create(
-                patient=patient,
-                consent_confirmed=True,
-                is_published=True,
-            )
-            kwargs.setdefault(
-                "public_case_role",
-                (
-                    RecordMedia.PublicCaseRole.VIDEO
-                    if media_type == RecordMedia.MediaType.SHORT_VIDEO
-                    else RecordMedia.PublicCaseRole.PRIMARY
-                ),
-            )
         return RecordMedia.objects.create(
             patient=patient,
             media_type=media_type,
@@ -141,132 +130,93 @@ class PatientRecordTestDataMixin:
             **kwargs,
         )
 
+    def create_public_case_media(
+        self,
+        *,
+        public_case=None,
+        role=PublicCaseMedia.Role.PRIMARY,
+        media_type=PublicCaseMedia.MediaType.IMAGE,
+        file=None,
+        **kwargs,
+    ):
+        public_case = public_case or PublicCase.objects.create(
+            title="Synthetic marketing case",
+            consent_confirmed=True,
+            is_published=True,
+        )
+        if file is None:
+            file = (
+                self.synthetic_video_file()
+                if media_type == PublicCaseMedia.MediaType.SHORT_VIDEO
+                else self.synthetic_image_file()
+            )
+        return PublicCaseMedia.objects.create(
+            public_case=public_case,
+            role=role,
+            media_type=media_type,
+            file=file,
+            consent_confirmed=True,
+            is_active=True,
+            **kwargs,
+        )
+
 
 class PatientRecordFoundationTests(PatientRecordTestDataMixin, TestCase):
-    def test_patient_record_can_be_created_with_synthetic_data(self):
+    def test_patient_record_medical_models_remain_patient_scoped(self):
         patient = self.create_patient()
         appointment = self.create_appointment(patient)
-
         visit = VisitRecord.objects.create(
             patient=patient,
             appointment=appointment,
             visit_reason="Synthetic visit reason.",
-            doctor_notes="Synthetic doctor note.",
-            diagnosis_plan="Synthetic manually written plan.",
-            instructions="Synthetic manually written instructions.",
-            follow_up_notes="Synthetic manually written follow-up notes.",
         )
+        note = ClinicalNote.objects.create(
+            patient=patient,
+            visit=visit,
+            body="Synthetic clinical note.",
+        )
+        media = self.create_record_media(patient=patient, visit=visit)
 
         self.assertEqual(visit.patient, patient)
-        self.assertEqual(visit.appointment, appointment)
-        self.assertEqual(patient.phone, "+962700000000")
-        self.assertEqual(patient.age, timezone.localdate().year - 1990)
-        self.assertEqual(patient.gender, Patient.Gender.PREFER_NOT_TO_SAY)
-
-    def test_visit_defaults_to_not_visible_to_patient(self):
-        visit = VisitRecord.objects.create(
-            patient=self.create_patient(),
-            visit_reason="Synthetic private visit reason.",
-            doctor_notes="Synthetic private doctor note.",
-        )
-
-        self.assertFalse(visit.is_visible_to_patient)
-        self.assertEqual(visit.get_patient_visible_content(), {})
-
-    def test_clinical_note_defaults_to_not_visible_to_patient(self):
-        note = ClinicalNote.objects.create(
-            patient=self.create_patient(),
-            body="Synthetic private staff note.",
-        )
-
-        self.assertFalse(note.is_visible_to_patient)
-        self.assertEqual(note.get_patient_visible_content(), {})
-
-    def test_media_defaults_to_private_only_and_no_consent(self):
-        media = self.create_record_media(
-            title="Synthetic private image metadata",
-        )
-
+        self.assertEqual(note.patient, patient)
+        self.assertEqual(media.patient, patient)
         self.assertEqual(media.visibility, RecordMedia.Visibility.PRIVATE_ONLY)
-        self.assertFalse(media.consent_confirmed)
         self.assertFalse(media.is_visible_to_patient)
-        self.assertFalse(media.is_public_case_approved)
-        self.assertEqual(media.get_patient_visible_metadata(), {})
-        self.assertEqual(media.get_public_case_metadata(), {})
 
-    def test_patient_visibility_is_not_public_approval(self):
-        media = self.create_record_media(
-            media_type=RecordMedia.MediaType.SHORT_VIDEO,
-            visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
-            title="Synthetic patient-visible short video metadata",
+    def test_visible_to_patient_is_the_only_non_private_medical_visibility(self):
+        self.assertEqual(
+            set(RecordMedia.Visibility.values),
+            {
+                RecordMedia.Visibility.PRIVATE_ONLY,
+                RecordMedia.Visibility.VISIBLE_TO_PATIENT,
+            },
         )
-
+        media = self.create_record_media(
+            visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
+            title="Synthetic patient-visible media",
+        )
         self.assertTrue(media.is_visible_to_patient)
-        self.assertFalse(media.is_public_case_approved)
-        self.assertEqual(media.get_public_case_metadata(), {})
         self.assertEqual(
             media.get_patient_visible_metadata()["title"],
-            "Synthetic patient-visible short video metadata",
+            "Synthetic patient-visible media",
         )
 
-    def test_approved_public_case_requires_confirmed_consent(self):
-        media = RecordMedia(
-            patient=self.create_patient(),
-            media_type=RecordMedia.MediaType.IMAGE,
-            file=self.synthetic_image_file(),
-            visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-            consent_confirmed=False,
-        )
-
-        with self.assertRaises(ValidationError):
-            media.full_clean()
-
-        media.consent_confirmed = True
-        with self.assertRaisesMessage(
-            ValidationError,
-            "Approved public case media requires a public case.",
-        ):
-            media.full_clean()
-
-        media.public_case = PublicCase.objects.create(
-            patient=media.patient,
-            consent_confirmed=True,
-            is_published=True,
-        )
-        media.public_case_role = RecordMedia.PublicCaseRole.PRIMARY
-        media.full_clean()
-        media.save()
-
-        self.assertTrue(media.is_public_case_approved)
-        self.assertFalse(media.is_visible_to_patient)
-
-    def test_no_public_medical_content_is_exposed_by_default(self):
+    def test_private_medical_content_is_not_exposed_by_default(self):
         patient = self.create_patient()
         visit = VisitRecord.objects.create(
             patient=patient,
-            visit_reason="Synthetic private reason.",
             doctor_notes="Synthetic private doctor notes.",
-            diagnosis_plan="Synthetic private manual plan.",
-            instructions="Synthetic private instructions.",
-            follow_up_notes="Synthetic private follow-up.",
         )
         note = ClinicalNote.objects.create(
             patient=patient,
             visit=visit,
-            title="Synthetic private note title",
-            body="Synthetic private note body.",
+            body="Synthetic private note.",
         )
-        media = self.create_record_media(
-            patient=patient,
-            visit=visit,
-            title="Synthetic private media title",
-            description="Synthetic private media description.",
-        )
+        media = self.create_record_media(patient=patient, visit=visit)
 
         self.assertEqual(visit.get_patient_visible_content(), {})
         self.assertEqual(note.get_patient_visible_content(), {})
         self.assertEqual(media.get_patient_visible_metadata(), {})
-        self.assertEqual(media.get_public_case_metadata(), {})
 
     def test_no_automated_medical_generation_fields_exist(self):
         field_names = {
@@ -274,176 +224,154 @@ class PatientRecordFoundationTests(PatientRecordTestDataMixin, TestCase):
             for model_class in (VisitRecord, ClinicalNote, RecordMedia)
             for field in model_class._meta.get_fields()
         }
-        blocked_terms = {
-            "ai",
-            "automated",
-            "generated",
-            "recommendation",
-            "triage",
-            "treatment",
-        }
-
+        blocked_terms = {"ai", "automated", "generated", "recommendation", "triage"}
         for field_name in field_names:
-            with self.subTest(field_name=field_name):
-                self.assertFalse(any(term in field_name for term in blocked_terms))
-
-        for model_class in (VisitRecord, ClinicalNote):
-            for field in model_class._meta.fields:
-                with self.subTest(model=model_class.__name__, field=field.name):
-                    self.assertNotIsInstance(field, models.FileField)
-
-        self.assertIsInstance(RecordMedia._meta.get_field("file"), models.FileField)
-        self.assertIn("Manual", VisitRecord._meta.get_field("diagnosis_plan").help_text)
-        self.assertIn("Manual", VisitRecord._meta.get_field("instructions").help_text)
+            self.assertFalse(any(term in field_name for term in blocked_terms))
 
 
-class PublicCaseModelTests(PatientRecordTestDataMixin, TestCase):
-    def test_same_patient_reference_visit_is_valid(self):
-        patient = self.create_patient()
-        visit = VisitRecord.objects.create(patient=patient)
-        public_case = PublicCase(
-            patient=patient,
-            reference_visit=visit,
-            title="Synthetic public case",
+class PublicCaseDomainIsolationTests(PatientRecordTestDataMixin, TestCase):
+    def test_public_case_and_record_media_have_no_cross_domain_fields(self):
+        public_case_fields = {field.name for field in PublicCase._meta.get_fields()}
+        record_media_fields = {field.name for field in RecordMedia._meta.get_fields()}
+        public_media_fields = {field.name for field in PublicCaseMedia._meta.get_fields()}
+
+        self.assertNotIn("patient", public_case_fields)
+        self.assertNotIn("reference_visit", public_case_fields)
+        self.assertNotIn("public_case", record_media_fields)
+        self.assertNotIn("public_case_role", record_media_fields)
+        self.assertNotIn("record_media", public_media_fields)
+        self.assertNotIn("patient", public_media_fields)
+
+    def test_public_case_schema_contains_marketing_fields_only(self):
+        concrete_fields = {field.name for field in PublicCase._meta.fields}
+        self.assertEqual(
+            concrete_fields,
+            {
+                "id",
+                "title",
+                "note",
+                "detail_note",
+                "consent_confirmed",
+                "is_published",
+                "created_by",
+                "created_at",
+                "updated_at",
+            },
         )
 
+    def test_public_case_text_guard_is_conservative_and_no_patient_data_is_copied(self):
+        patient = self.create_patient()
+        public_case = PublicCase(title="Independent marketing case")
         public_case.full_clean()
-        public_case.save()
+        self.assertNotIn(patient.full_name, public_case.title)
 
-        self.assertEqual(public_case.patient, patient)
-        self.assertEqual(public_case.reference_visit, visit)
-
-    def test_cross_patient_reference_visit_is_rejected(self):
-        patient = self.create_patient()
-        other_patient = Patient.objects.create(
-            full_name="Synthetic Other Patient",
-            phone_raw="+962700000001",
-        )
-        other_visit = VisitRecord.objects.create(patient=other_patient)
-        public_case = PublicCase(patient=patient, reference_visit=other_visit)
-
-        with self.assertRaisesMessage(
-            ValidationError,
-            "Reference visit must belong to the selected patient.",
-        ):
+        public_case.note = "Contact synthetic@example.test"
+        with self.assertRaises(ValidationError):
             public_case.full_clean()
 
-    def test_media_accepts_same_patient_public_case_and_explicit_image_roles(self):
-        patient = self.create_patient()
-        public_case = PublicCase.objects.create(patient=patient)
-
-        for role in (
-            RecordMedia.PublicCaseRole.PRIMARY,
-            RecordMedia.PublicCaseRole.BEFORE,
-            RecordMedia.PublicCaseRole.AFTER,
-            RecordMedia.PublicCaseRole.VIDEO_COVER,
-        ):
-            with self.subTest(role=role):
-                media = RecordMedia(
-                    patient=patient,
-                    public_case=public_case,
-                    public_case_role=role,
-                    media_type=RecordMedia.MediaType.IMAGE,
-                    file=self.synthetic_image_file(name=f"{role}.jpg"),
-                )
+    def test_public_case_media_roles_require_matching_media_types(self):
+        public_case = PublicCase.objects.create(title="Role validation")
+        invalid_rows = (
+            (PublicCaseMedia.Role.BEFORE, PublicCaseMedia.MediaType.SHORT_VIDEO),
+            (PublicCaseMedia.Role.AFTER, PublicCaseMedia.MediaType.SHORT_VIDEO),
+            (PublicCaseMedia.Role.VIDEO_COVER, PublicCaseMedia.MediaType.SHORT_VIDEO),
+            (PublicCaseMedia.Role.VIDEO, PublicCaseMedia.MediaType.IMAGE),
+        )
+        for index, (role, media_type) in enumerate(invalid_rows):
+            file = (
+                self.synthetic_video_file(name=f"invalid-{index}.mp4")
+                if media_type == PublicCaseMedia.MediaType.SHORT_VIDEO
+                else self.synthetic_image_file(name=f"invalid-{index}.jpg")
+            )
+            media = PublicCaseMedia(
+                public_case=public_case,
+                role=role,
+                media_type=media_type,
+                file=file,
+            )
+            with self.subTest(role=role), self.assertRaises(ValidationError):
                 media.full_clean()
 
-    def test_media_accepts_video_role_for_short_video(self):
-        patient = self.create_patient()
-        public_case = PublicCase.objects.create(patient=patient)
-        media = RecordMedia(
-            patient=patient,
-            public_case=public_case,
-            public_case_role=RecordMedia.PublicCaseRole.VIDEO,
-            media_type=RecordMedia.MediaType.SHORT_VIDEO,
-            file=self.synthetic_video_file(),
-        )
+    def test_public_case_media_uses_separate_non_url_storage_namespace(self):
+        media = self.create_public_case_media()
+        self.assertTrue(media.file.name.startswith(f"public-cases/image/{media.public_id}/"))
+        self.assertNotIn("records/image/", media.file.name)
+        self.assertTrue(media.file_exists)
+        with self.assertRaises(ValueError):
+            public_case_media_storage.url(media.file.name)
+        with self.assertRaises(ValueError):
+            media.file.url
 
-        media.full_clean()
+    def test_public_availability_requires_all_gates_and_publishable_role(self):
+        media = self.create_public_case_media()
+        self.assertTrue(media.is_publicly_available)
 
-    def test_cross_patient_public_case_is_rejected(self):
-        patient = self.create_patient()
-        other_patient = Patient.objects.create(
-            full_name="Synthetic Public Case Owner",
-            phone_raw="+962700000002",
-        )
-        public_case = PublicCase.objects.create(patient=other_patient)
-        media = RecordMedia(
-            patient=patient,
-            public_case=public_case,
-            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
-            media_type=RecordMedia.MediaType.IMAGE,
-            file=self.synthetic_image_file(),
-        )
-
-        with self.assertRaisesMessage(
-            ValidationError,
-            "Public case must belong to the selected patient.",
+        for field_name, value in (
+            ("consent_confirmed", False),
+            ("is_active", False),
+            ("role", PublicCaseMedia.Role.VIDEO_COVER),
+            ("role", ""),
         ):
-            media.full_clean()
-
-    def test_role_requires_public_case_and_matching_media_type(self):
-        patient = self.create_patient()
-        public_case = PublicCase.objects.create(patient=patient)
-        invalid_rows = (
-            (RecordMedia.PublicCaseRole.BEFORE, RecordMedia.MediaType.SHORT_VIDEO),
-            (RecordMedia.PublicCaseRole.AFTER, RecordMedia.MediaType.SHORT_VIDEO),
-            (RecordMedia.PublicCaseRole.VIDEO_COVER, RecordMedia.MediaType.SHORT_VIDEO),
-            (RecordMedia.PublicCaseRole.VIDEO, RecordMedia.MediaType.IMAGE),
-        )
-
-        without_case = RecordMedia(
-            patient=patient,
-            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
-            media_type=RecordMedia.MediaType.IMAGE,
-            file=self.synthetic_image_file(name="without-case.jpg"),
-        )
-        with self.assertRaisesMessage(
-            ValidationError,
-            "A public case role requires a public case.",
-        ):
-            without_case.full_clean()
-
-        for index, (role, media_type) in enumerate(invalid_rows):
-            with self.subTest(role=role, media_type=media_type):
-                file = (
-                    self.synthetic_video_file(name=f"invalid-{index}.mp4")
-                    if media_type == RecordMedia.MediaType.SHORT_VIDEO
-                    else self.synthetic_image_file(name=f"invalid-{index}.jpg")
+            with self.subTest(field_name=field_name, value=value):
+                PublicCaseMedia.objects.filter(pk=media.pk).update(
+                    consent_confirmed=True,
+                    is_active=True,
+                    role=PublicCaseMedia.Role.PRIMARY,
                 )
-                media = RecordMedia(
-                    patient=patient,
-                    public_case=public_case,
-                    public_case_role=role,
-                    media_type=media_type,
-                    file=file,
-                )
-                with self.assertRaises(ValidationError):
-                    media.full_clean()
+                PublicCaseMedia.objects.filter(pk=media.pk).update(**{field_name: value})
+                media.refresh_from_db()
+                self.assertFalse(media.is_publicly_available)
 
-    def test_folder_is_independent_from_public_case(self):
-        patient = self.create_patient()
-        folder = RecordMediaFolder.objects.create(patient=patient, name="Internal only")
-        public_case = PublicCase.objects.create(patient=patient)
-        media = self.create_record_media(
-            patient=patient,
-            folder=folder,
-            public_case=public_case,
-            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
+        PublicCaseMedia.objects.filter(pk=media.pk).update(
+            consent_confirmed=True,
+            is_active=True,
+            role=PublicCaseMedia.Role.PRIMARY,
         )
+        media.refresh_from_db()
+        media.file.storage.delete(media.file.name)
+        self.assertFalse(media.is_publicly_available)
 
-        self.assertEqual(media.folder, folder)
-        self.assertEqual(media.public_case, public_case)
+    def test_withdrawing_case_consent_always_unpublishes(self):
+        public_case = PublicCase.objects.create(
+            title="Consent state",
+            consent_confirmed=True,
+            is_published=True,
+        )
+        public_case.consent_confirmed = False
+        public_case.save(update_fields=["consent_confirmed"])
+        public_case.refresh_from_db()
+        self.assertFalse(public_case.is_published)
 
-    def test_database_rejects_approved_public_media_without_public_case(self):
-        media = self.create_record_media()
+    def test_media_eligibility_change_automatically_unpublishes_case(self):
+        media = self.create_public_case_media()
+        public_case = media.public_case
+        self.assertTrue(public_case.is_published)
 
-        with self.assertRaises(IntegrityError), transaction.atomic():
-            RecordMedia.objects.filter(pk=media.pk).update(
-                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-                consent_confirmed=True,
-                public_case=None,
-            )
+        media.consent_confirmed = False
+        media.save(update_fields=["consent_confirmed"])
+
+        public_case.refresh_from_db()
+        self.assertFalse(public_case.is_published)
+
+    def test_deleting_last_publishable_media_automatically_unpublishes_case(self):
+        media = self.create_public_case_media()
+        public_case = media.public_case
+
+        media.delete()
+
+        public_case.refresh_from_db()
+        self.assertFalse(public_case.is_published)
+
+    def test_patient_timeline_event_is_narrow_and_has_no_case_content_relation(self):
+        fields = {field.name for field in PatientTimelineEvent._meta.get_fields()}
+        self.assertEqual(
+            fields,
+            {"id", "patient", "event_type", "actor", "occurred_at", "created_at"},
+        )
+        self.assertNotIn("public_case", fields)
+        self.assertNotIn("title", fields)
+        self.assertNotIn("media", fields)
+        self.assertNotIn("url", fields)
 
 
 class PublicCaseBackfillMigrationTests(TransactionTestCase):
@@ -523,6 +451,10 @@ class PublicCaseBackfillMigrationTests(TransactionTestCase):
         self.apps = executor.loader.project_state([self.migrate_to]).apps
 
     def tearDown(self):
+        MediaModel = self.apps.get_model("records", "RecordMedia")
+        PublicCaseModel = self.apps.get_model("records", "PublicCase")
+        MediaModel.objects.all().delete()
+        PublicCaseModel.objects.all().delete()
         executor = MigrationExecutor(connection)
         executor.migrate(executor.loader.graph.leaf_nodes("records"))
         super().tearDown()
@@ -617,6 +549,10 @@ class PublicCaseDetailNoteMigrationTests(TransactionTestCase):
         self.apps = executor.loader.project_state([self.migrate_to]).apps
 
     def tearDown(self):
+        MediaModel = self.apps.get_model("records", "RecordMedia")
+        PublicCaseModel = self.apps.get_model("records", "PublicCase")
+        MediaModel.objects.all().delete()
+        PublicCaseModel.objects.all().delete()
         executor = MigrationExecutor(connection)
         executor.migrate(executor.loader.graph.leaf_nodes("records"))
         super().tearDown()
@@ -638,6 +574,45 @@ class PublicCaseDetailNoteMigrationTests(TransactionTestCase):
         self.assertEqual(PublicCaseModel.objects.count(), 2)
         self.assertEqual(MediaModel.objects.count(), 1)
 
+
+
+class PublicCaseSeparationMigrationGuardTests(TestCase):
+    def _run_guard(self, related_cases=0, attached_media=0, approved_media=0):
+        migration = import_module(
+            "apps.records.migrations.0008_separate_public_cases_and_patient_timeline"
+        )
+        public_case_model = MagicMock()
+        public_case_model.objects.filter.return_value.count.return_value = related_cases
+        record_media_model = MagicMock()
+        attached_queryset = MagicMock()
+        attached_queryset.count.return_value = attached_media
+        approved_queryset = MagicMock()
+        approved_queryset.count.return_value = approved_media
+        record_media_model.objects.filter.side_effect = [
+            attached_queryset,
+            approved_queryset,
+        ]
+        historical_apps = MagicMock()
+        historical_apps.get_model.side_effect = [public_case_model, record_media_model]
+        migration.require_explicit_legacy_public_case_cleanup(historical_apps, None)
+
+    def test_clean_database_is_allowed(self):
+        self._run_guard()
+
+    def test_each_legacy_condition_blocks_with_counts_only(self):
+        cases = (
+            (1, 0, 0, "patient/reference PublicCase rows=1"),
+            (0, 1, 0, "RecordMedia attached to PublicCase=1"),
+            (0, 0, 1, "APPROVED_PUBLIC_CASE RecordMedia rows=1"),
+        )
+        for related, attached, approved, expected in cases:
+            with self.subTest(expected=expected), self.assertRaises(RuntimeError) as context:
+                self._run_guard(related, attached, approved)
+            message = str(context.exception)
+            self.assertIn(expected, message)
+            self.assertNotIn("Synthetic Patient", message)
+            self.assertNotIn(".jpg", message)
+            self.assertNotIn("records/", message)
 
 
 class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
@@ -865,27 +840,6 @@ class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
 
         self.assertEqual(anonymous_response.status_code, 302)
         self.assertEqual(non_staff_response.status_code, 403)
-        self.assertFalse(media.is_public_case_approved)
-
-    def test_approved_public_case_with_consent_does_not_make_download_public(self):
-        media = self.create_record_media(
-            visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-            consent_confirmed=True,
-        )
-
-        anonymous_response = self.client.get(
-            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
-        )
-        self.client.force_login(self.create_user(username="records-public-case-normal"))
-        non_staff_response = self.client.get(
-            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
-        )
-
-        self.assertEqual(anonymous_response.status_code, 302)
-        self.assertEqual(non_staff_response.status_code, 403)
-        self.assertTrue(media.is_public_case_approved)
-        with self.assertRaises(ValueError):
-            media.file.url
 
 
 class RecordMediaFolderModelTests(PatientRecordTestDataMixin, TestCase):

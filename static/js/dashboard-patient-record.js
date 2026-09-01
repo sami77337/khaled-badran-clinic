@@ -57,6 +57,12 @@
         openAncestorDetails(target);
         window.requestAnimationFrame(() => {
             target.scrollIntoView({ block: "start" });
+            if (target.matches("[data-folder-create-form]")) {
+                const folderNameInput = target.querySelector("input[name='name']");
+                if (folderNameInput) {
+                    folderNameInput.focus({ preventScroll: true });
+                }
+            }
         });
         return true;
     };
@@ -186,48 +192,9 @@
         });
     };
 
-    const initializePublicCaseDeleteDialog = () => {
-        const dialog = document.querySelector("[data-public-case-delete-dialog]");
-        if (!dialog) {
-            return;
-        }
-        const form = dialog.querySelector("[data-public-case-delete-form]");
-        const closeButton = dialog.querySelector("[data-public-case-delete-close]");
-        let returnFocusTo = null;
-
-        const closeDialog = () => {
-            if (dialog.open) {
-                dialog.close();
-            }
-        };
-
-        document.querySelectorAll("[data-public-case-delete-trigger]").forEach((trigger) => {
-            trigger.addEventListener("click", () => {
-                form.action = trigger.dataset.deleteUrl;
-                returnFocusTo = trigger;
-                dialog.showModal();
-                closeButton.focus();
-            });
-        });
-        closeButton.addEventListener("click", closeDialog);
-        dialog.addEventListener("click", (event) => {
-            if (event.target === dialog) {
-                closeDialog();
-            }
-        });
-        dialog.addEventListener("close", () => {
-            form.removeAttribute("action");
-            if (returnFocusTo) {
-                returnFocusTo.focus();
-                returnFocusTo = null;
-            }
-        });
-    };
-
     const initializePatientRecord = () => {
         initializeContextActions();
         initializeMediaPreviewDialog();
-        initializePublicCaseDeleteDialog();
         if (!openFragmentSection()) {
             restoreRecordContext();
         }

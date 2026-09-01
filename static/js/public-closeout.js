@@ -33,6 +33,12 @@
 
     const normalizedIndex = (index, total) => (index + total) % total;
 
+    const localizedCounter = (position, total) => {
+        const isRtl = document.documentElement.dir === "rtl"
+            || getComputedStyle(document.body).direction === "rtl";
+        return isRtl ? `${position} من ${total}` : `${position} of ${total}`;
+    };
+
     const caseNavigationOffsetForKey = (key) => {
         const isRtl = document.documentElement.dir === "rtl"
             || getComputedStyle(document.body).direction === "rtl";
@@ -60,7 +66,10 @@
             hydrateCaseVideo(currentVideo);
         }
         caseState.label.textContent = currentSlide.dataset.slideLabel || "";
-        caseState.counter.textContent = `${caseState.index + 1} / ${caseState.slides.length}`;
+        caseState.counter.textContent = localizedCounter(
+            caseState.index + 1,
+            caseState.slides.length,
+        );
     };
 
     const initializeCaseCarousels = () => {
@@ -155,7 +164,10 @@
             }
             lightboxTitle.textContent = caseState.title;
             lightboxLabel.textContent = label;
-            lightboxCounter.textContent = `${activeLightboxState.index + 1} / ${caseState.slides.length}`;
+            lightboxCounter.textContent = localizedCounter(
+                activeLightboxState.index + 1,
+                caseState.slides.length,
+            );
             const hideNavigation = caseState.slides.length <= 1;
             lightboxPrevious.hidden = hideNavigation;
             lightboxNext.hidden = hideNavigation;

@@ -1,7 +1,18 @@
 from django import forms
 from django.contrib import admin
+from django.db import transaction
 
-from .models import ClinicalNote, PublicCase, RecordMedia, RecordMediaFolder, VisitRecord
+from .storage import schedule_public_case_media_file_deletion
+
+from .models import (
+    ClinicalNote,
+    PatientTimelineEvent,
+    PublicCase,
+    PublicCaseMedia,
+    RecordMedia,
+    RecordMediaFolder,
+    VisitRecord,
+)
 
 
 class RecordMediaAdminForm(forms.ModelForm):
@@ -87,11 +98,8 @@ class RecordMediaAdmin(admin.ModelAdmin):
         "patient",
         "visit",
         "folder",
-        "public_case",
-        "public_case_role",
         "media_type",
         "visibility",
-        "consent_confirmed",
         "is_active",
         "original_filename",
         "file_size",
@@ -102,7 +110,6 @@ class RecordMediaAdmin(admin.ModelAdmin):
     list_filter = (
         "media_type",
         "visibility",
-        "consent_confirmed",
         "is_active",
         "uploaded_at",
     )
@@ -113,7 +120,7 @@ class RecordMediaAdmin(admin.ModelAdmin):
         "original_filename",
         "title",
     )
-    autocomplete_fields = ("patient", "visit", "folder", "public_case", "uploaded_by")
+    autocomplete_fields = ("patient", "visit", "folder", "uploaded_by")
     readonly_fields = (
         "public_id",
         "original_filename",
@@ -124,7 +131,7 @@ class RecordMediaAdmin(admin.ModelAdmin):
         "updated_at",
     )
     date_hierarchy = "uploaded_at"
-    list_select_related = ("patient", "visit", "folder", "public_case", "uploaded_by")
+    list_select_related = ("patient", "visit", "folder", "uploaded_by")
     fieldsets = (
         (
             None,
@@ -133,8 +140,6 @@ class RecordMediaAdmin(admin.ModelAdmin):
                     "patient",
                     "visit",
                     "folder",
-                    "public_case",
-                    "public_case_role",
                     "media_type",
                     "file",
                     "title",
@@ -156,8 +161,8 @@ class RecordMediaAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "Privacy And Consent",
-            {"fields": ("visibility", "consent_confirmed", "is_active")},
+            "Privacy",
+            {"fields": ("visibility", "is_active")},
         ),
         ("Timestamps", {"fields": ("uploaded_at", "updated_at")}),
     )
@@ -178,18 +183,77 @@ class PublicCaseAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "title",
-        "patient",
-        "reference_visit",
         "consent_confirmed",
         "is_published",
         "created_by",
         "created_at",
     )
     list_filter = ("consent_confirmed", "is_published", "created_at")
-    search_fields = ("title", "patient__full_name")
-    autocomplete_fields = ("patient", "reference_visit", "created_by")
+    search_fields = ("title",)
+    autocomplete_fields = ("created_by",)
     readonly_fields = ("created_at", "updated_at")
-    list_select_related = ("patient", "reference_visit", "created_by")
+    list_select_related = ("created_by",)
+
+    def delete_model(self, request, obj):
+        with transaction.atomic():
+            media_items = list(obj.media_items.select_for_update())
+            schedule_public_case_media_file_deletion(media_items)
+            super().delete_model(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        with transaction.atomic():
+            media_items = list(
+                PublicCaseMedia.objects.select_for_update().filter(public_case__in=queryset)
+            )
+            schedule_public_case_media_file_deletion(media_items)
+            super().delete_queryset(request, queryset)
+
+
+@admin.register(PublicCaseMedia)
+class PublicCaseMediaAdmin(admin.ModelAdmin):
+    list_display = (
+        "public_id",
+        "public_case",
+        "role",
+        "media_type",
+        "consent_confirmed",
+        "is_active",
+        "uploaded_by",
+        "uploaded_at",
+    )
+    list_filter = ("role", "media_type", "consent_confirmed", "is_active", "uploaded_at")
+    search_fields = ("public_case__title", "original_filename")
+    autocomplete_fields = ("public_case", "uploaded_by")
+    readonly_fields = (
+        "public_id",
+        "original_filename",
+        "file_size",
+        "content_type",
+        "uploaded_at",
+        "updated_at",
+    )
+    list_select_related = ("public_case", "uploaded_by")
+
+    def delete_model(self, request, obj):
+        with transaction.atomic():
+            schedule_public_case_media_file_deletion([obj])
+            super().delete_model(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        with transaction.atomic():
+            media_items = list(queryset.select_for_update())
+            schedule_public_case_media_file_deletion(media_items)
+            super().delete_queryset(request, queryset)
+
+
+@admin.register(PatientTimelineEvent)
+class PatientTimelineEventAdmin(admin.ModelAdmin):
+    list_display = ("patient", "event_type", "actor", "occurred_at")
+    list_filter = ("event_type", "occurred_at")
+    search_fields = ("patient__full_name",)
+    autocomplete_fields = ("patient", "actor")
+    readonly_fields = ("created_at",)
+    list_select_related = ("patient", "actor")
 
 
 @admin.register(RecordMediaFolder)

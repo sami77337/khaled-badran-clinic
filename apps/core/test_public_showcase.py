@@ -1,6 +1,7 @@
 import json
 import tempfile
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -9,8 +10,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.patients.models import Patient
-from apps.records.models import PublicCase, RecordMedia, RecordMediaFolder, VisitRecord
-from apps.records.public_cases import encode_public_case_title
+from apps.records.models import PublicCase, PublicCaseMedia, RecordMedia
 
 from .models import PublicReview, SystemSetting
 from .showcase import (
@@ -23,8 +23,8 @@ from .showcase import (
 class PublicReviewShowcaseTests(TestCase):
     def setUp(self):
         self.ar_review = PublicReview.objects.create(
-            reviewer_name="مراجع عربي",
-            body="تجربة ممتازة مع الدكتور خالد.",
+            reviewer_name="Arabic Reviewer",
+            body="Arabic synthetic approved review.",
             rating=5,
             language=PublicReview.Language.ARABIC,
             is_approved_for_publication=True,
@@ -69,12 +69,10 @@ class PublicReviewShowcaseTests(TestCase):
 
     def test_reviews_page_filters_arabic_and_english(self):
         ar_response = self.client.get(reverse("reviews"), {"filter": "ar"})
-        self.assertEqual(ar_response.status_code, 200)
         self.assertContains(ar_response, self.ar_review.body)
         self.assertNotContains(ar_response, self.en_review.body)
 
         en_response = self.client.get(reverse("reviews_en"), {"filter": "en"})
-        self.assertEqual(en_response.status_code, 200)
         self.assertContains(en_response, self.en_review.body)
         self.assertNotContains(en_response, self.ar_review.body)
         self.assertNotContains(en_response, "This draft must stay private.")
@@ -96,7 +94,6 @@ class PublicReviewShowcaseTests(TestCase):
 
     def test_doctor_mobile_correction_has_separate_mobile_booking_placement(self):
         response = self.client.get(reverse("doctor"))
-        self.assertEqual(response.status_code, 200)
         self.assertContains(response, "doctor-contact-card-desktop")
         self.assertContains(response, "doctor-mobile-booking-section")
         self.assertContains(response, "public-closeout.css")
@@ -132,434 +129,150 @@ class PublicReviewShowcaseTests(TestCase):
 
 
 class PublicCaseGroupingTests(TestCase):
-    def test_detailed_note_is_one_safe_final_slide_and_never_changes_media_counts(self):
-        with tempfile.TemporaryDirectory() as temp_dir, override_settings(
-            PRIVATE_MEDIA_ROOT=temp_dir
-        ):
-            patient = Patient.objects.create(
-                full_name="Synthetic Detailed Note Group Patient",
-                phone_raw="0000000012",
-            )
-            public_case = PublicCase.objects.create(
-                patient=patient,
-                title="Safe note-slide case",
-                note="Safe compact short note.",
-                detail_note="Complete detailed note text.\nSecond safe line.",
-                consent_confirmed=True,
-                is_published=True,
-            )
-            specs = (
-                (RecordMedia.MediaType.IMAGE, "before.jpg", "image/jpeg", "before"),
-                (RecordMedia.MediaType.IMAGE, "after.jpg", "image/jpeg", "after"),
-                (RecordMedia.MediaType.SHORT_VIDEO, "case.mp4", "video/mp4", "video"),
-            )
-            for media_type, filename, content_type, role in specs:
-                RecordMedia.objects.create(
-                    patient=patient,
-                    public_case=public_case,
-                    public_case_role=role,
-                    media_type=media_type,
-                    file=SimpleUploadedFile(filename, b"synthetic", content_type=content_type),
-                    visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-                    consent_confirmed=True,
-                    is_active=True,
-                )
+    @classmethod
+    def setUpClass(cls):
+        cls._public_media_tempdir = TemporaryDirectory()
+        cls._public_media_override = override_settings(
+            PUBLIC_CASE_MEDIA_ROOT=Path(cls._public_media_tempdir.name)
+        )
+        cls._public_media_override.enable()
+        super().setUpClass()
 
-            english_group = grouped_public_cases("en")[0]
-            arabic_group = grouped_public_cases("ar")[0]
-            note_slide = english_group["carousel_items"][-1]
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        cls._public_media_override.disable()
+        cls._public_media_tempdir.cleanup()
 
-            self.assertEqual(
-                [item["kind"] for item in english_group["carousel_items"]],
-                ["media", "media", "media", "note"],
-            )
-            self.assertEqual(note_slide["label"], "Case Notes")
-            self.assertEqual(note_slide["text"], public_case.detail_note)
-            self.assertEqual(set(note_slide), {"kind", "label", "text"})
-            self.assertNotIn("public_id", note_slide)
-            self.assertNotIn("url", note_slide)
-            self.assertEqual(english_group["description"], public_case.note)
-            self.assertEqual(
-                english_group["counts"],
-                {"videos": 1, "before": 1, "after": 1, "primary": 0},
-            )
-            self.assertEqual(arabic_group["carousel_items"][-1]["label"], "ملاحظات الحالة")
+    def create_case(self, **kwargs):
+        defaults = {
+            "title": "Standalone marketing case",
+            "note": "Public-safe marketing note.",
+            "detail_note": "Detailed public-safe marketing note.",
+            "consent_confirmed": True,
+            "is_published": True,
+        }
+        defaults.update(kwargs)
+        return PublicCase.objects.create(**defaults)
 
-    def test_explicit_case_groups_media_across_different_visits_and_honors_case_gate(self):
-        with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
-            patient = Patient.objects.create(
-                full_name="Synthetic Cross Visit Case Patient",
-                phone_raw="0000000099",
-            )
-            reference_visit = VisitRecord.objects.create(patient=patient)
-            before_visit = VisitRecord.objects.create(patient=patient)
-            after_visit = VisitRecord.objects.create(patient=patient)
-            public_case = PublicCase.objects.create(
-                patient=patient,
-                reference_visit=reference_visit,
-                title="Explicit cross-visit public case",
-                note="One case-level note.",
-                consent_confirmed=True,
-                is_published=True,
-            )
-            before = RecordMedia.objects.create(
-                patient=patient,
-                visit=before_visit,
-                public_case=public_case,
-                public_case_role=RecordMedia.PublicCaseRole.BEFORE,
-                media_type=RecordMedia.MediaType.IMAGE,
-                file=SimpleUploadedFile("cross-before.jpg", b"before", content_type="image/jpeg"),
-                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-                consent_confirmed=True,
-                is_active=True,
-            )
-            after = RecordMedia.objects.create(
-                patient=patient,
-                visit=after_visit,
-                public_case=public_case,
-                public_case_role=RecordMedia.PublicCaseRole.AFTER,
-                media_type=RecordMedia.MediaType.IMAGE,
-                file=SimpleUploadedFile("cross-after.jpg", b"after", content_type="image/jpeg"),
-                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-                consent_confirmed=True,
-                is_active=True,
-            )
+    def create_media(
+        self,
+        *,
+        public_case=None,
+        role=PublicCaseMedia.Role.PRIMARY,
+        media_type=PublicCaseMedia.MediaType.IMAGE,
+        name=None,
+        **kwargs,
+    ):
+        public_case = public_case or self.create_case()
+        if name is None:
+            name = "marketing.mp4" if media_type == PublicCaseMedia.MediaType.SHORT_VIDEO else "marketing.jpg"
+        content_type = "video/mp4" if media_type == PublicCaseMedia.MediaType.SHORT_VIDEO else "image/jpeg"
+        defaults = {
+            "public_case": public_case,
+            "role": role,
+            "media_type": media_type,
+            "file": SimpleUploadedFile(name, b"synthetic-marketing-bytes", content_type=content_type),
+            "consent_confirmed": True,
+            "is_active": True,
+        }
+        defaults.update(kwargs)
+        return PublicCaseMedia.objects.create(**defaults)
 
-            groups = grouped_public_cases("en")
+    def test_grouping_uses_only_independent_marketing_media(self):
+        patient = Patient.objects.create(full_name="Private Patient", phone_raw="0790000101")
+        medical = RecordMedia.objects.create(
+            patient=patient,
+            media_type=RecordMedia.MediaType.IMAGE,
+            file=SimpleUploadedFile("medical.jpg", b"medical", content_type="image/jpeg"),
+            title="Private medical title",
+            visibility=RecordMedia.Visibility.PRIVATE_ONLY,
+        )
+        case = self.create_case(title="Public marketing title")
+        marketing = self.create_media(public_case=case)
 
-            self.assertEqual(len(groups), 1)
-            self.assertEqual(groups[0]["display_title"], public_case.title)
-            self.assertEqual(groups[0]["description"], public_case.note)
-            self.assertEqual(groups[0]["before"]["public_id"], before.public_id)
-            self.assertEqual(groups[0]["after"]["public_id"], after.public_id)
-            self.assertEqual(
-                [item["public_id"] for item in groups[0]["carousel_items"]],
-                [before.public_id, after.public_id],
-            )
-            self.assertEqual(
-                [item["label"] for item in groups[0]["carousel_items"]],
-                ["Before 1 of 1", "After 1 of 1"],
-            )
+        grouped = grouped_public_cases("en")
 
-            public_case.is_published = False
-            public_case.save(update_fields=["is_published"])
-            self.assertEqual(grouped_public_cases("en"), [])
+        self.assertEqual(len(grouped), 1)
+        self.assertEqual(grouped[0]["case_id"], case.pk)
+        self.assertEqual(grouped[0]["items"][0]["public_id"], marketing.public_id)
+        rendered = str(grouped)
+        self.assertNotIn(patient.full_name, rendered)
+        self.assertNotIn(medical.title, rendered)
+        self.assertNotIn(str(medical.public_id), rendered)
 
-            public_case.is_published = True
-            public_case.consent_confirmed = False
-            public_case.save(update_fields=["is_published", "consent_confirmed"])
-            self.assertEqual(grouped_public_cases("en"), [])
+    def test_public_eligibility_requires_both_consents_active_valid_role_and_existing_storage(self):
+        case = self.create_case()
+        eligible = self.create_media(public_case=case, role=PublicCaseMedia.Role.BEFORE)
+        unconsented = self.create_media(public_case=case, role=PublicCaseMedia.Role.AFTER, consent_confirmed=False)
+        inactive = self.create_media(public_case=case, role=PublicCaseMedia.Role.PRIMARY, is_active=False)
+        invalid = self.create_media(public_case=case, role=PublicCaseMedia.Role.PRIMARY)
+        PublicCaseMedia.objects.filter(pk=invalid.pk).update(role="")
+        missing = self.create_media(public_case=case, role=PublicCaseMedia.Role.AFTER)
+        missing.file.storage.delete(missing.file.name)
 
-    def test_same_visit_media_are_grouped_and_before_after_are_recognized(self):
-        with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
-            patient = Patient.objects.create(full_name="Synthetic Patient", phone_raw="0000000000")
-            visit = VisitRecord.objects.create(patient=patient)
-            public_case = PublicCase.objects.create(
-                patient=patient,
-                reference_visit=visit,
-                consent_confirmed=True,
-                is_published=True,
-            )
-            before = RecordMedia.objects.create(
-                patient=patient,
-                visit=visit,
-                public_case=public_case,
-                public_case_role=RecordMedia.PublicCaseRole.BEFORE,
-                media_type=RecordMedia.MediaType.IMAGE,
-                file=SimpleUploadedFile("before.png", b"before", content_type="image/png"),
-                title="قبل",
-                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-                consent_confirmed=True,
-                is_active=True,
-            )
-            after = RecordMedia.objects.create(
-                patient=patient,
-                visit=visit,
-                public_case=public_case,
-                public_case_role=RecordMedia.PublicCaseRole.AFTER,
-                media_type=RecordMedia.MediaType.IMAGE,
-                file=SimpleUploadedFile("after.png", b"after", content_type="image/png"),
-                title="بعد",
-                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-                consent_confirmed=True,
-                is_active=True,
-            )
-            video = RecordMedia.objects.create(
-                patient=patient,
-                visit=visit,
-                public_case=public_case,
-                public_case_role=RecordMedia.PublicCaseRole.VIDEO,
-                media_type=RecordMedia.MediaType.SHORT_VIDEO,
-                file=SimpleUploadedFile("case.mp4", b"video", content_type="video/mp4"),
-                title="حالة مصرح بعرضها",
-                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-                consent_confirmed=True,
-                is_active=True,
-            )
+        grouped = grouped_public_cases("en")
+        public_ids = [item["public_id"] for item in grouped[0]["items"]]
 
-            groups = grouped_public_cases("ar")
-            self.assertEqual(len(groups), 1)
-            self.assertEqual(groups[0]["before"]["public_id"], before.public_id)
-            self.assertEqual(groups[0]["after"]["public_id"], after.public_id)
-            self.assertEqual(groups[0]["primary"]["public_id"], video.public_id)
-            self.assertEqual(
-                {item["label"] for item in groups[0]["carousel_items"]},
-                {"\u0642\u0628\u0644 1 \u0645\u0646 1", "\u0628\u0639\u062f 1 \u0645\u0646 1", "\u0641\u064a\u062f\u064a\u0648 1 \u0645\u0646 1"},
-            )
+        self.assertEqual(public_ids, [eligible.public_id])
+        self.assertNotIn(unconsented.public_id, public_ids)
+        self.assertNotIn(inactive.public_id, public_ids)
+        self.assertNotIn(invalid.public_id, public_ids)
+        self.assertNotIn(missing.public_id, public_ids)
 
-    def test_canonical_role_titles_are_not_public_headlines_and_note_is_resolved_once(self):
-        with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
-            patient = Patient.objects.create(
-                full_name="Synthetic Hidden Grouping Patient",
-                phone_raw="0000000001",
-            )
-            visit = VisitRecord.objects.create(patient=patient)
-            note = "Synthetic consistent public case note."
-            public_case = PublicCase.objects.create(
-                patient=patient,
-                reference_visit=visit,
-                note=note,
-                consent_confirmed=True,
-                is_published=True,
-            )
-            rows = (
-                (RecordMedia.MediaType.IMAGE, "before.jpg", "image/jpeg", "Before", "before"),
-                (RecordMedia.MediaType.IMAGE, "after.jpg", "image/jpeg", "After", "after"),
-                (RecordMedia.MediaType.IMAGE, "primary.jpg", "image/jpeg", "Primary", "primary"),
-                (RecordMedia.MediaType.SHORT_VIDEO, "case.mp4", "video/mp4", "", "video"),
-            )
-            for media_type, filename, content_type, title, role in rows:
-                RecordMedia.objects.create(
-                    patient=patient,
-                    visit=visit,
-                    public_case=public_case,
-                    public_case_role=role,
-                    media_type=media_type,
-                    file=SimpleUploadedFile(filename, b"synthetic", content_type=content_type),
-                    title=title,
-                    description=f"INTERNAL-{role.upper()}-DESCRIPTION-MUST-STAY-HIDDEN",
-                    visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-                    consent_confirmed=True,
-                    is_active=True,
-                )
+    def test_case_consent_and_publication_are_required(self):
+        unpublished = self.create_case(title="Unpublished", is_published=False)
+        self.create_media(public_case=unpublished)
+        unconsented = self.create_case(title="Unconsented", consent_confirmed=False)
+        self.create_media(public_case=unconsented)
 
-            groups = grouped_public_cases("en")
+        self.assertEqual(grouped_public_cases("en"), [])
 
-            self.assertEqual(len(groups), 1)
-            group = groups[0]
-            self.assertEqual(len(group["items"]), 4)
-            self.assertEqual(group["before"]["role"], "before")
-            self.assertEqual(group["after"]["role"], "after")
-            self.assertNotIn("title", group["before"])
-            self.assertNotIn("description", group["after"])
-            self.assertEqual(group["primary"]["media_type"], RecordMedia.MediaType.SHORT_VIDEO)
-            self.assertEqual(group["display_title"], "Authorized case 1")
-            self.assertEqual(group["description"], note)
-            self.assertEqual(
-                [item["label"] for item in group["carousel_items"]],
-                [
-                    "Before 1 of 1",
-                    "After 1 of 1",
-                    "Case Image 1 of 1",
-                    "Video 1 of 1",
-                ],
-            )
-            self.assertNotIn("INTERNAL-", str(group["carousel_items"]))
-            self.assertTrue(
-                all(
-                    "title" not in item and "description" not in item
-                    for item in group["carousel_items"]
-                )
-            )
-            arabic_labels = [
-                item["label"] for item in grouped_public_cases("ar")[0]["carousel_items"]
-            ]
-            self.assertEqual(
-                arabic_labels,
-                [
-                    "\u0642\u0628\u0644 1 \u0645\u0646 1",
-                    "\u0628\u0639\u062f 1 \u0645\u0646 1",
-                    "\u0635\u0648\u0631\u0629 \u0627\u0644\u062d\u0627\u0644\u0629 1 \u0645\u0646 1",
-                    "\u0641\u064a\u062f\u064a\u0648 1 \u0645\u0646 1",
-                ],
-            )
+    def test_video_cover_is_not_a_standalone_public_slide(self):
+        case = self.create_case()
+        self.create_media(public_case=case, role=PublicCaseMedia.Role.VIDEO_COVER)
 
-    def test_case_metadata_never_falls_back_to_record_media_metadata(self):
-        with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
-            patient = Patient.objects.create(
-                full_name="Synthetic Metadata Boundary Patient",
-                phone_raw="0000000004",
-            )
-            public_case = PublicCase.objects.create(
-                patient=patient,
-                title="",
-                note="",
-                consent_confirmed=True,
-                is_published=True,
-            )
-            RecordMedia.objects.create(
-                patient=patient,
-                public_case=public_case,
-                public_case_role=RecordMedia.PublicCaseRole.BEFORE,
-                media_type=RecordMedia.MediaType.IMAGE,
-                file=SimpleUploadedFile("before.jpg", b"before", content_type="image/jpeg"),
-                title="INTERNAL-ROLE-TITLE-MUST-STAY-HIDDEN",
-                description="INTERNAL-MEDIA-NOTE-MUST-STAY-HIDDEN",
-                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-                consent_confirmed=True,
-                is_active=True,
-            )
+        self.assertEqual(grouped_public_cases("en"), [])
 
-            group = grouped_public_cases("en")[0]
+    def test_role_labels_are_singular_or_localized_multiple_without_one_of_one(self):
+        case = self.create_case(detail_note="")
+        self.create_media(public_case=case, role=PublicCaseMedia.Role.BEFORE)
+        single_en = grouped_public_cases("en")[0]
+        single_ar = grouped_public_cases("ar")[0]
+        self.assertEqual(single_en["before_items"][0]["label"], "Before image")
+        self.assertEqual(single_ar["before_items"][0]["label"], "صورة قبل")
+        self.assertNotIn("1 of 1", str(single_en))
+        self.assertNotIn("1 من 1", str(single_ar))
 
-            self.assertEqual(group["display_title"], "Authorized case 1")
-            self.assertEqual(group["description"], "")
-            self.assertNotIn("INTERNAL-ROLE-TITLE-MUST-STAY-HIDDEN", str(group))
-            self.assertNotIn("INTERNAL-MEDIA-NOTE-MUST-STAY-HIDDEN", str(group))
+        self.create_media(public_case=case, role=PublicCaseMedia.Role.BEFORE)
+        multi_en = grouped_public_cases("en")[0]
+        multi_ar = grouped_public_cases("ar")[0]
+        self.assertEqual(multi_en["before_items"][0]["label"], "Before image 1 of 2")
+        self.assertEqual(multi_ar["before_items"][0]["label"], "صورة قبل 1 من 2")
 
-    def test_legitimate_non_role_title_remains_the_public_case_title(self):
-        with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
-            patient = Patient.objects.create(
-                full_name="Synthetic Legitimate Title Patient",
-                phone_raw="0000000002",
-            )
-            public_case = PublicCase.objects.create(
-                patient=patient,
-                title="Synthetic public-safe case title",
-                consent_confirmed=True,
-                is_published=True,
-            )
-            media = RecordMedia.objects.create(
-                patient=patient,
-                public_case=public_case,
-                public_case_role=RecordMedia.PublicCaseRole.PRIMARY,
-                media_type=RecordMedia.MediaType.IMAGE,
-                file=SimpleUploadedFile("case.jpg", b"synthetic", content_type="image/jpeg"),
-                title="Synthetic public-safe case title",
-                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-                consent_confirmed=True,
-                is_active=True,
-            )
+    def test_video_and_detailed_note_are_counted_as_carousel_slides(self):
+        case = self.create_case(detail_note="Detail slide")
+        video = self.create_media(
+            public_case=case,
+            role=PublicCaseMedia.Role.VIDEO,
+            media_type=PublicCaseMedia.MediaType.SHORT_VIDEO,
+        )
 
-            group = grouped_public_cases("en")[0]
+        group = grouped_public_cases("en")[0]
 
-            self.assertEqual(group["primary"]["public_id"], media.public_id)
-            self.assertEqual(group["display_title"], "Synthetic public-safe case title")
+        self.assertEqual(group["video_items"][0]["public_id"], video.public_id)
+        self.assertEqual(group["video_items"][0]["label"], "Video")
+        self.assertEqual(len(group["carousel_items"]), 2)
+        self.assertEqual(group["carousel_items"][-1]["kind"], "note")
 
-    def test_encoded_multi_media_cover_title_and_folder_are_grouped_safely(self):
-        with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
-            patient = Patient.objects.create(
-                full_name="Synthetic Encoded Group Patient",
-                phone_raw="0000000003",
-            )
-            visit = VisitRecord.objects.create(patient=patient)
-            folder = RecordMediaFolder.objects.create(
-                patient=patient,
-                name="INTERNAL-FOLDER-MUST-STAY-HIDDEN",
-            )
-            public_title = "Public-safe encoded case title"
-            note = "One public-safe note."
-            public_case = PublicCase.objects.create(
-                patient=patient,
-                reference_visit=visit,
-                title=public_title,
-                note=note,
-                consent_confirmed=True,
-                is_published=True,
-            )
-            specs = (
-                (RecordMedia.MediaType.IMAGE, "before-1.jpg", "image/jpeg", "before"),
-                (RecordMedia.MediaType.IMAGE, "before-2.png", "image/png", "before"),
-                (RecordMedia.MediaType.IMAGE, "after-1.webp", "image/webp", "after"),
-                (RecordMedia.MediaType.SHORT_VIDEO, "video-1.mp4", "video/mp4", "video"),
-                (RecordMedia.MediaType.SHORT_VIDEO, "video-2.mp4", "video/mp4", "video"),
-                (RecordMedia.MediaType.IMAGE, "cover.jpg", "image/jpeg", "video_cover"),
-            )
-            for media_type, filename, content_type, role in specs:
-                RecordMedia.objects.create(
-                    patient=patient,
-                    visit=visit,
-                    folder=folder,
-                    public_case=public_case,
-                    public_case_role=role,
-                    media_type=media_type,
-                    file=SimpleUploadedFile(filename, b"synthetic", content_type=content_type),
-                    title=encode_public_case_title(role, public_title),
-                    description=note,
-                    visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-                    consent_confirmed=True,
-                    is_active=True,
-                )
+    def test_ordering_and_limit_are_deterministic(self):
+        older = self.create_case(title="Older")
+        newer = self.create_case(title="Newer")
+        self.create_media(public_case=older)
+        self.create_media(public_case=newer)
 
-            first_group = grouped_public_cases("en")[0]
-            second_group = grouped_public_cases("en")[0]
+        first = grouped_public_cases("en", limit=1)
+        second = grouped_public_cases("en", limit=1)
 
-            self.assertEqual(first_group["display_title"], public_title)
-            self.assertEqual(first_group["public_title"], public_title)
-            self.assertEqual(first_group["description"], note)
-            self.assertEqual(len(first_group["before_items"]), 2)
-            self.assertEqual(len(first_group["after_items"]), 1)
-            self.assertEqual(len(first_group["video_items"]), 2)
-            self.assertIsNotNone(first_group["video_cover"])
-            self.assertEqual(
-                first_group["teaser"]["public_id"],
-                first_group["video_cover"]["public_id"],
-            )
-            self.assertEqual(
-                first_group["video_items"][0]["poster_url"],
-                first_group["video_cover"]["url"],
-            )
-            self.assertEqual(first_group["video_items"][1]["poster_url"], "")
-            self.assertEqual(
-                first_group["carousel_items"][0]["public_id"],
-                first_group["video_items"][0]["public_id"],
-            )
-            self.assertEqual(
-                first_group["carousel_items"][0]["poster_url"],
-                first_group["video_cover"]["url"],
-            )
-            self.assertEqual(first_group["carousel_items"][1]["poster_url"], "")
-            self.assertNotIn(
-                first_group["video_cover"]["public_id"],
-                [item["public_id"] for item in first_group["carousel_items"]],
-            )
-            self.assertNotIn(
-                first_group["video_cover"]["public_id"],
-                [item["public_id"] for item in first_group["before_items"]],
-            )
-            self.assertNotIn(
-                first_group["video_cover"]["public_id"],
-                [item["public_id"] for item in first_group["after_items"]],
-            )
-            self.assertNotIn("[[public-case:", str(first_group))
-            self.assertNotIn(folder.name, str(first_group))
-            self.assertEqual(
-                [item["public_id"] for item in first_group["items"]],
-                [item["public_id"] for item in second_group["items"]],
-            )
-
-    def test_video_cover_without_a_renderable_asset_does_not_create_a_public_card(self):
-        with tempfile.TemporaryDirectory() as temp_dir, override_settings(PRIVATE_MEDIA_ROOT=temp_dir):
-            patient = Patient.objects.create(
-                full_name="Synthetic Cover Only Patient",
-                phone_raw="0000000005",
-            )
-            public_case = PublicCase.objects.create(
-                patient=patient,
-                title="Cover-only case must stay absent",
-                detail_note="A detailed note must not make this case publishable.",
-                consent_confirmed=True,
-                is_published=True,
-            )
-            RecordMedia.objects.create(
-                patient=patient,
-                public_case=public_case,
-                public_case_role=RecordMedia.PublicCaseRole.VIDEO_COVER,
-                media_type=RecordMedia.MediaType.IMAGE,
-                file=SimpleUploadedFile("cover.jpg", b"cover", content_type="image/jpeg"),
-                visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-                consent_confirmed=True,
-                is_active=True,
-            )
-
-            self.assertEqual(grouped_public_cases("en"), [])
+        self.assertEqual(first[0]["case_id"], newer.pk)
+        self.assertEqual(first, second)

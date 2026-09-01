@@ -1,0 +1,68 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block dashboard_styles %}
+    <link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content patient-record-content">
+    <header class="record-page-header">
+        <p class="record-eyebrow">{% if is_arabic %}إدارة التسويق{% else %}Marketing Management{% endif %}</p>
+        <h1>{% if is_arabic %}الحالات العامة{% else %}Public Cases{% endif %}</h1>
+    </header>
+
+    <nav class="record-action-bar" aria-label="{% if is_arabic %}إجراءات الحالات العامة{% else %}Public case actions{% endif %}">
+        <a class="record-action record-action-primary" href="{{ create_url }}">{% if is_arabic %}إنشاء مسودة{% else %}Create Draft{% endif %}</a>
+    </nav>
+
+    {% if messages %}
+        <div class="record-messages" role="status" aria-live="polite">
+            {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+        </div>
+    {% endif %}
+
+    <section class="record-section" aria-labelledby="public-case-manager-title">
+        <div class="record-section-heading">
+            <h2 id="public-case-manager-title">{% if is_arabic %}الحالات العامة{% else %}Public Cases{% endif %}</h2>
+            <span class="record-count">{{ public_case_count }}</span>
+        </div>
+        {% if public_case_items %}
+            <div class="record-list public-case-manager-list">
+                {% for item in public_case_items %}
+                    <article class="record-entry public-case-manager-card">
+                        <header class="record-entry-header">
+                            <div>
+                                <p class="record-entry-kicker">{% if is_arabic %}حالة عامة{% else %}Public Case{% endif %}</p>
+                                <h3>{{ item.case.title }}</h3>
+                                <p class="record-entry-date"><time datetime="{{ item.case.updated_at|date:'c' }}" dir="ltr">{{ item.case.updated_at|date:"Y-m-d H:i" }}</time></p>
+                            </div>
+                            <span class="record-status status-{% if item.case.is_published %}visible_to_patient{% else %}private_only{% endif %}">{{ item.status_label }}</span>
+                        </header>
+                        {% if item.case.note %}<p class="record-clinical-text">{{ item.case.note }}</p>{% endif %}
+                        <dl class="public-case-counts">
+                            <div><dt>{% if is_arabic %}الوسائط{% else %}Media{% endif %}</dt><dd>{{ item.case.media_count }}</dd></div>
+                            <div><dt>{% if is_arabic %}قبل{% else %}Before{% endif %}</dt><dd>{{ item.case.before_count }}</dd></div>
+                            <div><dt>{% if is_arabic %}بعد{% else %}After{% endif %}</dt><dd>{{ item.case.after_count }}</dd></div>
+                            <div><dt>{% if is_arabic %}فيديو{% else %}Video{% endif %}</dt><dd>{{ item.case.video_count }}</dd></div>
+                        </dl>
+                        <div class="record-media-actions public-case-manager-actions">
+                            {% if item.public_preview_url %}<a href="{{ item.public_preview_url }}" target="_blank" rel="noopener">{% if is_arabic %}معاينة{% else %}Preview{% endif %}</a>{% endif %}
+                            <a href="{{ item.edit_url }}">{% if is_arabic %}تعديل{% else %}Edit{% endif %}</a>
+                            <a href="{{ item.assets_url }}">{% if is_arabic %}الوسائط{% else %}Assets{% endif %}</a>
+                            {% if item.case.is_published %}
+                                <a href="{{ item.unpublish_url }}">{% if is_arabic %}إلغاء النشر{% else %}Unpublish{% endif %}</a>
+                            {% else %}
+                                <a href="{{ item.publish_url }}">{{ item.publish_label }}</a>
+                            {% endif %}
+                            <a class="record-case-danger-link" href="{{ item.delete_url }}">{% if is_arabic %}حذف نهائي{% else %}Delete Permanently{% endif %}</a>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="record-empty-state">{% if is_arabic %}لا توجد حالات عامة بعد.{% else %}No public cases yet.{% endif %}</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

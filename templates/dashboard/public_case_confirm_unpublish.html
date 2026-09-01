@@ -18,7 +18,7 @@
 
     <section class="record-form-panel" aria-labelledby="unpublish-warning-title">
         <h2 class="dashboard-sr-only" id="unpublish-warning-title">{% if is_arabic %}تأكيد إلغاء النشر{% else %}Confirm unpublish{% endif %}</h2>
-        <p class="record-folder-delete-warning">{% if is_arabic %}سيتم إخفاء الحالة من الموقع العام، وستبقى جميع الملفات محفوظة في سجل المريض.{% else %}The case will be hidden from the public website. All medical files will remain in the patient record.{% endif %}</p>
+        <p class="record-folder-delete-warning">{% if is_arabic %}سيتم إخفاء الحالة من الموقع العام، وستبقى الوسائط الدعائية محفوظة في مدير الحالات العامة.{% else %}The case will be hidden from the public website. Its marketing media will remain in the Public Cases manager.{% endif %}</p>
         <form class="record-form" method="post" action="">
             {% csrf_token %}
             <div class="record-form-actions">

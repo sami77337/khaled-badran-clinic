@@ -67,7 +67,7 @@
                             </div>
                             <div class="public-case-slide-meta" aria-live="polite" aria-atomic="true">
                                 <span data-case-current-label>{{ case.carousel_items.0.label }}</span>
-                                <span class="public-case-slide-counter" data-case-counter>1 / {{ case.carousel_items|length }}</span>
+                                <span class="public-case-slide-counter" data-case-counter>{% if is_arabic %}1 &#1605;&#1606; {{ case.carousel_items|length }}{% else %}1 of {{ case.carousel_items|length }}{% endif %}</span>
                             </div>
                         </div>
                         <div class="public-case-copy public-case-album-copy">
@@ -75,10 +75,10 @@
                             <h2 id="case-title-{{ case.case_id }}">{{ case.display_title }}</h2>
                             {% if case.description %}<p class="public-case-album-note">{{ case.description }}</p>{% endif %}
                             <dl class="public-case-album-counts" aria-label="{% if is_arabic %}&#1593;&#1583;&#1583; &#1608;&#1587;&#1575;&#1574;&#1591; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}Case media counts{% endif %}">
-                                {% if case.counts.videos %}<div><dt>{% if is_arabic %}&#1601;&#1610;&#1583;&#1610;&#1608;{% else %}Videos{% endif %}</dt><dd>{{ case.counts.videos }}</dd></div>{% endif %}
-                                {% if case.counts.before %}<div><dt>{% if is_arabic %}&#1602;&#1576;&#1604;{% else %}Before{% endif %}</dt><dd>{{ case.counts.before }}</dd></div>{% endif %}
-                                {% if case.counts.after %}<div><dt>{% if is_arabic %}&#1576;&#1593;&#1583;{% else %}After{% endif %}</dt><dd>{{ case.counts.after }}</dd></div>{% endif %}
-                                {% if case.counts.primary %}<div><dt>{% if is_arabic %}&#1589;&#1608;&#1585;{% else %}Images{% endif %}</dt><dd>{{ case.counts.primary }}</dd></div>{% endif %}
+                                {% if case.counts.videos %}<div><dt>{% if is_arabic %}&#1601;&#1610;&#1583;&#1610;&#1608;{% else %}Video{% endif %}</dt><span aria-hidden="true">&middot;</span><dd>{{ case.counts.videos }}</dd></div>{% endif %}
+                                {% if case.counts.before %}<div><dt>{% if is_arabic %}&#1589;&#1608;&#1585; &#1602;&#1576;&#1604;{% else %}Before images{% endif %}</dt><span aria-hidden="true">&middot;</span><dd>{{ case.counts.before }}</dd></div>{% endif %}
+                                {% if case.counts.after %}<div><dt>{% if is_arabic %}&#1589;&#1608;&#1585; &#1576;&#1593;&#1583;{% else %}After images{% endif %}</dt><span aria-hidden="true">&middot;</span><dd>{{ case.counts.after }}</dd></div>{% endif %}
+                                {% if case.counts.primary %}<div><dt>{% if is_arabic %}&#1589;&#1608;&#1585; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}Case images{% endif %}</dt><span aria-hidden="true">&middot;</span><dd>{{ case.counts.primary }}</dd></div>{% endif %}
                             </dl>
                             <noscript><a class="public-case-fallback-link" href="{{ case.detail_url }}">{% if is_arabic %}&#1593;&#1585;&#1590; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}View Case{% endif %}</a></noscript>
                         </div>

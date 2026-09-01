@@ -3,13 +3,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.urls import reverse
 
-from apps.records.models import RecordMedia
-from apps.records.public_cases import (
-    PUBLIC_CASE_ROLE_AFTER,
-    PUBLIC_CASE_ROLE_BEFORE,
-    PUBLIC_CASE_ROLE_VIDEO,
-    PUBLIC_CASE_ROLE_VIDEO_COVER,
-)
+from apps.records.models import PublicCaseMedia
 
 from .models import PublicReview, SystemSetting
 
@@ -19,16 +13,16 @@ GOOGLE_REVIEW_COUNT_KEY = "google_review_count"
 
 CAROUSEL_ROLE_LABELS = {
     "ar": {
-        RecordMedia.PublicCaseRole.BEFORE: "\u0642\u0628\u0644",
-        RecordMedia.PublicCaseRole.AFTER: "\u0628\u0639\u062f",
-        RecordMedia.PublicCaseRole.VIDEO: "\u0641\u064a\u062f\u064a\u0648",
-        RecordMedia.PublicCaseRole.PRIMARY: "\u0635\u0648\u0631\u0629 \u0627\u0644\u062d\u0627\u0644\u0629",
+        PublicCaseMedia.Role.BEFORE: "\u0635\u0648\u0631\u0629 \u0642\u0628\u0644",
+        PublicCaseMedia.Role.AFTER: "\u0635\u0648\u0631\u0629 \u0628\u0639\u062f",
+        PublicCaseMedia.Role.VIDEO: "\u0641\u064a\u062f\u064a\u0648",
+        PublicCaseMedia.Role.PRIMARY: "\u0635\u0648\u0631\u0629 \u0627\u0644\u062d\u0627\u0644\u0629",
     },
     "en": {
-        RecordMedia.PublicCaseRole.BEFORE: "Before",
-        RecordMedia.PublicCaseRole.AFTER: "After",
-        RecordMedia.PublicCaseRole.VIDEO: "Video",
-        RecordMedia.PublicCaseRole.PRIMARY: "Case Image",
+        PublicCaseMedia.Role.BEFORE: "Before image",
+        PublicCaseMedia.Role.AFTER: "After image",
+        PublicCaseMedia.Role.VIDEO: "Video",
+        PublicCaseMedia.Role.PRIMARY: "Case image",
     },
 }
 
@@ -78,11 +72,10 @@ def review_source_summary():
 
 def _public_media_queryset():
     return (
-        RecordMedia.objects.filter(
-            visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+        PublicCaseMedia.objects.filter(
             consent_confirmed=True,
             is_active=True,
-            trashed_at__isnull=True,
+            role__in=PublicCaseMedia.publishable_roles(),
             public_case__consent_confirmed=True,
             public_case__is_published=True,
         )
@@ -106,8 +99,11 @@ def _label_carousel_category(items, role, language):
     total = len(items)
     role_label = CAROUSEL_ROLE_LABELS[language][role]
     for position, item in enumerate(items, start=1):
-        separator = " \u0645\u0646 " if language == "ar" else " of "
-        item["label"] = f"{role_label} {position}{separator}{total}"
+        if total == 1:
+            item["label"] = role_label
+        else:
+            separator = " \u0645\u0646 " if language == "ar" else " of "
+            item["label"] = f"{role_label} {position}{separator}{total}"
         item["category_position"] = position
         item["category_total"] = total
     return items
@@ -120,6 +116,8 @@ def grouped_public_cases(language="ar", limit=None, case_id=None):
     if case_id is not None:
         queryset = queryset.filter(public_case_id=case_id)
     for media in queryset:
+        if not media.file_exists:
+            continue
         public_case = media.public_case
         group_key = f"case:{public_case.pk}"
         group = groups.setdefault(
@@ -135,7 +133,6 @@ def grouped_public_cases(language="ar", limit=None, case_id=None):
                 "after_items": [],
                 "primary_items": [],
                 "video_items": [],
-                "video_cover": None,
                 "carousel_items": [],
                 "case_id": public_case.pk,
                 "description": (public_case.note or "").strip(),
@@ -143,11 +140,11 @@ def grouped_public_cases(language="ar", limit=None, case_id=None):
                 "public_title": (public_case.title or "").strip(),
             },
         )
-        role = media.public_case_role or RecordMedia.PublicCaseRole.PRIMARY
-        if media.media_type == RecordMedia.MediaType.SHORT_VIDEO:
-            role = PUBLIC_CASE_ROLE_VIDEO
-        elif role == PUBLIC_CASE_ROLE_VIDEO:
-            role = RecordMedia.PublicCaseRole.PRIMARY
+        role = media.role
+        if media.media_type == PublicCaseMedia.MediaType.SHORT_VIDEO:
+            role = PublicCaseMedia.Role.VIDEO
+        elif role == PublicCaseMedia.Role.VIDEO:
+            role = PublicCaseMedia.Role.PRIMARY
         item = {
             "kind": "media",
             "public_id": media.public_id,
@@ -158,55 +155,41 @@ def grouped_public_cases(language="ar", limit=None, case_id=None):
         }
         group["items"].append(item)
 
-        if role == PUBLIC_CASE_ROLE_VIDEO_COVER:
-            if group["video_cover"] is None:
-                group["video_cover"] = item
-        elif role == PUBLIC_CASE_ROLE_BEFORE:
+        if role == PublicCaseMedia.Role.BEFORE:
             group["before_items"].append(item)
-        elif role == PUBLIC_CASE_ROLE_AFTER:
+        elif role == PublicCaseMedia.Role.AFTER:
             group["after_items"].append(item)
-        elif media.media_type == RecordMedia.MediaType.SHORT_VIDEO:
+        elif media.media_type == PublicCaseMedia.MediaType.SHORT_VIDEO:
             group["video_items"].append(item)
-        elif role == RecordMedia.PublicCaseRole.PRIMARY:
+        elif role == PublicCaseMedia.Role.PRIMARY:
             group["primary_items"].append(item)
 
     result = []
     for group in groups.values():
         group["before"] = group["before_items"][0] if group["before_items"] else None
         group["after"] = group["after_items"][0] if group["after_items"] else None
-        valid_video_cover = (
-            group["video_cover"]
-            if group["video_items"] and group["video_cover"]
-            else None
-        )
-        if valid_video_cover and group["video_items"]:
-            group["video_items"][0]["poster_url"] = valid_video_cover["url"]
         primary_images = group["primary_items"]
         before_slides = _label_carousel_category(
             group["before_items"],
-            RecordMedia.PublicCaseRole.BEFORE,
+            PublicCaseMedia.Role.BEFORE,
             language,
         )
         after_slides = _label_carousel_category(
             group["after_items"],
-            RecordMedia.PublicCaseRole.AFTER,
+            PublicCaseMedia.Role.AFTER,
             language,
         )
         primary_slides = _label_carousel_category(
             primary_images,
-            RecordMedia.PublicCaseRole.PRIMARY,
+            PublicCaseMedia.Role.PRIMARY,
             language,
         )
         video_slides = _label_carousel_category(
             group["video_items"],
-            RecordMedia.PublicCaseRole.VIDEO,
+            PublicCaseMedia.Role.VIDEO,
             language,
         )
-        group["carousel_items"] = (
-            video_slides + before_slides + after_slides + primary_slides
-            if valid_video_cover
-            else before_slides + after_slides + primary_slides + video_slides
-        )
+        group["carousel_items"] = before_slides + after_slides + primary_slides + video_slides
         if group["detail_note"]:
             group["carousel_items"].append(
                 {
@@ -225,8 +208,7 @@ def grouped_public_cases(language="ar", limit=None, case_id=None):
             )
         )
         group["cover"] = (
-            valid_video_cover
-            or group["before"]
+            group["before"]
             or group["after"]
             or (primary_images[0] if primary_images else None)
             or (group["video_items"][0] if group["video_items"] else None)
@@ -236,7 +218,7 @@ def grouped_public_cases(language="ar", limit=None, case_id=None):
             continue
         index = len(result) + 1
         neutral_title = (
-            f"حالة مصرح بعرضها {index}"
+            f"\u062d\u0627\u0644\u0629 \u0645\u0635\u0631\u062d \u0628\u0639\u0631\u0636\u0647\u0627 {index}"
             if language == "ar"
             else f"Authorized case {index}"
         )

@@ -5,6 +5,10 @@
     <link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">
 {% endblock %}
 
+{% block dashboard_scripts %}
+    <script src="{% static 'js/dashboard-patient-record.js' %}" defer></script>
+{% endblock %}
+
 {% block dashboard_content %}
 <div class="dashboard-content patient-record-content record-form-page">
     <header class="record-page-header record-form-header">
@@ -18,7 +22,7 @@
 
     <nav class="record-action-bar" aria-label="{% if is_arabic %}إجراءات أصول الحالة{% else %}Case asset actions{% endif %}">
         <a class="record-action record-action-primary" href="{{ add_media_url }}">{% if is_arabic %}إضافة وسائط{% else %}Add Media{% endif %}</a>
-        <a class="record-action record-action-secondary" href="{{ cancel_url }}">{% if is_arabic %}العودة إلى سجل المريض{% else %}Back to Patient Record{% endif %}</a>
+        <a class="record-action record-action-secondary" href="{{ cancel_url }}">{% if is_arabic %}العودة إلى الحالات العامة{% else %}Back to Public Cases{% endif %}</a>
     </nav>
 
     <section class="record-section" aria-labelledby="case-assets-title">
@@ -36,19 +40,22 @@
                                 <h3>{{ item.media_type_label }}</h3>
                                 <p class="record-entry-date"><time datetime="{{ item.media.uploaded_at|date:'c' }}" dir="ltr">{{ item.media.uploaded_at|date:"Y-m-d H:i" }}</time></p>
                             </div>
-                            <div class="record-status-group">
-                                {% for status in item.status_labels %}<span class="record-status {{ status.class }}">{{ status.label }}</span>{% endfor %}
-                            </div>
+                            <span class="record-status status-{% if item.media.is_active %}visible_to_patient{% else %}inactive{% endif %}">{% if item.media.is_active %}{% if is_arabic %}نشط{% else %}Active{% endif %}{% else %}{% if is_arabic %}غير نشط{% else %}Inactive{% endif %}{% endif %}</span>
                         </header>
-                        <div class="record-media-meta">
-                            <span>{% if is_arabic %}المجلد{% else %}Folder{% endif %}: {{ item.folder_label }}</span>
-                            {% if item.media.visit %}<span>{% if is_arabic %}زيارة دفعة الرفع{% else %}Upload batch visit{% endif %}: <time datetime="{{ item.media.visit.visit_date|date:'c' }}" dir="ltr">{{ item.media.visit.visit_date|date:"Y-m-d H:i" }}</time></span>{% endif %}
-                        </div>
                         <div class="record-media-actions">
-                            {% if item.staff_download_url %}<a href="{{ item.staff_download_url }}">{% if is_arabic %}فتح للطاقم{% else %}Open for Staff{% endif %}</a>{% endif %}
+                            <button type="button" data-media-preview-trigger data-preview-url="{{ item.preview_url }}" data-media-type="{{ item.media.media_type }}">{% if is_arabic %}معاينة{% else %}Preview{% endif %}</button>
+                            <a href="{{ item.download_url }}">{% if is_arabic %}تنزيل{% else %}Download{% endif %}</a>
+                            <form method="post" action="{{ item.role_url }}">
+                                {% csrf_token %}
+                                <label for="{{ item.role_form.role.id_for_label }}">{{ item.role_form.role.label }}</label>
+                                {{ item.role_form.role }}
+                                <label for="{{ item.role_form.consent_confirmed.id_for_label }}">{{ item.role_form.consent_confirmed }} {{ item.role_form.consent_confirmed.label }}</label>
+                                <label for="{{ item.role_form.is_active.id_for_label }}">{{ item.role_form.is_active }} {{ item.role_form.is_active.label }}</label>
+                                <button type="submit">{% if is_arabic %}حفظ البيانات{% else %}Save Settings{% endif %}</button>
+                            </form>
                             <form method="post" action="{{ item.remove_url }}">
                                 {% csrf_token %}
-                                <button type="submit">{% if is_arabic %}إزالة من الحالة{% else %}Remove from Case{% endif %}</button>
+                                <button type="submit" class="record-case-danger-link">{% if is_arabic %}حذف الوسائط{% else %}Delete Media{% endif %}</button>
                             </form>
                         </div>
                     </article>
@@ -58,5 +65,18 @@
             <p class="record-empty-state">{% if is_arabic %}لا توجد وسائط مرتبطة بهذه الحالة.{% else %}No media is linked to this case.{% endif %}</p>
         {% endif %}
     </section>
+
+    <dialog class="record-media-dialog" data-media-preview-dialog aria-labelledby="public-media-preview-title">
+        <div class="record-media-dialog-panel">
+            <div class="record-media-dialog-heading">
+                <h2 id="public-media-preview-title">{% if is_arabic %}معاينة الوسائط الدعائية{% else %}Marketing Media Preview{% endif %}</h2>
+                <button type="button" data-media-preview-close>{% if is_arabic %}إغلاق{% else %}Close{% endif %}</button>
+            </div>
+            <div class="record-media-dialog-stage">
+                <img data-media-preview-image alt="{% if is_arabic %}معاينة صورة دعائية{% else %}Marketing image preview{% endif %}" hidden>
+                <video data-media-preview-video controls playsinline controlsList="nodownload" aria-label="{% if is_arabic %}معاينة فيديو دعائي{% else %}Marketing video preview{% endif %}" hidden></video>
+            </div>
+        </div>
+    </dialog>
 </div>
 {% endblock %}

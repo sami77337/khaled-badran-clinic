@@ -28,6 +28,7 @@ db.sqlite3-journal
 *.db
 media/
 media_private/
+media_public_cases_private/
 private_media/
 staticfiles/
 

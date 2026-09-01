@@ -146,6 +146,12 @@ PRIVATE_MEDIA_ROOT = Path(os.getenv("MEDIA_PRIVATE_ROOT", "media_private"))
 if not PRIVATE_MEDIA_ROOT.is_absolute():
     PRIVATE_MEDIA_ROOT = BASE_DIR / PRIVATE_MEDIA_ROOT
 
+PUBLIC_CASE_MEDIA_ROOT = Path(
+    os.getenv("PUBLIC_CASE_MEDIA_PRIVATE_ROOT", "media_public_cases_private")
+)
+if not PUBLIC_CASE_MEDIA_ROOT.is_absolute():
+    PUBLIC_CASE_MEDIA_ROOT = BASE_DIR / PUBLIC_CASE_MEDIA_ROOT
+
 
 CACHES = build_cache_config(
     os.getenv("CACHE_URL", ""),

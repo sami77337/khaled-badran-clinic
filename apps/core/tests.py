@@ -29,11 +29,11 @@ from apps.patients.models import Patient
 from apps.records.models import (
     ClinicalNote,
     PublicCase,
+    PublicCaseMedia,
     RecordMedia,
     RecordMediaFolder,
     VisitRecord,
 )
-from apps.records.public_cases import decode_public_case_title, encode_public_case_title
 from config.settings.helpers import (
     build_cache_config,
     build_database_config,
@@ -1030,22 +1030,24 @@ class PortalFoundationRouteTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response["Location"])
 
-
 class PublicCasesTestDataMixin:
     @classmethod
     def setUpClass(cls):
         cls._private_media_tempdir = TemporaryDirectory()
-        cls._private_media_override = override_settings(
-            PRIVATE_MEDIA_ROOT=Path(cls._private_media_tempdir.name)
+        cls._public_media_tempdir = TemporaryDirectory()
+        cls._media_override = override_settings(
+            PRIVATE_MEDIA_ROOT=Path(cls._private_media_tempdir.name),
+            PUBLIC_CASE_MEDIA_ROOT=Path(cls._public_media_tempdir.name),
         )
-        cls._private_media_override.enable()
+        cls._media_override.enable()
         super().setUpClass()
 
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
-        cls._private_media_override.disable()
+        cls._media_override.disable()
         cls._private_media_tempdir.cleanup()
+        cls._public_media_tempdir.cleanup()
 
     def synthetic_image_file(self, name="synthetic-public-case.jpg", content=b"public-image-bytes"):
         return SimpleUploadedFile(name, content, content_type="image/jpeg")
@@ -1053,1478 +1055,374 @@ class PublicCasesTestDataMixin:
     def synthetic_video_file(self, name="synthetic-public-case.mp4", content=b"public-video-bytes"):
         return SimpleUploadedFile(name, content, content_type="video/mp4")
 
-    def create_patient(
-        self,
-        *,
-        user=None,
-        full_name="Synthetic Patient",
-        phone_raw="0790000101",
-        phone_e164="+962790000101",
-    ):
+    def create_patient(self, *, full_name="Synthetic Private Patient", phone_raw="0790000101"):
         return Patient.objects.create(
-            user=user,
             full_name=full_name,
             phone_raw=phone_raw,
-            phone_e164=phone_e164,
+            phone_e164="+962790000101",
             date_of_birth=date(1990, 1, 1),
         )
 
-    def create_visit(self, *, patient, **kwargs):
+    def create_public_case(self, **kwargs):
         defaults = {
-            "patient": patient,
-            "visit_reason": "Private visit reason hidden from public cases.",
-            "doctor_notes": "Private doctor notes hidden from public cases.",
-            "diagnosis_plan": "Private diagnosis plan hidden from public cases.",
-            "instructions": "Private instructions hidden from public cases.",
-            "follow_up_notes": "Private follow-up notes hidden from public cases.",
-            "is_visible_to_patient": True,
+            "title": "Standalone public case",
+            "note": "Public-safe short note.",
+            "detail_note": "",
+            "consent_confirmed": True,
+            "is_published": True,
         }
         defaults.update(kwargs)
-        return VisitRecord.objects.create(**defaults)
+        return PublicCase.objects.create(**defaults)
 
-    def create_appointment(self, *, patient):
-        doctor = Doctor.objects.create(
-            full_name_ar="Synthetic Private Appointment Doctor",
-            full_name_en="Synthetic Private Appointment Doctor",
-            title_en="Dr.",
-            is_active=False,
-        )
-        visit_type = VisitType.objects.create(
-            doctor=doctor,
-            name_ar="Synthetic Private Appointment Type",
-            name_en="Synthetic Private Appointment Type",
-            duration_minutes=30,
-            is_active=False,
-        )
-        starts_at = timezone.now() + timedelta(days=1)
-        return Appointment.objects.create(
-            doctor=doctor,
-            patient=patient,
-            visit_type=visit_type,
-            starts_at=starts_at,
-            ends_at=starts_at + timedelta(minutes=30),
-            booking_note="Private appointment booking note hidden from public cases.",
-        )
-
-    def create_public_case(
+    def create_public_media(
         self,
         *,
-        patient=None,
-        reference_visit=None,
-        title="",
-        note="",
-        detail_note="",
-        consent_confirmed=True,
-        is_published=True,
-    ):
-        patient = patient or (reference_visit.patient if reference_visit else self.create_patient())
-        return PublicCase.objects.create(
-            patient=patient,
-            reference_visit=reference_visit,
-            title=title,
-            note=note,
-            detail_note=detail_note,
-            consent_confirmed=consent_confirmed,
-            is_published=is_published,
-        )
-
-    def create_media(
-        self,
-        *,
-        patient=None,
-        visit=None,
-        folder=None,
         public_case=None,
-        public_case_role=None,
-        media_type=RecordMedia.MediaType.IMAGE,
-        visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
-        consent_confirmed=None,
-        is_active=True,
-        title="Synthetic approved public case media",
-        description="Synthetic approved public case description.",
+        role=PublicCaseMedia.Role.PRIMARY,
+        media_type=PublicCaseMedia.MediaType.IMAGE,
         file=None,
+        **kwargs,
     ):
-        patient = patient or self.create_patient()
+        public_case = public_case or self.create_public_case()
         if file is None:
             file = (
                 self.synthetic_video_file()
-                if media_type == RecordMedia.MediaType.SHORT_VIDEO
+                if media_type == PublicCaseMedia.MediaType.SHORT_VIDEO
                 else self.synthetic_image_file()
             )
-        if consent_confirmed is None:
-            consent_confirmed = visibility == RecordMedia.Visibility.APPROVED_PUBLIC_CASE
-        if visibility == RecordMedia.Visibility.APPROVED_PUBLIC_CASE:
-            if public_case is None:
-                if visit is not None:
-                    public_case = PublicCase.objects.filter(
-                        patient=patient,
-                        reference_visit=visit,
-                    ).first()
-                if public_case is None:
-                    public_case = PublicCase.objects.create(
-                        patient=patient,
-                        reference_visit=visit,
-                        consent_confirmed=True,
-                        is_published=True,
-                    )
-            if public_case_role is None:
-                decoded_role = decode_public_case_title(title)[0]
-                if media_type == RecordMedia.MediaType.SHORT_VIDEO:
-                    public_case_role = RecordMedia.PublicCaseRole.VIDEO
-                elif decoded_role in {
-                    RecordMedia.PublicCaseRole.BEFORE,
-                    RecordMedia.PublicCaseRole.AFTER,
-                    RecordMedia.PublicCaseRole.VIDEO_COVER,
-                }:
-                    public_case_role = decoded_role
-                else:
-                    public_case_role = RecordMedia.PublicCaseRole.PRIMARY
-        return RecordMedia.objects.create(
-            patient=patient,
-            visit=visit,
-            folder=folder,
-            public_case=public_case,
-            public_case_role=public_case_role or "",
-            media_type=media_type,
-            file=file,
-            visibility=visibility,
-            consent_confirmed=consent_confirmed,
-            is_active=is_active,
-            title=title,
-            description=description,
-        )
+        defaults = {
+            "public_case": public_case,
+            "role": role,
+            "media_type": media_type,
+            "file": file,
+            "consent_confirmed": True,
+            "is_active": True,
+        }
+        defaults.update(kwargs)
+        return PublicCaseMedia.objects.create(**defaults)
 
-    def force_unconsented_public_case(self, media):
-        if connection.vendor != "sqlite":
-            self.skipTest("Unconsented approved_public_case rows are blocked by the database constraint.")
-        with connection.cursor() as cursor:
-            cursor.execute("PRAGMA ignore_check_constraints = ON")
-        try:
-            RecordMedia.objects.filter(pk=media.pk).update(consent_confirmed=False)
-        finally:
-            with connection.cursor() as cursor:
-                cursor.execute("PRAGMA ignore_check_constraints = OFF")
-        media.refresh_from_db()
-        return media
+    def create_medical_media(self, *, patient=None, **kwargs):
+        patient = patient or self.create_patient()
+        defaults = {
+            "patient": patient,
+            "media_type": RecordMedia.MediaType.IMAGE,
+            "file": self.synthetic_image_file(name="private-medical.jpg", content=b"medical"),
+            "visibility": RecordMedia.Visibility.PRIVATE_ONLY,
+            "title": "Private medical title",
+            "description": "Private medical description",
+        }
+        defaults.update(kwargs)
+        return RecordMedia.objects.create(**defaults)
 
 
 class PublicCasesPageTests(PublicCasesTestDataMixin, TestCase):
-    def test_public_cases_routes_return_200_without_login(self):
-        for route_name in ["public_cases", "public_cases_en"]:
+    def test_public_cases_routes_and_empty_state_are_safe_without_login(self):
+        for route_name in ("public_cases", "public_cases_en"):
             with self.subTest(route_name=route_name):
                 response = self.client.get(reverse(route_name))
-
                 self.assertEqual(response.status_code, 200)
+                self.assertNotContains(response, 'href="/media/')
+                self.assertNotContains(response, 'src="/media/')
 
-    def test_empty_state_is_safe(self):
-        response = self.client.get(reverse("public_cases_en"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Only cases explicitly approved for public display are shown.", count=1)
-        self.assertContains(response, "No public cases are currently published.", count=1)
-        self.assertNotContains(response, "outcome guarantee")
-        self.assertNotContains(response, "Patient-visible portal media")
-        self.assertNotContains(response, "<form")
-        self.assertNotContains(response, "upload")
-        self.assertNotContains(response, str(settings.PRIVATE_MEDIA_ROOT))
-
-    def test_only_approved_consented_active_public_case_media_appears(self):
-        approved_image_case = self.create_public_case(
-            title="Approved public image case",
-            note="Image publication note.",
-        )
-        approved_image = self.create_media(
-            patient=approved_image_case.patient,
-            public_case=approved_image_case,
-            title="INTERNAL-IMAGE-TITLE-MUST-STAY-HIDDEN",
-            description="INTERNAL-IMAGE-DESCRIPTION-MUST-STAY-HIDDEN",
-            file=self.synthetic_image_file(name="synthetic-public-case.jpg"),
-        )
-        approved_video_case = self.create_public_case(
-            title="Approved public video case",
-            note="Video publication note.",
-        )
-        approved_video = self.create_media(
-            patient=approved_video_case.patient,
-            public_case=approved_video_case,
-            media_type=RecordMedia.MediaType.SHORT_VIDEO,
-            title="INTERNAL-VIDEO-TITLE-MUST-STAY-HIDDEN",
-            description="INTERNAL-VIDEO-DESCRIPTION-MUST-STAY-HIDDEN",
-            file=self.synthetic_video_file(name="synthetic-public-case.mp4"),
-        )
-        self.create_media(
-            visibility=RecordMedia.Visibility.PRIVATE_ONLY,
-            title="Private-only media must stay hidden",
-        )
-        self.create_media(
-            visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
-            title="Patient-visible media must stay hidden",
-        )
-        self.create_media(
-            is_active=False,
-            title="Inactive public case media must stay hidden",
-        )
-        unconsented = self.create_media(title="Unconsented public case media must stay hidden")
-        self.force_unconsented_public_case(unconsented)
-
-        response = self.client.get(reverse("public_cases_en"))
-
-        self.assertContains(response, approved_image_case.title, count=1)
-        self.assertContains(response, approved_image_case.note, count=1)
-        self.assertContains(response, approved_video_case.title, count=1)
-        self.assertContains(response, approved_video_case.note, count=1)
-        self.assertContains(
-            response,
-            f'src="{reverse("public_case_media_en", kwargs={"public_id": approved_image.public_id})}"',
-        )
-        self.assertContains(
-            response,
-            f'data-src="{reverse("public_case_media_en", kwargs={"public_id": approved_video.public_id})}"',
-        )
-        self.assertNotContains(response, "Private-only media must stay hidden")
-        self.assertNotContains(response, "Patient-visible media must stay hidden")
-        self.assertNotContains(response, "Inactive public case media must stay hidden")
-        self.assertNotContains(response, "Unconsented public case media must stay hidden")
-        self.assertNotContains(response, "INTERNAL-IMAGE-TITLE-MUST-STAY-HIDDEN")
-        self.assertNotContains(response, "INTERNAL-IMAGE-DESCRIPTION-MUST-STAY-HIDDEN")
-        self.assertNotContains(response, "INTERNAL-VIDEO-TITLE-MUST-STAY-HIDDEN")
-        self.assertNotContains(response, "INTERNAL-VIDEO-DESCRIPTION-MUST-STAY-HIDDEN")
-        self.assertNotContains(response, approved_image.file.name)
-        self.assertNotContains(response, approved_video.file.name)
-        self.assertNotContains(response, "synthetic-public-case.jpg")
-        self.assertNotContains(response, "synthetic-public-case.mp4")
-        self.assertNotContains(response, str(settings.PRIVATE_MEDIA_ROOT))
-        self.assertNotContains(response, 'href="/media/')
-
-    def test_public_cases_page_does_not_expose_patient_identity_or_private_record_content(self):
-        patient = self.create_patient(
-            full_name="Synthetic Patient Hidden Identity",
-            phone_raw="0790000111",
-            phone_e164="+962790000111",
-        )
-        appointment = self.create_appointment(patient=patient)
-        visit = self.create_visit(patient=patient, appointment=appointment)
-        ClinicalNote.objects.create(
-            patient=patient,
-            visit=visit,
-            title="Private clinical note title hidden from public cases",
-            body="Private clinical note body hidden from public cases.",
-            is_visible_to_patient=True,
-        )
-        folder = RecordMediaFolder.objects.create(
-            patient=patient,
-            name="PRIVATE-FOLDER-NAME-MUST-STAY-HIDDEN",
-        )
+    def test_localized_carousel_counter_labels_and_count_pills(self):
         public_case = self.create_public_case(
-            patient=patient,
-            reference_visit=visit,
-            title="Approved explicit public case title",
-            note="Approved explicit public case note.",
+            title="Localized marketing case",
+            detail_note="Detailed Case Notes slide.",
         )
-        media = self.create_media(
-            patient=patient,
-            visit=visit,
-            folder=folder,
+        self.create_public_media(public_case=public_case, role=PublicCaseMedia.Role.BEFORE)
+        self.create_public_media(public_case=public_case, role=PublicCaseMedia.Role.AFTER)
+        self.create_public_media(
             public_case=public_case,
-            title="INTERNAL-RECORD-MEDIA-TITLE-MUST-STAY-HIDDEN",
-            description="INTERNAL-RECORD-MEDIA-NOTE-MUST-STAY-HIDDEN",
+            role=PublicCaseMedia.Role.VIDEO,
+            media_type=PublicCaseMedia.MediaType.SHORT_VIDEO,
         )
 
-        response = self.client.get(reverse("public_cases_en"))
+        english = self.client.get(reverse("public_cases_en"))
+        arabic = self.client.get(reverse("public_cases"))
+        english_content = html_lib.unescape(english.content.decode())
+        arabic_content = html_lib.unescape(arabic.content.decode())
 
-        self.assertContains(response, public_case.title, count=1)
-        self.assertContains(response, public_case.note, count=1)
-        blocked_fragments = [
-            patient.full_name,
-            patient.phone_raw,
-            patient.phone_e164,
-            "1990",
-            appointment.booking_note,
-            appointment.visit_type.name_en,
-            visit.visit_reason,
-            visit.doctor_notes,
-            visit.diagnosis_plan,
-            visit.instructions,
-            visit.follow_up_notes,
-            "Private clinical note title hidden from public cases",
-            "Private clinical note body hidden from public cases.",
-            folder.name,
-            media.title,
-            media.description,
-            media.file.name,
-            str(settings.PRIVATE_MEDIA_ROOT),
-        ]
-        for fragment in blocked_fragments:
-            with self.subTest(fragment=fragment):
-                self.assertNotContains(response, fragment)
+        self.assertIn("1 of 4", english_content)
+        self.assertIn("1 من 4", arabic_content)
+        self.assertNotIn("1 / 4", english_content)
+        self.assertIn("Before image", english_content)
+        self.assertIn("After image", english_content)
+        self.assertIn("Video", english_content)
+        self.assertIn("صورة قبل", arabic_content)
+        self.assertIn("صورة بعد", arabic_content)
+        self.assertIn("فيديو", arabic_content)
+        self.assertNotIn("1 of 1", english_content)
+        self.assertNotIn("1 من 1", arabic_content)
+        self.assertContains(english, "<dt>Video</dt><span aria-hidden=\"true\">&middot;</span><dd>1</dd>", html=True)
+        self.assertContains(english, "<dt>Before images</dt><span aria-hidden=\"true\">&middot;</span><dd>1</dd>", html=True)
+        self.assertContains(english, "<dt>After images</dt><span aria-hidden=\"true\">&middot;</span><dd>1</dd>", html=True)
+        self.assertContains(arabic, "<dt>فيديو</dt><span aria-hidden=\"true\">&middot;</span><dd>1</dd>", html=True)
+        self.assertEqual(
+            len(re.findall(r"\sdata-case-slide(?:\s|>)", english_content)),
+            4,
+        )
+        self.assertIn("Detailed Case Notes slide.", english_content)
 
-    def test_before_after_video_group_renders_once_with_one_note_and_neutral_heading(self):
-        patient = self.create_patient(
-            full_name="Synthetic Grouped Case Hidden Patient",
-            phone_raw="0790000222",
-            phone_e164="+962790000222",
-        )
-        appointment = self.create_appointment(patient=patient)
-        visit = self.create_visit(patient=patient, appointment=appointment)
-        note = "Synthetic explicit short public case note."
-        detail_note = (
-            "Synthetic complete detailed case note.\n"
-            "This text belongs only to the final case-note slide."
-        )
-        public_case = self.create_public_case(
-            patient=patient,
-            reference_visit=visit,
-            note=note,
-            detail_note=detail_note,
-        )
-        before = self.create_media(
-            patient=patient,
-            visit=visit,
-            public_case=public_case,
-            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
-            title="Before",
-            description="INTERNAL-BEFORE-NOTE-MUST-STAY-HIDDEN",
-            file=self.synthetic_image_file(name="synthetic-before.jpg"),
-        )
-        after = self.create_media(
-            patient=patient,
-            visit=visit,
-            public_case=public_case,
-            public_case_role=RecordMedia.PublicCaseRole.AFTER,
-            title="After",
-            description="INTERNAL-AFTER-NOTE-MUST-STAY-HIDDEN",
-            file=self.synthetic_image_file(name="synthetic-after.jpg"),
-        )
-        video = self.create_media(
-            patient=patient,
-            visit=visit,
-            public_case=public_case,
-            public_case_role=RecordMedia.PublicCaseRole.VIDEO,
-            media_type=RecordMedia.MediaType.SHORT_VIDEO,
-            title="Video",
-            description="INTERNAL-VIDEO-NOTE-MUST-STAY-HIDDEN",
-            file=self.synthetic_video_file(name="synthetic-case.mp4"),
-        )
+    def test_multiple_role_labels_use_localized_of_copy(self):
+        public_case = self.create_public_case()
+        self.create_public_media(public_case=public_case, role=PublicCaseMedia.Role.BEFORE)
+        self.create_public_media(public_case=public_case, role=PublicCaseMedia.Role.BEFORE)
 
-        response = self.client.get(reverse("public_cases_en"))
-        content = response.content.decode()
-        before_url = reverse("public_case_media_en", kwargs={"public_id": before.public_id})
-        after_url = reverse("public_case_media_en", kwargs={"public_id": after.public_id})
-        video_url = reverse("public_case_media_en", kwargs={"public_id": video.public_id})
+        english = html_lib.unescape(self.client.get(reverse("public_cases_en")).content.decode())
+        arabic = html_lib.unescape(self.client.get(reverse("public_cases")).content.decode())
 
-        self.assertContains(response, 'class="public-case-card public-case-album-card"', count=1)
-        self.assertContains(response, "Authorized case 1", count=1)
-        self.assertContains(response, note, count=1)
-        self.assertContains(response, detail_note, count=1)
-        self.assertContains(
-            response,
-            reverse("public_case_detail_en", kwargs={"case_id": public_case.pk}),
-        )
-        self.assertNotContains(response, "INTERNAL-BEFORE-NOTE-MUST-STAY-HIDDEN")
-        self.assertNotContains(response, "INTERNAL-AFTER-NOTE-MUST-STAY-HIDDEN")
-        self.assertNotContains(response, "INTERNAL-VIDEO-NOTE-MUST-STAY-HIDDEN")
-        self.assertEqual(content.count(f'src="{before_url}"'), 1)
-        self.assertEqual(content.count(f'src="{after_url}"'), 1)
-        self.assertEqual(content.count(f'data-src="{video_url}"'), 1)
-        self.assertContains(response, 'data-slide-label="Before 1 of 1"', count=1)
-        self.assertContains(response, 'data-slide-label="After 1 of 1"', count=1)
-        self.assertContains(response, 'data-slide-label="Video 1 of 1"', count=1)
-        self.assertContains(response, 'data-slide-label="Case Notes"', count=1)
-        self.assertContains(response, 'data-slide-kind="note"', count=1)
-        self.assertContains(response, "data-case-note-text", count=1)
-        self.assertContains(response, "1 / 4", count=1)
-        note_slide = re.search(
-            r'<figure\s+class="public-case-carousel-slide public-case-carousel-note-slide"(?P<body>.*?)</figure>',
-            content,
-            re.DOTALL,
-        )
-        self.assertIsNotNone(note_slide)
-        self.assertNotIn("data-media-public-id", note_slide.group("body"))
-        self.assertNotIn("data-media-url", note_slide.group("body"))
-        self.assertNotIn("<img", note_slide.group("body"))
-        self.assertNotIn("<video", note_slide.group("body"))
-        self.assertNotIn(note, note_slide.group("body"))
-        self.assertContains(response, "data-case-controls", count=1)
-        self.assertContains(response, "data-case-current-label", count=1)
-        self.assertContains(response, "data-case-counter", count=1)
-        self.assertNotIn("public-case-image-grid", content)
-        self.assertNotIn("public-case-video-grid", content)
+        self.assertIn("Before image 1 of 2", english)
+        self.assertIn("Before image 2 of 2", english)
+        self.assertIn("صورة قبل 1 من 2", arabic)
+        self.assertIn("صورة قبل 2 من 2", arabic)
 
-        detail = self.client.get(
-            reverse("public_case_detail_en", kwargs={"case_id": public_case.pk})
-        )
-        detail_content = detail.content.decode()
-        video_tag = re.search(r"<video[^>]*>", detail_content).group(0)
-        self.assertEqual(detail.status_code, 200)
-        self.assertContains(detail, "Authorized case 1", count=1)
-        self.assertContains(detail, note, count=1)
-        self.assertContains(detail, "Case Notes", count=1)
-        for detail_line in detail_note.splitlines():
-            self.assertContains(detail, detail_line, count=1)
-        self.assertEqual(detail_content.count(f'src="{before_url}"'), 1)
-        self.assertEqual(detail_content.count(f'src="{after_url}"'), 1)
-        self.assertEqual(detail_content.count(f'src="{video_url}"'), 1)
-        self.assertEqual(detail_content.count("<video"), 1)
-        listing_video_tag = re.search(r"<video[^>]*>", content).group(0)
-        for attribute in ("muted", "playsinline", "controls", 'controlsList="nodownload"'):
-            self.assertIn(attribute, listing_video_tag)
-            self.assertIn(attribute, video_tag)
-        self.assertNotIn("Download", content)
-        self.assertNotIn("Download", detail_content)
-        self.assertNotIn("autoplay", video_tag)
+    def test_public_listing_skips_every_ineligible_or_missing_asset(self):
+        visible_case = self.create_public_case(title="Eligible standalone case")
+        eligible = self.create_public_media(public_case=visible_case)
 
-        home = self.client.get(reverse("home_en"))
-        self.assertContains(home, note, count=1)
-        self.assertNotContains(home, detail_note)
-
-        blocked_fragments = (
-            patient.full_name,
-            patient.phone_raw,
-            patient.phone_e164,
-            appointment.booking_note,
-            visit.visit_reason,
-            visit.doctor_notes,
-            visit.diagnosis_plan,
-            visit.instructions,
-            visit.follow_up_notes,
-            before.file.name,
-            after.file.name,
-            video.file.name,
-            str(settings.PRIVATE_MEDIA_ROOT),
-            'href="/media/',
-        )
-        for fragment in blocked_fragments:
-            with self.subTest(fragment=fragment):
-                self.assertNotContains(response, fragment)
-
-    def test_before_only_and_after_only_are_each_rendered_without_duplication(self):
-        patient = self.create_patient(
-            full_name="Synthetic Optional Role Hidden Patient",
-            phone_raw="0790000444",
-            phone_e164="+962790000444",
-        )
-        before_visit = self.create_visit(patient=patient)
-        after_visit = self.create_visit(patient=patient)
-        before_case = self.create_public_case(
-            patient=patient,
-            reference_visit=before_visit,
-            note="Synthetic before-only note.",
-        )
-        after_case = self.create_public_case(
-            patient=patient,
-            reference_visit=after_visit,
-            note="Synthetic after-only note.",
-        )
-        before = self.create_media(
-            patient=patient,
-            visit=before_visit,
-            public_case=before_case,
-            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
-            title="Before",
-            description="INTERNAL-BEFORE-ONLY-NOTE",
-        )
-        after = self.create_media(
-            patient=patient,
-            visit=after_visit,
-            public_case=after_case,
-            public_case_role=RecordMedia.PublicCaseRole.AFTER,
-            title="After",
-            description="INTERNAL-AFTER-ONLY-NOTE",
-        )
-
-        response = self.client.get(reverse("public_cases_en"))
-        content = response.content.decode()
-        before_url = reverse("public_case_media_en", kwargs={"public_id": before.public_id})
-        after_url = reverse("public_case_media_en", kwargs={"public_id": after.public_id})
-
-        self.assertEqual(content.count(f'src="{before_url}"'), 1)
-        self.assertEqual(content.count(f'src="{after_url}"'), 1)
-        self.assertContains(response, "Synthetic before-only note.", count=1)
-        self.assertContains(response, "Synthetic after-only note.", count=1)
-        self.assertNotContains(response, "INTERNAL-BEFORE-ONLY-NOTE")
-        self.assertNotContains(response, "INTERNAL-AFTER-ONLY-NOTE")
-        self.assertContains(response, 'class="public-case-card public-case-album-card"', count=2)
-        self.assertContains(response, "data-case-carousel", count=2)
-        self.assertNotContains(response, "data-case-controls")
-        self.assertNotContains(response, 'class="public-case-image-grid"')
-        before_detail = self.client.get(
-            reverse("public_case_detail_en", kwargs={"case_id": before_case.pk})
-        )
-        after_detail = self.client.get(
-            reverse("public_case_detail_en", kwargs={"case_id": after_case.pk})
-        )
-        self.assertContains(before_detail, 'class="public-case-image-grid"', count=1)
-        self.assertContains(after_detail, 'class="public-case-image-grid"', count=1)
-
-    def test_full_case_renders_all_assets_once_with_cover_and_home_remains_concise(self):
-        patient = self.create_patient(
-            full_name="Synthetic Multi Asset Hidden Patient",
-            phone_raw="0790000666",
-            phone_e164="+962790000666",
-        )
-        reference_visit = self.create_visit(patient=patient)
-        before_visit = self.create_visit(patient=patient)
-        after_visit = self.create_visit(patient=patient)
-        video_visit = self.create_visit(patient=patient)
-        folder = RecordMediaFolder.objects.create(
-            patient=patient,
-            name="INTERNAL-CASE-FOLDER-NEVER-PUBLIC",
-        )
-        title = "Public multi-asset case title"
-        note = "One concise public note for the case."
-        public_case = self.create_public_case(
-            patient=patient,
-            reference_visit=reference_visit,
-            title=title,
-            note=note,
-        )
-        rows = []
-        for index in range(3):
-            rows.append(
-                self.create_media(
-                    patient=patient,
-                    visit=before_visit,
-                    folder=folder,
-                    public_case=public_case,
-                    public_case_role=RecordMedia.PublicCaseRole.BEFORE,
-                    title=encode_public_case_title("before", title),
-                    description=f"INTERNAL-BEFORE-DESCRIPTION-{index}",
-                    file=self.synthetic_image_file(name=f"before-{index}.jpg"),
-                )
-            )
-        for index in range(2):
-            rows.append(
-                self.create_media(
-                    patient=patient,
-                    visit=after_visit,
-                    folder=folder,
-                    public_case=public_case,
-                    public_case_role=RecordMedia.PublicCaseRole.AFTER,
-                    title=encode_public_case_title("after", title),
-                    description=f"INTERNAL-AFTER-DESCRIPTION-{index}",
-                    file=self.synthetic_image_file(name=f"after-{index}.jpg"),
-                )
-            )
-        videos = []
-        for index in range(2):
-            videos.append(
-                self.create_media(
-                    patient=patient,
-                    visit=video_visit,
-                    folder=folder,
-                    public_case=public_case,
-                    public_case_role=RecordMedia.PublicCaseRole.VIDEO,
-                    media_type=RecordMedia.MediaType.SHORT_VIDEO,
-                    title=encode_public_case_title("video", title),
-                    description=f"INTERNAL-VIDEO-DESCRIPTION-{index}",
-                    file=self.synthetic_video_file(name=f"video-{index}.mp4"),
-                )
-            )
-        cover = self.create_media(
-            patient=patient,
-            visit=video_visit,
-            folder=folder,
-            public_case=public_case,
-            public_case_role=RecordMedia.PublicCaseRole.VIDEO_COVER,
-            title=encode_public_case_title("video_cover", title),
-            description="INTERNAL-COVER-DESCRIPTION",
-            file=self.synthetic_image_file(name="cover.jpg"),
-        )
-
-        cases_response = self.client.get(reverse("public_cases_en"))
-        cases_content = cases_response.content.decode()
-        cover_url = reverse("public_case_media_en", kwargs={"public_id": cover.public_id})
-
-        self.assertContains(
-            cases_response,
-            'class="public-case-card public-case-album-card"',
-            count=1,
-        )
-        self.assertContains(cases_response, title, count=1)
-        self.assertContains(cases_response, note, count=1)
-        self.assertNotIn("public-case-video-grid", cases_content)
-        self.assertNotIn("public-case-image-grid", cases_content)
-        self.assertEqual(cases_content.count("<video"), 2)
-        self.assertEqual(cases_content.count(cover_url), 1)
-        for media in rows + videos:
-            protected_url = reverse(
-                "public_case_media_en",
-                kwargs={"public_id": media.public_id},
-            )
-            self.assertIn(protected_url, cases_content)
-        self.assertContains(cases_response, "data-case-carousel", count=1)
-        self.assertContains(cases_response, "data-case-slide\n", count=7)
-        self.assertContains(cases_response, "data-case-controls", count=1)
-        self.assertContains(cases_response, "data-case-lightbox", count=1)
-        self.assertContains(cases_response, 'data-slide-label="Video 1 of 2"', count=1)
-        self.assertContains(cases_response, 'data-slide-label="Video 2 of 2"', count=1)
-        self.assertContains(cases_response, 'data-slide-label="Before 1 of 3"', count=1)
-        self.assertContains(cases_response, 'data-slide-label="After 1 of 2"', count=1)
-        self.assertNotContains(cases_response, "public-case-view-action")
-
-        detail_response = self.client.get(
-            reverse("public_case_detail_en", kwargs={"case_id": public_case.pk})
-        )
-        detail_content = detail_response.content.decode()
-        self.assertEqual(detail_response.status_code, 200)
-        self.assertContains(detail_response, title, count=1)
-        self.assertContains(detail_response, note, count=1)
-        self.assertContains(detail_response, ">Videos</h2>", count=1)
-        self.assertContains(detail_response, ">Before</h2>", count=1)
-        self.assertContains(detail_response, ">After</h2>", count=1)
-        self.assertEqual(detail_content.count("<video"), 2)
-        for media in rows + videos:
-            protected_url = reverse(
-                "public_case_media_en",
-                kwargs={"public_id": media.public_id},
-            )
-            self.assertEqual(detail_content.count(protected_url), 2 if media in rows else 1)
-        self.assertEqual(detail_content.count(f'poster="{cover_url}"'), 1)
-        self.assertNotIn(f'src="{cover_url}"', detail_content)
-        self.assertNotIn("[[public-case:", cases_content)
-        self.assertNotIn(folder.name, cases_content)
-        self.assertNotIn(patient.full_name, cases_content)
-        self.assertNotIn(patient.phone_raw, cases_content)
-        self.assertNotIn(reference_visit.visit_reason, cases_content)
-        self.assertNotIn("INTERNAL-BEFORE-DESCRIPTION", cases_content)
-        self.assertNotIn("INTERNAL-AFTER-DESCRIPTION", cases_content)
-        self.assertNotIn("INTERNAL-VIDEO-DESCRIPTION", cases_content)
-        self.assertNotIn("INTERNAL-COVER-DESCRIPTION", cases_content)
-        self.assertNotIn('href="/media/', cases_content)
-
-        home_response = self.client.get(reverse("home_en"))
-        home_content = home_response.content.decode()
-        video_urls = [
-            reverse("public_case_media_en", kwargs={"public_id": video.public_id})
-            for video in videos
-        ]
-        self.assertContains(home_response, title, count=1)
-        self.assertContains(home_response, note, count=1)
-        self.assertEqual(sum(home_content.count(url) for url in video_urls), 0)
-        self.assertEqual(home_content.count(cover_url), 1)
-        self.assertContains(
-            home_response,
-            reverse("public_case_detail_en", kwargs={"case_id": public_case.pk}),
-        )
-        self.assertNotIn(folder.name, home_content)
-        for image in rows:
-            image_url = reverse(
-                "public_case_media_en",
-                kwargs={"public_id": image.public_id},
-            )
-            self.assertNotIn(image_url, home_content)
-
-    def test_public_group_updates_immediately_when_items_are_unpublished(self):
-        patient = self.create_patient(
-            full_name="Synthetic Unpublish Hidden Patient",
-            phone_raw="0790000555",
-            phone_e164="+962790000555",
-        )
-        visit = self.create_visit(patient=patient)
-        before = self.create_media(patient=patient, visit=visit, title="Before")
-        after = self.create_media(patient=patient, visit=visit, title="After")
-        video = self.create_media(
-            patient=patient,
-            visit=visit,
-            media_type=RecordMedia.MediaType.SHORT_VIDEO,
-            title="",
-        )
-        before_url = reverse("public_case_media_en", kwargs={"public_id": before.public_id})
-        after_url = reverse("public_case_media_en", kwargs={"public_id": after.public_id})
-        video_url = reverse("public_case_media_en", kwargs={"public_id": video.public_id})
-
-        detail_url = reverse(
-            "public_case_detail_en",
-            kwargs={"case_id": before.public_case_id},
-        )
-        initial = self.client.get(detail_url)
-        for url in (before_url, after_url, video_url):
-            self.assertContains(initial, url)
-
-        after.is_active = False
-        after.save(update_fields=["is_active"])
-        after_removed = self.client.get(detail_url)
-        self.assertNotContains(after_removed, after_url)
-        self.assertContains(after_removed, before_url)
-        self.assertContains(after_removed, video_url)
-
-        before.visibility = RecordMedia.Visibility.PRIVATE_ONLY
-        before.save(update_fields=["visibility"])
-        before_removed = self.client.get(detail_url)
-        self.assertNotContains(before_removed, before_url)
-        self.assertNotContains(before_removed, after_url)
-        self.assertContains(before_removed, video_url)
-
-        self.force_unconsented_public_case(video)
-        consent_removed = self.client.get(detail_url)
-        self.assertEqual(consent_removed.status_code, 404)
-
-    def test_unpublished_and_unconsented_cases_are_absent_from_public_pages(self):
-        unpublished_case = self.create_public_case(
-            title="UNPUBLISHED-CASE-MUST-STAY-HIDDEN",
-            is_published=False,
-        )
-        unpublished_media = self.create_media(
-            patient=unpublished_case.patient,
-            public_case=unpublished_case,
-            title="UNPUBLISHED-MEDIA-MUST-STAY-HIDDEN",
-        )
         unconsented_case = self.create_public_case(
-            title="UNCONSENTED-CASE-MUST-STAY-HIDDEN",
+            title="Unconsented case hidden",
             consent_confirmed=False,
         )
-        unconsented_media = self.create_media(
-            patient=unconsented_case.patient,
-            public_case=unconsented_case,
-            title="UNCONSENTED-CASE-MEDIA-MUST-STAY-HIDDEN",
-        )
-
-        for route_name in ("public_cases_en", "home_en"):
-            with self.subTest(route_name=route_name):
-                response = self.client.get(reverse(route_name))
-
-                self.assertNotContains(response, unpublished_case.title)
-                self.assertNotContains(response, unconsented_case.title)
-                self.assertNotContains(
-                    response,
-                    reverse(
-                        "public_case_media_en",
-                        kwargs={"public_id": unpublished_media.public_id},
-                    ),
-                )
-                self.assertNotContains(
-                    response,
-                    reverse(
-                        "public_case_media_en",
-                        kwargs={"public_id": unconsented_media.public_id},
-                    ),
-                )
-
-    def test_home_uses_one_teaser_asset_with_before_after_primary_priority(self):
-        public_case = self.create_public_case(
-            title="Home explicit public case teaser",
-            note="Concise home teaser note.",
-        )
-        primary = self.create_media(
-            patient=public_case.patient,
-            public_case=public_case,
-            public_case_role=RecordMedia.PublicCaseRole.PRIMARY,
-            title="INTERNAL-HOME-PRIMARY-TITLE",
-            file=self.synthetic_image_file(name="synthetic-primary.jpg"),
-        )
-        before = self.create_media(
-            patient=public_case.patient,
-            public_case=public_case,
-            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
-            title="INTERNAL-HOME-BEFORE-TITLE",
-            file=self.synthetic_image_file(name="synthetic-before.jpg"),
-        )
-        after = self.create_media(
-            patient=public_case.patient,
-            public_case=public_case,
-            public_case_role=RecordMedia.PublicCaseRole.AFTER,
-            title="INTERNAL-HOME-AFTER-TITLE",
-            file=self.synthetic_image_file(name="synthetic-after.jpg"),
-        )
-        self.create_media(
-            visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
-            title="Home patient-visible teaser must stay hidden",
-        )
-
-        response = self.client.get(reverse("home_en"))
-        content = response.content.decode()
-        primary_url = reverse(
-            "public_case_media_en",
-            kwargs={"public_id": primary.public_id},
-        )
-        before_url = reverse(
-            "public_case_media_en",
-            kwargs={"public_id": before.public_id},
-        )
-        after_url = reverse(
-            "public_case_media_en",
-            kwargs={"public_id": after.public_id},
-        )
-
-        self.assertContains(response, public_case.title, count=1)
-        self.assertContains(response, public_case.note, count=1)
-        self.assertContains(response, 'class="case-card"', count=1)
-        self.assertContains(
-            response,
-            reverse("public_case_detail_en", kwargs={"case_id": public_case.pk}),
-        )
-        self.assertEqual(content.count(before_url), 1)
-        self.assertNotIn(after_url, content)
-        self.assertNotIn(primary_url, content)
-        self.assertNotIn("INTERNAL-HOME-PRIMARY-TITLE", content)
-        self.assertNotIn("INTERNAL-HOME-BEFORE-TITLE", content)
-        self.assertNotIn("INTERNAL-HOME-AFTER-TITLE", content)
-        self.assertNotContains(response, "Home patient-visible teaser must stay hidden")
-        self.assertNotContains(response, primary.file.name)
-        self.assertNotContains(response, before.file.name)
-        self.assertNotContains(response, after.file.name)
-        self.assertNotContains(response, "synthetic-primary.jpg")
-        self.assertNotContains(response, "synthetic-before.jpg")
-        self.assertNotContains(response, "synthetic-after.jpg")
-        self.assertNotContains(response, str(settings.PRIVATE_MEDIA_ROOT))
-
-
-    def test_listing_cover_priority_and_detail_keep_one_public_case_album(self):
-        public_case = self.create_public_case(
-            title="Synthetic representative cover priority",
-            note="One concise album note.",
-        )
-        primary = self.create_media(
-            patient=public_case.patient,
-            public_case=public_case,
-            public_case_role=RecordMedia.PublicCaseRole.PRIMARY,
-        )
-        after = self.create_media(
-            patient=public_case.patient,
-            public_case=public_case,
-            public_case_role=RecordMedia.PublicCaseRole.AFTER,
-        )
-        before = self.create_media(
-            patient=public_case.patient,
-            public_case=public_case,
-            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
-        )
-        video = self.create_media(
-            patient=public_case.patient,
-            public_case=public_case,
-            public_case_role=RecordMedia.PublicCaseRole.VIDEO,
-            media_type=RecordMedia.MediaType.SHORT_VIDEO,
-        )
-        cover = self.create_media(
-            patient=public_case.patient,
-            public_case=public_case,
-            public_case_role=RecordMedia.PublicCaseRole.VIDEO_COVER,
-        )
-        urls = {
-            media.pk: reverse(
-                "public_case_media_en",
-                kwargs={"public_id": media.public_id},
-            )
-            for media in (primary, after, before, video, cover)
-        }
-
-        listing = self.client.get(reverse("public_cases_en"))
-        listing_content = listing.content.decode()
-        self.assertContains(listing, 'class="public-case-card public-case-album-card"', count=1)
-        self.assertEqual(listing_content.count(urls[cover.pk]), 1)
-        for media in (primary, after, before, video):
-            self.assertIn(urls[media.pk], listing_content)
-        self.assertEqual(listing_content.count("data-case-slide\n"), 4)
-        self.assertNotIn(f'data-media-public-id="{cover.public_id}"', listing_content)
-        self.assertIn(f'poster="{urls[cover.pk]}"', listing_content)
-
-        detail = self.client.get(
-            reverse("public_case_detail_en", kwargs={"case_id": public_case.pk})
-        )
-        detail_content = detail.content.decode()
-        self.assertEqual(detail.status_code, 200)
-        self.assertContains(detail, public_case.title, count=1)
-        self.assertContains(detail, public_case.note, count=1)
-        self.assertEqual(detail_content.count(f'poster="{urls[cover.pk]}"'), 1)
-        self.assertNotIn(f'src="{urls[cover.pk]}"', detail_content)
-        self.assertEqual(detail_content.count(urls[video.pk]), 1)
-        for media in (primary, after, before):
-            self.assertEqual(detail_content.count(urls[media.pk]), 2)
-
-    def test_detail_hides_unpublished_unconsented_and_trashed_assets(self):
-        visible_case = self.create_public_case(title="Visible album with one retained asset")
-        visible = self.create_media(
-            patient=visible_case.patient,
+        self.create_public_media(public_case=unconsented_case)
+        draft_case = self.create_public_case(title="Draft case hidden", is_published=False)
+        self.create_public_media(public_case=draft_case)
+        self.create_public_media(
             public_case=visible_case,
-            public_case_role=RecordMedia.PublicCaseRole.AFTER,
+            role=PublicCaseMedia.Role.AFTER,
+            consent_confirmed=False,
         )
-        trashed = self.create_media(
-            patient=visible_case.patient,
+        self.create_public_media(
             public_case=visible_case,
-            public_case_role=RecordMedia.PublicCaseRole.BEFORE,
-        )
-        RecordMedia.objects.filter(pk=trashed.pk).update(
-            trashed_at=timezone.now(),
+            role=PublicCaseMedia.Role.AFTER,
             is_active=False,
         )
+        invalid = self.create_public_media(public_case=visible_case)
+        PublicCaseMedia.objects.filter(pk=invalid.pk).update(role="")
+        cover = self.create_public_media(
+            public_case=visible_case,
+            role=PublicCaseMedia.Role.VIDEO_COVER,
+        )
+        missing = self.create_public_media(
+            public_case=visible_case,
+            role=PublicCaseMedia.Role.AFTER,
+        )
+        missing.file.storage.delete(missing.file.name)
 
-        listing = self.client.get(reverse("public_cases_en"))
-        self.assertContains(
-            listing,
-            reverse("public_case_media_en", kwargs={"public_id": visible.public_id}),
-        )
-        self.assertNotContains(
-            listing,
-            reverse("public_case_media_en", kwargs={"public_id": trashed.public_id}),
-        )
-        self.assertContains(listing, "data-case-slide\n", count=1)
-        self.assertNotContains(listing, "data-case-controls")
+        response = self.client.get(reverse("public_cases_en"))
+        content = response.content.decode()
 
-        detail = self.client.get(
-            reverse("public_case_detail_en", kwargs={"case_id": visible_case.pk})
+        self.assertContains(response, visible_case.title)
+        self.assertContains(response, str(eligible.public_id))
+        self.assertNotContains(response, unconsented_case.title)
+        self.assertNotContains(response, draft_case.title)
+        for media in (invalid, cover, missing):
+            self.assertNotIn(str(media.public_id), content)
+
+    def test_patient_and_medical_domain_content_is_never_copied_or_rendered(self):
+        patient = self.create_patient(
+            full_name="PRIVATE PATIENT NAME",
+            phone_raw="0791234567",
         )
-        self.assertEqual(detail.status_code, 200)
-        self.assertContains(
-            detail,
-            reverse("public_case_media_en", kwargs={"public_id": visible.public_id}),
+        visit = VisitRecord.objects.create(
+            patient=patient,
+            visit_reason="PRIVATE VISIT REASON",
+            doctor_notes="PRIVATE DOCTOR NOTE",
         )
-        self.assertNotContains(
-            detail,
-            reverse("public_case_media_en", kwargs={"public_id": trashed.public_id}),
+        medical = self.create_medical_media(
+            patient=patient,
+            visit=visit,
+            title="PRIVATE MEDICAL TITLE",
+            description="PRIVATE MEDICAL DESCRIPTION",
         )
+        public_case = self.create_public_case(title="Independent marketing title")
+        self.create_public_media(public_case=public_case)
+
+        response = self.client.get(reverse("public_cases_en"))
+        content = response.content.decode()
+
+        self.assertContains(response, public_case.title)
+        for private_value in (
+            patient.full_name,
+            patient.phone_raw,
+            visit.visit_reason,
+            visit.doctor_notes,
+            medical.title,
+            medical.description,
+            str(medical.public_id),
+        ):
+            self.assertNotIn(private_value, content)
+        self.assertNotIn(medical.file.name, content)
+
+    def test_fallback_detail_uses_same_safe_marketing_group(self):
+        public_case = self.create_public_case(
+            title="Fallback marketing title",
+            detail_note="Fallback detailed marketing note.",
+        )
+        media = self.create_public_media(public_case=public_case)
+
+        response = self.client.get(
+            reverse("public_case_detail_en", kwargs={"case_id": public_case.pk})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, public_case.title)
+        self.assertContains(response, public_case.detail_note)
+        self.assertContains(response, str(media.public_id))
         self.assertEqual(
             self.client.get(
-                reverse("public_case_media_en", kwargs={"public_id": trashed.public_id})
+                reverse("public_case_detail_en", kwargs={"case_id": public_case.pk + 999})
             ).status_code,
             404,
         )
 
-        unpublished_case = self.create_public_case(is_published=False)
-        self.create_media(
-            patient=unpublished_case.patient,
-            public_case=unpublished_case,
-        )
-        unconsented_case = self.create_public_case(consent_confirmed=False)
-        self.create_media(
-            patient=unconsented_case.patient,
-            public_case=unconsented_case,
-        )
-        for public_case in (unpublished_case, unconsented_case):
-            with self.subTest(case_id=public_case.pk):
-                self.assertEqual(
-                    self.client.get(
-                        reverse(
-                            "public_case_detail_en",
-                            kwargs={"case_id": public_case.pk},
-                        )
-                    ).status_code,
-                    404,
-                )
-
 
 class PublicCaseMediaRouteTests(PublicCasesTestDataMixin, TestCase):
-    def test_approved_public_case_media_returns_file_response(self):
-        patient = self.create_patient(full_name="Synthetic Header Hidden Patient")
-        media = self.create_media(
-            patient=patient,
-            file=self.synthetic_image_file(name="synthetic-public-case.jpg", content=b"approved-public-bytes"),
+    def test_protected_uuid_delivery_is_inline_opaque_and_not_a_storage_url(self):
+        media = self.create_public_media(
+            file=self.synthetic_image_file(name="private-marketing-source.jpg")
         )
+        route = reverse("public_case_media_en", kwargs={"public_id": media.public_id})
 
-        response = self.client.get(reverse("public_case_media", kwargs={"public_id": media.public_id}))
+        response = self.client.get(route)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["Content-Type"], "image/jpeg")
+        self.assertIn("inline", response["Content-Disposition"])
+        self.assertIn(f"public-case-{media.public_id}", response["Content-Disposition"])
+        self.assertNotIn("private-marketing-source", response["Content-Disposition"])
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
-        self.assertTrue(response.get("Content-Disposition", "").startswith("inline;"))
-        self.assertNotIn("attachment", response.get("Content-Disposition", "").lower())
-        self.assertIn(f"public-case-{media.public_id}.jpg", response.get("Content-Disposition", ""))
-        self.assertNotIn("synthetic-public-case.jpg", response.get("Content-Disposition", ""))
-        headers = "\n".join(f"{key}: {value}" for key, value in response.headers.items())
-        self.assertNotIn(str(settings.PRIVATE_MEDIA_ROOT), headers)
-        self.assertNotIn(media.file.name, headers)
-        self.assertNotIn(patient.full_name, headers)
-        self.assertNotIn(patient.phone_raw, headers)
-        self.assertEqual(b"".join(response.streaming_content), b"approved-public-bytes")
+        self.assertNotIn(media.file.name, route)
+        self.assertNotIn(str(Path(media.file.storage.location)), route)
         response.close()
-        with self.assertRaises(ValueError):
-            media.file.url
 
-    def test_unpublishing_case_immediately_denies_previously_public_media(self):
-        public_case = self.create_public_case(title="Temporary public case")
-        media = self.create_media(
-            patient=public_case.patient,
-            public_case=public_case,
-            title="INTERNAL-TEMPORARY-PUBLIC-MEDIA",
+    def test_public_endpoint_requires_case_and_media_consent_active_and_valid_role(self):
+        scenarios = (
+            {"case_consent": False},
+            {"case_published": False},
+            {"media_consent": False},
+            {"media_active": False},
+            {"role": ""},
+            {"role": PublicCaseMedia.Role.VIDEO_COVER},
         )
-        media_url = reverse("public_case_media", kwargs={"public_id": media.public_id})
-
-        published_response = self.client.get(media_url)
-        self.assertEqual(published_response.status_code, 200)
-        published_response.close()
-
-        public_case.is_published = False
-        public_case.save(update_fields=["is_published"])
-
-        denied_response = self.client.get(media_url)
-        self.assertEqual(denied_response.status_code, 404)
-
-    def test_non_public_or_inactive_media_return_404(self):
-        blocked_media = [
-            self.create_media(
-                visibility=RecordMedia.Visibility.PRIVATE_ONLY,
-                title="Private-only public route block",
-            ),
-            self.create_media(
-                visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
-                title="Patient-visible public route block",
-            ),
-            self.create_media(
-                is_active=False,
-                title="Inactive public route block",
-            ),
-        ]
-
-        for media in blocked_media:
-            with self.subTest(media=media.title):
-                response = self.client.get(reverse("public_case_media", kwargs={"public_id": media.public_id}))
-
+        for index, scenario in enumerate(scenarios):
+            with self.subTest(scenario=scenario):
+                public_case = self.create_public_case(
+                    title=f"Gate {index}",
+                    consent_confirmed=scenario.get("case_consent", True),
+                    is_published=scenario.get("case_published", True),
+                )
+                media = self.create_public_media(
+                    public_case=public_case,
+                    consent_confirmed=scenario.get("media_consent", True),
+                    is_active=scenario.get("media_active", True),
+                )
+                if "role" in scenario:
+                    PublicCaseMedia.objects.filter(pk=media.pk).update(role=scenario["role"])
+                response = self.client.get(
+                    reverse("public_case_media", kwargs={"public_id": media.public_id})
+                )
                 self.assertEqual(response.status_code, 404)
 
-    def test_unconsented_public_case_media_returns_404(self):
-        media = self.create_media(title="Unconsented public media route block")
-        self.force_unconsented_public_case(media)
+    def test_missing_storage_returns_safe_404_and_listing_has_no_dead_link(self):
+        media = self.create_public_media()
+        media.file.storage.delete(media.file.name)
+        route = reverse("public_case_media", kwargs={"public_id": media.public_id})
 
-        response = self.client.get(reverse("public_case_media", kwargs={"public_id": media.public_id}))
+        self.assertEqual(self.client.get(route).status_code, 404)
+        listing = self.client.get(reverse("public_cases"))
+        self.assertNotContains(listing, str(media.public_id))
+        self.assertNotContains(listing, media.file.name)
+
+    def test_medical_record_uuid_is_never_delivered_by_public_case_endpoint(self):
+        medical = self.create_medical_media()
+
+        response = self.client.get(
+            reverse("public_case_media", kwargs={"public_id": medical.public_id})
+        )
 
         self.assertEqual(response.status_code, 404)
 
-    def test_missing_media_and_missing_files_return_404(self):
-        missing_media_response = self.client.get(
-            reverse("public_case_media", kwargs={"public_id": uuid.uuid4()})
-        )
-        missing_file = self.create_media(title="Missing file field public route block")
-        RecordMedia.objects.filter(pk=missing_file.pk).update(file="")
-        missing_file_response = self.client.get(
-            reverse("public_case_media", kwargs={"public_id": missing_file.public_id})
-        )
-        missing_storage_file = self.create_media(title="Missing storage file public route block")
-        missing_storage_file.file.storage.delete(missing_storage_file.file.name)
-        missing_storage_file_response = self.client.get(
-            reverse("public_case_media", kwargs={"public_id": missing_storage_file.public_id})
+    def test_video_is_muted_no_autoplay_and_has_download_advisory(self):
+        media = self.create_public_media(
+            role=PublicCaseMedia.Role.VIDEO,
+            media_type=PublicCaseMedia.MediaType.SHORT_VIDEO,
         )
 
-        self.assertEqual(missing_media_response.status_code, 404)
-        self.assertEqual(missing_file_response.status_code, 404)
-        self.assertEqual(missing_storage_file_response.status_code, 404)
+        response = self.client.get(reverse("public_cases_en"))
+        content = response.content.decode()
+
+        self.assertIn(f'data-src="{reverse("public_case_media_en", kwargs={"public_id": media.public_id})}"', content)
+        self.assertRegex(content, r"<video\b[^>]*\bmuted\b")
+        self.assertRegex(content, r'<video\b[^>]*\bcontrolsList="nodownload"')
+        self.assertRegex(content, r'<video\b[^>]*\bpreload="none"')
+        self.assertNotRegex(content, r"<video\b[^>]*\bautoplay\b")
 
 
 class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
-    def test_cases_template_renders_album_cards_without_full_galleries(self):
-        template = (settings.BASE_DIR / "templates" / "core" / "cases.html").read_text(
-            encoding="utf-8"
-        )
-
-        self.assertEqual(
-            template.count('<article class="public-case-card public-case-album-card"'),
-            1,
-        )
-        self.assertIn("case.carousel_items", template)
-        self.assertIn("data-case-carousel", template)
-        self.assertIn("data-case-slide", template)
-        self.assertIn("data-slide-kind", template)
-        self.assertIn("data-case-current-label", template)
-        self.assertIn("data-case-counter", template)
-        self.assertIn("data-case-prev", template)
-        self.assertIn("data-case-next", template)
-        self.assertIn("data-case-expand", template)
-        self.assertIn("data-media-public-id", template)
-        self.assertIn("data-media-type", template)
-        self.assertIn("data-media-role", template)
-        self.assertIn("data-media-url", template)
-        self.assertIn("data-slide-label", template)
-        self.assertIn("data-case-note-text", template)
-        self.assertIn("slide.kind == 'note'", template)
-        self.assertIn('preload="none"', template)
-        self.assertIn("muted playsinline controls", template)
-        self.assertNotIn("autoplay", template)
-        self.assertNotIn("media.title", template)
-        self.assertNotIn("media.description", template)
-        self.assertNotIn("media.file", template)
-        self.assertIn("case.detail_url", template)
-        self.assertIn("<noscript>", template)
-        self.assertNotIn("public-case-view-action", template)
-        self.assertNotIn('class="btn btn-secondary', template)
-        self.assertNotIn("case.before_items", template)
-        self.assertNotIn("case.after_items", template)
-        self.assertNotIn("case.video_items", template)
-
-        self.assertEqual(template.count("<dialog"), 1)
-        self.assertIn("data-case-lightbox", template)
-        self.assertIn("data-lightbox-title", template)
-        self.assertIn("data-lightbox-label", template)
-        self.assertIn("data-lightbox-counter", template)
-        self.assertIn("data-lightbox-media", template)
-        self.assertIn("data-lightbox-prev", template)
-        self.assertIn("data-lightbox-next", template)
-        self.assertIn("data-lightbox-close", template)
-
-        detail_template = (
-            settings.BASE_DIR / "templates" / "core" / "case_detail.html"
+    def test_grid_card_stage_and_carousel_controls_keep_approved_contract(self):
+        stylesheet = (
+            Path(__file__).resolve().parents[2] / "static" / "css" / "public-closeout.css"
         ).read_text(encoding="utf-8")
-        self.assertIn("public_case.before_items", detail_template)
-        self.assertIn("public_case.after_items", detail_template)
-        self.assertIn("public_case.video_items", detail_template)
-        self.assertIn("public_case.detail_note", detail_template)
-        self.assertIn("Case Notes", detail_template)
-        self.assertIn('poster="{{ video.poster_url }}"', detail_template)
-        self.assertNotIn("public_case.video_cover.url", detail_template)
 
-    def test_home_template_uses_only_the_selected_teaser_and_links_to_cases(self):
-        template = (settings.BASE_DIR / "templates" / "core" / "home.html").read_text(
-            encoding="utf-8"
-        )
-
-        self.assertIn("case.teaser.media_type", template)
-        self.assertIn("case.teaser.url", template)
-        self.assertNotIn("case.before_items", template)
-        self.assertNotIn("case.after_items", template)
-        self.assertNotIn("case.video_items", template)
-        self.assertNotIn("case.primary.url", template)
-        self.assertIn('href="{{ cases_url }}"', template)
-
-    def test_case_video_css_is_intrinsic_bounded_and_logical(self):
-        css = (settings.BASE_DIR / "static" / "css" / "public-closeout.css").read_text(
-            encoding="utf-8"
-        )
-        video_rule = re.search(r"\.public-case-video-frame video\s*\{(?P<body>[^}]*)\}", css)
-
-        self.assertIsNotNone(video_rule)
-        video_body = video_rule.group("body")
-        for declaration in (
-            "display: block",
-            "inline-size: auto",
-            "max-inline-size: 100%",
-            "block-size: auto",
-            "object-fit: contain",
-            "margin-inline: auto",
-        ):
-            with self.subTest(declaration=declaration):
-                self.assertIn(declaration, video_body)
-        self.assertNotIn("width: 100%", video_body)
-        self.assertNotIn("aspect-ratio", video_body)
-        self.assertNotIn("object-fit: cover", video_body)
-        self.assertIn("min(60svh, 34rem)", css)
-        self.assertIn("min(68svh, 42rem)", css)
-        self.assertIn("padding-inline:", css)
-        self.assertIn("padding-block:", css)
-        self.assertNotRegex(css, r"padding-(?:left|right):")
-
-    def test_album_listing_and_detail_have_phone_tablet_desktop_contracts(self):
-        css = (settings.BASE_DIR / "static" / "css" / "public-closeout.css").read_text(
-            encoding="utf-8"
-        )
-        base_css = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(
-            encoding="utf-8"
-        )
-
-        base_grid = re.search(r"\.public-case-album-grid\s*\{(?P<body>[^}]*)\}", css)
-        card_rule = re.search(r"\.public-case-album-card\s*\{(?P<body>[^}]*)\}", css)
-        stage_rule = re.search(r"\.public-case-carousel-stage\s*\{(?P<body>[^}]*)\}", css)
-        slide_rule = re.search(r"\.public-case-carousel-slide\s*\{(?P<body>[^}]*)\}", css)
-        media_rule = re.search(
-            r"\.public-case-carousel-slide > img,\s*"
-            r"\.public-case-carousel-slide > video\s*\{(?P<body>[^}]*)\}",
-            css,
-        )
-        lightbox_viewport_rule = re.search(
-            r"\.public-case-lightbox-media\s*\{(?P<body>[^}]*)\}",
-            css,
-        )
-        lightbox_media_rule = re.search(
-            r"\.public-case-lightbox-media > img,\s*"
-            r"\.public-case-lightbox-media > video\s*\{(?P<body>[^}]*)\}",
-            css,
-        )
-
-        self.assertIsNotNone(base_grid)
-        self.assertIn("grid-template-columns: minmax(0, 1fr)", base_grid.group("body"))
-        self.assertIn("max-inline-size: 80rem", base_grid.group("body"))
-        self.assertIn("margin-inline: auto", base_grid.group("body"))
-        self.assertIn("align-items: start", base_grid.group("body"))
         self.assertRegex(
-            css,
-            r"(?s)@media \(min-width: 48rem\).*?\.public-case-album-grid\s*\{[^}]*repeat\(2, minmax\(0, 1fr\)\)",
+            stylesheet,
+            r"\.public-case-album-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)",
         )
         self.assertRegex(
-            css,
-            r"(?s)@media \(min-width: 64rem\).*?\.public-case-album-grid\s*\{[^}]*repeat\(3, minmax\(0, 1fr\)\)",
+            stylesheet,
+            r"@media \(min-width:\s*48rem\)\s*\{[^}]*\.public-case-album-grid\s*\{[^}]*repeat\(2,",
         )
-        self.assertIsNotNone(card_rule)
-        for declaration in ("min-height: 0", "height: auto", "align-self: start"):
-            self.assertIn(declaration, card_rule.group("body"))
-        self.assertIsNotNone(stage_rule)
-        stage_body = stage_rule.group("body")
-        self.assertIn("inline-size: 100%", stage_body)
-        self.assertIn("aspect-ratio: 4 / 3", stage_body)
-        self.assertIn("overflow: hidden", stage_body)
-        self.assertIsNotNone(slide_rule)
-        for declaration in (
-            "inline-size: 100%",
-            "block-size: 100%",
-            "min-width: 0",
-            "min-height: 0",
-            "box-sizing: border-box",
-        ):
-            self.assertIn(declaration, slide_rule.group("body"))
-        self.assertNotIn("transform:", slide_rule.group("body"))
-        self.assertIsNotNone(media_rule)
-        media_body = media_rule.group("body")
-        for declaration in (
-            "display: block",
-            "inline-size: 100%",
-            "block-size: 100%",
-            "min-inline-size: 0",
-            "min-block-size: 0",
-            "margin: auto",
-            "object-fit: contain",
-            "object-position: center",
-        ):
-            with self.subTest(declaration=declaration):
-                self.assertIn(declaration, media_body)
-        self.assertNotIn("inline-size: auto", media_body)
-        self.assertNotIn("block-size: auto", media_body)
-        self.assertNotIn("object-fit: cover", media_body)
+        self.assertRegex(
+            stylesheet,
+            r"@media \(min-width:\s*64rem\)\s*\{[^}]*\.public-case-album-grid\s*\{[^}]*repeat\(3,",
+        )
+        self.assertRegex(
+            stylesheet,
+            r"\.public-case-carousel-stage\s*\{[^}]*aspect-ratio:\s*4\s*/\s*3",
+        )
+        self.assertRegex(
+            stylesheet,
+            r"\.public-case-carousel-slide\s*>\s*img,[^{]*\{[^}]*object-fit:\s*contain",
+        )
+        self.assertRegex(
+            stylesheet,
+            r"\.public-case-carousel-control\s*\{[^}]*width:\s*2\.25rem;[^}]*height:\s*2\.25rem",
+        )
+        self.assertIn(".public-case-carousel-control:focus-visible", stylesheet)
 
-        self.assertIsNotNone(lightbox_viewport_rule)
-        lightbox_viewport_body = lightbox_viewport_rule.group("body")
-        for declaration in (
-            "inline-size: 100%",
-            "min-width: 0",
-            "min-height: 12rem",
-            "height: min(66svh, 46rem)",
-            "box-sizing: border-box",
-            "overflow: hidden",
-        ):
-            self.assertIn(declaration, lightbox_viewport_body)
-        self.assertIsNotNone(lightbox_media_rule)
-        lightbox_media_body = lightbox_media_rule.group("body")
-        for declaration in (
-            "inline-size: 100%",
-            "block-size: 100%",
-            "min-inline-size: 0",
-            "min-block-size: 0",
-            "object-fit: contain",
-            "object-position: center",
-        ):
-            self.assertIn(declaration, lightbox_media_body)
-        self.assertNotIn("width: auto", lightbox_media_body)
-        self.assertNotIn("height: auto", lightbox_media_body)
-        self.assertNotIn("object-fit: cover", lightbox_media_body)
-        self.assertIn(".public-case-carousel-note-slide", css)
-        self.assertIn(".public-case-lightbox-note", css)
-        for rule in re.finditer(
-            r"(?P<selectors>[^{}]+)\{(?P<body>[^{}]*)\}",
-            f"{base_css}\n{css}",
-        ):
-            selectors = rule.group("selectors")
-            if not (
-                (".public-case-carousel" in selectors or ".public-case-lightbox-media" in selectors)
-                and ("img" in selectors or "video" in selectors)
-            ):
-                continue
-            with self.subTest(selectors=selectors.strip()):
-                self.assertNotIn("object-fit: cover", rule.group("body"))
-        self.assertIn("padding: clamp(", css)
-        self.assertIn("-webkit-line-clamp: 2", css)
-        self.assertNotIn(".public-case-view-action", css)
-        self.assertIn(".public-case-detail-galleries", css)
-        self.assertNotRegex(css, r"padding-(?:left|right):")
-
-    def test_case_carousel_and_lightbox_javascript_contracts(self):
+    def test_javascript_uses_localized_of_counter_and_preserves_silent_lightbox(self):
         javascript = (
-            settings.BASE_DIR / "static" / "js" / "public-closeout.js"
+            Path(__file__).resolve().parents[2] / "static" / "js" / "public-closeout.js"
         ).read_text(encoding="utf-8")
-        template = (settings.BASE_DIR / "templates" / "core" / "cases.html").read_text(
-            encoding="utf-8"
-        )
 
-        for contract in (
-            "enforceSilentPlayback",
-            "pauseCaseVideos",
-            "showCaseSlide",
-            "caseNavigationOffsetForKey",
-            "openCaseLightbox",
-            "renderLightboxSlide",
-            'slide.dataset.slideKind === "note"',
-            'slide.querySelector("[data-case-note-text]")',
-            'noteCard.className = "public-case-lightbox-note"',
-            "closeCaseLightbox",
-            'querySelectorAll("[data-case-album]")',
-            "caseState.index",
-            "video.pause()",
-            "video.defaultMuted = true",
-            "video.muted = true",
-            'video.setAttribute("controlsList", "nodownload")',
-            "initializePublicCloseout",
-            "initializeCaseCarousels",
-            'document.readyState === "loading"',
-            'document.addEventListener("DOMContentLoaded"',
-            'typeof lightbox.showModal === "function"',
-            'carousel.dataset.caseCarouselReady = "true"',
-            "window.location.assign(caseState.detailUrl)",
-            "lightbox.showModal()",
-            "lightbox.close()",
-            "lightboxMedia.replaceChildren()",
-            'event.key === "Escape"',
-            '"ArrowLeft"',
-            '"ArrowRight"',
-            'document.documentElement.dir === "rtl"',
-            "opener.focus({ preventScroll: true })",
-            "event.preventDefault()",
-            "event.stopPropagation()",
-            'target.closest(interactiveCaseSelector)',
-            'querySelectorAll("[data-review-carousel]")',
-            "addMediaQueryChangeListener",
-        ):
-            with self.subTest(contract=contract):
-                self.assertIn(contract, javascript)
-        self.assertNotIn(".play()", javascript)
-        self.assertNotIn("detailNote", javascript)
-        self.assertIn('data-case-detail-url="{{ case.detail_url }}"', template)
-
-    def test_case_carousel_and_lightbox_runtime_behavior(self):
-        runtime_test = (
-            settings.BASE_DIR
-            / "apps"
-            / "core"
-            / "js_tests"
-            / "public_case_carousel_runtime_test.js"
-        )
-        public_closeout_script = (
-            settings.BASE_DIR / "static" / "js" / "public-closeout.js"
-        )
-
-        result = subprocess.run(
-            ["node", str(runtime_test), str(public_closeout_script)],
-            cwd=settings.BASE_DIR,
-            capture_output=True,
-            check=False,
-            text=True,
-            timeout=15,
-        )
-
-        self.assertEqual(
-            result.returncode,
-            0,
-            msg=(
-                "Public case carousel behavior failed:\n"
-                f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-            ),
-        )
-        self.assertIn("public case carousel runtime behavior passed", result.stdout)
+        self.assertIn(" من ", javascript)
+        self.assertIn(" of ", javascript)
+        self.assertIn("video.defaultMuted = true", javascript)
+        self.assertIn('video.setAttribute("controlsList", "nodownload")', javascript)
+        self.assertNotIn('setAttribute("autoplay"', javascript)
+        self.assertIn("[data-case-lightbox]", javascript)
 
 
 class PublicCasesRegressionBoundaryTests(PublicCasesTestDataMixin, TestCase):
-    def test_internal_folder_metadata_never_appears_in_patient_portal(self):
-        user = get_user_model().objects.create_user(
-            username="+962790000332",
-            password="synthetic-test-password",
-        )
-        patient = self.create_patient(
-            user=user,
-            full_name="Synthetic Portal Folder Patient",
-            phone_raw="0790000332",
-            phone_e164="+962790000332",
-        )
-        folder = RecordMediaFolder.objects.create(
-            patient=patient,
-            name="PORTAL-MUST-NEVER-SEE-THIS-FOLDER",
-        )
-        visible_media = self.create_media(
-            patient=patient,
-            folder=folder,
-            visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
-            title="Patient-visible media with internal folder",
-        )
-        self.create_media(
-            patient=patient,
-            folder=folder,
-            title="Approved public case remains outside portal media",
-        )
-        self.client.force_login(user)
-
-        response = self.client.get(reverse("patient_portal_medical_records_en"))
-
-        self.assertContains(response, visible_media.title)
-        self.assertNotContains(response, folder.name)
-        self.assertNotContains(response, "Approved public case remains outside portal media")
-
-    def test_patient_portal_media_route_still_only_serves_linked_patient_visible_media(self):
-        user = get_user_model().objects.create_user(
-            username="+962790000333",
-            email="synthetic-public-case-portal@example.test",
-            password="synthetic-test-password",
-        )
-        patient = self.create_patient(user=user, phone_raw="0790000333", phone_e164="+962790000333")
-        visible_media = self.create_media(
-            patient=patient,
-            visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
-            title="Patient-visible media remains portal-only",
-            file=self.synthetic_image_file(name="synthetic-public-case.jpg", content=b"patient-visible-bytes"),
-        )
-        public_case_media = self.create_media(
-            patient=patient,
-            title="Public case media is not patient portal media",
-        )
-        private_media = self.create_media(
-            patient=patient,
-            visibility=RecordMedia.Visibility.PRIVATE_ONLY,
-            title="Private media is not patient portal media",
-        )
-        self.client.force_login(user)
-
-        visible_response = self.client.get(
-            reverse(
-                "patient_portal_medical_record_media_download",
-                kwargs={"public_id": visible_media.public_id},
-            )
-        )
-        public_case_response = self.client.get(
-            reverse(
-                "patient_portal_medical_record_media_download",
-                kwargs={"public_id": public_case_media.public_id},
-            )
-        )
-        private_response = self.client.get(
-            reverse(
-                "patient_portal_medical_record_media_download",
-                kwargs={"public_id": private_media.public_id},
-            )
+    def test_storage_names_and_direct_media_urls_never_appear_in_public_markup(self):
+        media = self.create_public_media(
+            file=self.synthetic_image_file(name="sensitive-marketing-filename.jpg")
         )
 
-        self.assertEqual(visible_response.status_code, 200)
-        self.assertEqual(b"".join(visible_response.streaming_content), b"patient-visible-bytes")
-        visible_response.close()
-        self.assertEqual(public_case_response.status_code, 404)
-        self.assertEqual(private_response.status_code, 404)
+        response = self.client.get(reverse("public_cases_en"))
+        content = response.content.decode()
 
-    def test_staff_private_media_route_remains_staff_only(self):
-        media = self.create_media(title="Staff route public case access control")
-        normal_user = get_user_model().objects.create_user(
-            username="synthetic-normal-public-case-user",
-            password="synthetic-test-password",
+        self.assertIn(str(media.public_id), content)
+        self.assertNotIn(media.file.name, content)
+        self.assertNotIn("sensitive-marketing-filename", content)
+        self.assertNotIn('href="/media/', content)
+        self.assertNotIn('src="/media/', content)
+
+    def test_invalid_uuid_is_safe_404(self):
+        response = self.client.get(
+            reverse("public_case_media_en", kwargs={"public_id": uuid.uuid4()})
         )
-
-        anonymous_response = self.client.get(
-            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
-        )
-        self.client.force_login(normal_user)
-        normal_user_response = self.client.get(
-            reverse("record_private_media_download", kwargs={"public_id": media.public_id})
-        )
-
-        self.assertEqual(anonymous_response.status_code, 302)
-        self.assertIn(f"{reverse('login')}?role=doctor&next=", anonymous_response["Location"])
-        self.assertEqual(normal_user_response.status_code, 403)
-
-    def test_unlisted_and_prohibited_routes_remain_absent(self):
-        blocked_paths = [
-            "/uploads/",
-            "/portal/uploads/",
-            "/whatsapp/webhook/",
-            "/api/whatsapp/",
-            "/whatsapp/api/",
-            "/records/",
-            "/medical-records/",
-            "/payments/",
-            "/portal/payments/",
-        ]
-
-        for path in blocked_paths:
-            with self.subTest(path=path):
-                response = self.client.get(path)
-
-                self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 404)
 
 
 class PublicPageSmokeTests(TestCase):

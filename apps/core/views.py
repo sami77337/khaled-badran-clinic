@@ -15,7 +15,7 @@ from apps.clinic.models import (
     Doctor,
     VisitType,
 )
-from apps.records.models import RecordMedia
+from apps.records.models import PublicCaseMedia
 
 from .showcase import grouped_public_cases
 
@@ -632,15 +632,15 @@ def _visit_types(language):
 
 def _public_case_media_queryset():
     return (
-        RecordMedia.objects.filter(
-            visibility=RecordMedia.Visibility.APPROVED_PUBLIC_CASE,
+        PublicCaseMedia.objects.filter(
             consent_confirmed=True,
             is_active=True,
-            trashed_at__isnull=True,
+            role__in=PublicCaseMedia.publishable_roles(),
             public_case__consent_confirmed=True,
             public_case__is_published=True,
         )
         .exclude(file="")
+        .select_related("public_case")
         .order_by("-uploaded_at", "-public_id")
     )
 
@@ -652,34 +652,31 @@ def _public_case_media_url(media, language):
 
 def _public_case_media_type_label(media, language):
     labels = PUBLIC_CASE_LABELS[_normalize_language(language)]
-    if media.media_type == RecordMedia.MediaType.SHORT_VIDEO:
+    if media.media_type == PublicCaseMedia.MediaType.SHORT_VIDEO:
         return labels["short_video"]
     return labels["image"]
 
 
 def _public_case_download_filename(media):
-    source_name = PurePosixPath(str(media.download_filename or "").replace("\\", "/")).name
-    extension = PurePosixPath(source_name).suffix.lower()
+    extension = PurePosixPath(str(media.file.name or "").replace("\\", "/")).suffix.lower()
     return f"public-case-{media.public_id}{extension}"
 
 
 def _public_case_media_items(language, limit=None):
     language = _normalize_language(language)
-    queryset = _public_case_media_queryset()
-    if limit is not None:
-        queryset = queryset[:limit]
-
-    return [
-        {
-            "title": media.title,
-            "description": media.description,
+    items = []
+    for media in _public_case_media_queryset():
+        if not media.file_exists:
+            continue
+        items.append({
             "media_type": media.media_type,
             "media_type_label": _public_case_media_type_label(media, language),
             "uploaded_at": media.uploaded_at,
             "url": _public_case_media_url(media, language),
-        }
-        for media in queryset
-    ]
+        })
+        if limit is not None and len(items) >= limit:
+            break
+    return items
 
 
 def _base_context(
@@ -872,15 +869,13 @@ def public_case_detail(request, case_id, language=DEFAULT_LANGUAGE):
 def public_case_media(request, public_id, language=DEFAULT_LANGUAGE):
     try:
         media = _public_case_media_queryset().get(public_id=public_id)
-    except RecordMedia.DoesNotExist as exc:
+    except PublicCaseMedia.DoesNotExist as exc:
         raise Http404("Media unavailable.") from exc
 
-    if not media.file:
+    if not media.is_publicly_available:
         raise Http404("Media unavailable.")
 
     try:
-        if not media.file.storage.exists(media.file.name):
-            raise Http404("Media unavailable.")
         response = FileResponse(
             media.file.open("rb"),
             as_attachment=False,
