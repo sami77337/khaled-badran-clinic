@@ -11,7 +11,7 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.db import IntegrityError, connection, transaction
-from django.test import RequestFactory, TestCase, override_settings
+from django.test import Client, RequestFactory, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
@@ -2291,6 +2291,13 @@ class StaffAuthorizationTests(BookingTestDataMixin, TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_non_staff_user_cannot_access_staff_appointment_detail(self):
+        self.client.force_login(self.create_user())
+
+        response = self.client.get(self.detail_url)
+
+        self.assertEqual(response.status_code, 403)
+
     def test_non_staff_user_cannot_perform_staff_operation(self):
         self.client.force_login(self.create_user())
 
@@ -2317,8 +2324,306 @@ class StaffAuthorizationTests(BookingTestDataMixin, TestCase):
         response = self.client.get(self.detail_url)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Status history")
-        self.assertContains(response, "Audit events")
+        self.assertContains(response, "سجل الحالة")
+        self.assertContains(response, "أحداث التدقيق")
+
+    def test_staff_operation_routes_reject_get_without_changing_status(self):
+        self.client.force_login(self.create_staff_user())
+        operation_urls = [
+            reverse("staff_appointment_cancel", kwargs={"appointment_id": self.appointment.id}),
+            reverse("staff_appointment_reschedule", kwargs={"appointment_id": self.appointment.id}),
+            reverse("staff_appointment_arrived", kwargs={"appointment_id": self.appointment.id}),
+            reverse("staff_appointment_complete", kwargs={"appointment_id": self.appointment.id}),
+            reverse("staff_appointment_no_show", kwargs={"appointment_id": self.appointment.id}),
+        ]
+
+        for url in operation_urls:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 405)
+
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.CONFIRMED)
+
+    def test_staff_operation_routes_enforce_csrf(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.create_staff_user())
+        cancel_url = reverse(
+            "staff_appointment_cancel",
+            kwargs={"appointment_id": self.appointment.id},
+        )
+
+        response = csrf_client.post(cancel_url, {"note": "Patient called."})
+
+        self.assertEqual(response.status_code, 403)
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.CONFIRMED)
+
+
+class StaffAppointmentDashboardPresentationTests(BookingTestDataMixin, TestCase):
+    def setUp(self):
+        self.staff = self.create_staff_user()
+        self.client.force_login(self.staff)
+        self.appointment = self.create_appointment()
+        self.list_url = reverse("staff_appointment_list")
+        self.detail_url = reverse(
+            "staff_appointment_detail",
+            kwargs={"appointment_id": self.appointment.id},
+        )
+
+    def test_list_and_detail_render_dashboard_shell_with_active_appointments_nav(self):
+        for url in (self.list_url, self.detail_url):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertTemplateUsed(response, "dashboard/base.html")
+                self.assertEqual(response.context["active_dashboard_nav"], "appointments")
+                self.assertContains(response, 'class="dashboard-nav-link is-active"')
+                self.assertContains(response, 'aria-current="page"')
+                self.assertContains(response, "/static/css/dashboard-appointments.css")
+
+    def test_arabic_is_default_and_english_query_localizes_direction_and_status(self):
+        arabic = self.client.get(self.list_url)
+        english = self.client.get(f"{self.list_url}?lang=en")
+        arabic_detail = self.client.get(self.detail_url)
+        english_detail = self.client.get(f"{self.detail_url}?lang=en")
+
+        self.assertContains(arabic, '<html lang="ar" dir="rtl">')
+        for label in (
+            "المواعيد",
+            "الحالة",
+            "النطاق",
+            "الطبيب",
+            "نوع الزيارة",
+            "من تاريخ",
+            "إلى تاريخ",
+            "البحث عن المريض",
+            "تصفية",
+            "إعادة تعيين",
+        ):
+            self.assertContains(arabic, label)
+        self.assertContains(arabic, "مؤكد")
+        self.assertContains(arabic, self.appointment.doctor.display_name_ar)
+        self.assertContains(arabic, self.appointment.visit_type.name_ar)
+        self.assertContains(english, '<html lang="en" dir="ltr">')
+        for label in (
+            "Appointments",
+            "Status",
+            "Scope",
+            "Doctor",
+            "Visit type",
+            "From date",
+            "To date",
+            "Patient search",
+            "Filter",
+            "Reset",
+        ):
+            self.assertContains(english, label)
+        self.assertContains(english, "Confirmed")
+        self.assertContains(english, self.appointment.doctor.display_name_en)
+        self.assertContains(english, self.appointment.visit_type.name_en)
+        self.assertContains(arabic_detail, '<html lang="ar" dir="rtl">')
+        self.assertContains(arabic_detail, "مرجع التأكيد")
+        self.assertContains(arabic_detail, "سجل الحالة")
+        self.assertContains(english_detail, '<html lang="en" dir="ltr">')
+        self.assertContains(english_detail, "Confirmation reference")
+        self.assertContains(english_detail, "Status history")
+
+    def test_filters_continue_to_limit_results(self):
+        target_patient = Patient.objects.create(
+            full_name="Filter Match",
+            phone_raw="0780000000",
+            phone_e164="+962780000000",
+        )
+        target_start = self.appointment.starts_at + timedelta(days=2)
+        target = self.create_appointment(
+            doctor=self.appointment.doctor,
+            visit_type=self.appointment.visit_type,
+            patient=target_patient,
+            starts_at=target_start,
+            status=Appointment.Status.CANCELLED,
+        )
+
+        response = self.client.get(
+            self.list_url,
+            {
+                "status": Appointment.Status.CANCELLED,
+                "scope": "all",
+                "doctor": self.appointment.doctor_id,
+                "visit_type": self.appointment.visit_type_id,
+                "date_from": timezone.localdate(target_start).isoformat(),
+                "date_to": timezone.localdate(target_start).isoformat(),
+                "q": "Filter Match",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item.id for item in response.context["appointments"]], [target.id])
+        self.assertContains(response, "Filter Match")
+        self.assertNotContains(response, self.appointment.patient.full_name)
+
+    def test_language_switch_and_pagination_preserve_only_expected_filter_state(self):
+        base_start = self.appointment.starts_at
+        for offset in range(1, 26):
+            self.create_appointment(
+                doctor=self.appointment.doctor,
+                visit_type=self.appointment.visit_type,
+                starts_at=base_start + timedelta(days=offset),
+            )
+        query = {
+            "status": Appointment.Status.CONFIRMED,
+            "scope": "all",
+            "doctor": str(self.appointment.doctor_id),
+            "visit_type": str(self.appointment.visit_type_id),
+            "date_from": timezone.localdate(base_start).isoformat(),
+            "date_to": timezone.localdate(base_start + timedelta(days=30)).isoformat(),
+            "q": "Test Patient",
+            "lang": "en",
+            "page": "2",
+            "unsafe": "must-not-propagate",
+        }
+
+        response = self.client.get(self.list_url, query)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["page_obj"].number, 2)
+        previous_query = parse_qs(urlsplit(response.context["previous_page_url"]).query)
+        switch_query = parse_qs(
+            urlsplit(response.context["dashboard_language_switch_url"]).query
+        )
+        expected_filters = {
+            key: [value]
+            for key, value in query.items()
+            if key not in {"lang", "page", "unsafe"}
+        }
+        self.assertEqual(
+            previous_query,
+            {**expected_filters, "lang": ["en"], "page": ["1"]},
+        )
+        self.assertEqual(switch_query, {**expected_filters, "page": ["2"]})
+        self.assertNotIn("unsafe", response.context["previous_page_url"])
+        self.assertNotIn("unsafe", response.context["dashboard_language_switch_url"])
+        self.assertEqual(response.context["staff_appointments_url"], f"{self.list_url}?lang=en")
+        self.assertContains(response, f'href="{self.list_url}?lang=en"')
+        self.assertContains(response, '<input type="hidden" name="lang" value="en">')
+
+    def test_list_and_detail_patient_record_links_and_language_switch_preserve_context(self):
+        english_list = self.client.get(f"{self.list_url}?lang=en")
+        english = self.client.get(f"{self.detail_url}?lang=en")
+
+        self.assertEqual(english.status_code, 200)
+        self.assertEqual(
+            english.context["dashboard_language_switch_url"],
+            self.detail_url,
+        )
+        expected_record = (
+            reverse(
+                "dashboard_patient_record_detail",
+                kwargs={"patient_id": self.appointment.patient_id},
+            )
+            + "?lang=en"
+        )
+        self.assertEqual(english.context["patient_record_url"], expected_record)
+        self.assertContains(english_list, f'href="{expected_record}"')
+        self.assertContains(english_list, f'href="{self.detail_url}?lang=en"')
+        self.assertContains(english, f'href="{expected_record}"')
+        self.assertContains(english, "Back to appointments")
+
+    def test_detail_does_not_render_public_token_internal_id_or_raw_audit_metadata(self):
+        metadata_secret = "private-filesystem-path-and-secret"
+        AuditLog.objects.create(
+            user=self.staff,
+            action=AuditLog.Action.STATUS_CHANGE,
+            app_label="booking",
+            model_name="Appointment",
+            object_id=str(self.appointment.id),
+            message="Appointment cancelled by staff.",
+            metadata={
+                "public_token": str(self.appointment.public_token),
+                "filesystem_path": metadata_secret,
+            },
+        )
+
+        response = self.client.get(f"{self.detail_url}?lang=en")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.appointment.confirmation_reference)
+        self.assertNotContains(response, str(self.appointment.public_token))
+        self.assertNotContains(response, "Public token")
+        self.assertNotContains(response, "Internal ID")
+        self.assertNotContains(response, metadata_secret)
+        self.assertNotContains(response, "filesystem_path")
+        self.assertNotContains(response, "Metadata")
+
+    def test_status_history_and_audit_events_are_localized_without_raw_metadata(self):
+        operations.mark_arrived(self.appointment.id, actor=self.staff, note="Checked in.")
+
+        arabic = self.client.get(self.detail_url)
+        english = self.client.get(f"{self.detail_url}?lang=en")
+
+        self.assertContains(arabic, "الحالة السابقة")
+        self.assertContains(arabic, "الحالة الجديدة")
+        self.assertContains(arabic, "تم التغيير بواسطة")
+        self.assertContains(arabic, "سجّل الموظف وصول المريض.")
+        self.assertContains(english, "Old status")
+        self.assertContains(english, "New status")
+        self.assertContains(english, "Changed by")
+        self.assertContains(english, "Appointment marked arrived by staff.")
+        self.assertNotContains(arabic, "actor_user_id")
+        self.assertNotContains(english, "actor_user_id")
+
+    def test_status_dependent_actions_remain_available_without_new_transitions(self):
+        confirmed = self.client.get(f"{self.detail_url}?lang=en")
+        self.assertContains(confirmed, "Mark arrived")
+        self.assertContains(confirmed, "Reschedule")
+        self.assertContains(confirmed, "Cancel appointment")
+        self.assertContains(confirmed, "Mark no-show")
+        self.assertNotContains(confirmed, "Mark completed")
+
+        operations.mark_arrived(self.appointment.id, actor=self.staff)
+        arrived = self.client.get(f"{self.detail_url}?lang=en")
+        self.assertContains(arrived, "Mark completed")
+        self.assertContains(arrived, "Cancel appointment")
+        self.assertNotContains(arrived, "Mark arrived")
+        self.assertNotContains(arrived, "Mark no-show")
+
+        self.appointment.status = Appointment.Status.RESCHEDULED
+        self.appointment.save(update_fields=["status", "updated_at"])
+        rescheduled = self.client.get(f"{self.detail_url}?lang=en")
+        self.assertContains(rescheduled, "Mark arrived")
+        self.assertContains(rescheduled, "Reschedule")
+        self.assertContains(rescheduled, "Cancel appointment")
+        self.assertContains(rescheduled, "Mark no-show")
+
+        for status in (
+            Appointment.Status.COMPLETED,
+            Appointment.Status.CANCELLED,
+            Appointment.Status.NO_SHOW,
+        ):
+            with self.subTest(status=status):
+                self.appointment.status = status
+                self.appointment.save(update_fields=["status", "updated_at"])
+                terminal = self.client.get(f"{self.detail_url}?lang=en")
+                self.assertContains(
+                    terminal,
+                    "This appointment is terminal; no restore action is available.",
+                )
+                self.assertNotContains(terminal, "Mark arrived")
+                self.assertNotContains(terminal, "Mark completed")
+                self.assertNotContains(terminal, "Cancel appointment")
+                self.assertNotContains(terminal, "Mark no-show")
+
+    def test_appointment_stylesheet_contains_scoped_responsive_overflow_contract(self):
+        stylesheet = finders.find("css/dashboard-appointments.css")
+
+        self.assertIsNotNone(stylesheet)
+        css = Path(stylesheet).read_text(encoding="utf-8")
+        self.assertIn(".appointments-table-scroll", css)
+        self.assertIn("overflow-x: auto", css)
+        self.assertIn("@media (max-width: 63.999rem)", css)
+        self.assertIn("@media (max-width: 47.999rem)", css)
+        self.assertIn("grid-template-columns: minmax(0, 1fr)", css)
 
 
 class AppointmentOperationServiceTests(BookingTestDataMixin, TestCase):
@@ -2495,6 +2800,98 @@ class StaffAppointmentViewWorkflowTests(BookingTestDataMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.status, Appointment.Status.CANCELLED)
+
+    def test_successful_staff_mutation_redirects_preserve_english_dashboard_language(self):
+        reschedule_target = self.future_aware(days=3, hour=10)
+        complete_appointment = self.create_appointment(starts_at=self.future_aware(days=2))
+        operations.mark_arrived(complete_appointment.id, actor=self.staff)
+        cases = (
+            (
+                "staff_appointment_cancel",
+                self.create_appointment(starts_at=self.future_aware(days=4)),
+                {"note": "Patient requested cancellation."},
+                Appointment.Status.CANCELLED,
+            ),
+            (
+                "staff_appointment_arrived",
+                self.create_appointment(starts_at=self.future_aware(days=5)),
+                {"note": "Checked in."},
+                Appointment.Status.ARRIVED,
+            ),
+            (
+                "staff_appointment_complete",
+                complete_appointment,
+                {"note": "Visit completed."},
+                Appointment.Status.COMPLETED,
+            ),
+            (
+                "staff_appointment_no_show",
+                self.create_appointment(starts_at=self.future_aware(days=6)),
+                {"note": "Patient did not arrive."},
+                Appointment.Status.NO_SHOW,
+            ),
+            (
+                "staff_appointment_reschedule",
+                self.create_appointment(starts_at=self.future_aware(days=7)),
+                {
+                    "starts_at": timezone.localtime(reschedule_target).strftime(
+                        "%Y-%m-%dT%H:%M"
+                    ),
+                    "note": "Moved by patient request.",
+                },
+                Appointment.Status.RESCHEDULED,
+            ),
+        )
+
+        with patch(
+            "apps.booking.operations.validate_reschedule_target",
+            return_value=(reschedule_target, reschedule_target + timedelta(minutes=30)),
+        ):
+            for route_name, appointment, payload, expected_status in cases:
+                with self.subTest(route_name=route_name):
+                    operation_url = reverse(
+                        route_name,
+                        kwargs={"appointment_id": appointment.id},
+                    )
+                    detail_url = reverse(
+                        "staff_appointment_detail",
+                        kwargs={"appointment_id": appointment.id},
+                    )
+
+                    response = self.client.post(f"{operation_url}?lang=en", payload)
+
+                    self.assertRedirects(
+                        response,
+                        f"{detail_url}?lang=en",
+                        fetch_redirect_response=False,
+                    )
+                    appointment.refresh_from_db()
+                    self.assertEqual(appointment.status, expected_status)
+
+    def test_invalid_view_transition_remains_rejected(self):
+        response = self.client.post(
+            reverse(
+                "staff_appointment_complete",
+                kwargs={"appointment_id": self.appointment.id},
+            ),
+            {"note": "Cannot complete before arrival."},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.CONFIRMED)
+
+    def test_arabic_required_operation_error_is_localized(self):
+        response = self.client.post(
+            reverse(
+                "staff_appointment_cancel",
+                kwargs={"appointment_id": self.appointment.id},
+            ),
+            {"note": ""},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "هذا الحقل مطلوب.", status_code=400)
 
     def test_staff_arrived_and_complete_views_change_status(self):
         arrived_response = self.client.post(

@@ -203,6 +203,17 @@ class StatusNoteForm(forms.Form):
         label="Staff note",
     )
 
+    def __init__(self, *args, language="en", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.language = "ar" if language == "ar" else "en"
+        if self.language == "ar":
+            self.fields["note"].label = "ملاحظة الموظف"
+            if self.fields["note"].required:
+                self.fields["note"].error_messages["required"] = "هذا الحقل مطلوب."
+            self.fields["note"].error_messages["max_length"] = (
+                "يجب ألا تتجاوز الملاحظة %(limit_value)s حرفًا."
+            )
+
     def clean_note(self):
         return (self.cleaned_data.get("note") or "").strip()
 
@@ -218,7 +229,12 @@ class CancelAppointmentForm(StatusNoteForm):
     def clean_note(self):
         note = super().clean_note()
         if not note:
-            raise ValidationError("Cancellation reason is required.")
+            message = (
+                "يرجى إدخال سبب الإلغاء."
+                if self.language == "ar"
+                else "Cancellation reason is required."
+            )
+            raise ValidationError(message)
         return note
 
 
@@ -233,7 +249,12 @@ class MarkNoShowForm(StatusNoteForm):
     def clean_note(self):
         note = super().clean_note()
         if not note:
-            raise ValidationError("No-show reason is required.")
+            message = (
+                "يرجى إدخال سبب عدم الحضور."
+                if self.language == "ar"
+                else "No-show reason is required."
+            )
+            raise ValidationError(message)
         return note
 
 
@@ -254,16 +275,31 @@ class RescheduleAppointmentForm(forms.Form):
         label="Reschedule note",
     )
 
-    def __init__(self, *args, appointment, **kwargs):
+    def __init__(self, *args, appointment, language="en", **kwargs):
         super().__init__(*args, **kwargs)
         self.appointment = appointment
+        self.language = "ar" if language == "ar" else "en"
+        if self.language == "ar":
+            self.fields["starts_at"].label = "الموعد الجديد"
+            self.fields["starts_at"].error_messages.update(
+                {
+                    "required": "يرجى إدخال الموعد الجديد.",
+                    "invalid": "يرجى إدخال تاريخ ووقت صالحين.",
+                }
+            )
+            self.fields["note"].label = "ملاحظة إعادة الجدولة"
+            self.fields["note"].error_messages["max_length"] = (
+                "يجب ألا تتجاوز الملاحظة %(limit_value)s حرفًا."
+            )
 
     def clean_starts_at(self):
         starts_at = self.cleaned_data["starts_at"]
         try:
             starts_at, _ = operations.validate_reschedule_target(self.appointment, starts_at)
         except ValidationError as exc:
-            raise ValidationError(exc.messages)
+            if self.language == "ar":
+                raise ValidationError("هذا الموعد غير متاح لإعادة الجدولة.") from exc
+            raise ValidationError(exc.messages) from exc
         return starts_at
 
     def clean_note(self):

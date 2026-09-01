@@ -301,14 +301,97 @@ def booking_success(request, public_token, language="ar"):
     )
 
 
+STAFF_APPOINTMENT_FILTER_KEYS = (
+    "status",
+    "scope",
+    "doctor",
+    "visit_type",
+    "date_from",
+    "date_to",
+    "q",
+)
+
+STAFF_APPOINTMENT_STATUS_LABELS = {
+    "ar": {
+        Appointment.Status.CONFIRMED: "مؤكد",
+        Appointment.Status.ARRIVED: "وصل",
+        Appointment.Status.COMPLETED: "مكتمل",
+        Appointment.Status.NO_SHOW: "لم يحضر",
+        Appointment.Status.CANCELLED: "ملغي",
+        Appointment.Status.RESCHEDULED: "أعيدت جدولته",
+    },
+    "en": dict(Appointment.Status.choices),
+}
+
+STAFF_AUDIT_ACTION_LABELS_AR = {
+    AuditLog.Action.CREATE: "إنشاء",
+    AuditLog.Action.UPDATE: "تحديث",
+    AuditLog.Action.DELETE: "حذف",
+    AuditLog.Action.STATUS_CHANGE: "تغيير الحالة",
+    AuditLog.Action.SETTINGS_CHANGE: "تغيير الإعدادات",
+    AuditLog.Action.LOGIN: "تسجيل الدخول",
+    AuditLog.Action.LOGOUT: "تسجيل الخروج",
+}
+
+STAFF_AUDIT_MESSAGE_LABELS_AR = {
+    "Appointment created through public booking.": "تم إنشاء الموعد عبر الحجز العام.",
+    "Appointment cancelled by staff.": "ألغى الموظف الموعد.",
+    "Appointment marked arrived by staff.": "سجّل الموظف وصول المريض.",
+    "Appointment marked completed by staff.": "سجّل الموظف إكمال الموعد.",
+    "Appointment marked no-show by staff.": "سجّل الموظف عدم حضور المريض.",
+    "Appointment rescheduled by staff.": "أعاد الموظف جدولة الموعد.",
+}
+
+
+def _staff_language(request):
+    return _language(request.GET.get("lang"))
+
+
+def _localized_status_label(status, language, *, empty_label=""):
+    if not status:
+        return empty_label
+    return STAFF_APPOINTMENT_STATUS_LABELS[language].get(status, status)
+
+
+def _url_with_staff_language(route_name, language, *, kwargs=None):
+    route = reverse(route_name, kwargs=kwargs)
+    return f"{route}?lang=en" if language == "en" else route
+
+
+def _staff_appointment_list_url(language, *, filters=None, page=None):
+    params = {}
+    filters = filters or {}
+    for key in STAFF_APPOINTMENT_FILTER_KEYS:
+        value = filters.get(key)
+        if value not in (None, ""):
+            params[key] = value
+    if language == "en":
+        params["lang"] = "en"
+    if page is not None:
+        params["page"] = page
+    route = reverse("staff_appointment_list")
+    query = urlencode(params)
+    return f"{route}?{query}" if query else route
+
+
+def _staff_appointment_detail_url(appointment_id, language):
+    return _url_with_staff_language(
+        "staff_appointment_detail",
+        language,
+        kwargs={"appointment_id": appointment_id},
+    )
+
+
 def _staff_required(view_func):
     @wraps(view_func)
     @never_cache
     def wrapped(request, *args, **kwargs):
         if not request.user.is_authenticated:
+            language = _staff_language(request)
+            login_route = "login_en" if language == "en" else "login"
             return redirect_to_login(
                 request.get_full_path(),
-                login_url=f"{reverse('login')}?role=doctor",
+                login_url=f"{reverse(login_route)}?role=doctor",
             )
         if not request.user.is_staff:
             return HttpResponseForbidden("Staff access required.")
@@ -317,13 +400,84 @@ def _staff_required(view_func):
     return wrapped
 
 
-def _staff_context(request, **extra):
-    context = _base_context(request, "booking", "en")
+def _staff_context(request, *, language=None, **extra):
+    language = language or _staff_language(request)
+    context = _base_context(request, "booking", language)
+    alternate_language = "en" if language == "ar" else "ar"
+    doctor_name = (context["doctor"].get("full_name_en") or "Khaled Badran").split()
+    doctor_initials = (
+        f"{doctor_name[0][0]}{doctor_name[-1][0]}".upper()
+        if doctor_name
+        else "KB"
+    )
+    dashboard_home_url = _url_with_staff_language("dashboard_home", language)
+    staff_appointments_url = _staff_appointment_list_url(language)
+    labels = {
+        "ar": {
+            "overview": "نظرة عامة",
+            "appointments": "المواعيد",
+            "patients": "المرضى",
+            "public_cases": "الحالات العامة",
+            "scheduling": "الجدولة",
+        },
+        "en": {
+            "overview": "Overview",
+            "appointments": "Appointments",
+            "patients": "Patients",
+            "public_cases": "Public Cases",
+            "scheduling": "Scheduling",
+        },
+    }[language]
     context.update(
         {
             "page_key": "staff_appointments",
-            "page_title": "Staff appointments | Dr. Khaled Badran Clinic",
-            "staff_appointments_url": reverse("staff_appointment_list"),
+            "page_title": (
+                f"المواعيد | {context['clinic']['name_ar']}"
+                if language == "ar"
+                else f"Appointments | {context['clinic']['name_en']}"
+            ),
+            "meta_description": (
+                "إدارة مواعيد العيادة وحالاتها التشغيلية."
+                if language == "ar"
+                else "Manage clinic appointments and their operational status."
+            ),
+            "canonical_url": request.build_absolute_uri(staff_appointments_url),
+            "dashboard_home_url": dashboard_home_url,
+            "dashboard_language_switch_url": _staff_appointment_list_url(alternate_language),
+            "dashboard_language_switch_label": "English" if language == "ar" else "العربية",
+            "dashboard_doctor_initials": doctor_initials,
+            "dashboard_logout_url": reverse(
+                "patient_portal_logout_en" if language == "en" else "patient_portal_logout"
+            ),
+            "dashboard_nav_items": [
+                {
+                    "key": "overview",
+                    "label": labels["overview"],
+                    "url": dashboard_home_url,
+                },
+                {
+                    "key": "appointments",
+                    "label": labels["appointments"],
+                    "url": staff_appointments_url,
+                },
+                {
+                    "key": "patients",
+                    "label": labels["patients"],
+                    "url": _url_with_staff_language("dashboard_patient_list", language),
+                },
+                {
+                    "key": "public_cases",
+                    "label": labels["public_cases"],
+                    "url": _url_with_staff_language("dashboard_public_case_list", language),
+                },
+                {
+                    "key": "scheduling",
+                    "label": labels["scheduling"],
+                    "url": _url_with_staff_language("dashboard_scheduling", language),
+                },
+            ],
+            "active_dashboard_nav": "appointments",
+            "staff_appointments_url": staff_appointments_url,
         }
     )
     context.update(extra)
@@ -382,40 +536,197 @@ def _filtered_staff_appointments(request):
 
 @_staff_required
 def staff_appointment_list(request):
+    language = _staff_language(request)
     queryset, filters = _filtered_staff_appointments(request)
     paginator = Paginator(queryset, 25)
     page_obj = paginator.get_page(request.GET.get("page"))
+    appointments = list(page_obj.object_list)
+    for appointment in appointments:
+        appointment.staff_status_label = _localized_status_label(appointment.status, language)
+        appointment.staff_doctor_label = (
+            appointment.doctor.display_name_ar
+            if language == "ar"
+            else appointment.doctor.display_name_en
+        )
+        appointment.staff_visit_type_label = (
+            (
+                appointment.visit_type.name_ar
+                if language == "ar"
+                else appointment.visit_type.name_en
+            )
+            if appointment.visit_type_id
+            else ("غير محدد" if language == "ar" else "Not specified")
+        )
+        appointment.staff_detail_url = _staff_appointment_detail_url(appointment.id, language)
+        appointment.staff_patient_record_url = _url_with_staff_language(
+            "dashboard_patient_record_detail",
+            language,
+            kwargs={"patient_id": appointment.patient_id},
+        )
+    alternate_language = "en" if language == "ar" else "ar"
     return render(
         request,
         "booking/staff/appointment_list.html",
         _staff_context(
             request,
-            appointments=page_obj.object_list,
+            language=language,
+            appointments=appointments,
             page_obj=page_obj,
             filters=filters,
-            status_choices=Appointment.Status.choices,
+            status_choices=[
+                (value, _localized_status_label(value, language, empty_label=label))
+                for value, label in Appointment.Status.choices
+            ],
             doctors=Doctor.objects.filter(is_active=True).order_by("display_order", "full_name_en"),
             visit_types=VisitType.objects.filter(is_active=True).order_by("display_order", "name_en"),
+            dashboard_language_switch_url=_staff_appointment_list_url(
+                alternate_language,
+                filters=filters,
+                page=page_obj.number,
+            ),
+            staff_filter_action_url=reverse("staff_appointment_list"),
+            previous_page_url=(
+                _staff_appointment_list_url(
+                    language,
+                    filters=filters,
+                    page=page_obj.previous_page_number(),
+                )
+                if page_obj.has_previous()
+                else ""
+            ),
+            next_page_url=(
+                _staff_appointment_list_url(
+                    language,
+                    filters=filters,
+                    page=page_obj.next_page_number(),
+                )
+                if page_obj.has_next()
+                else ""
+            ),
         ),
     )
 
 
 def _staff_detail_context(request, appointment, **extra):
-    audit_logs = AuditLog.objects.filter(
-        app_label="booking",
-        model_name="Appointment",
-        object_id=str(appointment.id),
-    ).select_related("user")
+    language = _staff_language(request)
+    status_history = list(appointment.status_history.select_related("changed_by"))
+    for item in status_history:
+        item.staff_old_status_label = _localized_status_label(
+            item.old_status,
+            language,
+            empty_label="تم الإنشاء" if language == "ar" else "Created",
+        )
+        item.staff_new_status_label = _localized_status_label(item.new_status, language)
+        item.staff_actor_label = (
+            str(item.changed_by)
+            if item.changed_by_id
+            else ("النظام / الحجز العام" if language == "ar" else "System / public booking")
+        )
+    audit_logs = list(
+        AuditLog.objects.filter(
+            app_label="booking",
+            model_name="Appointment",
+            object_id=str(appointment.id),
+        ).select_related("user")
+    )
+    for event in audit_logs:
+        event.staff_action_label = (
+            STAFF_AUDIT_ACTION_LABELS_AR.get(event.action, event.get_action_display())
+            if language == "ar"
+            else event.get_action_display()
+        )
+        if event.message in STAFF_AUDIT_MESSAGE_LABELS_AR:
+            event.staff_message = (
+                STAFF_AUDIT_MESSAGE_LABELS_AR[event.message]
+                if language == "ar"
+                else event.message
+            )
+        else:
+            event.staff_message = (
+                "تم تسجيل حدث للموعد."
+                if language == "ar"
+                else "Appointment event recorded."
+            )
+        event.staff_actor_label = (
+            str(event.user)
+            if event.user_id
+            else ("النظام / الحجز العام" if language == "ar" else "System / public booking")
+        )
+    appointment.staff_status_label = _localized_status_label(appointment.status, language)
+    appointment.staff_doctor_label = (
+        appointment.doctor.display_name_ar
+        if language == "ar"
+        else appointment.doctor.display_name_en
+    )
+    appointment.staff_visit_type_label = (
+        (
+            appointment.visit_type.name_ar
+            if language == "ar"
+            else appointment.visit_type.name_en
+        )
+        if appointment.visit_type_id
+        else ("غير محدد" if language == "ar" else "Not specified")
+    )
+    alternate_language = "en" if language == "ar" else "ar"
     context = _staff_context(
         request,
+        language=language,
         appointment=appointment,
-        status_history=appointment.status_history.select_related("changed_by"),
+        status_history=status_history,
         audit_logs=audit_logs,
-        cancel_form=CancelAppointmentForm(),
-        reschedule_form=RescheduleAppointmentForm(appointment=appointment),
-        no_show_form=MarkNoShowForm(),
-        arrived_form=StatusNoteForm(),
-        complete_form=StatusNoteForm(),
+        cancel_form=CancelAppointmentForm(language=language, auto_id="id_cancel_%s"),
+        reschedule_form=RescheduleAppointmentForm(
+            appointment=appointment,
+            language=language,
+            auto_id="id_reschedule_%s",
+        ),
+        no_show_form=MarkNoShowForm(language=language, auto_id="id_no_show_%s"),
+        arrived_form=StatusNoteForm(language=language, auto_id="id_arrived_%s"),
+        complete_form=StatusNoteForm(language=language, auto_id="id_complete_%s"),
+        page_title=(
+            f"الموعد {appointment.confirmation_reference}"
+            if language == "ar"
+            else f"Appointment {appointment.confirmation_reference}"
+        ),
+        canonical_url=request.build_absolute_uri(
+            _staff_appointment_detail_url(appointment.id, language)
+        ),
+        dashboard_language_switch_url=_staff_appointment_detail_url(
+            appointment.id,
+            alternate_language,
+        ),
+        patient_record_url=_url_with_staff_language(
+            "dashboard_patient_record_detail",
+            language,
+            kwargs={"patient_id": appointment.patient_id},
+        ),
+        operation_urls={
+            "arrived": _url_with_staff_language(
+                "staff_appointment_arrived",
+                language,
+                kwargs={"appointment_id": appointment.id},
+            ),
+            "complete": _url_with_staff_language(
+                "staff_appointment_complete",
+                language,
+                kwargs={"appointment_id": appointment.id},
+            ),
+            "reschedule": _url_with_staff_language(
+                "staff_appointment_reschedule",
+                language,
+                kwargs={"appointment_id": appointment.id},
+            ),
+            "cancel": _url_with_staff_language(
+                "staff_appointment_cancel",
+                language,
+                kwargs={"appointment_id": appointment.id},
+            ),
+            "no_show": _url_with_staff_language(
+                "staff_appointment_no_show",
+                language,
+                kwargs={"appointment_id": appointment.id},
+            ),
+        },
     )
     context.update(extra)
     return context
@@ -440,8 +751,15 @@ def _require_post(request):
     return None
 
 
-def _redirect_detail(appointment_id):
-    return redirect("staff_appointment_detail", appointment_id=appointment_id)
+def _redirect_detail(appointment_id, language):
+    return redirect(_staff_appointment_detail_url(appointment_id, language))
+
+
+def _add_staff_operation_error(form, error, language):
+    if language == "ar":
+        form.add_error(None, "تعذر تنفيذ الإجراء على حالة الموعد الحالية.")
+    else:
+        form.add_error(None, error)
 
 
 @_staff_required
@@ -449,8 +767,13 @@ def staff_appointment_cancel(request, appointment_id):
     not_allowed = _require_post(request)
     if not_allowed:
         return not_allowed
+    language = _staff_language(request)
     appointment = get_object_or_404(operations.staff_appointment_queryset(), id=appointment_id)
-    form = CancelAppointmentForm(request.POST)
+    form = CancelAppointmentForm(
+        request.POST,
+        language=language,
+        auto_id="id_cancel_%s",
+    )
     if form.is_valid():
         try:
             appointment = operations.cancel_appointment(
@@ -459,10 +782,13 @@ def staff_appointment_cancel(request, appointment_id):
                 note=form.cleaned_data["note"],
             )
         except ValidationError as exc:
-            form.add_error(None, exc)
+            _add_staff_operation_error(form, exc, language)
         else:
-            messages.success(request, "Appointment cancelled.")
-            return _redirect_detail(appointment.id)
+            messages.success(
+                request,
+                "تم إلغاء الموعد." if language == "ar" else "Appointment cancelled.",
+            )
+            return _redirect_detail(appointment.id, language)
     return render(
         request,
         "booking/staff/appointment_detail.html",
@@ -476,8 +802,14 @@ def staff_appointment_reschedule(request, appointment_id):
     not_allowed = _require_post(request)
     if not_allowed:
         return not_allowed
+    language = _staff_language(request)
     appointment = get_object_or_404(operations.staff_appointment_queryset(), id=appointment_id)
-    form = RescheduleAppointmentForm(request.POST, appointment=appointment)
+    form = RescheduleAppointmentForm(
+        request.POST,
+        appointment=appointment,
+        language=language,
+        auto_id="id_reschedule_%s",
+    )
     if form.is_valid():
         try:
             appointment = operations.reschedule_appointment(
@@ -487,10 +819,15 @@ def staff_appointment_reschedule(request, appointment_id):
                 note=form.cleaned_data.get("note", ""),
             )
         except ValidationError as exc:
-            form.add_error(None, exc)
+            _add_staff_operation_error(form, exc, language)
         else:
-            messages.success(request, "Appointment rescheduled.")
-            return _redirect_detail(appointment.id)
+            messages.success(
+                request,
+                "تمت إعادة جدولة الموعد."
+                if language == "ar"
+                else "Appointment rescheduled.",
+            )
+            return _redirect_detail(appointment.id, language)
     return render(
         request,
         "booking/staff/appointment_detail.html",
@@ -504,8 +841,13 @@ def staff_appointment_arrived(request, appointment_id):
     not_allowed = _require_post(request)
     if not_allowed:
         return not_allowed
+    language = _staff_language(request)
     appointment = get_object_or_404(operations.staff_appointment_queryset(), id=appointment_id)
-    form = StatusNoteForm(request.POST)
+    form = StatusNoteForm(
+        request.POST,
+        language=language,
+        auto_id="id_arrived_%s",
+    )
     if form.is_valid():
         try:
             appointment = operations.mark_arrived(
@@ -514,10 +856,15 @@ def staff_appointment_arrived(request, appointment_id):
                 note=form.cleaned_data.get("note", ""),
             )
         except ValidationError as exc:
-            form.add_error(None, exc)
+            _add_staff_operation_error(form, exc, language)
         else:
-            messages.success(request, "Appointment marked arrived.")
-            return _redirect_detail(appointment.id)
+            messages.success(
+                request,
+                "تم تسجيل وصول المريض."
+                if language == "ar"
+                else "Appointment marked arrived.",
+            )
+            return _redirect_detail(appointment.id, language)
     return render(
         request,
         "booking/staff/appointment_detail.html",
@@ -531,8 +878,13 @@ def staff_appointment_complete(request, appointment_id):
     not_allowed = _require_post(request)
     if not_allowed:
         return not_allowed
+    language = _staff_language(request)
     appointment = get_object_or_404(operations.staff_appointment_queryset(), id=appointment_id)
-    form = StatusNoteForm(request.POST)
+    form = StatusNoteForm(
+        request.POST,
+        language=language,
+        auto_id="id_complete_%s",
+    )
     if form.is_valid():
         try:
             appointment = operations.mark_completed(
@@ -541,10 +893,15 @@ def staff_appointment_complete(request, appointment_id):
                 note=form.cleaned_data.get("note", ""),
             )
         except ValidationError as exc:
-            form.add_error(None, exc)
+            _add_staff_operation_error(form, exc, language)
         else:
-            messages.success(request, "Appointment completed.")
-            return _redirect_detail(appointment.id)
+            messages.success(
+                request,
+                "تم تسجيل إكمال الموعد."
+                if language == "ar"
+                else "Appointment completed.",
+            )
+            return _redirect_detail(appointment.id, language)
     return render(
         request,
         "booking/staff/appointment_detail.html",
@@ -558,8 +915,13 @@ def staff_appointment_no_show(request, appointment_id):
     not_allowed = _require_post(request)
     if not_allowed:
         return not_allowed
+    language = _staff_language(request)
     appointment = get_object_or_404(operations.staff_appointment_queryset(), id=appointment_id)
-    form = MarkNoShowForm(request.POST)
+    form = MarkNoShowForm(
+        request.POST,
+        language=language,
+        auto_id="id_no_show_%s",
+    )
     if form.is_valid():
         try:
             appointment = operations.mark_no_show(
@@ -568,10 +930,15 @@ def staff_appointment_no_show(request, appointment_id):
                 note=form.cleaned_data["note"],
             )
         except ValidationError as exc:
-            form.add_error(None, exc)
+            _add_staff_operation_error(form, exc, language)
         else:
-            messages.success(request, "Appointment marked no-show.")
-            return _redirect_detail(appointment.id)
+            messages.success(
+                request,
+                "تم تسجيل عدم حضور المريض."
+                if language == "ar"
+                else "Appointment marked no-show.",
+            )
+            return _redirect_detail(appointment.id, language)
     return render(
         request,
         "booking/staff/appointment_detail.html",

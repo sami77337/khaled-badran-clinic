@@ -1,220 +1,244 @@
-{% extends "base.html" %}
+{% extends "dashboard/base.html" %}
+{% load static %}
 
-{% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">Staff booking operations</p>
-        <h1>Appointment {{ appointment.confirmation_reference }}</h1>
-        <p>Internal appointment handling. This page is restricted to authenticated staff users.</p>
-    </div>
-</section>
+{% block dashboard_styles %}
+    <link rel="stylesheet" href="{% static 'css/dashboard-appointments.css' %}">
+{% endblock %}
 
-<section class="section">
-    <div class="container staff-layout">
-        <div class="hero-actions">
-            <a class="btn btn-secondary" href="{{ staff_appointments_url }}">Back to appointments</a>
-            <a class="btn btn-secondary" href="{% url 'dashboard_patient_record_detail' appointment.patient_id %}">Open patient records</a>
+{% block dashboard_content %}
+<div class="dashboard-content appointments-content appointment-detail-content">
+    <header class="appointments-page-header appointment-detail-header">
+        <p class="appointments-eyebrow">{% if is_arabic %}إدارة الموعد{% else %}Appointment Management{% endif %}</p>
+        <h1>
+            {% if is_arabic %}الموعد{% else %}Appointment{% endif %}
+            <span dir="ltr">{{ appointment.confirmation_reference }}</span>
+        </h1>
+        <p>
+            {% if is_arabic %}
+                راجع تفاصيل الموعد ونفّذ إجراءات الحالة المتاحة.
+            {% else %}
+                Review appointment details and use the available status actions.
+            {% endif %}
+        </p>
+    </header>
+
+    <nav class="appointment-top-actions" aria-label="{% if is_arabic %}إجراءات الموعد الرئيسية{% else %}Appointment navigation{% endif %}">
+        <a class="appointment-button appointment-button-secondary" href="{{ staff_appointments_url }}">
+            <span aria-hidden="true">←</span>
+            <span>{% if is_arabic %}العودة إلى المواعيد{% else %}Back to appointments{% endif %}</span>
+        </a>
+        <a class="appointment-button appointment-button-primary" href="{{ patient_record_url }}">
+            {% if is_arabic %}فتح سجل المريض{% else %}Open patient record{% endif %}
+        </a>
+    </nav>
+
+    {% if messages %}
+        <div class="appointment-messages" role="status" aria-live="polite">
+            {% for message in messages %}<p>{{ message }}</p>{% endfor %}
         </div>
+    {% endif %}
 
-        {% if messages %}
-            <div class="staff-messages">
-                {% for message in messages %}
-                    <p>{{ message }}</p>
-                {% endfor %}
+    <div class="appointment-detail-grid">
+        <section class="appointment-panel" aria-labelledby="appointment-details-title">
+            <div class="appointments-section-heading">
+                <h2 id="appointment-details-title">{% if is_arabic %}تفاصيل الموعد{% else %}Appointment details{% endif %}</h2>
+                <span class="appointment-status status-{{ appointment.status }}">{{ appointment.staff_status_label }}</span>
             </div>
-        {% endif %}
-
-        <div class="staff-detail-grid">
-            <section class="staff-panel">
-                <h2>Appointment details</h2>
-                <dl class="detail-list">
-                    <div>
-                        <dt>Internal ID</dt>
-                        <dd>{{ appointment.id }}</dd>
+            <dl class="appointment-details-list">
+                <div>
+                    <dt>{% if is_arabic %}مرجع التأكيد{% else %}Confirmation reference{% endif %}</dt>
+                    <dd dir="ltr">{{ appointment.confirmation_reference }}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}الحالة{% else %}Status{% endif %}</dt>
+                    <dd>{{ appointment.staff_status_label }}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}التاريخ والوقت{% else %}Date and time{% endif %}</dt>
+                    <dd>
+                        <time datetime="{{ appointment.starts_at|date:'c' }}" dir="ltr">{{ appointment.starts_at|date:"Y-m-d H:i" }}</time>
+                        <span aria-hidden="true">–</span>
+                        <time datetime="{{ appointment.ends_at|date:'c' }}" dir="ltr">{{ appointment.ends_at|date:"H:i" }}</time>
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}المريض{% else %}Patient{% endif %}</dt>
+                    <dd>{{ appointment.patient.full_name }}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}الهاتف{% else %}Phone{% endif %}</dt>
+                    <dd dir="ltr">{{ appointment.patient.phone_e164|default:appointment.patient.phone_raw }}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</dt>
+                    <dd>{{ appointment.staff_doctor_label }}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</dt>
+                    <dd>{{ appointment.staff_visit_type_label }}</dd>
+                </div>
+                {% if appointment.booking_note %}
+                    <div class="appointment-detail-note">
+                        <dt>{% if is_arabic %}ملاحظة الحجز{% else %}Booking note{% endif %}</dt>
+                        <dd>{{ appointment.booking_note }}</dd>
                     </div>
-                    <div>
-                        <dt>Public reference</dt>
-                        <dd>{{ appointment.confirmation_reference }}</dd>
-                    </div>
-                    <div>
-                        <dt>Public token</dt>
-                        <dd>{{ appointment.public_token }}</dd>
-                    </div>
-                    <div>
-                        <dt>Status</dt>
-                        <dd><span class="status-pill status-{{ appointment.status }}">{{ appointment.get_status_display }}</span></dd>
-                    </div>
-                    <div>
-                        <dt>Time</dt>
-                        <dd>{{ appointment.starts_at|date:"Y-m-d H:i" }} to {{ appointment.ends_at|date:"H:i" }}</dd>
-                    </div>
-                    <div>
-                        <dt>Patient</dt>
-                        <dd>{{ appointment.patient.full_name }}</dd>
-                    </div>
-                    <div>
-                        <dt>Phone</dt>
-                        <dd>{{ appointment.patient.phone_e164|default:appointment.patient.phone_raw }}</dd>
-                    </div>
-                    <div>
-                        <dt>Doctor</dt>
-                        <dd>{{ appointment.doctor.display_name_en }}</dd>
-                    </div>
-                    <div>
-                        <dt>Visit type</dt>
-                        <dd>{{ appointment.visit_type.name_en }}</dd>
-                    </div>
-                    {% if appointment.booking_note %}
-                        <div>
-                            <dt>Public booking note</dt>
-                            <dd>{{ appointment.booking_note }}</dd>
-                        </div>
-                    {% endif %}
-                </dl>
-            </section>
-
-            <section class="staff-panel">
-                <h2>Operations</h2>
-
-                {% if appointment.status == "confirmed" or appointment.status == "rescheduled" %}
-                    <form class="staff-operation-form" method="post" action="{% url 'staff_appointment_arrived' appointment.id %}">
-                        {% csrf_token %}
-                        {{ arrived_form.non_field_errors }}
-                        <div class="form-field">
-                            <label for="{{ arrived_form.note.id_for_label }}">Arrival note</label>
-                            {{ arrived_form.note }}
-                            {{ arrived_form.note.errors }}
-                        </div>
-                        <button class="btn btn-primary" type="submit">Mark arrived</button>
-                    </form>
                 {% endif %}
-
-                {% if appointment.status == "arrived" %}
-                    <form class="staff-operation-form" method="post" action="{% url 'staff_appointment_complete' appointment.id %}">
-                        {% csrf_token %}
-                        {{ complete_form.non_field_errors }}
-                        <div class="form-field">
-                            <label for="{{ complete_form.note.id_for_label }}">Completion note</label>
-                            {{ complete_form.note }}
-                            {{ complete_form.note.errors }}
-                        </div>
-                        <button class="btn btn-primary" type="submit">Mark completed</button>
-                    </form>
-                {% endif %}
-
-                {% if appointment.status == "confirmed" or appointment.status == "rescheduled" %}
-                    <form class="staff-operation-form" method="post" action="{% url 'staff_appointment_reschedule' appointment.id %}">
-                        {% csrf_token %}
-                        {{ reschedule_form.non_field_errors }}
-                        <div class="form-field">
-                            <label for="{{ reschedule_form.starts_at.id_for_label }}">New time</label>
-                            {{ reschedule_form.starts_at }}
-                            {{ reschedule_form.starts_at.errors }}
-                        </div>
-                        <div class="form-field">
-                            <label for="{{ reschedule_form.note.id_for_label }}">Reschedule note</label>
-                            {{ reschedule_form.note }}
-                            {{ reschedule_form.note.errors }}
-                        </div>
-                        <button class="btn btn-secondary" type="submit">Reschedule</button>
-                    </form>
-                {% endif %}
-
-                {% if appointment.status == "confirmed" or appointment.status == "arrived" or appointment.status == "rescheduled" %}
-                    <form class="staff-operation-form" method="post" action="{% url 'staff_appointment_cancel' appointment.id %}">
-                        {% csrf_token %}
-                        {{ cancel_form.non_field_errors }}
-                        <div class="form-field">
-                            <label for="{{ cancel_form.note.id_for_label }}">Cancellation reason</label>
-                            {{ cancel_form.note }}
-                            {{ cancel_form.note.errors }}
-                        </div>
-                        <button class="btn btn-secondary" type="submit">Cancel appointment</button>
-                    </form>
-                {% endif %}
-
-                {% if appointment.status == "confirmed" or appointment.status == "rescheduled" %}
-                    <form class="staff-operation-form" method="post" action="{% url 'staff_appointment_no_show' appointment.id %}">
-                        {% csrf_token %}
-                        {{ no_show_form.non_field_errors }}
-                        <div class="form-field">
-                            <label for="{{ no_show_form.note.id_for_label }}">No-show reason</label>
-                            {{ no_show_form.note }}
-                            {{ no_show_form.note.errors }}
-                        </div>
-                        <button class="btn btn-secondary" type="submit">Mark no-show</button>
-                    </form>
-                {% endif %}
-
-                {% if appointment.status == "completed" or appointment.status == "cancelled" or appointment.status == "no_show" %}
-                    <p class="placeholder-note">This appointment is terminal. Restore is intentionally not available in this batch.</p>
-                {% endif %}
-            </section>
-        </div>
-
-        <section class="staff-panel">
-            <h2>Status history</h2>
-            <div class="staff-table-wrap">
-                <table class="staff-table">
-                    <thead>
-                        <tr>
-                            <th>When</th>
-                            <th>Old</th>
-                            <th>New</th>
-                            <th>Changed by</th>
-                            <th>Note</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in status_history %}
-                            <tr>
-                                <td>{{ item.created_at|date:"Y-m-d H:i" }}</td>
-                                <td>{{ item.old_status|default:"created" }}</td>
-                                <td>{{ item.new_status }}</td>
-                                <td>{{ item.changed_by|default:"system/public" }}</td>
-                                <td>{{ item.note|default:"" }}</td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="5">No status history has been recorded yet.</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+            </dl>
         </section>
 
-        <section class="staff-panel">
-            <h2>Audit events</h2>
-            <div class="staff-table-wrap">
-                <table class="staff-table">
-                    <thead>
-                        <tr>
-                            <th>When</th>
-                            <th>Action</th>
-                            <th>User</th>
-                            <th>Message</th>
-                            <th>Metadata</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for event in audit_logs %}
-                            <tr>
-                                <td>{{ event.created_at|date:"Y-m-d H:i" }}</td>
-                                <td>{{ event.get_action_display }}</td>
-                                <td>{{ event.user|default:"system/public" }}</td>
-                                <td>{{ event.message }}</td>
-                                <td><code>{{ event.metadata }}</code></td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="5">No audit events have been recorded yet.</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <section class="appointment-panel appointment-operations" aria-labelledby="appointment-operations-title">
+            <div class="appointments-section-heading">
+                <h2 id="appointment-operations-title">{% if is_arabic %}الإجراءات{% else %}Operations{% endif %}</h2>
             </div>
+
+            {% if appointment.status == "confirmed" or appointment.status == "rescheduled" %}
+                <form class="appointment-operation-form" method="post" action="{{ operation_urls.arrived }}">
+                    {% csrf_token %}
+                    {{ arrived_form.non_field_errors }}
+                    <div class="appointment-field">
+                        <label for="{{ arrived_form.note.id_for_label }}">{% if is_arabic %}ملاحظة الوصول{% else %}Arrival note{% endif %}</label>
+                        {{ arrived_form.note }}
+                        {{ arrived_form.note.errors }}
+                    </div>
+                    <button class="appointment-button appointment-button-primary" type="submit">
+                        {% if is_arabic %}تسجيل الوصول{% else %}Mark arrived{% endif %}
+                    </button>
+                </form>
+            {% endif %}
+
+            {% if appointment.status == "arrived" %}
+                <form class="appointment-operation-form" method="post" action="{{ operation_urls.complete }}">
+                    {% csrf_token %}
+                    {{ complete_form.non_field_errors }}
+                    <div class="appointment-field">
+                        <label for="{{ complete_form.note.id_for_label }}">{% if is_arabic %}ملاحظة الإكمال{% else %}Completion note{% endif %}</label>
+                        {{ complete_form.note }}
+                        {{ complete_form.note.errors }}
+                    </div>
+                    <button class="appointment-button appointment-button-primary" type="submit">
+                        {% if is_arabic %}تسجيل الإكمال{% else %}Mark completed{% endif %}
+                    </button>
+                </form>
+            {% endif %}
+
+            {% if appointment.status == "confirmed" or appointment.status == "rescheduled" %}
+                <form class="appointment-operation-form" method="post" action="{{ operation_urls.reschedule }}">
+                    {% csrf_token %}
+                    {{ reschedule_form.non_field_errors }}
+                    <div class="appointment-field">
+                        <label for="{{ reschedule_form.starts_at.id_for_label }}">{% if is_arabic %}الموعد الجديد{% else %}New time{% endif %}</label>
+                        {{ reschedule_form.starts_at }}
+                        {{ reschedule_form.starts_at.errors }}
+                    </div>
+                    <div class="appointment-field">
+                        <label for="{{ reschedule_form.note.id_for_label }}">{% if is_arabic %}ملاحظة إعادة الجدولة{% else %}Reschedule note{% endif %}</label>
+                        {{ reschedule_form.note }}
+                        {{ reschedule_form.note.errors }}
+                    </div>
+                    <button class="appointment-button appointment-button-secondary" type="submit">
+                        {% if is_arabic %}إعادة الجدولة{% else %}Reschedule{% endif %}
+                    </button>
+                </form>
+            {% endif %}
+
+            {% if appointment.status == "confirmed" or appointment.status == "arrived" or appointment.status == "rescheduled" %}
+                <form class="appointment-operation-form appointment-operation-danger" method="post" action="{{ operation_urls.cancel }}">
+                    {% csrf_token %}
+                    {{ cancel_form.non_field_errors }}
+                    <div class="appointment-field">
+                        <label for="{{ cancel_form.note.id_for_label }}">{% if is_arabic %}سبب الإلغاء{% else %}Cancellation reason{% endif %}</label>
+                        {{ cancel_form.note }}
+                        {{ cancel_form.note.errors }}
+                    </div>
+                    <button class="appointment-button appointment-button-danger" type="submit">
+                        {% if is_arabic %}إلغاء الموعد{% else %}Cancel appointment{% endif %}
+                    </button>
+                </form>
+            {% endif %}
+
+            {% if appointment.status == "confirmed" or appointment.status == "rescheduled" %}
+                <form class="appointment-operation-form appointment-operation-danger" method="post" action="{{ operation_urls.no_show }}">
+                    {% csrf_token %}
+                    {{ no_show_form.non_field_errors }}
+                    <div class="appointment-field">
+                        <label for="{{ no_show_form.note.id_for_label }}">{% if is_arabic %}سبب عدم الحضور{% else %}No-show reason{% endif %}</label>
+                        {{ no_show_form.note }}
+                        {{ no_show_form.note.errors }}
+                    </div>
+                    <button class="appointment-button appointment-button-danger" type="submit">
+                        {% if is_arabic %}تسجيل عدم الحضور{% else %}Mark no-show{% endif %}
+                    </button>
+                </form>
+            {% endif %}
+
+            {% if appointment.status == "completed" or appointment.status == "cancelled" or appointment.status == "no_show" %}
+                <p class="appointment-terminal-note">
+                    {% if is_arabic %}هذا الموعد في حالة نهائية ولا يتوفر له إجراء استعادة.{% else %}This appointment is terminal; no restore action is available.{% endif %}
+                </p>
+            {% endif %}
         </section>
     </div>
-</section>
+
+    <section class="appointment-panel appointment-history-panel" aria-labelledby="appointment-history-title">
+        <div class="appointments-section-heading">
+            <h2 id="appointment-history-title">{% if is_arabic %}سجل الحالة{% else %}Status history{% endif %}</h2>
+        </div>
+        <div class="appointments-table-scroll" role="region" aria-label="{% if is_arabic %}سجل حالات الموعد{% else %}Appointment status history{% endif %}" tabindex="0">
+            <table class="appointments-table appointment-history-table">
+                <thead>
+                    <tr>
+                        <th scope="col">{% if is_arabic %}الوقت{% else %}When{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}الحالة السابقة{% else %}Old status{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}الحالة الجديدة{% else %}New status{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}تم التغيير بواسطة{% else %}Changed by{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}الملاحظة{% else %}Note{% endif %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in status_history %}
+                        <tr>
+                            <td><time datetime="{{ item.created_at|date:'c' }}" dir="ltr">{{ item.created_at|date:"Y-m-d H:i" }}</time></td>
+                            <td>{{ item.staff_old_status_label }}</td>
+                            <td><span class="appointment-status status-{{ item.new_status }}">{{ item.staff_new_status_label }}</span></td>
+                            <td>{{ item.staff_actor_label }}</td>
+                            <td>{{ item.note|default:"—" }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td class="appointments-empty-cell" colspan="5">{% if is_arabic %}لم يُسجّل أي تغيير في الحالة بعد.{% else %}No status history has been recorded yet.{% endif %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="appointment-panel appointment-audit-panel" aria-labelledby="appointment-audit-title">
+        <div class="appointments-section-heading">
+            <h2 id="appointment-audit-title">{% if is_arabic %}أحداث التدقيق{% else %}Audit events{% endif %}</h2>
+        </div>
+        <div class="appointments-table-scroll" role="region" aria-label="{% if is_arabic %}أحداث تدقيق الموعد{% else %}Appointment audit events{% endif %}" tabindex="0">
+            <table class="appointments-table appointment-audit-table">
+                <thead>
+                    <tr>
+                        <th scope="col">{% if is_arabic %}الوقت{% else %}Time{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}الإجراء{% else %}Action{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}المستخدم{% else %}User{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}الرسالة{% else %}Message{% endif %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in audit_logs %}
+                        <tr>
+                            <td><time datetime="{{ event.created_at|date:'c' }}" dir="ltr">{{ event.created_at|date:"Y-m-d H:i" }}</time></td>
+                            <td>{{ event.staff_action_label }}</td>
+                            <td>{{ event.staff_actor_label }}</td>
+                            <td>{{ event.staff_message }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td class="appointments-empty-cell" colspan="4">{% if is_arabic %}لا توجد أحداث تدقيق مسجلة بعد.{% else %}No audit events have been recorded yet.{% endif %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
 {% endblock %}
