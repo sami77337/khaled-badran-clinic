@@ -1402,6 +1402,35 @@ class PublicCaseResponsiveSourceContractTests(SimpleTestCase):
         self.assertNotIn('setAttribute("autoplay"', javascript)
         self.assertIn("[data-case-lightbox]", javascript)
 
+    def test_public_case_carousel_runtime_behavior(self):
+        runtime_test = (
+            settings.BASE_DIR
+            / "apps"
+            / "core"
+            / "js_tests"
+            / "public_case_carousel_runtime_test.js"
+        )
+        public_closeout_script = settings.BASE_DIR / "static" / "js" / "public-closeout.js"
+
+        result = subprocess.run(
+            ["node", str(runtime_test), str(public_closeout_script)],
+            cwd=settings.BASE_DIR,
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=15,
+        )
+
+        self.assertEqual(
+            result.returncode,
+            0,
+            msg=(
+                "JavaScript public-case carousel behavior failed:\n"
+                f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+            ),
+        )
+        self.assertIn("public case carousel runtime behavior passed", result.stdout)
+
 
 class PublicCasesRegressionBoundaryTests(PublicCasesTestDataMixin, TestCase):
     def test_storage_names_and_direct_media_urls_never_appear_in_public_markup(self):

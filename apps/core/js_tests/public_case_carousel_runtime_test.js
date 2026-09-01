@@ -381,7 +381,7 @@ const buildRuntime = ({
     runtime.fireDomReady();
     assert.equal(runtime.carousel.dataset.caseCarouselReady, "true");
     assert.equal(runtime.currentLabel.textContent, "Before 1 of 1");
-    assert.equal(runtime.currentCounter.textContent, "1 / 4");
+    assert.equal(runtime.currentCounter.textContent, "1 of 4");
     assert.equal(runtime.slides[0].hidden, false);
     assert.equal(runtime.slides[0].getAttribute("aria-hidden"), "false");
     assert.equal(runtime.slides[1].hidden, true);
@@ -403,7 +403,7 @@ const buildRuntime = ({
     assert.equal(nextClick.propagationStopped, true);
     assert.equal(runtime.lightbox.open, false, "card next must only change the slide");
     assert.equal(runtime.currentLabel.textContent, "Video 1 of 1");
-    assert.equal(runtime.currentCounter.textContent, "2 / 4");
+    assert.equal(runtime.currentCounter.textContent, "2 of 4");
     assert.equal(runtime.slides[0].hidden, true);
     assert.equal(runtime.slides[0].getAttribute("aria-hidden"), "true");
     assert.equal(runtime.slides[1].hidden, false);
@@ -415,7 +415,7 @@ const buildRuntime = ({
     assert.equal(previousClick.defaultPrevented, true);
     assert.equal(previousClick.propagationStopped, true);
     assert.equal(runtime.currentLabel.textContent, "Before 1 of 1");
-    assert.equal(runtime.currentCounter.textContent, "1 / 4");
+    assert.equal(runtime.currentCounter.textContent, "1 of 4");
     assert.equal(runtime.lightbox.open, false, "card previous must only change the slide");
     runtime.nextButton.dispatch("click");
 
@@ -427,7 +427,7 @@ const buildRuntime = ({
     assert.equal(expandClick.propagationStopped, true);
     assert.equal(runtime.lightbox.open, true);
     assert.equal(runtime.lightboxLabel.textContent, "Video 1 of 1");
-    assert.equal(runtime.lightboxCounter.textContent, "2 / 4");
+    assert.equal(runtime.lightboxCounter.textContent, "2 of 4");
     assert.equal(runtime.lightboxMedia.children[0].tagName, "VIDEO");
     assert.equal(runtime.lightboxMedia.children[0].muted, true);
     assert.equal(runtime.lightboxMedia.children[0].getAttribute("poster"), null);
@@ -441,7 +441,7 @@ const buildRuntime = ({
 
     runtime.lightboxNext.dispatch("click");
     assert.equal(runtime.lightboxLabel.textContent, "Case Notes");
-    assert.equal(runtime.lightboxCounter.textContent, "4 / 4");
+    assert.equal(runtime.lightboxCounter.textContent, "4 of 4");
     assert.equal(runtime.lightboxMedia.children[0].tagName, "DIV");
     assert.equal(runtime.lightboxMedia.querySelector("img"), null);
     assert.equal(runtime.lightboxMedia.querySelector("video"), null);
@@ -504,10 +504,10 @@ const buildRuntime = ({
     );
     runtime.nextButton.dispatch("click");
     assert.equal(runtime.currentLabel.textContent, "Video 1 of 1");
-    assert.equal(runtime.currentCounter.textContent, "2 / 4");
+    assert.equal(runtime.currentCounter.textContent, "2 of 4");
     runtime.previousButton.dispatch("click");
     assert.equal(runtime.currentLabel.textContent, "Before 1 of 1");
-    assert.equal(runtime.currentCounter.textContent, "1 / 4");
+    assert.equal(runtime.currentCounter.textContent, "1 of 4");
     assert.equal(runtime.lightbox.open, false);
 
     runtime.expandButtons[0].dispatch("click");
@@ -526,7 +526,9 @@ const buildRuntime = ({
 
 {
     const runtime = buildRuntime({ direction: "rtl" });
+    assert.equal(runtime.currentCounter.textContent, "1 \u0645\u0646 4");
     runtime.card.dispatch("keydown", { key: "ArrowLeft", target: runtime.card });
+    assert.equal(runtime.currentCounter.textContent, "2 \u0645\u0646 4");
     assert.equal(runtime.currentLabel.textContent, "Video 1 of 1", "RTL ArrowLeft must move next");
     runtime.card.dispatch("keydown", { key: "ArrowRight", target: runtime.card });
     assert.equal(runtime.currentLabel.textContent, "Before 1 of 1", "RTL ArrowRight must move previous");
