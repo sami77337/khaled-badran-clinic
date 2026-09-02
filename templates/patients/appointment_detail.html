@@ -1,31 +1,39 @@
-{% extends "base.html" %}
+{% extends "patients/portal_base.html" %}
 
-{% block content %}
-<section class="section portal-page portal-appointment-detail" data-portal-page="appointment-detail">
-    <div class="container booking-layout portal-layout">
-        {% include "patients/_portal_header.html" with title_ar="تفاصيل الموعد" title_en="Appointment Details" %}
+{% block patient_portal_content %}
+<div class="dashboard-content patient-page-content" data-patient-page="appointment-detail">
+    <header class="patient-page-heading">
+        <div>
+            <p class="dashboard-eyebrow">{% if is_arabic %}المواعيد{% else %}Appointments{% endif %}</p>
+            <h1>{% if is_arabic %}تفاصيل الموعد{% else %}Appointment Details{% endif %}</h1>
+        </div>
+        <a class="patient-secondary-action" href="{{ portal_appointments_url }}">
+            <span>{% if is_arabic %}كل المواعيد{% else %}All Appointments{% endif %}</span>
+        </a>
+    </header>
 
-        {% if messages %}
-            <div class="staff-messages">
-                {% for message in messages %}
-                    <p class="muted">{{ message }}</p>
-                {% endfor %}
+    {% include "patients/_portal_messages.html" %}
+
+    <section class="dashboard-card patient-detail-card" aria-labelledby="patient-appointment-information-title">
+        <div class="dashboard-card-header">
+            <div>
+                <p class="dashboard-card-kicker">{% if is_arabic %}موعدك{% else %}Your Appointment{% endif %}</p>
+                <h2 id="patient-appointment-information-title">{% if is_arabic %}بيانات الموعد{% else %}Appointment Information{% endif %}</h2>
             </div>
-        {% endif %}
-        <div class="success-card portal-card portal-detail-card">
-            <h2>{% if is_arabic %}بيانات الموعد{% else %}Appointment information{% endif %}</h2>
-            <dl class="detail-list">
+        </div>
+        <div class="patient-card-body">
+            <dl class="patient-detail-list">
                 <div>
-                    <dt>{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</dt>
+                    <dt>{% if is_arabic %}نوع الزيارة{% else %}Visit Type{% endif %}</dt>
                     <dd>{% if is_arabic %}{{ appointment.visit_type.name_ar }}{% else %}{{ appointment.visit_type.name_en }}{% endif %}</dd>
                 </div>
                 <div>
-                    <dt>{% if is_arabic %}التاريخ والوقت{% else %}Date and time{% endif %}</dt>
+                    <dt>{% if is_arabic %}التاريخ والوقت{% else %}Date and Time{% endif %}</dt>
                     <dd><time class="portal-date-value" datetime="{{ appointment.starts_at|date:'c' }}" dir="ltr">{{ appointment.starts_at|date:"Y-m-d H:i" }}</time></dd>
                 </div>
                 <div class="portal-status-row">
                     <dt>{% if is_arabic %}الحالة{% else %}Status{% endif %}</dt>
-                    <dd><span class="status-pill status-{{ appointment.status }}">{{ status_label }}</span></dd>
+                    <dd><span class="dashboard-status-pill status-{{ appointment.status }}">{{ status_label }}</span></dd>
                 </div>
                 <div>
                     <dt>{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</dt>
@@ -44,18 +52,16 @@
                     <dd><time class="portal-date-value" datetime="{{ appointment.created_at|date:'c' }}" dir="ltr">{{ appointment.created_at|date:"Y-m-d H:i" }}</time></dd>
                 </div>
             </dl>
-            <div class="portal-actions portal-detail-actions">
-                <a class="btn btn-primary" href="{{ portal_appointments_url }}">
-                    {% if is_arabic %}كل المواعيد{% else %}All appointments{% endif %}
+            <div class="patient-card-actions">
+                <a class="patient-primary-action" href="{{ portal_appointments_url }}">
+                    <span>{% if is_arabic %}كل المواعيد{% else %}All Appointments{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
                 </a>
-                <a class="btn btn-secondary" href="{{ portal_dashboard_url }}">
-                    {% if is_arabic %}العودة للبوابة{% else %}Back to portal{% endif %}
-                </a>
-                <a class="btn btn-secondary" href="{{ portal_account_url }}">
-                    {% if is_arabic %}الحساب{% else %}Account{% endif %}
+                <a class="patient-secondary-action" href="{{ portal_dashboard_url }}">
+                    {% if is_arabic %}الرئيسية{% else %}Dashboard{% endif %}
                 </a>
             </div>
         </div>
-    </div>
-</section>
+    </section>
+</div>
 {% endblock %}

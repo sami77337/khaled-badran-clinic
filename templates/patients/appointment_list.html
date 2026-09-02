@@ -1,27 +1,41 @@
-{% extends "base.html" %}
+{% extends "patients/portal_base.html" %}
 
-{% block content %}
-<section class="section portal-page portal-appointments" data-portal-page="appointments">
-    <div class="container staff-layout portal-layout">
-        {% include "patients/_portal_header.html" with title_ar="المواعيد" title_en="Appointments" %}
+{% block patient_portal_content %}
+<div class="dashboard-content patient-page-content" data-patient-page="appointments">
+    <header class="patient-page-heading">
+        <div>
+            <p class="dashboard-eyebrow">{% if is_arabic %}بوابة المريض{% else %}Patient Portal{% endif %}</p>
+            <h1>{% if is_arabic %}المواعيد{% else %}Appointments{% endif %}</h1>
+        </div>
+        <a class="patient-primary-action" href="{{ portal_link_url }}">
+            <span>{% if is_arabic %}ربط موعد{% else %}Link Appointment{% endif %}</span>
+            <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+        </a>
+    </header>
 
-        <div class="portal-page-actions">
-            <a class="btn btn-primary" href="{{ portal_link_url }}">{% if is_arabic %}ربط موعد{% else %}Link appointment{% endif %}</a>
+    {% include "patients/_portal_messages.html" %}
+
+    <section class="dashboard-card patient-table-card" aria-labelledby="patient-appointments-table-title">
+        <div class="dashboard-card-header">
+            <div>
+                <p class="dashboard-card-kicker">{% if is_arabic %}الحساب{% else %}Account{% endif %}</p>
+                <h2 id="patient-appointments-table-title">{% if is_arabic %}المواعيد المرتبطة{% else %}Linked Appointments{% endif %}</h2>
+            </div>
         </div>
         <div
-            class="staff-table-wrap portal-table-scroll"
+            class="patient-table-scroll portal-table-scroll"
             role="region"
             tabindex="0"
             aria-label="{% if is_arabic %}جدول المواعيد المرتبطة، مرر أفقياً عند الحاجة{% else %}Linked appointments table, scroll horizontally when needed{% endif %}"
         >
-            <table class="staff-table portal-appointments-table">
+            <table class="patient-table portal-appointments-table">
                 <thead>
                     <tr>
-                        <th>{% if is_arabic %}التاريخ والوقت{% else %}Date and time{% endif %}</th>
-                        <th>{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</th>
+                        <th>{% if is_arabic %}التاريخ والوقت{% else %}Date and Time{% endif %}</th>
+                        <th>{% if is_arabic %}نوع الزيارة{% else %}Visit Type{% endif %}</th>
                         <th>{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</th>
                         <th>{% if is_arabic %}الحالة{% else %}Status{% endif %}</th>
-                        <th>{% if is_arabic %}رابط{% else %}Link{% endif %}</th>
+                        <th>{% if is_arabic %}التفاصيل{% else %}Details{% endif %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -30,21 +44,21 @@
                             <td><time class="portal-date-value" datetime="{{ item.appointment.starts_at|date:'c' }}" dir="ltr">{{ item.appointment.starts_at|date:"Y-m-d H:i" }}</time></td>
                             <td>{% if is_arabic %}{{ item.appointment.visit_type.name_ar }}{% else %}{{ item.appointment.visit_type.name_en }}{% endif %}</td>
                             <td>{% if is_arabic %}{{ item.appointment.doctor.display_name_ar }}{% else %}{{ item.appointment.doctor.display_name_en }}{% endif %}</td>
-                            <td><span class="status-pill status-{{ item.appointment.status }}">{{ item.status_label }}</span></td>
+                            <td><span class="dashboard-status-pill status-{{ item.appointment.status }}">{{ item.status_label }}</span></td>
                             <td>
-                                <a class="portal-table-link" href="{% if is_arabic %}{% url 'patient_portal_appointment_detail' public_token=item.appointment.public_token %}{% else %}{% url 'patient_portal_appointment_detail_en' public_token=item.appointment.public_token %}{% endif %}">
+                                <a class="patient-table-link" href="{% if is_arabic %}{% url 'patient_portal_appointment_detail' public_token=item.appointment.public_token %}{% else %}{% url 'patient_portal_appointment_detail_en' public_token=item.appointment.public_token %}{% endif %}">
                                     {% if is_arabic %}عرض{% else %}View{% endif %}
                                 </a>
                             </td>
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="5">{% if is_arabic %}لا توجد مواعيد مرتبطة بهذا الحساب بعد.{% else %}No appointments are linked to this account yet.{% endif %}</td>
+                            <td class="patient-table-empty" colspan="5">{% if is_arabic %}لا توجد مواعيد مرتبطة بهذا الحساب بعد.{% else %}No appointments are linked to this account yet.{% endif %}</td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-    </div>
-</section>
+    </section>
+</div>
 {% endblock %}

@@ -10,7 +10,7 @@ from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import ValidationError
 from django.http import FileResponse, Http404, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_post_parameters
@@ -67,6 +67,30 @@ def _portal_url(name, language, **kwargs):
     return reverse(_route_name(name, language), kwargs=kwargs or None)
 
 
+def _portal_language_switch_url(request, language):
+    language = _language(language)
+    alternate_language = "en" if language == "ar" else "ar"
+    fallback = _portal_url("patient_portal_dashboard", alternate_language)
+    resolver_match = request.resolver_match
+    if resolver_match is None or not resolver_match.url_name:
+        return fallback
+
+    route_name = resolver_match.url_name
+    if not route_name.startswith("patient_portal_"):
+        return fallback
+
+    base_route_name = route_name[:-3] if route_name.endswith("_en") else route_name
+    alternate_route_name = f"{base_route_name}_en" if alternate_language == "en" else base_route_name
+    route_kwargs = dict(resolver_match.kwargs)
+    route_kwargs.pop("language", None)
+    if "public_token" in route_kwargs:
+        return _portal_url("patient_portal_appointment_list", alternate_language)
+    try:
+        return reverse(alternate_route_name, kwargs=route_kwargs or None)
+    except (NoReverseMatch, TypeError, ValueError):
+        return fallback
+
+
 def _portal_note_type_label(note_type, language):
     language = _language(language)
     fallback = "ملاحظة" if language == "ar" else "Note"
@@ -113,10 +137,13 @@ def _token_initial(request):
 def _portal_context(request, language, **extra):
     language = _language(language)
     context = _base_context(request, "patient_portal", language)
+    canonical_path = request.path
+    if request.resolver_match and "public_token" in request.resolver_match.kwargs:
+        canonical_path = _portal_url("patient_portal_appointment_list", language)
     nav_labels = {
         "ar": {
             "medical_records": "السجل الطبي",
-            "dashboard": "لوحة البوابة",
+            "dashboard": "الرئيسية",
             "appointments": "المواعيد",
             "link": "ربط موعد",
             "account": "الحساب",
@@ -146,6 +173,8 @@ def _portal_context(request, language, **extra):
             "portal_account_url": _portal_url("patient_portal_account", language),
             "portal_password_change_url": _portal_url("patient_portal_password_change", language),
             "portal_account_recovery_url": _portal_url("patient_portal_account_recovery", language),
+            "portal_language_switch_url": _portal_language_switch_url(request, language),
+            "portal_language_switch_label": "English" if language == "ar" else "العربية",
             "portal_nav_items": [
                 {
                     "key": "dashboard",
@@ -179,7 +208,7 @@ def _portal_context(request, language, **extra):
                 },
             ],
             "portal_logout_label": nav_labels["logout"],
-            "canonical_url": request.build_absolute_uri(_portal_url("patient_portal_dashboard", language)),
+            "canonical_url": request.build_absolute_uri(canonical_path),
         }
     )
     context.update(extra)

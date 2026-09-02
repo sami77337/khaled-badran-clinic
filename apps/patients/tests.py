@@ -1981,8 +1981,21 @@ class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
                     self.assertContains(response, f'href="{expected_link}"')
                 self.assertContains(response, f'action="{reverse("patient_portal_logout")}"')
                 self.assertContains(response, 'method="post"')
+                self.assertContains(response, 'class="dashboard-sidebar patient-portal-sidebar"')
+                self.assertContains(response, 'class="dashboard-mobile-header patient-portal-mobile-header"')
+                self.assertContains(response, 'data-patient-navigation')
+                self.assertContains(response, 'data-patient-public-site')
+                self.assertContains(response, 'data-patient-language-switch')
 
-    def test_authenticated_portal_suppresses_footer_while_public_footer_remains(self):
+                content = response.content.decode()
+                sidebar = content.split('data-patient-sidebar', 1)[1].split('</aside>', 1)[0]
+                self.assertNotIn(f'href="{reverse("dashboard_home")}"', sidebar)
+                self.assertNotIn(f'href="{reverse("staff_appointment_list")}"', sidebar)
+                self.assertNotIn(f'href="{reverse("dashboard_patient_list")}"', sidebar)
+                self.assertNotIn("Ask the Doctor", content)
+                self.assertNotIn("اسأل الطبيب", content)
+
+    def test_authenticated_portal_omits_public_header_and_footer_while_public_shell_remains(self):
         user = self.create_user()
         appointment = self.create_appointment(user=user)
         self.client.force_login(user)
@@ -2004,6 +2017,7 @@ class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
                 response = self.client.get(url)
                 self.assertEqual(response.status_code, 200)
                 self.assertTrue(response.context["suppress_footer"])
+                self.assertNotContains(response, '<header class="site-header')
                 self.assertNotContains(response, "<footer")
 
         public_response = self.client.get(reverse("home"))
@@ -2084,43 +2098,51 @@ class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
             with self.subTest(surface=arabic_route, language="ar"):
                 response = self.client.get(reverse(arabic_route, kwargs=kwargs))
                 self.assertContains(response, '<html lang="ar" dir="rtl">')
-                self.assertContains(response, 'class="site-shell page-patient_portal portal-closeout is-rtl"')
+                self.assertContains(response, 'class="dashboard-shell patient-portal-shell is-rtl"')
+                self.assertContains(response, f'href="{settings.STATIC_URL}css/dashboard.css"')
                 self.assertContains(response, f'href="{settings.STATIC_URL}css/patient-portal.css"')
-                self.assertContains(response, "لوحة البوابة")
+                self.assertContains(response, "الرئيسية")
+                self.assertContains(response, "بوابة المريض")
+                self.assertContains(response, "حساب المريض")
 
             with self.subTest(surface=english_route, language="en"):
                 response = self.client.get(reverse(english_route, kwargs=kwargs))
                 self.assertContains(response, '<html lang="en" dir="ltr">')
-                self.assertContains(response, 'class="site-shell page-patient_portal portal-closeout is-ltr"')
+                self.assertContains(response, 'class="dashboard-shell patient-portal-shell is-ltr"')
+                self.assertContains(response, f'href="{settings.STATIC_URL}css/dashboard.css"')
                 self.assertContains(response, f'href="{settings.STATIC_URL}css/patient-portal.css"')
                 self.assertContains(response, "Dashboard")
+                self.assertContains(response, "Patient Portal")
+                self.assertContains(response, "Patient Access")
 
     def test_each_audited_portal_surface_identifies_its_current_navigation_section(self):
         user = self.create_user()
         appointment = self.create_appointment(user=user)
         self.client.force_login(user)
         surface_cases = [
-            (reverse("patient_portal_dashboard"), reverse("patient_portal_dashboard")),
-            (reverse("patient_portal_appointment_list"), reverse("patient_portal_appointment_list")),
+            (reverse("patient_portal_dashboard"), reverse("patient_portal_dashboard"), "dashboard"),
+            (reverse("patient_portal_appointment_list"), reverse("patient_portal_appointment_list"), "appointments"),
             (
                 reverse(
                     "patient_portal_appointment_detail",
                     kwargs={"public_token": appointment.public_token},
                 ),
                 reverse("patient_portal_appointment_list"),
+                "appointments",
             ),
-            (reverse("patient_portal_medical_records"), reverse("patient_portal_medical_records")),
-            (reverse("patient_portal_account"), reverse("patient_portal_account")),
-            (reverse("patient_portal_link_appointment"), reverse("patient_portal_link_appointment")),
-            (reverse("patient_portal_password_change"), reverse("patient_portal_password_change")),
+            (reverse("patient_portal_medical_records"), reverse("patient_portal_medical_records"), "medical_records"),
+            (reverse("patient_portal_account"), reverse("patient_portal_account"), "account"),
+            (reverse("patient_portal_link_appointment"), reverse("patient_portal_link_appointment"), "link"),
+            (reverse("patient_portal_password_change"), reverse("patient_portal_password_change"), "password"),
         ]
 
-        for page_url, active_url in surface_cases:
+        for page_url, active_url, active_section in surface_cases:
             with self.subTest(page=page_url):
                 response = self.client.get(page_url)
                 self.assertContains(response, "data-portal-navigation")
                 self.assertContains(response, 'aria-current="page"', count=1)
-                self.assertContains(response, f'href="{active_url}" aria-current="page"')
+                self.assertContains(response, f'href="{active_url}"')
+                self.assertEqual(response.context["portal_section"], active_section)
 
     def test_portal_responsive_and_media_styles_cover_required_breakpoints(self):
         stylesheet = (settings.BASE_DIR / "static" / "css" / "patient-portal.css").read_text(
@@ -2138,10 +2160,49 @@ class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
             "min-height: 44px",
             "grid-template-columns: repeat(2, minmax(0, 1fr))",
             "object-fit: contain",
-            ".portal-nav-link[aria-current=\"page\"]",
+            ".patient-portal-shell .patient-primary-action",
+            ".patient-table-scroll",
         ):
             with self.subTest(contract=contract):
                 self.assertIn(contract, stylesheet)
+
+        self.assertNotRegex(stylesheet, r"(?m)^[^/\n]*\b(?:select|option)\b[^\n]*\{")
+
+    def test_patient_shell_uses_dashboard_drawer_hooks_without_staff_navigation(self):
+        user = self.create_user()
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("patient_portal_dashboard_en"))
+        content = response.content.decode()
+
+        self.assertContains(response, 'aria-controls="patient-portal-sidebar"')
+        self.assertContains(response, 'id="patient-portal-sidebar"')
+        self.assertContains(response, 'data-dashboard-menu')
+        self.assertContains(response, 'data-dashboard-close')
+        self.assertContains(response, 'data-dashboard-overlay')
+        self.assertContains(response, 'src="/static/js/dashboard.js"')
+        self.assertContains(response, f'href="{reverse("patient_portal_dashboard_en")}"')
+        self.assertContains(response, f'href="{reverse("home_en")}"')
+        self.assertContains(response, f'href="{reverse("patient_portal_dashboard")}"')
+        self.assertNotIn("View Patients", content)
+        self.assertNotIn("Clinic Management", content)
+        self.assertNotIn("Scheduling", content)
+
+    def test_patient_home_uses_existing_summary_lists_and_quick_actions(self):
+        user = self.create_user(first_name="Patient Shell")
+        appointment = self.create_appointment(user=user)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("patient_portal_dashboard_en"))
+
+        self.assertContains(response, f'Welcome, {response.context["display_name"]}')
+        self.assertContains(response, 'data-patient-metric="linked-appointments"')
+        self.assertContains(response, "Upcoming Appointments")
+        self.assertContains(response, "Recent Appointments")
+        self.assertContains(response, "Quick Actions")
+        for label in ("Link Appointment", "View Appointments", "Medical Records", "Account"):
+            self.assertContains(response, label)
+        self.assertNotContains(response, str(appointment.public_token))
 
     def test_appointment_list_uses_a_focusable_contained_scroll_region(self):
         user = self.create_user()
@@ -2156,10 +2217,10 @@ class PatientPortalNavigationTests(PatientPortalTestMixin, TestCase):
             )
         )
 
-        self.assertContains(appointment_list, 'class="staff-table-wrap portal-table-scroll"')
+        self.assertContains(appointment_list, 'class="patient-table-scroll portal-table-scroll"')
         self.assertContains(appointment_list, 'role="region"')
         self.assertContains(appointment_list, 'tabindex="0"')
-        self.assertContains(appointment_list, 'class="staff-table portal-appointments-table"')
+        self.assertContains(appointment_list, 'class="patient-table portal-appointments-table"')
         self.assertContains(appointment_detail, 'class="portal-status-row"')
 
 

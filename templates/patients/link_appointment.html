@@ -1,37 +1,48 @@
-{% extends "base.html" %}
+{% extends "patients/portal_base.html" %}
 
-{% block content %}
-<section class="section portal-page portal-link-appointment" data-portal-page="link-appointment">
-    <div class="container booking-layout portal-layout">
-        {% include "patients/_portal_header.html" with title_ar="ربط موعد" title_en="Link Appointment" %}
+{% block patient_portal_content %}
+<div class="dashboard-content patient-page-content" data-patient-page="link-appointment">
+    <header class="patient-page-heading">
+        <div>
+            <p class="dashboard-eyebrow">{% if is_arabic %}المواعيد{% else %}Appointments{% endif %}</p>
+            <h1>{% if is_arabic %}ربط موعد{% else %}Link Appointment{% endif %}</h1>
+        </div>
+        <a class="patient-secondary-action" href="{{ portal_appointments_url }}">
+            {% if is_arabic %}عرض المواعيد{% else %}View Appointments{% endif %}
+        </a>
+    </header>
 
-        {% if messages %}
-            <div class="staff-messages">
-                {% for message in messages %}
-                    <p class="muted">{{ message }}</p>
-                {% endfor %}
+    {% include "patients/_portal_messages.html" %}
+
+    <section class="dashboard-card patient-form-card" aria-labelledby="patient-link-form-title">
+        <div class="dashboard-card-header">
+            <div>
+                <p class="dashboard-card-kicker">{% if is_arabic %}إضافة إلى الحساب{% else %}Add to Account{% endif %}</p>
+                <h2 id="patient-link-form-title">{% if is_arabic %}بيانات الموعد{% else %}Appointment Details{% endif %}</h2>
             </div>
-        {% endif %}
-        <form class="booking-form portal-form-card" method="post" action="{{ portal_link_url }}">
-            {% csrf_token %}
-            {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
-            <div class="form-field">
-                {{ form.public_token.label_tag }}
-                {{ form.public_token }}
-                {{ form.public_token.errors }}
-            </div>
-            <div class="form-field">
-                {{ form.phone.label_tag }}
-                {{ form.phone }}
-                {{ form.phone.errors }}
-            </div>
-            <div class="portal-actions portal-form-actions">
-                <button class="btn btn-primary" type="submit">{% if is_arabic %}ربط الموعد{% else %}Link appointment{% endif %}</button>
-                <a class="btn btn-secondary" href="{{ portal_dashboard_url }}">
-                    {% if is_arabic %}العودة للبوابة{% else %}Back to portal{% endif %}
-                </a>
-            </div>
-        </form>
-    </div>
-</section>
+        </div>
+        <div class="patient-card-body">
+            <form class="patient-form" method="post" action="{{ portal_link_url }}">
+                {% csrf_token %}
+                {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+                <div class="form-field">
+                    {{ form.public_token.label_tag }}
+                    {{ form.public_token }}
+                    {{ form.public_token.errors }}
+                </div>
+                <div class="form-field">
+                    {{ form.phone.label_tag }}
+                    {{ form.phone }}
+                    {{ form.phone.errors }}
+                </div>
+                <div class="patient-form-actions">
+                    <button class="patient-primary-action" type="submit">{% if is_arabic %}ربط الموعد{% else %}Link Appointment{% endif %}</button>
+                    <a class="patient-secondary-action" href="{{ portal_dashboard_url }}">
+                        {% if is_arabic %}الرئيسية{% else %}Dashboard{% endif %}
+                    </a>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
 {% endblock %}

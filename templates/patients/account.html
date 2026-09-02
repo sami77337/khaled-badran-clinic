@@ -1,22 +1,29 @@
-{% extends "base.html" %}
+{% extends "patients/portal_base.html" %}
 
-{% block content %}
-<section class="section portal-page portal-account" data-portal-page="account">
-    <div class="container booking-layout portal-layout">
-        {% include "patients/_portal_header.html" with title_ar="بيانات حسابك" title_en="Your Account" %}
+{% block patient_portal_content %}
+<div class="dashboard-content patient-page-content" data-patient-page="account">
+    <header class="patient-page-heading">
+        <div>
+            <p class="dashboard-eyebrow">{% if is_arabic %}حساب المريض{% else %}Patient Access{% endif %}</p>
+            <h1>{% if is_arabic %}الحساب{% else %}Account{% endif %}</h1>
+        </div>
+        <a class="patient-secondary-action" href="{{ portal_password_change_url }}">
+            {% if is_arabic %}تغيير كلمة المرور{% else %}Change Password{% endif %}
+        </a>
+    </header>
 
-        {% if messages %}
-            <div class="staff-messages">
-                {% for message in messages %}
-                    <p class="muted">{{ message }}</p>
-                {% endfor %}
+    {% include "patients/_portal_messages.html" %}
+
+    <div class="patient-account-grid">
+        <section class="dashboard-card" aria-labelledby="patient-account-information-title">
+            <div class="dashboard-card-header">
+                <div>
+                    <p class="dashboard-card-kicker">{% if is_arabic %}الملف الشخصي{% else %}Profile{% endif %}</p>
+                    <h2 id="patient-account-information-title">{% if is_arabic %}معلومات الحساب{% else %}Account Information{% endif %}</h2>
+                </div>
             </div>
-        {% endif %}
-
-        <div class="portal-account-grid">
-            <div class="success-card portal-card portal-account-summary">
-                <h2>{% if is_arabic %}معلومات الحساب{% else %}Account Information{% endif %}</h2>
-                <dl class="detail-list">
+            <div class="patient-card-body">
+                <dl class="patient-detail-list patient-account-details">
                     <div>
                         <dt>{% if is_arabic %}الاسم الظاهر{% else %}Display name{% endif %}</dt>
                         <dd>{{ display_name }}</dd>
@@ -35,25 +42,30 @@
                     </div>
                 </dl>
             </div>
+        </section>
 
-            <div class="success-card portal-card portal-account-actions-card">
-                <h2>{% if is_arabic %}إدارة الحساب{% else %}Account Actions{% endif %}</h2>
-                <div class="portal-actions portal-account-actions">
-                    <a class="btn btn-primary" href="{{ portal_appointments_url }}">
-                        {% if is_arabic %}المواعيد{% else %}Appointments{% endif %}
-                    </a>
-                    <a class="btn btn-secondary" href="{{ portal_link_url }}">
-                        {% if is_arabic %}ربط موعد{% else %}Link Appointment{% endif %}
-                    </a>
-                    <a class="btn btn-secondary" href="{{ portal_password_change_url }}">
-                        {% if is_arabic %}تغيير كلمة المرور{% else %}Change Password{% endif %}
-                    </a>
-                    <a class="btn btn-secondary" href="{{ portal_account_recovery_url }}">
-                        {% if is_arabic %}استعادة الحساب{% else %}Account Recovery{% endif %}
-                    </a>
+        <section class="dashboard-card dashboard-quick-actions" aria-labelledby="patient-account-actions-title">
+            <div class="dashboard-card-header dashboard-quick-actions-header">
+                <div>
+                    <p class="dashboard-card-kicker">{% if is_arabic %}الحساب{% else %}Account{% endif %}</p>
+                    <h2 id="patient-account-actions-title">{% if is_arabic %}إدارة الحساب{% else %}Account Actions{% endif %}</h2>
                 </div>
             </div>
-        </div>
+            <div class="dashboard-action-list">
+                <a class="dashboard-action-link is-primary" href="{{ portal_password_change_url }}">
+                    <span>{% if is_arabic %}تغيير كلمة المرور{% else %}Change Password{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                </a>
+                <a class="dashboard-action-link" href="{{ portal_link_url }}">
+                    <span>{% if is_arabic %}ربط موعد{% else %}Link Appointment{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                </a>
+                <a class="dashboard-action-link" href="{{ portal_account_recovery_url }}">
+                    <span>{% if is_arabic %}استعادة الحساب{% else %}Account Recovery{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                </a>
+            </div>
+        </section>
     </div>
-</section>
+</div>
 {% endblock %}
