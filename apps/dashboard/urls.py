@@ -5,6 +5,17 @@ from . import views
 
 urlpatterns = [
     path("", views.dashboard_home, name="dashboard_home"),
+    path("consultations/", views.dashboard_consultation_list, name="dashboard_consultation_list"),
+    path(
+        "consultations/<uuid:public_id>/",
+        views.dashboard_consultation_detail,
+        name="dashboard_consultation_detail",
+    ),
+    path(
+        "consultations/attachments/<uuid:public_id>/",
+        views.dashboard_consultation_attachment,
+        name="dashboard_consultation_attachment",
+    ),
     path("scheduling/", views.dashboard_scheduling, name="dashboard_scheduling"),
     path(
         "scheduling/weekly/create/",

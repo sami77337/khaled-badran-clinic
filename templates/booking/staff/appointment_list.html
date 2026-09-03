@@ -106,7 +106,7 @@
                     <tr>
                         <th scope="col">{% if is_arabic %}التاريخ والوقت{% else %}Date and time{% endif %}</th>
                         <th scope="col">{% if is_arabic %}المريض{% else %}Patient{% endif %}</th>
-                        <th scope="col">{% if is_arabic %}الهاتف{% else %}Phone{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}رقم التواصل{% else %}Contact number{% endif %}</th>
                         <th scope="col">{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</th>
                         <th scope="col">{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</th>
                         <th scope="col">{% if is_arabic %}الحالة{% else %}Status{% endif %}</th>
@@ -127,7 +127,7 @@
                                     {% if is_arabic %}فتح سجل المريض{% else %}Open patient record{% endif %}
                                 </a>
                             </td>
-                            <td><span class="appointment-phone" dir="ltr">{{ appointment.patient.phone_e164|default:appointment.patient.phone_raw }}</span></td>
+                            <td><span class="appointment-phone" dir="ltr">{{ appointment.effective_contact_phone }}</span></td>
                             <td>{{ appointment.staff_visit_type_label }}</td>
                             <td>{{ appointment.staff_doctor_label }}</td>
                             <td><span class="appointment-status status-{{ appointment.status }}">{{ appointment.staff_status_label }}</span></td>

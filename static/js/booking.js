@@ -474,7 +474,7 @@
         parseInitialValue();
     });
 
-    const sameAsPhone = form.querySelector("[name='same_as_phone']");
+    const sameAsPhone = form.querySelector("[name='same_as_phone'], [name='same_as_contact']");
     const whatsappField = form.querySelector("[data-booking-whatsapp-field]");
     const whatsappControl = whatsappField?.querySelector("[data-booking-phone-control]");
     const whatsappInput = whatsappField?.querySelector("[name='whatsapp_phone']");

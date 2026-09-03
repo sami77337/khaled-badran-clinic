@@ -7,6 +7,11 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
 from apps.booking.phone import normalize_phone
+from apps.patients.models import (
+    CONSULTATION_MAX_ATTACHMENTS,
+    Consultation,
+    validate_consultation_upload,
+)
 
 
 GENERIC_LOGIN_ERROR = "We could not sign you in with those details."
@@ -357,6 +362,15 @@ class AppointmentLinkForm(forms.Form):
             "رمز تأكيد الموعد" if self.language == "ar" else "Appointment confirmation token"
         )
         self.fields["phone"].label = "رقم الهاتف المستخدم في الحجز" if self.language == "ar" else "Booking phone number"
+        self.fields["phone"].widget.attrs.update(
+            {
+                "class": "booking-control",
+                "autocomplete": "tel",
+                "inputmode": "tel",
+                "dir": "ltr",
+                "placeholder": "7XXXXXXXX",
+            }
+        )
 
     def clean_public_token(self):
         value = (self.cleaned_data.get("public_token") or "").strip()
@@ -373,3 +387,156 @@ class AppointmentLinkForm(forms.Form):
         except ValidationError:
             raise ValidationError(GENERIC_LINK_ERROR)
         return raw_phone.strip()
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            return [single_clean(item, initial) for item in data]
+        if data:
+            return [single_clean(data, initial)]
+        return []
+
+
+class ConsultationCreateForm(forms.Form):
+    question = forms.CharField(max_length=5000, widget=forms.Textarea(attrs={"rows": 8}))
+    attachments = MultipleFileField(required=False)
+
+    def __init__(self, *args, language="ar", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.language = "en" if language == "en" else "ar"
+        self.fields["question"].label = "نص الاستشارة" if self.language == "ar" else "Consultation text"
+        self.fields["question"].widget.attrs["class"] = "patient-textarea"
+        self.fields["attachments"].label = "المرفقات" if self.language == "ar" else "Attachments"
+        self.fields["attachments"].widget.attrs["accept"] = ".jpg,.jpeg,.png,.webp,.mp4,.pdf"
+
+    def clean_question(self):
+        question = self.cleaned_data["question"].strip()
+        if not question:
+            raise ValidationError("نص الاستشارة مطلوب." if self.language == "ar" else "Consultation text is required.")
+        return question
+
+    def clean_attachments(self):
+        attachments = self.cleaned_data.get("attachments") or []
+        if len(attachments) > CONSULTATION_MAX_ATTACHMENTS:
+            raise ValidationError(
+                "يمكن إرفاق 5 ملفات كحد أقصى."
+                if self.language == "ar"
+                else "You can attach at most 5 files."
+            )
+        for attachment in attachments:
+            try:
+                validate_consultation_upload(attachment)
+            except ValidationError as exc:
+                message = (
+                    "أحد المرفقات غير مدعوم أو يتجاوز الحجم المسموح."
+                    if self.language == "ar"
+                    else "An attachment is unsupported or exceeds the allowed size."
+                )
+                raise ValidationError(message) from exc
+        return attachments
+
+
+class ConsultationReplyForm(forms.Form):
+    staff_reply = forms.CharField(required=False, max_length=5000, widget=forms.Textarea(attrs={"rows": 8}))
+    status = forms.ChoiceField(
+        choices=(
+            (Consultation.Status.ANSWERED, "Answered"),
+            (Consultation.Status.CLOSED, "Closed"),
+        )
+    )
+
+    def __init__(self, *args, language="ar", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.language = "en" if language == "en" else "ar"
+        self.fields["staff_reply"].label = "رد الطبيب" if self.language == "ar" else "Doctor reply"
+        self.fields["status"].label = "الحالة" if self.language == "ar" else "Status"
+        if self.language == "ar":
+            self.fields["status"].choices = (
+                (Consultation.Status.ANSWERED, "تم الرد"),
+                (Consultation.Status.CLOSED, "مغلقة"),
+            )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        reply = (cleaned_data.get("staff_reply") or "").strip()
+        if cleaned_data.get("status") == Consultation.Status.ANSWERED and not reply:
+            self.add_error(
+                "staff_reply",
+                "الرد مطلوب عند تحديد تم الرد."
+                if self.language == "ar"
+                else "A reply is required when marking the consultation answered.",
+            )
+        cleaned_data["staff_reply"] = reply
+        return cleaned_data
+
+
+class AccountPhoneChangeStartForm(forms.Form):
+    current_password = forms.CharField(widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}))
+    new_phone = forms.CharField(
+        max_length=50,
+        widget=forms.TextInput(
+            attrs={"autocomplete": "tel", "inputmode": "tel", "dir": "ltr", "placeholder": "7XXXXXXXX", "class": "booking-control"}
+        ),
+    )
+
+    def __init__(self, *args, user, language="ar", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+        self.language = "en" if language == "en" else "ar"
+        self.normalized_phone = ""
+        self.fields["current_password"].label = "كلمة المرور الحالية" if self.language == "ar" else "Current password"
+        self.fields["new_phone"].label = "رقم الحساب الجديد" if self.language == "ar" else "New account phone"
+
+    def clean_current_password(self):
+        password = self.cleaned_data["current_password"]
+        if not self.user.check_password(password):
+            raise ValidationError("كلمة المرور الحالية غير صحيحة." if self.language == "ar" else "Current password is incorrect.")
+        return password
+
+    def clean_new_phone(self):
+        raw_phone = self.cleaned_data["new_phone"].strip()
+        try:
+            self.normalized_phone = normalize_phone(raw_phone)
+        except ValidationError as exc:
+            raise ValidationError("أدخل رقم هاتف صالحًا." if self.language == "ar" else "Enter a valid phone number.") from exc
+        try:
+            current_phone = normalize_phone(self.user.username)
+        except ValidationError:
+            current_phone = self.user.username
+        if self.normalized_phone == current_phone:
+            raise ValidationError(
+                "الرقم الجديد يجب أن يختلف عن رقم الحساب الحالي."
+                if self.language == "ar"
+                else "The new phone must differ from the current account phone."
+            )
+        user_model = get_user_model()
+        if user_model.objects.filter(username=self.normalized_phone).exclude(pk=self.user.pk).exists():
+            raise ValidationError("تعذر استخدام هذا الرقم." if self.language == "ar" else "This phone cannot be used.")
+        from apps.patients.models import Patient
+
+        if Patient.objects.filter(phone_e164=self.normalized_phone).exclude(user=self.user).exists():
+            raise ValidationError("تعذر استخدام هذا الرقم." if self.language == "ar" else "This phone cannot be used.")
+        return raw_phone
+
+
+class AccountPhoneChangeVerifyForm(forms.Form):
+    challenge_id = forms.UUIDField(widget=forms.HiddenInput)
+    otp = forms.RegexField(regex=r"^\d{6}$", max_length=6, min_length=6)
+
+    def __init__(self, *args, language="ar", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.language = "en" if language == "en" else "ar"
+        self.fields["otp"].label = "رمز التحقق" if self.language == "ar" else "Verification code"
+        self.fields["otp"].widget.attrs.update(
+            {"autocomplete": "one-time-code", "inputmode": "numeric", "dir": "ltr", "pattern": "[0-9]{6}"}
+        )

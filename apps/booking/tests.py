@@ -657,16 +657,15 @@ class PublicBookingFormTests(BookingTestDataMixin, TestCase):
         self.assertEqual(form.normalized_whatsapp_phone, "+442071234567")
         self.assertEqual(form.cleaned_data["whatsapp_phone"], "+442071234567")
 
-    def test_blank_whatsapp_falls_back_to_primary_phone(self):
+    def test_blank_whatsapp_is_required_when_same_as_phone_is_unchecked(self):
         data = self.valid_form_data()
         data.pop("same_as_phone")
         data["whatsapp_phone"] = ""
 
         form = PublicBookingForm(data=data)
 
-        self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(form.normalized_whatsapp_phone, "+962791234567")
-        self.assertEqual(form.cleaned_data["whatsapp_phone"], "0791234567")
+        self.assertFalse(form.is_valid())
+        self.assertIn("whatsapp_phone", form.errors)
 
     def test_invalid_separate_whatsapp_keeps_localized_field_error(self):
         for language in ("ar", "en"):

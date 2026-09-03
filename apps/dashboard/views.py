@@ -29,7 +29,9 @@ from apps.clinic.models import (
 )
 from apps.core.models import AuditLog, SystemSetting
 from apps.core.views import _base_context
-from apps.patients.models import Patient
+from apps.patients import consultation_services
+from apps.patients.forms import ConsultationReplyForm
+from apps.patients.models import Consultation, ConsultationAttachment, Patient
 from apps.records.models import (
     ClinicalNote,
     PatientTimelineEvent,
@@ -337,6 +339,7 @@ def _dashboard_home_context(request, *, language, metrics, schedule_items):
         "ar": {
             "overview": "نظرة عامة",
             "appointments": "المواعيد",
+            "consultations": "الاستشارات",
             "patients": "المرضى",
             "public_cases": "الحالات العامة",
             "scheduling": "الجدولة",
@@ -344,6 +347,7 @@ def _dashboard_home_context(request, *, language, metrics, schedule_items):
         "en": {
             "overview": "Overview",
             "appointments": "Appointments",
+            "consultations": "Consultations",
             "patients": "Patients",
             "public_cases": "Public Cases",
             "scheduling": "Scheduling",
@@ -381,6 +385,15 @@ def _dashboard_home_context(request, *, language, metrics, schedule_items):
                     "key": "appointments",
                     "label": labels["appointments"],
                     "url": reverse("staff_appointment_list"),
+                },
+                {
+                    "key": "consultations",
+                    "label": labels["consultations"],
+                    "url": (
+                        f"{reverse('dashboard_consultation_list')}?lang=en"
+                        if language == "en"
+                        else reverse("dashboard_consultation_list")
+                    ),
                 },
                 {
                     "key": "patients",
@@ -4806,3 +4819,172 @@ def dashboard_public_case_delete(request, case_id):
             cancel_url=_dashboard_public_case_url(language),
         ),
     )
+
+
+def _dashboard_consultation_url(route_name, language, **kwargs):
+    url = reverse(route_name, kwargs=kwargs or None)
+    return f"{url}?lang=en" if language == "en" else url
+
+
+def _dashboard_consultation_context(request, **extra):
+    language = _dashboard_language(request)
+    alternate_language = "en" if language == "ar" else "ar"
+    context = _dashboard_home_context(
+        request,
+        language=language,
+        metrics={},
+        schedule_items=[],
+    )
+    context.update(
+        {
+            "page_key": "dashboard_consultations",
+            "page_title": (
+                f"الاستشارات | {context['clinic']['name_ar']}"
+                if language == "ar"
+                else f"Consultations | {context['clinic']['name_en']}"
+            ),
+            "meta_description": (
+                "إدارة استشارات المرضى والرد عليها."
+                if language == "ar"
+                else "Manage and reply to patient consultations."
+            ),
+            "canonical_url": request.build_absolute_uri(
+                _dashboard_consultation_url("dashboard_consultation_list", language)
+            ),
+            "dashboard_language_switch_url": _dashboard_consultation_url(
+                "dashboard_consultation_list",
+                alternate_language,
+            ),
+            "dashboard_consultations_url": _dashboard_consultation_url(
+                "dashboard_consultation_list",
+                language,
+            ),
+            "active_dashboard_nav": "consultations",
+        }
+    )
+    context.update(extra)
+    return context
+
+
+def _dashboard_consultation_status_label(status, language):
+    labels = {
+        Consultation.Status.NEW: {"ar": "جديدة", "en": "New"},
+        Consultation.Status.ANSWERED: {"ar": "تم الرد", "en": "Answered"},
+        Consultation.Status.CLOSED: {"ar": "مغلقة", "en": "Closed"},
+    }
+    return labels.get(status, {"ar": status, "en": status})[language]
+
+
+@_staff_required
+@require_GET
+def dashboard_consultation_list(request):
+    language = _dashboard_language(request)
+    consultations = list(
+        Consultation.objects.select_related("patient", "replied_by")
+        .prefetch_related("attachments")
+        .order_by("-created_at", "-id")
+    )
+    for consultation in consultations:
+        consultation.dashboard_status_label = _dashboard_consultation_status_label(
+            consultation.status,
+            language,
+        )
+        consultation.dashboard_detail_url = _dashboard_consultation_url(
+            "dashboard_consultation_detail",
+            language,
+            public_id=consultation.public_id,
+        )
+    return render(
+        request,
+        "dashboard/consultation_list.html",
+        _dashboard_consultation_context(request, consultations=consultations),
+    )
+
+
+@_staff_required
+def dashboard_consultation_detail(request, public_id):
+    language = _dashboard_language(request)
+    consultation = get_object_or_404(
+        Consultation.objects.select_related("patient", "replied_by").prefetch_related("attachments"),
+        public_id=public_id,
+    )
+    if request.method == "POST":
+        form = ConsultationReplyForm(request.POST, language=language)
+        if form.is_valid():
+            consultation = consultation_services.update_consultation_reply(
+                consultation=consultation,
+                staff_user=request.user,
+                reply=form.cleaned_data["staff_reply"],
+                status=form.cleaned_data["status"],
+            )
+            messages.success(
+                request,
+                "تم حفظ رد الاستشارة."
+                if language == "ar"
+                else "The consultation reply was saved.",
+            )
+            return redirect(
+                _dashboard_consultation_url(
+                    "dashboard_consultation_detail",
+                    language,
+                    public_id=consultation.public_id,
+                )
+            )
+    else:
+        initial_status = (
+            consultation.status
+            if consultation.status in {Consultation.Status.ANSWERED, Consultation.Status.CLOSED}
+            else Consultation.Status.ANSWERED
+        )
+        form = ConsultationReplyForm(
+            initial={"staff_reply": consultation.staff_reply, "status": initial_status},
+            language=language,
+        )
+
+    context = _dashboard_consultation_context(
+        request,
+        consultation=consultation,
+        status_label=_dashboard_consultation_status_label(consultation.status, language),
+        form=form,
+    )
+    alternate_language = "en" if language == "ar" else "ar"
+    context.update(
+        {
+            "canonical_url": request.build_absolute_uri(
+                _dashboard_consultation_url(
+                    "dashboard_consultation_detail",
+                    language,
+                    public_id=consultation.public_id,
+                )
+            ),
+            "dashboard_language_switch_url": _dashboard_consultation_url(
+                "dashboard_consultation_detail",
+                alternate_language,
+                public_id=consultation.public_id,
+            ),
+        }
+    )
+    return render(request, "dashboard/consultation_detail.html", context)
+
+
+@_staff_required
+@require_GET
+def dashboard_consultation_attachment(request, public_id):
+    attachment = get_object_or_404(
+        ConsultationAttachment.objects.select_related("consultation", "consultation__patient"),
+        public_id=public_id,
+    )
+    if not attachment.file_exists:
+        raise Http404("Attachment unavailable.")
+    try:
+        file_handle = attachment.file.open("rb")
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        raise Http404("Attachment unavailable.") from exc
+    response = FileResponse(
+        file_handle,
+        as_attachment=False,
+        filename=attachment.presentation_filename,
+        content_type=attachment.content_type,
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response

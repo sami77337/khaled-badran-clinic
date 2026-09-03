@@ -419,6 +419,45 @@
     outline: 3px solid rgba(74, 15, 20, 0.12);
 }
 
+.patient-form .patient-textarea {
+    width: 100%;
+    min-width: 0;
+    min-height: 10rem;
+    resize: vertical;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.75rem;
+    background: var(--dashboard-white);
+    color: var(--dashboard-ink);
+    padding: 0.7rem 0.8rem;
+    font: inherit;
+    line-height: 1.65;
+}
+
+.patient-form .patient-textarea:focus {
+    border-color: var(--dashboard-burgundy);
+    outline: 3px solid rgba(74, 15, 20, 0.12);
+}
+
+.patient-consultation-text {
+    color: var(--dashboard-ink);
+    line-height: 1.8;
+    overflow-wrap: anywhere;
+}
+
+.patient-service-selector {
+    margin-block-end: 1.25rem;
+    border-block-end: 1px solid var(--dashboard-line);
+    padding-block-end: 1.25rem;
+}
+
+.patient-inline-form {
+    margin-block-start: 1rem;
+}
+
+.patient-media-list .portal-media-asset {
+    width: 100%;
+}
+
 .patient-form .errorlist,
 .patient-form .form-errors {
     margin: 0;

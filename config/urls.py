@@ -192,6 +192,36 @@ urlpatterns = [
         name="patient_portal_link_appointment",
     ),
     path(
+        "portal/book/",
+        patient_views.portal_book_appointment,
+        {"language": "ar"},
+        name="patient_portal_book",
+    ),
+    path(
+        "portal/consultations/",
+        patient_views.portal_consultation_list,
+        {"language": "ar"},
+        name="patient_portal_consultation_list",
+    ),
+    path(
+        "portal/consultations/new/",
+        patient_views.portal_consultation_new,
+        {"language": "ar"},
+        name="patient_portal_consultation_new",
+    ),
+    path(
+        "portal/consultations/<uuid:public_id>/",
+        patient_views.portal_consultation_detail,
+        {"language": "ar"},
+        name="patient_portal_consultation_detail",
+    ),
+    path(
+        "portal/consultations/attachments/<uuid:public_id>/",
+        patient_views.portal_consultation_attachment,
+        {"language": "ar"},
+        name="patient_portal_consultation_attachment",
+    ),
+    path(
         "portal/appointments/",
         patient_views.portal_appointment_list,
         {"language": "ar"},
@@ -237,6 +267,36 @@ urlpatterns = [
         patient_views.portal_link_appointment,
         {"language": "en"},
         name="patient_portal_link_appointment_en",
+    ),
+    path(
+        "en/portal/book/",
+        patient_views.portal_book_appointment,
+        {"language": "en"},
+        name="patient_portal_book_en",
+    ),
+    path(
+        "en/portal/consultations/",
+        patient_views.portal_consultation_list,
+        {"language": "en"},
+        name="patient_portal_consultation_list_en",
+    ),
+    path(
+        "en/portal/consultations/new/",
+        patient_views.portal_consultation_new,
+        {"language": "en"},
+        name="patient_portal_consultation_new_en",
+    ),
+    path(
+        "en/portal/consultations/<uuid:public_id>/",
+        patient_views.portal_consultation_detail,
+        {"language": "en"},
+        name="patient_portal_consultation_detail_en",
+    ),
+    path(
+        "en/portal/consultations/attachments/<uuid:public_id>/",
+        patient_views.portal_consultation_attachment,
+        {"language": "en"},
+        name="patient_portal_consultation_attachment_en",
     ),
     path(
         "en/portal/appointments/",

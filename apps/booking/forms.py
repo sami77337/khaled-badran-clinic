@@ -65,16 +65,19 @@ class PublicBookingForm(forms.Form):
     starts_at = forms.CharField(widget=forms.HiddenInput)
     booking_note = forms.CharField(required=False, widget=forms.Textarea)
 
-    def __init__(self, *args, language="ar", **kwargs):
+    def __init__(self, *args, language="ar", authenticated_user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.language = language
+        self.authenticated_user = authenticated_user
         self.error_copy = PUBLIC_BOOKING_ERROR_COPY[language]
         doctor = get_active_doctor()
         self.fields["visit_type"].queryset = services.public_visit_types()
         self.fields["full_name"].label = "الاسم الكامل" if language == "ar" else "Full name"
-        self.fields["phone"].label = "رقم الهاتف" if language == "ar" else "Phone number"
+        self.fields["phone"].label = "رقم التواصل" if language == "ar" else "Contact number"
         self.fields["same_as_phone"].label = (
-            "استخدام نفس الرقم للواتساب" if language == "ar" else "Use the same number for WhatsApp"
+            "رقم واتساب هو نفس رقم التواصل"
+            if language == "ar"
+            else "WhatsApp number is the same as contact number"
         )
         self.fields["whatsapp_phone"].label = "رقم واتساب" if language == "ar" else "WhatsApp number"
         self.fields["visit_type"].label = "نوع الزيارة" if language == "ar" else "Visit type"
@@ -125,6 +128,8 @@ class PublicBookingForm(forms.Form):
         self.doctor = doctor
         self.normalized_phone = ""
         self.normalized_whatsapp_phone = ""
+        if authenticated_user is not None and authenticated_user.is_authenticated and not authenticated_user.is_staff:
+            self.fields["full_name"].disabled = True
 
     def localized_error(self, error, *, fallback_key="generic"):
         messages = getattr(error, "messages", None) or [str(error)]
@@ -155,10 +160,13 @@ class PublicBookingForm(forms.Form):
 
         same_as_phone = cleaned_data.get("same_as_phone")
         whatsapp_phone = (cleaned_data.get("whatsapp_phone") or "").strip()
-        if same_as_phone or not whatsapp_phone:
+        if same_as_phone:
             self.normalized_whatsapp_phone = self.normalized_phone
             cleaned_data["whatsapp_phone"] = cleaned_data.get("phone", "")
         else:
+            if not whatsapp_phone:
+                self.add_error("whatsapp_phone", self.error_copy["whatsapp_invalid"])
+                return cleaned_data
             try:
                 self.normalized_whatsapp_phone = normalize_phone(whatsapp_phone)
             except ValidationError as exc:
@@ -192,6 +200,99 @@ class PublicBookingForm(forms.Form):
             visit_type_id=self.cleaned_data["visit_type"].id,
             starts_at=self.cleaned_data["starts_at"],
             booking_note=self.cleaned_data.get("booking_note", ""),
+            authenticated_user=self.authenticated_user,
+        )
+
+
+class AuthenticatedBookingForm(forms.Form):
+    visit_type = forms.ModelChoiceField(queryset=VisitType.objects.none(), widget=forms.HiddenInput)
+    starts_at = forms.ChoiceField(widget=forms.Select(attrs={"class": "booking-control"}))
+    booking_note = forms.CharField(required=False, widget=forms.Textarea(attrs={"class": "booking-control booking-textarea"}))
+    contact_phone = forms.CharField(max_length=50)
+    same_as_contact = forms.BooleanField(required=False, initial=True)
+    whatsapp_phone = forms.CharField(max_length=50, required=False)
+
+    def __init__(self, *args, user, language="ar", slot_choices=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+        self.language = "en" if language == "en" else "ar"
+        self.error_copy = PUBLIC_BOOKING_ERROR_COPY[self.language]
+        self.fields["visit_type"].queryset = services.public_visit_types()
+        self.fields["starts_at"].choices = list(slot_choices)
+        self.fields["visit_type"].label = "نوع الزيارة" if self.language == "ar" else "Visit type"
+        self.fields["starts_at"].label = "التاريخ والوقت" if self.language == "ar" else "Date and time"
+        self.fields["booking_note"].label = "ملاحظة اختيارية" if self.language == "ar" else "Optional note"
+        self.fields["contact_phone"].label = "رقم التواصل" if self.language == "ar" else "Contact number"
+        self.fields["same_as_contact"].label = (
+            "رقم واتساب هو نفس رقم التواصل"
+            if self.language == "ar"
+            else "WhatsApp number is the same as contact number"
+        )
+        self.fields["whatsapp_phone"].label = "رقم واتساب" if self.language == "ar" else "WhatsApp number"
+        self.fields["booking_note"].widget.attrs.update({"rows": 3})
+        for name in ("contact_phone", "whatsapp_phone"):
+            self.fields[name].widget.attrs.update(
+                {
+                    "class": "booking-control",
+                    "autocomplete": "tel",
+                    "inputmode": "tel",
+                    "dir": "ltr",
+                    "placeholder": "7XXXXXXXX",
+                }
+            )
+        self.normalized_contact_phone = ""
+        self.normalized_whatsapp_phone = ""
+
+    def clean_contact_phone(self):
+        raw_phone = self.cleaned_data["contact_phone"].strip()
+        try:
+            self.normalized_contact_phone = normalize_phone(raw_phone)
+        except ValidationError as exc:
+            raise ValidationError(self.error_copy["phone_invalid"]) from exc
+        return raw_phone
+
+    def clean(self):
+        cleaned_data = super().clean()
+        contact_phone = cleaned_data.get("contact_phone")
+        if contact_phone:
+            if cleaned_data.get("same_as_contact"):
+                cleaned_data["whatsapp_phone"] = contact_phone
+                self.normalized_whatsapp_phone = self.normalized_contact_phone
+            else:
+                whatsapp_phone = (cleaned_data.get("whatsapp_phone") or "").strip()
+                if not whatsapp_phone:
+                    self.add_error("whatsapp_phone", self.error_copy["whatsapp_invalid"])
+                else:
+                    try:
+                        self.normalized_whatsapp_phone = normalize_phone(whatsapp_phone)
+                    except ValidationError:
+                        self.add_error("whatsapp_phone", self.error_copy["whatsapp_invalid"])
+
+        visit_type = cleaned_data.get("visit_type")
+        starts_at = cleaned_data.get("starts_at")
+        if visit_type and starts_at:
+            try:
+                services.validate_public_booking_request(
+                    visit_type=visit_type,
+                    starts_at=starts_at,
+                )
+            except ValidationError as exc:
+                message = (getattr(exc, "messages", None) or [str(exc)])[0]
+                key = PUBLIC_BOOKING_ERROR_KEYS.get(message, "generic")
+                self.add_error(None, self.error_copy[key])
+        return cleaned_data
+
+    def save(self):
+        if not self.is_valid():
+            raise ValueError("Cannot save an invalid authenticated booking form.")
+        return services.create_public_appointment(
+            full_name=self.user.get_full_name().strip() or self.user.username,
+            phone_raw=self.cleaned_data["contact_phone"],
+            whatsapp_phone_raw=self.cleaned_data["whatsapp_phone"],
+            visit_type_id=self.cleaned_data["visit_type"].id,
+            starts_at=self.cleaned_data["starts_at"],
+            booking_note=self.cleaned_data.get("booking_note", ""),
+            authenticated_user=self.user,
         )
 
 

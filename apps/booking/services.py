@@ -353,6 +353,7 @@ def create_public_appointment(
     starts_at,
     booking_note="",
     whatsapp_phone_raw="",
+    authenticated_user=None,
 ):
     settings = get_booking_settings()
     doctor = get_active_doctor()
@@ -367,28 +368,33 @@ def create_public_appointment(
     normalized_phone = normalize_phone(phone_raw)
     normalized_whatsapp = normalize_phone(whatsapp_phone_raw) if whatsapp_phone_raw else normalized_phone
 
-    patient = Patient.objects.filter(phone_e164=normalized_phone).order_by("id").first()
-    if patient is None:
-        patient = Patient.objects.create(
-            full_name=full_name.strip(),
-            phone_raw=phone_raw.strip(),
-            phone_e164=normalized_phone,
-            whatsapp_phone_raw=(whatsapp_phone_raw or phone_raw).strip(),
-            whatsapp_phone_e164=normalized_whatsapp,
-        )
+    if authenticated_user is not None and authenticated_user.is_authenticated and not authenticated_user.is_staff:
+        from apps.patients.profile_resolution import resolve_authenticated_patient
+
+        patient = resolve_authenticated_patient(authenticated_user)
     else:
-        changed_fields = []
-        updates = {
-            "phone_raw": phone_raw.strip(),
-            "whatsapp_phone_raw": (whatsapp_phone_raw or phone_raw).strip(),
-            "whatsapp_phone_e164": normalized_whatsapp,
-        }
-        for field, value in updates.items():
-            if getattr(patient, field) != value:
-                setattr(patient, field, value)
-                changed_fields.append(field)
-        if changed_fields:
-            patient.save(update_fields=changed_fields)
+        patient = Patient.objects.filter(phone_e164=normalized_phone).order_by("id").first()
+        if patient is None:
+            patient = Patient.objects.create(
+                full_name=full_name.strip(),
+                phone_raw=phone_raw.strip(),
+                phone_e164=normalized_phone,
+                whatsapp_phone_raw=(whatsapp_phone_raw or phone_raw).strip(),
+                whatsapp_phone_e164=normalized_whatsapp,
+            )
+        else:
+            changed_fields = []
+            updates = {
+                "phone_raw": phone_raw.strip(),
+                "whatsapp_phone_raw": (whatsapp_phone_raw or phone_raw).strip(),
+                "whatsapp_phone_e164": normalized_whatsapp,
+            }
+            for field, value in updates.items():
+                if getattr(patient, field) != value:
+                    setattr(patient, field, value)
+                    changed_fields.append(field)
+            if changed_fields:
+                patient.save(update_fields=changed_fields)
 
     appointment = Appointment(
         doctor=doctor,
@@ -398,6 +404,10 @@ def create_public_appointment(
         ends_at=ends_at,
         reminder_offset=timedelta(minutes=settings.reminder_offset_minutes),
         booking_note=(booking_note or "").strip(),
+        contact_phone_raw=phone_raw.strip(),
+        contact_phone_e164=normalized_phone,
+        whatsapp_phone_raw=(whatsapp_phone_raw or phone_raw).strip(),
+        whatsapp_phone_e164=normalized_whatsapp,
     )
     appointment.full_clean()
     try:

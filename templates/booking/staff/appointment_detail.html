@@ -66,8 +66,12 @@
                     <dd>{{ appointment.patient.full_name }}</dd>
                 </div>
                 <div>
-                    <dt>{% if is_arabic %}الهاتف{% else %}Phone{% endif %}</dt>
-                    <dd dir="ltr">{{ appointment.patient.phone_e164|default:appointment.patient.phone_raw }}</dd>
+                    <dt>{% if is_arabic %}رقم التواصل{% else %}Contact number{% endif %}</dt>
+                    <dd dir="ltr">{{ appointment.effective_contact_phone }}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}رقم واتساب{% else %}WhatsApp number{% endif %}</dt>
+                    <dd dir="ltr">{{ appointment.effective_whatsapp_phone }}</dd>
                 </div>
                 <div>
                     <dt>{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</dt>

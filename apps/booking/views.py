@@ -26,6 +26,7 @@ from apps.booking.selectors import get_active_doctor, get_active_visit_type
 from apps.clinic.models import Doctor, VisitType
 from apps.core.models import AuditLog
 from apps.core.views import _base_context
+from apps.patients.profile_resolution import PatientProfileConflictError
 
 
 def _language(language):
@@ -202,9 +203,22 @@ def select_slot(request, language="ar"):
 def confirm_booking(request, language="ar"):
     language = _language(language)
     doctor = get_active_doctor()
+    authenticated_user = (
+        request.user
+        if request.user.is_authenticated and not request.user.is_staff
+        else None
+    )
+    authenticated_name = ""
+    if authenticated_user is not None:
+        authenticated_name = authenticated_user.get_full_name().strip() or authenticated_user.username
 
     if request.method == "POST":
-        form = PublicBookingForm(request.POST, language=language)
+        form = PublicBookingForm(
+            request.POST,
+            initial={"full_name": authenticated_name},
+            language=language,
+            authenticated_user=authenticated_user,
+        )
         ip_limit = rate_limits.check_public_booking_ip_rate_limit(request)
         if not ip_limit.allowed:
             form.is_valid()
@@ -216,6 +230,15 @@ def confirm_booking(request, language="ar"):
             else:
                 try:
                     appointment = form.save()
+                except PatientProfileConflictError:
+                    form.add_error(
+                        None,
+                        (
+                            "يوجد سجل مريض يحتاج إلى الربط الآمن. استخدم ربط موعد أو تواصل مع العيادة لاستعادة الحساب."
+                            if language == "ar"
+                            else "An existing patient record requires secure linking. Use Link Appointment or contact the clinic for account recovery."
+                        ),
+                    )
                 except ValidationError as exc:
                     form.add_error(None, form.localized_error(exc))
                 else:
@@ -231,8 +254,14 @@ def confirm_booking(request, language="ar"):
             "visit_type": request.GET.get("visit_type"),
             "starts_at": request.GET.get("starts_at"),
             "same_as_phone": True,
+            "full_name": authenticated_name,
+            "phone": authenticated_user.username if authenticated_user is not None else "",
         }
-        form = PublicBookingForm(initial=initial, language=language)
+        form = PublicBookingForm(
+            initial=initial,
+            language=language,
+            authenticated_user=authenticated_user,
+        )
         visit_type = get_active_visit_type(initial["visit_type"], doctor=doctor)
         try:
             if visit_type is None:
@@ -273,6 +302,7 @@ def confirm_booking(request, language="ar"):
             slot_display=slot_display,
             starts_at=starts_at,
             phone_countries=INTERNATIONAL_PHONE_COUNTRIES,
+            authenticated_booking=authenticated_user is not None,
             language_switch=_booking_language_switch(
                 "booking_confirm",
                 language,
@@ -416,6 +446,7 @@ def _staff_context(request, *, language=None, **extra):
         "ar": {
             "overview": "نظرة عامة",
             "appointments": "المواعيد",
+            "consultations": "الاستشارات",
             "patients": "المرضى",
             "public_cases": "الحالات العامة",
             "scheduling": "الجدولة",
@@ -423,6 +454,7 @@ def _staff_context(request, *, language=None, **extra):
         "en": {
             "overview": "Overview",
             "appointments": "Appointments",
+            "consultations": "Consultations",
             "patients": "Patients",
             "public_cases": "Public Cases",
             "scheduling": "Scheduling",
@@ -459,6 +491,11 @@ def _staff_context(request, *, language=None, **extra):
                     "key": "appointments",
                     "label": labels["appointments"],
                     "url": staff_appointments_url,
+                },
+                {
+                    "key": "consultations",
+                    "label": labels["consultations"],
+                    "url": _url_with_staff_language("dashboard_consultation_list", language),
                 },
                 {
                     "key": "patients",
@@ -505,6 +542,10 @@ def _filtered_staff_appointments(request):
             Q(patient__full_name__icontains=search)
             | Q(patient__phone_raw__icontains=search)
             | Q(patient__phone_e164__icontains=search)
+            | Q(contact_phone_raw__icontains=search)
+            | Q(contact_phone_e164__icontains=search)
+            | Q(whatsapp_phone_raw__icontains=search)
+            | Q(whatsapp_phone_e164__icontains=search)
         )
 
     today = timezone.localdate()

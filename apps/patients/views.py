@@ -11,22 +11,34 @@ from django.core.exceptions import ValidationError
 from django.http import FileResponse, Http404, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import NoReverseMatch, reverse
+from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_GET
 
+from apps.booking import rate_limits as booking_rate_limits
+from apps.booking import services as booking_services
 from apps.booking.countries import INTERNATIONAL_PHONE_COUNTRIES
+from apps.booking.forms import AuthenticatedBookingForm
 from apps.booking.models import Appointment
+from apps.booking.selectors import get_active_visit_type
 from apps.core.views import _base_context
+from apps.patients import consultation_services, phone_change
 from apps.patients import rate_limits, services
 from apps.patients.forms import (
+    AccountPhoneChangeStartForm,
+    AccountPhoneChangeVerifyForm,
     AppointmentLinkForm,
+    ConsultationCreateForm,
     PatientLoginForm,
     PatientRegistrationForm,
     StaffLoginForm,
     auth_error_message,
 )
+from apps.patients.models import AccountPhoneChangeChallenge, Consultation, ConsultationAttachment
+from apps.patients.otp import WhatsAppOtpServiceUnavailable
+from apps.patients.profile_resolution import PatientProfileConflictError
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
 
 
@@ -145,6 +157,8 @@ def _portal_context(request, language, **extra):
             "medical_records": "السجل الطبي",
             "dashboard": "الرئيسية",
             "appointments": "المواعيد",
+            "book": "حجز موعد",
+            "consultations": "استشارة الطبيب",
             "link": "ربط موعد",
             "account": "الحساب",
             "password": "تغيير كلمة المرور",
@@ -154,6 +168,8 @@ def _portal_context(request, language, **extra):
             "medical_records": "Medical Records",
             "dashboard": "Dashboard",
             "appointments": "Appointments",
+            "book": "Book Appointment",
+            "consultations": "Consultations",
             "link": "Link Appointment",
             "account": "Account",
             "password": "Change Password",
@@ -169,6 +185,9 @@ def _portal_context(request, language, **extra):
             "portal_register_url": _portal_url("patient_portal_register", language),
             "portal_link_url": _portal_url("patient_portal_link_appointment", language),
             "portal_appointments_url": _portal_url("patient_portal_appointment_list", language),
+            "portal_book_url": _portal_url("patient_portal_book", language),
+            "portal_consultations_url": _portal_url("patient_portal_consultation_list", language),
+            "portal_consultation_new_url": _portal_url("patient_portal_consultation_new", language),
             "portal_medical_records_url": _portal_url("patient_portal_medical_records", language),
             "portal_account_url": _portal_url("patient_portal_account", language),
             "portal_password_change_url": _portal_url("patient_portal_password_change", language),
@@ -187,9 +206,19 @@ def _portal_context(request, language, **extra):
                     "url": _portal_url("patient_portal_appointment_list", language),
                 },
                 {
+                    "key": "book",
+                    "label": nav_labels["book"],
+                    "url": _portal_url("patient_portal_book", language),
+                },
+                {
                     "key": "medical_records",
                     "label": nav_labels["medical_records"],
                     "url": _portal_url("patient_portal_medical_records", language),
+                },
+                {
+                    "key": "consultations",
+                    "label": nav_labels["consultations"],
+                    "url": _portal_url("patient_portal_consultation_list", language),
                 },
                 {
                     "key": "link",
@@ -471,11 +500,22 @@ def portal_account(request, language="ar"):
     )
 
 
-@sensitive_post_parameters("old_password", "new_password1", "new_password2")
+@sensitive_post_parameters(
+    "old_password",
+    "new_password1",
+    "new_password2",
+    "current_password",
+    "otp",
+)
 @_login_required
 def portal_password_change(request, language="ar"):
     language = _language(language)
-    if request.method == "POST":
+    action = request.POST.get("action", "password") if request.method == "POST" else ""
+    form = _password_change_form(request.user, language=language)
+    phone_form = AccountPhoneChangeStartForm(user=request.user, language=language)
+    verify_form = AccountPhoneChangeVerifyForm(language=language)
+
+    if request.method == "POST" and action == "password":
         form = _password_change_form(request.user, data=request.POST, language=language)
         if form.is_valid():
             user = form.save()
@@ -487,13 +527,153 @@ def portal_password_change(request, language="ar"):
                 else "Your portal password has been changed.",
             )
             return redirect(_portal_url("patient_portal_account", language))
-    else:
-        form = _password_change_form(request.user, language=language)
+
+    elif request.method == "POST" and action == "phone_start":
+        phone_form = AccountPhoneChangeStartForm(
+            request.POST,
+            user=request.user,
+            language=language,
+        )
+        attempt_limit = rate_limits.check_phone_change_start_rate_limit(request)
+        if not attempt_limit.allowed:
+            phone_form.add_error(
+                None,
+                "عدد محاولات التحقق كبير. حاول لاحقًا."
+                if language == "ar"
+                else "Too many verification requests. Please try again later.",
+            )
+        elif phone_form.is_valid():
+            try:
+                phone_change.start_account_phone_change(
+                    user=request.user,
+                    phone_raw=phone_form.cleaned_data["new_phone"],
+                    phone_e164=phone_form.normalized_phone,
+                    language=language,
+                )
+            except WhatsAppOtpServiceUnavailable:
+                phone_form.add_error(
+                    None,
+                    "خدمة التحقق غير متاحة حاليًا. حاول لاحقًا."
+                    if language == "ar"
+                    else "Verification service is currently unavailable. Please try again later.",
+                )
+            except phone_change.PhoneChangeConflictError:
+                phone_form.add_error(
+                    "new_phone",
+                    "تعذر استخدام هذا الرقم."
+                    if language == "ar"
+                    else "This phone cannot be used.",
+                )
+            else:
+                messages.success(
+                    request,
+                    "تم إرسال رمز التحقق عبر واتساب إلى الرقم الجديد."
+                    if language == "ar"
+                    else "A WhatsApp verification code was sent to the new phone.",
+                )
+                return redirect(_portal_url("patient_portal_password_change", language))
+
+    elif request.method == "POST" and action == "phone_verify":
+        verify_form = AccountPhoneChangeVerifyForm(request.POST, language=language)
+        attempt_limit = rate_limits.check_phone_change_verify_rate_limit(request)
+        if not attempt_limit.allowed:
+            verify_form.add_error(
+                None,
+                "عدد محاولات التحقق كبير. حاول لاحقًا."
+                if language == "ar"
+                else "Too many verification attempts. Please try again later.",
+            )
+        elif verify_form.is_valid():
+            result = phone_change.verify_account_phone_change(
+                user=request.user,
+                challenge_id=verify_form.cleaned_data["challenge_id"],
+                code=verify_form.cleaned_data["otp"],
+            )
+            if result.succeeded:
+                update_session_auth_hash(request, result.user)
+                messages.success(
+                    request,
+                    "تم تغيير رقم حسابك. استخدم الرقم الجديد لتسجيل الدخول."
+                    if language == "ar"
+                    else "Your account phone was changed. Use the new phone to sign in.",
+                )
+                return redirect(_portal_url("patient_portal_password_change", language))
+            verify_form.add_error(
+                "otp" if result.reason in {"invalid", "attempts", "expired"} else None,
+                "رمز التحقق غير صالح أو منتهي."
+                if language == "ar"
+                else "The verification code is invalid or expired.",
+            )
+
+    elif request.method == "POST" and action == "phone_resend":
+        challenge_id = request.POST.get("challenge_id")
+        attempt_limit = rate_limits.check_phone_change_resend_rate_limit(request)
+        if not attempt_limit.allowed:
+            messages.error(
+                request,
+                "عدد طلبات إعادة الإرسال كبير. حاول لاحقًا."
+                if language == "ar"
+                else "Too many resend requests. Please try again later.",
+            )
+        else:
+            try:
+                phone_change.resend_account_phone_change(
+                    user=request.user,
+                    challenge_id=challenge_id,
+                    language=language,
+                )
+            except WhatsAppOtpServiceUnavailable:
+                messages.error(
+                    request,
+                    "خدمة التحقق غير متاحة حاليًا. حاول لاحقًا."
+                    if language == "ar"
+                    else "Verification service is currently unavailable. Please try again later.",
+                )
+            except (
+                phone_change.PhoneChangeChallengeError,
+                phone_change.PhoneChangeConflictError,
+                ValidationError,
+            ):
+                messages.error(
+                    request,
+                    "تعذر إعادة إرسال الرمز الآن."
+                    if language == "ar"
+                    else "The code cannot be resent right now.",
+                )
+            else:
+                messages.success(
+                    request,
+                    "تم إرسال رمز تحقق جديد."
+                    if language == "ar"
+                    else "A new verification code was sent.",
+                )
+        return redirect(_portal_url("patient_portal_password_change", language))
+
+    active_challenge = AccountPhoneChangeChallenge.objects.filter(
+        user=request.user,
+        consumed_at__isnull=True,
+        expires_at__gt=timezone.now(),
+    ).order_by("-created_at").first()
+    if active_challenge is not None and not verify_form.is_bound:
+        verify_form = AccountPhoneChangeVerifyForm(
+            initial={"challenge_id": active_challenge.public_id},
+            language=language,
+        )
 
     return render(
         request,
         "patients/password_change.html",
-        _authenticated_portal_context(request, language, form=form, portal_section="password"),
+        _authenticated_portal_context(
+            request,
+            language,
+            form=form,
+            phone_form=phone_form,
+            verify_form=verify_form,
+            active_challenge=active_challenge,
+            masked_account_phone=services.masked_account_identifier(request.user.username),
+            phone_countries=INTERNATIONAL_PHONE_COUNTRIES,
+            portal_section="password",
+        ),
     )
 
 
@@ -583,8 +763,263 @@ def portal_link_appointment(request, language="ar"):
     return render(
         request,
         "patients/link_appointment.html",
-        _authenticated_portal_context(request, language, form=form, portal_section="link"),
+        _authenticated_portal_context(
+            request,
+            language,
+            form=form,
+            phone_countries=INTERNATIONAL_PHONE_COUNTRIES,
+            portal_section="link",
+        ),
     )
+
+
+def _portal_slot_choices(visit_type, language):
+    if visit_type is None:
+        return []
+    choices = []
+    for slot in booking_services.generate_available_slots(visit_type=visit_type):
+        local = timezone.localtime(slot.starts_at)
+        label = (
+            local.strftime("%Y-%m-%d %H:%M")
+            if language == "en"
+            else local.strftime("%Y-%m-%d %H:%M")
+        )
+        choices.append((slot.value, label))
+    return choices
+
+
+@_login_required
+def portal_book_appointment(request, language="ar"):
+    language = _language(language)
+    booking_settings = booking_services.get_booking_settings()
+    visit_types = list(booking_services.public_visit_types()) if booking_settings.enabled else []
+    selected_id = (
+        request.POST.get("visit_type")
+        if request.method == "POST"
+        else request.GET.get("visit_type")
+    )
+    if not selected_id and visit_types:
+        selected_id = visit_types[0].pk
+    selected_visit_type = get_active_visit_type(selected_id) if booking_settings.enabled else None
+    slot_choices = _portal_slot_choices(selected_visit_type, language)
+    initial = {
+        "visit_type": selected_visit_type,
+        "contact_phone": request.user.username,
+        "same_as_contact": True,
+    }
+    if request.method == "POST":
+        form = AuthenticatedBookingForm(
+            request.POST,
+            user=request.user,
+            language=language,
+            slot_choices=slot_choices,
+        )
+        ip_limit = booking_rate_limits.check_public_booking_ip_rate_limit(request)
+        if not ip_limit.allowed:
+            form.is_valid()
+            form.add_error(None, form.error_copy["too_many_attempts"])
+        elif form.is_valid():
+            phone_limit = booking_rate_limits.check_public_booking_phone_rate_limit(
+                form.normalized_contact_phone
+            )
+            if not phone_limit.allowed:
+                form.add_error(None, form.error_copy["phone_limit"])
+            else:
+                try:
+                    appointment = form.save()
+                except PatientProfileConflictError:
+                    form.add_error(
+                        None,
+                        (
+                            "يوجد سجل مريض يحتاج إلى الربط الآمن. استخدم ربط موعد أو تواصل مع العيادة لاستعادة الحساب."
+                            if language == "ar"
+                            else "An existing patient record requires secure linking. Use Link Appointment or contact the clinic for account recovery."
+                        ),
+                    )
+                except ValidationError:
+                    form.add_error(None, form.error_copy["generic"])
+                else:
+                    messages.success(
+                        request,
+                        "تم حجز موعدك وربطه بسجلك الطبي."
+                        if language == "ar"
+                        else "Your appointment was booked and linked to your medical record.",
+                    )
+                    return redirect(
+                        _portal_url(
+                            "patient_portal_appointment_detail",
+                            language,
+                            public_token=appointment.public_token,
+                        )
+                    )
+    else:
+        form = AuthenticatedBookingForm(
+            user=request.user,
+            language=language,
+            slot_choices=slot_choices,
+            initial=initial,
+        )
+
+    return render(
+        request,
+        "patients/book_appointment.html",
+        _authenticated_portal_context(
+            request,
+            language,
+            form=form,
+            visit_types=visit_types,
+            selected_visit_type=selected_visit_type,
+            display_name=services.patient_display_name(request.user),
+            phone_countries=INTERNATIONAL_PHONE_COUNTRIES,
+            portal_section="book",
+        ),
+    )
+
+
+def _consultation_status_label(status, language):
+    labels = {
+        Consultation.Status.NEW: {"ar": "جديدة", "en": "New"},
+        Consultation.Status.ANSWERED: {"ar": "تم الرد", "en": "Answered"},
+        Consultation.Status.CLOSED: {"ar": "مغلقة", "en": "Closed"},
+    }
+    return labels.get(status, {"ar": status, "en": status})[language]
+
+
+@require_GET
+@_login_required
+def portal_consultation_list(request, language="ar"):
+    language = _language(language)
+    consultations = list(
+        Consultation.objects.filter(patient__user=request.user)
+        .select_related("patient")
+        .prefetch_related("attachments")
+    )
+    for consultation in consultations:
+        consultation.portal_status_label = _consultation_status_label(consultation.status, language)
+    return render(
+        request,
+        "patients/consultation_list.html",
+        _authenticated_portal_context(
+            request,
+            language,
+            consultations=consultations,
+            portal_section="consultations",
+        ),
+    )
+
+
+@sensitive_post_parameters()
+@_login_required
+def portal_consultation_new(request, language="ar"):
+    language = _language(language)
+    if request.method == "POST":
+        form = ConsultationCreateForm(request.POST, request.FILES, language=language)
+        attempt_limit = rate_limits.check_consultation_submission_rate_limit(request)
+        if not attempt_limit.allowed:
+            form.is_valid()
+            form.add_error(
+                None,
+                "عدد طلبات الاستشارة كبير. حاول لاحقًا."
+                if language == "ar"
+                else "Too many consultation submissions. Please try again later.",
+            )
+        elif form.is_valid():
+            try:
+                consultation = consultation_services.create_consultation(
+                    user=request.user,
+                    question=form.cleaned_data["question"],
+                    uploaded_files=form.cleaned_data["attachments"],
+                )
+            except PatientProfileConflictError:
+                form.add_error(
+                    None,
+                    "يوجد سجل يحتاج إلى الربط الآمن أولًا. استخدم ربط موعد أو تواصل مع العيادة."
+                    if language == "ar"
+                    else "An existing record must be securely linked first. Use Link Appointment or contact the clinic.",
+                )
+            except (ValidationError, ValueError):
+                form.add_error(
+                    "attachments",
+                    "تعذر حفظ المرفقات. راجع الملفات وحاول مرة أخرى."
+                    if language == "ar"
+                    else "The attachments could not be saved. Review the files and try again.",
+                )
+            else:
+                messages.success(
+                    request,
+                    "تم إرسال الاستشارة."
+                    if language == "ar"
+                    else "Your consultation was submitted.",
+                )
+                return redirect(
+                    _portal_url(
+                        "patient_portal_consultation_detail",
+                        language,
+                        public_id=consultation.public_id,
+                    )
+                )
+    else:
+        form = ConsultationCreateForm(language=language)
+    return render(
+        request,
+        "patients/consultation_new.html",
+        _authenticated_portal_context(
+            request,
+            language,
+            form=form,
+            portal_section="consultations",
+        ),
+    )
+
+
+@require_GET
+@_login_required
+def portal_consultation_detail(request, public_id, language="ar"):
+    language = _language(language)
+    consultation = get_object_or_404(
+        Consultation.objects.select_related("patient", "replied_by").prefetch_related("attachments"),
+        public_id=public_id,
+        patient__user=request.user,
+    )
+    return render(
+        request,
+        "patients/consultation_detail.html",
+        _authenticated_portal_context(
+            request,
+            language,
+            consultation=consultation,
+            status_label=_consultation_status_label(consultation.status, language),
+            portal_section="consultations",
+        ),
+    )
+
+
+def _consultation_attachment_response(attachment):
+    if not attachment.file_exists:
+        raise Http404("Attachment unavailable.")
+    try:
+        file_handle = attachment.file.open("rb")
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        raise Http404("Attachment unavailable.") from exc
+    response = FileResponse(
+        file_handle,
+        as_attachment=False,
+        filename=attachment.presentation_filename,
+        content_type=attachment.content_type,
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@require_GET
+@_login_required
+def portal_consultation_attachment(request, public_id, language="ar"):
+    attachment = get_object_or_404(
+        ConsultationAttachment.objects.select_related("consultation", "consultation__patient"),
+        public_id=public_id,
+        consultation__patient__user=request.user,
+    )
+    return _consultation_attachment_response(attachment)
 
 
 @_login_required

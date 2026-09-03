@@ -100,8 +100,12 @@
                 </div>
             </div>
             <div class="dashboard-action-list">
-                <a class="dashboard-action-link is-primary" href="{{ portal_link_url }}">
-                    <span>{% if is_arabic %}ربط موعد{% else %}Link Appointment{% endif %}</span>
+                <a class="dashboard-action-link is-primary" href="{{ portal_book_url }}">
+                    <span>{% if is_arabic %}حجز موعد{% else %}Book Appointment{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                </a>
+                <a class="dashboard-action-link" href="{{ portal_consultation_new_url }}">
+                    <span>{% if is_arabic %}استشارة الطبيب{% else %}Consult Doctor{% endif %}</span>
                     <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
                 </a>
                 <a class="dashboard-action-link" href="{{ portal_appointments_url }}">

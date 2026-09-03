@@ -51,6 +51,14 @@
                     <dt>{% if is_arabic %}تاريخ الإنشاء{% else %}Created{% endif %}</dt>
                     <dd><time class="portal-date-value" datetime="{{ appointment.created_at|date:'c' }}" dir="ltr">{{ appointment.created_at|date:"Y-m-d H:i" }}</time></dd>
                 </div>
+                <div>
+                    <dt>{% if is_arabic %}رقم التواصل{% else %}Contact number{% endif %}</dt>
+                    <dd dir="ltr">{{ appointment.effective_contact_phone }}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}رقم واتساب{% else %}WhatsApp number{% endif %}</dt>
+                    <dd dir="ltr">{{ appointment.effective_whatsapp_phone }}</dd>
+                </div>
             </dl>
             <div class="patient-card-actions">
                 <a class="patient-primary-action" href="{{ portal_appointments_url }}">

@@ -79,7 +79,6 @@
                         <div class="form-field{% if form.whatsapp_phone.errors %} has-error{% endif %}" data-booking-field="whatsapp-phone" data-booking-whatsapp-field>
                             <label for="{{ form.whatsapp_phone.id_for_label }}">
                                 {{ form.whatsapp_phone.label }}
-                                <span class="booking-optional-label">{% if is_arabic %}(اختياري){% else %}(Optional){% endif %}</span>
                             </label>
                             {% include "booking/partials/international_phone_field.html" with field=form.whatsapp_phone control_key="whatsapp" %}
                             {% if form.whatsapp_phone.errors %}<div class="booking-field-errors" role="alert">{{ form.whatsapp_phone.errors }}</div>{% endif %}

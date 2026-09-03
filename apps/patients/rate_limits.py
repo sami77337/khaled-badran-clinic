@@ -177,3 +177,43 @@ def check_registration_attempt_rate_limit(request, *, normalized_phone=""):
         )
 
     return _first_blocked(results)
+
+
+def check_consultation_submission_rate_limit(request):
+    return _rate_limit(
+        "consultation-submit",
+        _user_ip_identity(request),
+        limit=_setting_int("PATIENT_CONSULTATION_RATE_LIMIT_PER_HOUR", 5),
+        timeout=60 * 60,
+        message="Too many consultation submissions. Please try again later.",
+    )
+
+
+def check_phone_change_start_rate_limit(request):
+    return _rate_limit(
+        "phone-change-start",
+        _user_ip_identity(request),
+        limit=_setting_int("ACCOUNT_PHONE_CHANGE_START_RATE_LIMIT_PER_HOUR", 5),
+        timeout=60 * 60,
+        message="Too many phone verification requests. Please try again later.",
+    )
+
+
+def check_phone_change_resend_rate_limit(request):
+    return _rate_limit(
+        "phone-change-resend",
+        _user_ip_identity(request),
+        limit=_setting_int("ACCOUNT_PHONE_CHANGE_RESEND_RATE_LIMIT_PER_HOUR", 5),
+        timeout=60 * 60,
+        message="Too many verification-code requests. Please try again later.",
+    )
+
+
+def check_phone_change_verify_rate_limit(request):
+    return _rate_limit(
+        "phone-change-verify",
+        _user_ip_identity(request),
+        limit=_setting_int("ACCOUNT_PHONE_CHANGE_VERIFY_RATE_LIMIT_PER_HOUR", 20),
+        timeout=60 * 60,
+        message="Too many verification attempts. Please try again later.",
+    )

@@ -7,8 +7,8 @@
             <p class="dashboard-eyebrow">{% if is_arabic %}بوابة المريض{% else %}Patient Portal{% endif %}</p>
             <h1>{% if is_arabic %}المواعيد{% else %}Appointments{% endif %}</h1>
         </div>
-        <a class="patient-primary-action" href="{{ portal_link_url }}">
-            <span>{% if is_arabic %}ربط موعد{% else %}Link Appointment{% endif %}</span>
+        <a class="patient-primary-action" href="{{ portal_book_url }}">
+            <span>{% if is_arabic %}حجز موعد{% else %}Book Appointment{% endif %}</span>
             <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
         </a>
     </header>
