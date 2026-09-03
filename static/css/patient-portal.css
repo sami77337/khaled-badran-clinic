@@ -444,12 +444,6 @@
     overflow-wrap: anywhere;
 }
 
-.patient-service-selector {
-    margin-block-end: 1.25rem;
-    border-block-end: 1px solid var(--dashboard-line);
-    padding-block-end: 1.25rem;
-}
-
 .patient-inline-form {
     margin-block-start: 1rem;
 }

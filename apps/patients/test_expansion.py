@@ -121,13 +121,14 @@ class AuthenticatedBookingExpansionTests(ExpansionTestMixin, TestCase):
     def test_same_as_contact_saves_matching_whatsapp(self):
         self.client.force_login(self.user)
         response = self.client.post(
-            reverse("patient_portal_book"),
+            reverse("booking_confirm"),
             {
+                "full_name": "Synthetic Patient",
                 "visit_type": self.visit_type.pk,
                 "starts_at": self.slot.value,
                 "booking_note": "Synthetic booking note",
-                "contact_phone": "+962795555555",
-                "same_as_contact": "on",
+                "phone": "+962795555555",
+                "same_as_phone": "on",
                 "whatsapp_phone": "",
             },
         )
@@ -136,6 +137,112 @@ class AuthenticatedBookingExpansionTests(ExpansionTestMixin, TestCase):
         self.assertEqual(appointment.whatsapp_phone_e164, appointment.contact_phone_e164)
         self.assertEqual(appointment.patient, self.patient)
 
+    def test_portal_book_routes_enter_localized_canonical_flow(self):
+        self.client.force_login(self.user)
+        route_cases = (
+            (
+                "patient_portal_book",
+                "book",
+                "booking_slots",
+                "booking/select_visit_type.html",
+                "booking/select_slot.html",
+                "اختر الخدمة",
+                "اختر التاريخ والوقت",
+                "عرض الأوقات",
+            ),
+            (
+                "patient_portal_book_en",
+                "book_en",
+                "booking_slots_en",
+                "booking/select_visit_type.html",
+                "booking/select_slot.html",
+                "Select a Service",
+                "Select Date &amp; Time",
+                "Show Times",
+            ),
+        )
+
+        for (
+            portal_route,
+            booking_route,
+            slots_route,
+            service_template,
+            slot_template,
+            service_heading,
+            slot_heading,
+            duplicate_copy,
+        ) in route_cases:
+            with self.subTest(portal_route=portal_route):
+                response = self.client.get(reverse(portal_route))
+                self.assertRedirects(
+                    response,
+                    reverse(booking_route),
+                    fetch_redirect_response=False,
+                )
+
+                canonical = self.client.get(reverse(portal_route), follow=True)
+                self.assertEqual(canonical.redirect_chain, [(reverse(booking_route), 302)])
+                self.assertTemplateUsed(canonical, service_template)
+                self.assertTemplateNotUsed(canonical, "patients/book_appointment.html")
+                self.assertContains(canonical, "data-booking-service-step")
+                self.assertContains(canonical, service_heading)
+                self.assertNotContains(canonical, 'data-patient-page="book-appointment"')
+                self.assertNotContains(canonical, duplicate_copy)
+
+                slots = self.client.get(
+                    reverse(slots_route),
+                    {"visit_type": self.visit_type.pk},
+                )
+                self.assertEqual(slots.status_code, 200)
+                self.assertTemplateUsed(slots, slot_template)
+                self.assertContains(slots, "data-booking-slot-step")
+                self.assertContains(slots, slot_heading)
+                self.assertContains(slots, "data-booking-date-group")
+                self.assertContains(slots, "data-booking-slot")
+
+    def test_portal_book_links_target_canonical_flow_and_link_appointment_remains(self):
+        self.client.force_login(self.user)
+        surface_cases = (
+            ("patient_portal_dashboard", "book", "patient_portal_link_appointment"),
+            ("patient_portal_appointment_list", "book", "patient_portal_link_appointment"),
+            ("patient_portal_dashboard_en", "book_en", "patient_portal_link_appointment_en"),
+            ("patient_portal_appointment_list_en", "book_en", "patient_portal_link_appointment_en"),
+        )
+
+        for surface_route, booking_route, link_route in surface_cases:
+            with self.subTest(surface_route=surface_route):
+                response = self.client.get(reverse(surface_route))
+                canonical_url = reverse(booking_route)
+                link_url = reverse(link_route)
+                compatibility_url = reverse(
+                    "patient_portal_book_en"
+                    if booking_route.endswith("_en")
+                    else "patient_portal_book"
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context["portal_book_url"], canonical_url)
+                self.assertEqual(response.context["portal_link_url"], link_url)
+                self.assertContains(response, f'href="{canonical_url}"')
+                self.assertContains(response, f'href="{link_url}"')
+                self.assertNotContains(response, f'href="{compatibility_url}"')
+
+    def test_authenticated_confirm_prefills_account_phone_in_canonical_picker(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("booking_confirm_en"),
+            {"visit_type": self.visit_type.pk, "starts_at": self.slot.value},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "booking/confirm.html")
+        self.assertEqual(response.context["form"].initial["phone"], self.user.username)
+        self.assertTrue(response.context["form"].fields["full_name"].disabled)
+        self.assertContains(response, f'value="{self.user.username}"')
+        self.assertContains(response, 'name="same_as_phone"', count=1)
+        self.assertContains(response, 'name="whatsapp_phone"', count=1)
+        self.assertContains(response, "data-booking-phone-control", count=2)
+
     def test_logged_in_public_booking_preserves_authenticated_owner(self):
         self.client.force_login(self.user)
         response = self.client.post(
@@ -143,8 +250,7 @@ class AuthenticatedBookingExpansionTests(ExpansionTestMixin, TestCase):
             {
                 "full_name": "Different Display Name",
                 "phone": "+962795555555",
-                "same_as_phone": "on",
-                "whatsapp_phone": "",
+                "whatsapp_phone": "+962799999999",
                 "visit_type": self.visit_type.pk,
                 "starts_at": self.slot.value,
                 "booking_note": "",
@@ -153,9 +259,12 @@ class AuthenticatedBookingExpansionTests(ExpansionTestMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         appointment = Appointment.objects.get()
         self.assertEqual(appointment.patient, self.patient)
+        self.assertEqual(appointment.contact_phone_e164, "+962795555555")
+        self.assertEqual(appointment.whatsapp_phone_e164, "+962799999999")
         self.assertEqual(Patient.objects.count(), 1)
         self.patient.refresh_from_db()
         self.assertEqual(self.patient.phone_e164, "+962791234567")
+        self.assertEqual(self.user.username, "+962791234567")
 
     def test_anonymous_booking_still_creates_patient_and_contact_fields(self):
         response = self.client.post(
@@ -610,12 +719,11 @@ class InternationalPhoneComponentExpansionTests(ExpansionTestMixin, TestCase):
         self.create_patient(user=self.user)
         self.client.force_login(self.user)
 
-    def test_registration_link_booking_and_phone_change_reuse_picker_partial(self):
-        self.setup_booking()
+    def test_registration_link_canonical_booking_and_phone_change_reuse_picker_partial(self):
+        _, visit_type, slot = self.setup_booking()
         routes = (
             "patient_portal_register",
             "patient_portal_link_appointment",
-            "patient_portal_book",
             "patient_portal_password_change",
         )
         self.client.logout()
@@ -629,3 +737,10 @@ class InternationalPhoneComponentExpansionTests(ExpansionTestMixin, TestCase):
                 response = self.client.get(reverse(route))
                 self.assertTemplateUsed(response, "booking/partials/international_phone_field.html")
                 self.assertContains(response, "data-booking-phone-control")
+
+        booking = self.client.get(
+            reverse("booking_confirm"),
+            {"visit_type": visit_type.pk, "starts_at": slot.value},
+        )
+        self.assertTemplateUsed(booking, "booking/partials/international_phone_field.html")
+        self.assertContains(booking, "data-booking-phone-control", count=2)

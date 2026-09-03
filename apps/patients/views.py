@@ -17,12 +17,8 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_GET
 
-from apps.booking import rate_limits as booking_rate_limits
-from apps.booking import services as booking_services
 from apps.booking.countries import INTERNATIONAL_PHONE_COUNTRIES
-from apps.booking.forms import AuthenticatedBookingForm
 from apps.booking.models import Appointment
-from apps.booking.selectors import get_active_visit_type
 from apps.core.views import _base_context
 from apps.patients import consultation_services, phone_change
 from apps.patients import rate_limits, services
@@ -77,6 +73,10 @@ def _route_name(name, language):
 
 def _portal_url(name, language, **kwargs):
     return reverse(_route_name(name, language), kwargs=kwargs or None)
+
+
+def _booking_start_url(language):
+    return reverse(_route_name("book", language))
 
 
 def _portal_language_switch_url(request, language):
@@ -185,7 +185,7 @@ def _portal_context(request, language, **extra):
             "portal_register_url": _portal_url("patient_portal_register", language),
             "portal_link_url": _portal_url("patient_portal_link_appointment", language),
             "portal_appointments_url": _portal_url("patient_portal_appointment_list", language),
-            "portal_book_url": _portal_url("patient_portal_book", language),
+            "portal_book_url": _booking_start_url(language),
             "portal_consultations_url": _portal_url("patient_portal_consultation_list", language),
             "portal_consultation_new_url": _portal_url("patient_portal_consultation_new", language),
             "portal_medical_records_url": _portal_url("patient_portal_medical_records", language),
@@ -208,7 +208,7 @@ def _portal_context(request, language, **extra):
                 {
                     "key": "book",
                     "label": nav_labels["book"],
-                    "url": _portal_url("patient_portal_book", language),
+                    "url": _booking_start_url(language),
                 },
                 {
                     "key": "medical_records",
@@ -773,107 +773,10 @@ def portal_link_appointment(request, language="ar"):
     )
 
 
-def _portal_slot_choices(visit_type, language):
-    if visit_type is None:
-        return []
-    choices = []
-    for slot in booking_services.generate_available_slots(visit_type=visit_type):
-        local = timezone.localtime(slot.starts_at)
-        label = (
-            local.strftime("%Y-%m-%d %H:%M")
-            if language == "en"
-            else local.strftime("%Y-%m-%d %H:%M")
-        )
-        choices.append((slot.value, label))
-    return choices
-
-
+@require_GET
 @_login_required
 def portal_book_appointment(request, language="ar"):
-    language = _language(language)
-    booking_settings = booking_services.get_booking_settings()
-    visit_types = list(booking_services.public_visit_types()) if booking_settings.enabled else []
-    selected_id = (
-        request.POST.get("visit_type")
-        if request.method == "POST"
-        else request.GET.get("visit_type")
-    )
-    if not selected_id and visit_types:
-        selected_id = visit_types[0].pk
-    selected_visit_type = get_active_visit_type(selected_id) if booking_settings.enabled else None
-    slot_choices = _portal_slot_choices(selected_visit_type, language)
-    initial = {
-        "visit_type": selected_visit_type,
-        "contact_phone": request.user.username,
-        "same_as_contact": True,
-    }
-    if request.method == "POST":
-        form = AuthenticatedBookingForm(
-            request.POST,
-            user=request.user,
-            language=language,
-            slot_choices=slot_choices,
-        )
-        ip_limit = booking_rate_limits.check_public_booking_ip_rate_limit(request)
-        if not ip_limit.allowed:
-            form.is_valid()
-            form.add_error(None, form.error_copy["too_many_attempts"])
-        elif form.is_valid():
-            phone_limit = booking_rate_limits.check_public_booking_phone_rate_limit(
-                form.normalized_contact_phone
-            )
-            if not phone_limit.allowed:
-                form.add_error(None, form.error_copy["phone_limit"])
-            else:
-                try:
-                    appointment = form.save()
-                except PatientProfileConflictError:
-                    form.add_error(
-                        None,
-                        (
-                            "يوجد سجل مريض يحتاج إلى الربط الآمن. استخدم ربط موعد أو تواصل مع العيادة لاستعادة الحساب."
-                            if language == "ar"
-                            else "An existing patient record requires secure linking. Use Link Appointment or contact the clinic for account recovery."
-                        ),
-                    )
-                except ValidationError:
-                    form.add_error(None, form.error_copy["generic"])
-                else:
-                    messages.success(
-                        request,
-                        "تم حجز موعدك وربطه بسجلك الطبي."
-                        if language == "ar"
-                        else "Your appointment was booked and linked to your medical record.",
-                    )
-                    return redirect(
-                        _portal_url(
-                            "patient_portal_appointment_detail",
-                            language,
-                            public_token=appointment.public_token,
-                        )
-                    )
-    else:
-        form = AuthenticatedBookingForm(
-            user=request.user,
-            language=language,
-            slot_choices=slot_choices,
-            initial=initial,
-        )
-
-    return render(
-        request,
-        "patients/book_appointment.html",
-        _authenticated_portal_context(
-            request,
-            language,
-            form=form,
-            visit_types=visit_types,
-            selected_visit_type=selected_visit_type,
-            display_name=services.patient_display_name(request.user),
-            phone_countries=INTERNATIONAL_PHONE_COUNTRIES,
-            portal_section="book",
-        ),
-    )
+    return redirect(_booking_start_url(language))
 
 
 def _consultation_status_label(status, language):
