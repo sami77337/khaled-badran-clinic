@@ -151,6 +151,7 @@ class Consultation(models.Model):
         related_name="consultations_replied",
     )
     replied_at = models.DateTimeField(null=True, blank=True)
+    staff_handled_at = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -255,6 +256,7 @@ class AccountPhoneChangeChallenge(models.Model):
     )
     phone_raw = models.CharField(max_length=50)
     phone_e164 = models.CharField(max_length=20, db_index=True)
+    propagate_to_upcoming_appointments = models.BooleanField(default=True)
     otp_digest = models.CharField(max_length=128)
     expires_at = models.DateTimeField(db_index=True)
     attempt_count = models.PositiveSmallIntegerField(default=0)
@@ -272,6 +274,43 @@ class AccountPhoneChangeChallenge(models.Model):
 
     def __str__(self):
         return f"Account phone verification {self.public_id}"
+
+    @property
+    def is_active(self):
+        return (
+            self.consumed_at is None
+            and self.expires_at > timezone.now()
+            and self.attempt_count < self.max_attempts
+        )
+
+
+class AppointmentLinkRecoveryChallenge(models.Model):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="appointment_link_recovery_challenges",
+    )
+    phone_raw = models.CharField(max_length=50)
+    phone_e164 = models.CharField(max_length=20, db_index=True)
+    otp_digest = models.CharField(max_length=128)
+    expires_at = models.DateTimeField(db_index=True)
+    attempt_count = models.PositiveSmallIntegerField(default=0)
+    max_attempts = models.PositiveSmallIntegerField(default=5)
+    last_sent_at = models.DateTimeField()
+    verified_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    consumed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["user", "consumed_at", "expires_at"]),
+        ]
+
+    def __str__(self):
+        return f"Appointment link recovery {self.public_id}"
 
     @property
     def is_active(self):

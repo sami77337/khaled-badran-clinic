@@ -61,6 +61,11 @@
                 </div>
             </dl>
             <div class="patient-card-actions">
+                {% if can_cancel_appointment %}
+                <a class="patient-secondary-action" href="{{ appointment_cancel_url }}">
+                    {% if is_arabic %}إلغاء الموعد{% else %}Cancel Appointment{% endif %}
+                </a>
+                {% endif %}
                 <a class="patient-primary-action" href="{{ portal_appointments_url }}">
                     <span>{% if is_arabic %}كل المواعيد{% else %}All Appointments{% endif %}</span>
                     <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
@@ -69,6 +74,9 @@
                     {% if is_arabic %}الرئيسية{% else %}Dashboard{% endif %}
                 </a>
             </div>
+            {% if can_cancel_appointment %}
+            <p class="muted">{% if is_arabic %}يمكن الإلغاء حتى {{ patient_cancellation_cutoff_hours }} ساعة قبل الموعد.{% else %}Cancellation is available until {{ patient_cancellation_cutoff_hours }} hours before the appointment.{% endif %}</p>
+            {% endif %}
         </div>
     </section>
 </div>

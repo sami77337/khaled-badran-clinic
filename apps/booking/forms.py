@@ -227,6 +227,36 @@ class StatusNoteForm(forms.Form):
         return (self.cleaned_data.get("note") or "").strip()
 
 
+class PatientCancellationCutoffForm(forms.Form):
+    cutoff_hours = forms.IntegerField(
+        min_value=0,
+        max_value=168,
+        widget=forms.NumberInput(attrs={"min": "0", "max": "168", "step": "1"}),
+    )
+
+    def __init__(self, *args, language="ar", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.language = "en" if language == "en" else "ar"
+        self.fields["cutoff_hours"].label = (
+            "مهلة إلغاء المريض للموعد"
+            if self.language == "ar"
+            else "Patient cancellation cutoff"
+        )
+        self.fields["cutoff_hours"].help_text = (
+            "ساعة قبل الموعد (من 0 إلى 168)"
+            if self.language == "ar"
+            else "Hours before the appointment (0–168)"
+        )
+        self.fields["cutoff_hours"].error_messages.update(
+            {
+                "required": "أدخل عدد الساعات." if self.language == "ar" else "Enter the number of hours.",
+                "invalid": "أدخل عددًا صحيحًا." if self.language == "ar" else "Enter a whole number.",
+                "min_value": "الحد الأدنى 0 ساعة." if self.language == "ar" else "The minimum is 0 hours.",
+                "max_value": "الحد الأقصى 168 ساعة." if self.language == "ar" else "The maximum is 168 hours.",
+            }
+        )
+
+
 class CancelAppointmentForm(StatusNoteForm):
     note = forms.CharField(
         required=True,

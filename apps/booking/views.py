@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponseForbidden, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
@@ -15,6 +16,7 @@ from django.views.decorators.cache import never_cache
 from apps.booking.forms import (
     CancelAppointmentForm,
     MarkNoShowForm,
+    PatientCancellationCutoffForm,
     PublicBookingForm,
     RescheduleAppointmentForm,
     StatusNoteForm,
@@ -24,7 +26,7 @@ from apps.booking.models import Appointment
 from apps.booking import operations, rate_limits, services
 from apps.booking.selectors import get_active_doctor, get_active_visit_type
 from apps.clinic.models import Doctor, VisitType
-from apps.core.models import AuditLog
+from apps.core.models import AuditLog, SystemSetting
 from apps.core.views import _base_context
 from apps.patients.profile_resolution import PatientProfileConflictError
 
@@ -605,6 +607,9 @@ def staff_appointment_list(request):
             kwargs={"patient_id": appointment.patient_id},
         )
     alternate_language = "en" if language == "ar" else "ar"
+    cancellation_cutoff_minutes = (
+        services.get_booking_settings().patient_cancellation_cutoff_minutes
+    )
     return render(
         request,
         "booking/staff/appointment_list.html",
@@ -644,8 +649,121 @@ def staff_appointment_list(request):
                 if page_obj.has_next()
                 else ""
             ),
+            patient_cancellation_cutoff_form=PatientCancellationCutoffForm(
+                initial={"cutoff_hours": cancellation_cutoff_minutes // 60},
+                language=language,
+            ),
+            patient_cancellation_cutoff_url=_url_with_staff_language(
+                "staff_patient_cancellation_cutoff_update",
+                language,
+            ),
         ),
     )
+
+
+@_staff_required
+def staff_patient_cancellation_cutoff_update(request):
+    not_allowed = _require_post(request)
+    if not_allowed:
+        return not_allowed
+    language = _staff_language(request)
+    form = PatientCancellationCutoffForm(request.POST, language=language)
+    if not form.is_valid():
+        queryset, filters = _filtered_staff_appointments(request)
+        paginator = Paginator(queryset, 25)
+        page_obj = paginator.get_page(1)
+        appointments = list(page_obj.object_list)
+        for appointment in appointments:
+            appointment.staff_status_label = _localized_status_label(
+                appointment.status,
+                language,
+            )
+            appointment.staff_doctor_label = (
+                appointment.doctor.display_name_ar
+                if language == "ar"
+                else appointment.doctor.display_name_en
+            )
+            appointment.staff_visit_type_label = (
+                appointment.visit_type.name_ar
+                if language == "ar"
+                else appointment.visit_type.name_en
+            ) if appointment.visit_type_id else (
+                "غير محدد" if language == "ar" else "Not specified"
+            )
+            appointment.staff_detail_url = _staff_appointment_detail_url(
+                appointment.id,
+                language,
+            )
+            appointment.staff_patient_record_url = _url_with_staff_language(
+                "dashboard_patient_record_detail",
+                language,
+                kwargs={"patient_id": appointment.patient_id},
+            )
+        return render(
+            request,
+            "booking/staff/appointment_list.html",
+            _staff_context(
+                request,
+                language=language,
+                appointments=appointments,
+                page_obj=page_obj,
+                filters=filters,
+                status_choices=[
+                    (value, _localized_status_label(value, language, empty_label=label))
+                    for value, label in Appointment.Status.choices
+                ],
+                doctors=Doctor.objects.filter(is_active=True).order_by("display_order", "full_name_en"),
+                visit_types=VisitType.objects.filter(is_active=True).order_by("display_order", "name_en"),
+                staff_filter_action_url=reverse("staff_appointment_list"),
+                previous_page_url="",
+                next_page_url="",
+                patient_cancellation_cutoff_form=form,
+                patient_cancellation_cutoff_url=_url_with_staff_language(
+                    "staff_patient_cancellation_cutoff_update",
+                    language,
+                ),
+            ),
+            status=400,
+        )
+
+    new_minutes = form.cleaned_data["cutoff_hours"] * 60
+    with transaction.atomic():
+        setting = SystemSetting.objects.select_for_update().filter(
+            key=SystemSetting.PATIENT_CANCELLATION_CUTOFF_MINUTES
+        ).first()
+        old_value = setting.value if setting is not None else None
+        if setting is None:
+            setting = SystemSetting.objects.create(
+                key=SystemSetting.PATIENT_CANCELLATION_CUTOFF_MINUTES,
+                value=str(new_minutes),
+                value_type=SystemSetting.ValueType.DURATION_MINUTES,
+                description="Minimum lead time for patient appointment cancellation.",
+            )
+        else:
+            setting.value = str(new_minutes)
+            setting.value_type = SystemSetting.ValueType.DURATION_MINUTES
+            setting.save(update_fields=["value", "value_type", "updated_at"])
+        AuditLog.objects.create(
+            user=request.user,
+            action=AuditLog.Action.SETTINGS_CHANGE,
+            app_label="core",
+            model_name="SystemSetting",
+            object_id=str(setting.pk),
+            object_repr=SystemSetting.PATIENT_CANCELLATION_CUTOFF_MINUTES,
+            message="Updated patient appointment cancellation cutoff.",
+            metadata={
+                "key": SystemSetting.PATIENT_CANCELLATION_CUTOFF_MINUTES,
+                "old_value": old_value,
+                "new_value": str(new_minutes),
+            },
+        )
+    messages.success(
+        request,
+        "تم تحديث مهلة إلغاء المريض."
+        if language == "ar"
+        else "Patient cancellation cutoff updated.",
+    )
+    return redirect(_staff_appointment_list_url(language))
 
 
 def _staff_detail_context(request, appointment, **extra):

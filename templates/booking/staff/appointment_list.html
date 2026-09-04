@@ -19,6 +19,23 @@
         </p>
     </header>
 
+    <section class="appointments-filter-panel" aria-labelledby="patient-cancellation-cutoff-title">
+        <h2 id="patient-cancellation-cutoff-title">{% if is_arabic %}مهلة إلغاء المريض للموعد{% else %}Patient cancellation cutoff{% endif %}</h2>
+        <form class="appointments-filter-form" method="post" action="{{ patient_cancellation_cutoff_url }}">
+            {% csrf_token %}
+            {{ patient_cancellation_cutoff_form.non_field_errors }}
+            <div class="appointment-field">
+                {{ patient_cancellation_cutoff_form.cutoff_hours.label_tag }}
+                {{ patient_cancellation_cutoff_form.cutoff_hours }}
+                <p>{{ patient_cancellation_cutoff_form.cutoff_hours.help_text }}</p>
+                {{ patient_cancellation_cutoff_form.cutoff_hours.errors }}
+            </div>
+            <div class="appointments-filter-actions">
+                <button class="appointment-button appointment-button-primary" type="submit">{% if is_arabic %}حفظ المهلة{% else %}Save Cutoff{% endif %}</button>
+            </div>
+        </form>
+    </section>
+
     <section class="appointments-filter-panel" aria-labelledby="appointments-filter-title">
         <h2 class="dashboard-sr-only" id="appointments-filter-title">
             {% if is_arabic %}تصفية المواعيد{% else %}Filter appointments{% endif %}

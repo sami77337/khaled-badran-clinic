@@ -10,6 +10,22 @@ from apps.patients.models import (
 from apps.patients.profile_resolution import resolve_authenticated_patient
 
 
+class ConsultationDeleteError(ValueError):
+    pass
+
+
+def patient_can_delete_consultation(consultation, user):
+    return bool(
+        getattr(user, "is_authenticated", False)
+        and consultation.patient.user_id == user.id
+        and consultation.status == Consultation.Status.NEW
+        and not consultation.staff_reply
+        and consultation.replied_at is None
+        and consultation.replied_by_id is None
+        and consultation.staff_handled_at is None
+    )
+
+
 @transaction.atomic
 def create_consultation(*, user, question, uploaded_files):
     uploaded_files = list(uploaded_files or [])
@@ -49,7 +65,42 @@ def update_consultation_reply(*, consultation, staff_user, reply, status):
     else:
         locked.replied_by = None
         locked.replied_at = None
+    if locked.staff_handled_at is None:
+        locked.staff_handled_at = timezone.now()
     locked.save(
-        update_fields=["staff_reply", "status", "replied_by", "replied_at", "updated_at"]
+        update_fields=[
+            "staff_reply",
+            "status",
+            "replied_by",
+            "replied_at",
+            "staff_handled_at",
+            "updated_at",
+        ]
     )
     return locked
+
+
+@transaction.atomic
+def delete_unhandled_consultation(*, user, public_id):
+    consultation = (
+        Consultation.objects.select_for_update()
+        .select_related("patient")
+        .filter(public_id=public_id, patient__user=user)
+        .first()
+    )
+    if consultation is None or not patient_can_delete_consultation(consultation, user):
+        raise ConsultationDeleteError("Consultation cannot be deleted.")
+
+    attachments = list(
+        ConsultationAttachment.objects.select_for_update()
+        .filter(consultation=consultation)
+        .order_by("id")
+    )
+    try:
+        for attachment in attachments:
+            if attachment.file and attachment.file.name:
+                attachment.file.storage.delete(attachment.file.name)
+    except Exception:
+        raise ConsultationDeleteError("Consultation files could not be deleted safely.") from None
+
+    consultation.delete()

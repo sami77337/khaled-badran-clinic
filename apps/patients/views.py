@@ -8,6 +8,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import ValidationError
+from django.core.signing import BadSignature, dumps as signing_dumps, loads as signing_loads
 from django.http import FileResponse, Http404, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import NoReverseMatch, reverse
@@ -15,24 +16,33 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_post_parameters
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_http_methods
 
+from apps.booking import operations as booking_operations
+from apps.booking import services as booking_services
 from apps.booking.countries import INTERNATIONAL_PHONE_COUNTRIES
 from apps.booking.models import Appointment
 from apps.core.views import _base_context
-from apps.patients import consultation_services, phone_change
+from apps.patients import consultation_services, link_recovery, phone_change
 from apps.patients import rate_limits, services
 from apps.patients.forms import (
     AccountPhoneChangeStartForm,
     AccountPhoneChangeVerifyForm,
     AppointmentLinkForm,
+    AppointmentLinkRecoveryStartForm,
+    AppointmentLinkRecoveryVerifyForm,
     ConsultationCreateForm,
     PatientLoginForm,
     PatientRegistrationForm,
     StaffLoginForm,
     auth_error_message,
 )
-from apps.patients.models import AccountPhoneChangeChallenge, Consultation, ConsultationAttachment
+from apps.patients.models import (
+    AccountPhoneChangeChallenge,
+    AppointmentLinkRecoveryChallenge,
+    Consultation,
+    ConsultationAttachment,
+)
 from apps.patients.otp import WhatsAppOtpServiceUnavailable
 from apps.patients.profile_resolution import PatientProfileConflictError
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
@@ -61,6 +71,9 @@ _PORTAL_MEDIA_TYPE_LABELS = {
         RecordMedia.MediaType.SHORT_VIDEO: "Short video",
     },
 }
+
+_LINK_RECOVERY_SESSION_KEY = "patient_portal_verified_link_recovery"
+_APPOINTMENT_CANCELLATION_SIGNING_SALT = "patients.appointment-cancellation"
 
 
 def _language(language):
@@ -146,6 +159,25 @@ def _token_initial(request):
     return (request.GET.get("token") or request.GET.get("public_token") or "").strip()
 
 
+def _appointment_cancellation_reference(appointment):
+    return signing_dumps(appointment.pk, salt=_APPOINTMENT_CANCELLATION_SIGNING_SALT)
+
+
+def _appointment_from_cancellation_reference(reference, user):
+    try:
+        appointment_id = signing_loads(
+            reference,
+            salt=_APPOINTMENT_CANCELLATION_SIGNING_SALT,
+        )
+    except (BadSignature, TypeError, ValueError) as exc:
+        raise Http404("Appointment unavailable.") from exc
+    return get_object_or_404(
+        Appointment.objects.select_related("doctor", "patient", "visit_type"),
+        pk=appointment_id,
+        patient__user=user,
+    )
+
+
 def _portal_context(request, language, **extra):
     language = _language(language)
     context = _base_context(request, "patient_portal", language)
@@ -184,6 +216,10 @@ def _portal_context(request, language, **extra):
             "portal_logout_url": _portal_url("patient_portal_logout", language),
             "portal_register_url": _portal_url("patient_portal_register", language),
             "portal_link_url": _portal_url("patient_portal_link_appointment", language),
+            "portal_link_recovery_url": _portal_url(
+                "patient_portal_link_appointment_recovery",
+                language,
+            ),
             "portal_appointments_url": _portal_url("patient_portal_appointment_list", language),
             "portal_book_url": _booking_start_url(language),
             "portal_consultations_url": _portal_url("patient_portal_consultation_list", language),
@@ -549,6 +585,9 @@ def portal_password_change(request, language="ar"):
                     phone_raw=phone_form.cleaned_data["new_phone"],
                     phone_e164=phone_form.normalized_phone,
                     language=language,
+                    propagate_to_upcoming_appointments=phone_form.cleaned_data[
+                        "propagate_to_upcoming_appointments"
+                    ],
                 )
             except WhatsAppOtpServiceUnavailable:
                 phone_form.add_error(
@@ -773,6 +812,219 @@ def portal_link_appointment(request, language="ar"):
     )
 
 
+def _link_recovery_generic_message(language):
+    return (
+        "تعذر استعادة المواعيد تلقائيًا. تواصل مع العيادة لدعم الحساب."
+        if language == "ar"
+        else "Appointments cannot be recovered automatically. Contact the clinic for account support."
+    )
+
+
+@sensitive_post_parameters("phone", "otp")
+@_login_required
+@never_cache
+def portal_link_appointment_recovery(request, language="ar"):
+    language = _language(language)
+    action = request.POST.get("action", "") if request.method == "POST" else ""
+    start_form = AppointmentLinkRecoveryStartForm(language=language)
+    verify_form = AppointmentLinkRecoveryVerifyForm(language=language)
+
+    if request.method == "POST" and action == "start":
+        start_form = AppointmentLinkRecoveryStartForm(request.POST, language=language)
+        form_valid = start_form.is_valid()
+        attempt_limit = rate_limits.check_link_recovery_start_rate_limit(
+            request,
+            normalized_phone=start_form.normalized_phone,
+        )
+        if not attempt_limit.allowed:
+            start_form.add_error(
+                None,
+                "عدد محاولات التحقق كبير. حاول لاحقًا."
+                if language == "ar"
+                else "Too many verification requests. Please try again later.",
+            )
+        elif form_valid:
+            try:
+                link_recovery.start_appointment_link_recovery(
+                    user=request.user,
+                    phone_raw=start_form.cleaned_data["phone"],
+                    phone_e164=start_form.normalized_phone,
+                    language=language,
+                )
+            except WhatsAppOtpServiceUnavailable:
+                start_form.add_error(
+                    None,
+                    "خدمة التحقق غير متاحة حاليًا. حاول لاحقًا."
+                    if language == "ar"
+                    else "Verification service is currently unavailable. Please try again later.",
+                )
+            else:
+                request.session.pop(_LINK_RECOVERY_SESSION_KEY, None)
+                messages.success(
+                    request,
+                    "تم إرسال رمز تحقق من 6 أرقام عبر واتساب."
+                    if language == "ar"
+                    else "A 6-digit verification code was sent by WhatsApp.",
+                )
+                return redirect(
+                    _portal_url("patient_portal_link_appointment_recovery", language)
+                )
+
+    elif request.method == "POST" and action == "verify":
+        submitted_form = AppointmentLinkRecoveryVerifyForm(request.POST, language=language)
+        attempt_limit = rate_limits.check_link_recovery_verify_rate_limit(request)
+        challenge_id = request.POST.get("challenge_id")
+        error_message = ""
+        if not attempt_limit.allowed:
+            error_message = (
+                "عدد محاولات التحقق كبير. حاول لاحقًا."
+                if language == "ar"
+                else "Too many verification attempts. Please try again later."
+            )
+        elif not submitted_form.is_valid():
+            error_message = (
+                "رمز التحقق غير صالح أو منتهي."
+                if language == "ar"
+                else "The verification code is invalid or expired."
+            )
+        else:
+            result = link_recovery.verify_appointment_link_recovery(
+                user=request.user,
+                challenge_id=submitted_form.cleaned_data["challenge_id"],
+                code=submitted_form.cleaned_data["otp"],
+            )
+            if result.succeeded:
+                request.session[_LINK_RECOVERY_SESSION_KEY] = str(result.challenge.public_id)
+                return redirect(
+                    _portal_url("patient_portal_link_appointment_recovery", language)
+                )
+            error_message = (
+                "رمز التحقق غير صالح أو منتهي."
+                if language == "ar"
+                else "The verification code is invalid or expired."
+            )
+        # Never re-render a submitted OTP value.
+        verify_form = AppointmentLinkRecoveryVerifyForm(
+            {"challenge_id": challenge_id, "otp": ""},
+            language=language,
+        )
+        verify_form.is_valid()
+        verify_form._errors.pop("otp", None)
+        verify_form.add_error("otp", error_message)
+
+    elif request.method == "POST" and action == "resend":
+        challenge_id = request.POST.get("challenge_id")
+        attempt_limit = rate_limits.check_link_recovery_resend_rate_limit(request)
+        if not attempt_limit.allowed:
+            messages.error(
+                request,
+                "عدد طلبات إعادة الإرسال كبير. حاول لاحقًا."
+                if language == "ar"
+                else "Too many resend requests. Please try again later.",
+            )
+        else:
+            try:
+                link_recovery.resend_appointment_link_recovery(
+                    user=request.user,
+                    challenge_id=challenge_id,
+                    language=language,
+                )
+            except WhatsAppOtpServiceUnavailable:
+                messages.error(
+                    request,
+                    "خدمة التحقق غير متاحة حاليًا. حاول لاحقًا."
+                    if language == "ar"
+                    else "Verification service is currently unavailable. Please try again later.",
+                )
+            except (link_recovery.LinkRecoveryChallengeError, ValidationError):
+                messages.error(
+                    request,
+                    "تعذر إعادة إرسال الرمز الآن."
+                    if language == "ar"
+                    else "The code cannot be resent right now.",
+                )
+            else:
+                messages.success(
+                    request,
+                    "تم إرسال رمز تحقق جديد."
+                    if language == "ar"
+                    else "A new verification code was sent.",
+                )
+        return redirect(_portal_url("patient_portal_link_appointment_recovery", language))
+
+    elif request.method == "POST" and action == "link":
+        challenge_id = request.session.get(_LINK_RECOVERY_SESSION_KEY)
+        if not challenge_id:
+            messages.error(request, _link_recovery_generic_message(language))
+        else:
+            try:
+                link_recovery.link_verified_recovery_patient(
+                    user=request.user,
+                    challenge_id=challenge_id,
+                )
+            except (
+                link_recovery.LinkRecoveryChallengeError,
+                link_recovery.LinkRecoveryConflictError,
+                ValidationError,
+            ):
+                messages.error(request, _link_recovery_generic_message(language))
+            else:
+                request.session.pop(_LINK_RECOVERY_SESSION_KEY, None)
+                messages.success(
+                    request,
+                    "تم ربط هذه المواعيد بحسابك."
+                    if language == "ar"
+                    else "These appointments were linked to your account.",
+                )
+                return redirect(_portal_url("patient_portal_appointment_list", language))
+        return redirect(_portal_url("patient_portal_link_appointment_recovery", language))
+
+    active_challenge = AppointmentLinkRecoveryChallenge.objects.filter(
+        user=request.user,
+        consumed_at__isnull=True,
+        verified_at__isnull=True,
+        expires_at__gt=timezone.now(),
+    ).order_by("-created_at", "-id").first()
+    if active_challenge is not None and not verify_form.is_bound:
+        verify_form = AppointmentLinkRecoveryVerifyForm(
+            initial={"challenge_id": active_challenge.public_id},
+            language=language,
+        )
+
+    recovery_candidates = None
+    verified_challenge_id = request.session.get(_LINK_RECOVERY_SESSION_KEY)
+    if verified_challenge_id:
+        try:
+            recovery_candidates = link_recovery.get_verified_recovery_candidates(
+                user=request.user,
+                challenge_id=verified_challenge_id,
+            )
+        except link_recovery.LinkRecoveryChallengeError:
+            request.session.pop(_LINK_RECOVERY_SESSION_KEY, None)
+        else:
+            for appointment in recovery_candidates.appointments:
+                appointment.portal_status_label = services.patient_status_label(
+                    appointment.status,
+                    language,
+                )
+
+    return render(
+        request,
+        "patients/link_appointment_recovery.html",
+        _authenticated_portal_context(
+            request,
+            language,
+            start_form=start_form,
+            verify_form=verify_form,
+            active_challenge=active_challenge,
+            recovery_candidates=recovery_candidates,
+            recovery_generic_message=_link_recovery_generic_message(language),
+            phone_countries=INTERNATIONAL_PHONE_COUNTRIES,
+            portal_section="link",
+        ),
+    )
+
+
 @require_GET
 @_login_required
 def portal_book_appointment(request, language="ar"):
@@ -892,9 +1144,82 @@ def portal_consultation_detail(request, public_id, language="ar"):
             language,
             consultation=consultation,
             status_label=_consultation_status_label(consultation.status, language),
+            can_delete_consultation=consultation_services.patient_can_delete_consultation(
+                consultation,
+                request.user,
+            ),
+            consultation_delete_url=_portal_url(
+                "patient_portal_consultation_delete",
+                language,
+                public_id=consultation.public_id,
+            ),
             portal_section="consultations",
         ),
     )
+
+
+@require_http_methods(["GET", "POST"])
+@_login_required
+def portal_consultation_delete(request, public_id, language="ar"):
+    language = _language(language)
+    consultation = get_object_or_404(
+        Consultation.objects.select_related("patient"),
+        public_id=public_id,
+        patient__user=request.user,
+    )
+    if request.method == "GET":
+        if not consultation_services.patient_can_delete_consultation(
+            consultation,
+            request.user,
+        ):
+            raise Http404("Consultation cannot be deleted.")
+        return render(
+            request,
+            "patients/consultation_confirm_delete.html",
+            _authenticated_portal_context(
+                request,
+                language,
+                consultation=consultation,
+                consultation_delete_url=_portal_url(
+                    "patient_portal_consultation_delete",
+                    language,
+                    public_id=consultation.public_id,
+                ),
+                consultation_detail_url=_portal_url(
+                    "patient_portal_consultation_detail",
+                    language,
+                    public_id=consultation.public_id,
+                ),
+                portal_section="consultations",
+            ),
+        )
+
+    try:
+        consultation_services.delete_unhandled_consultation(
+            user=request.user,
+            public_id=public_id,
+        )
+    except consultation_services.ConsultationDeleteError:
+        messages.error(
+            request,
+            "تعذر حذف الاستشارة بأمان. لم يتم تغييرها."
+            if language == "ar"
+            else "The consultation could not be deleted safely and was not changed.",
+        )
+        return redirect(
+            _portal_url(
+                "patient_portal_consultation_detail",
+                language,
+                public_id=public_id,
+            )
+        )
+    messages.success(
+        request,
+        "تم حذف الاستشارة."
+        if language == "ar"
+        else "The consultation was deleted.",
+    )
+    return redirect(_portal_url("patient_portal_consultation_list", language))
 
 
 def _consultation_attachment_response(attachment):
@@ -1030,6 +1355,7 @@ def portal_appointment_detail(request, public_token, language="ar"):
         public_token=public_token,
         patient__user=request.user,
     )
+    cutoff_minutes = booking_services.get_booking_settings().patient_cancellation_cutoff_minutes
     return render(
         request,
         "patients/appointment_detail.html",
@@ -1038,6 +1364,78 @@ def portal_appointment_detail(request, public_token, language="ar"):
             language,
             appointment=appointment,
             status_label=services.patient_status_label(appointment.status, language),
+            can_cancel_appointment=booking_operations.patient_can_cancel_appointment(
+                appointment,
+                request.user,
+                cutoff_minutes=cutoff_minutes,
+            ),
+            appointment_cancel_url=_portal_url(
+                "patient_portal_appointment_cancel",
+                language,
+                reference=_appointment_cancellation_reference(appointment),
+            ),
+            patient_cancellation_cutoff_hours=cutoff_minutes // 60,
             portal_section="appointments",
         ),
+    )
+
+
+@require_http_methods(["GET", "POST"])
+@_login_required
+def portal_appointment_cancel(request, reference, language="ar"):
+    language = _language(language)
+    appointment = _appointment_from_cancellation_reference(reference, request.user)
+    cutoff_minutes = booking_services.get_booking_settings().patient_cancellation_cutoff_minutes
+    if request.method == "GET":
+        if not booking_operations.patient_can_cancel_appointment(
+            appointment,
+            request.user,
+            cutoff_minutes=cutoff_minutes,
+        ):
+            raise Http404("Appointment cannot be cancelled.")
+        return render(
+            request,
+            "patients/appointment_confirm_cancel.html",
+            _authenticated_portal_context(
+                request,
+                language,
+                appointment=appointment,
+                appointment_cancel_url=_portal_url(
+                    "patient_portal_appointment_cancel",
+                    language,
+                    reference=reference,
+                ),
+                appointment_detail_url=_portal_url(
+                    "patient_portal_appointment_detail",
+                    language,
+                    public_token=appointment.public_token,
+                ),
+                patient_cancellation_cutoff_hours=cutoff_minutes // 60,
+                portal_section="appointments",
+            ),
+        )
+
+    try:
+        booking_operations.patient_cancel_appointment(
+            public_token=appointment.public_token,
+            user=request.user,
+        )
+    except ValidationError:
+        messages.error(
+            request,
+            "تعذر إلغاء الموعد. قد تكون حالته أو مهلة الإلغاء قد تغيرت."
+            if language == "ar"
+            else "The appointment could not be cancelled. Its status or cancellation window may have changed.",
+        )
+    else:
+        messages.success(
+            request,
+            "تم إلغاء الموعد." if language == "ar" else "The appointment was cancelled.",
+        )
+    return redirect(
+        _portal_url(
+            "patient_portal_appointment_detail",
+            language,
+            public_token=appointment.public_token,
+        )
     )

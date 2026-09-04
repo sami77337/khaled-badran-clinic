@@ -389,6 +389,61 @@ class AppointmentLinkForm(forms.Form):
         return raw_phone.strip()
 
 
+class AppointmentLinkRecoveryStartForm(forms.Form):
+    phone = forms.CharField(max_length=50)
+
+    def __init__(self, *args, language="ar", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.language = "en" if language == "en" else "ar"
+        self.normalized_phone = ""
+        self.fields["phone"].label = (
+            "رقم الهاتف المستخدم في الحجز"
+            if self.language == "ar"
+            else "Booking phone number"
+        )
+        self.fields["phone"].widget.attrs.update(
+            {
+                "class": "booking-control",
+                "autocomplete": "tel",
+                "inputmode": "tel",
+                "dir": "ltr",
+                "placeholder": "7XXXXXXXX",
+            }
+        )
+
+    def clean_phone(self):
+        raw_phone = self.cleaned_data["phone"].strip()
+        try:
+            self.normalized_phone = normalize_phone(raw_phone)
+        except ValidationError as exc:
+            raise ValidationError(
+                "أدخل رقم هاتف صالحًا."
+                if self.language == "ar"
+                else "Enter a valid phone number."
+            ) from exc
+        return raw_phone
+
+
+class AppointmentLinkRecoveryVerifyForm(forms.Form):
+    challenge_id = forms.UUIDField(widget=forms.HiddenInput)
+    otp = forms.RegexField(regex=r"^\d{6}$", max_length=6, min_length=6)
+
+    def __init__(self, *args, language="ar", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.language = "en" if language == "en" else "ar"
+        self.fields["otp"].label = (
+            "رمز التحقق" if self.language == "ar" else "Verification code"
+        )
+        self.fields["otp"].widget.attrs.update(
+            {
+                "autocomplete": "one-time-code",
+                "inputmode": "numeric",
+                "dir": "ltr",
+                "pattern": "[0-9]{6}",
+            }
+        )
+
+
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
@@ -488,6 +543,10 @@ class AccountPhoneChangeStartForm(forms.Form):
             attrs={"autocomplete": "tel", "inputmode": "tel", "dir": "ltr", "placeholder": "7XXXXXXXX", "class": "booking-control"}
         ),
     )
+    propagate_to_upcoming_appointments = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
 
     def __init__(self, *args, user, language="ar", **kwargs):
         super().__init__(*args, **kwargs)
@@ -496,6 +555,11 @@ class AccountPhoneChangeStartForm(forms.Form):
         self.normalized_phone = ""
         self.fields["current_password"].label = "كلمة المرور الحالية" if self.language == "ar" else "Current password"
         self.fields["new_phone"].label = "رقم الحساب الجديد" if self.language == "ar" else "New account phone"
+        self.fields["propagate_to_upcoming_appointments"].label = (
+            "تحديث رقم التواصل للمواعيد القادمة إلى الرقم الجديد"
+            if self.language == "ar"
+            else "Update upcoming appointment contact numbers to the new phone"
+        )
 
     def clean_current_password(self):
         password = self.cleaned_data["current_password"]

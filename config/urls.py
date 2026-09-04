@@ -119,6 +119,11 @@ urlpatterns = [
     ),
     path("staff/appointments/", booking_views.staff_appointment_list, name="staff_appointment_list"),
     path(
+        "staff/appointments/settings/patient-cancellation-cutoff/",
+        booking_views.staff_patient_cancellation_cutoff_update,
+        name="staff_patient_cancellation_cutoff_update",
+    ),
+    path(
         "staff/appointments/<int:appointment_id>/",
         booking_views.staff_appointment_detail,
         name="staff_appointment_detail",
@@ -192,6 +197,12 @@ urlpatterns = [
         name="patient_portal_link_appointment",
     ),
     path(
+        "portal/link-appointment/recovery/",
+        patient_views.portal_link_appointment_recovery,
+        {"language": "ar"},
+        name="patient_portal_link_appointment_recovery",
+    ),
+    path(
         "portal/book/",
         patient_views.portal_book_appointment,
         {"language": "ar"},
@@ -214,6 +225,12 @@ urlpatterns = [
         patient_views.portal_consultation_detail,
         {"language": "ar"},
         name="patient_portal_consultation_detail",
+    ),
+    path(
+        "portal/consultations/<uuid:public_id>/delete/",
+        patient_views.portal_consultation_delete,
+        {"language": "ar"},
+        name="patient_portal_consultation_delete",
     ),
     path(
         "portal/consultations/attachments/<uuid:public_id>/",
@@ -245,6 +262,12 @@ urlpatterns = [
         {"language": "ar"},
         name="patient_portal_appointment_detail",
     ),
+    path(
+        "portal/appointments/patient-cancellation/<str:reference>/",
+        patient_views.portal_appointment_cancel,
+        {"language": "ar"},
+        name="patient_portal_appointment_cancel",
+    ),
     path("en/portal/", patient_views.portal_dashboard, {"language": "en"}, name="patient_portal_dashboard_en"),
     path("en/portal/login/", patient_views.portal_login, {"language": "en"}, name="patient_portal_login_en"),
     path("en/portal/logout/", patient_views.portal_logout, {"language": "en"}, name="patient_portal_logout_en"),
@@ -269,6 +292,12 @@ urlpatterns = [
         name="patient_portal_link_appointment_en",
     ),
     path(
+        "en/portal/link-appointment/recovery/",
+        patient_views.portal_link_appointment_recovery,
+        {"language": "en"},
+        name="patient_portal_link_appointment_recovery_en",
+    ),
+    path(
         "en/portal/book/",
         patient_views.portal_book_appointment,
         {"language": "en"},
@@ -291,6 +320,12 @@ urlpatterns = [
         patient_views.portal_consultation_detail,
         {"language": "en"},
         name="patient_portal_consultation_detail_en",
+    ),
+    path(
+        "en/portal/consultations/<uuid:public_id>/delete/",
+        patient_views.portal_consultation_delete,
+        {"language": "en"},
+        name="patient_portal_consultation_delete_en",
     ),
     path(
         "en/portal/consultations/attachments/<uuid:public_id>/",
@@ -321,6 +356,12 @@ urlpatterns = [
         patient_views.portal_appointment_detail,
         {"language": "en"},
         name="patient_portal_appointment_detail_en",
+    ),
+    path(
+        "en/portal/appointments/patient-cancellation/<str:reference>/",
+        patient_views.portal_appointment_cancel,
+        {"language": "en"},
+        name="patient_portal_appointment_cancel_en",
     ),
     path("admin/", admin.site.urls),
 ]

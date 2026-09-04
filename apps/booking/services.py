@@ -21,6 +21,7 @@ DEFAULT_BOOKING_MIN_LEAD_MINUTES = 180
 DEFAULT_BOOKING_MAX_DAYS_AHEAD = 30
 DEFAULT_BOOKING_SLOT_INTERVAL_MINUTES = 15
 DEFAULT_APPOINTMENT_REMINDER_OFFSET_MINUTES = 180
+DEFAULT_PATIENT_CANCELLATION_CUTOFF_MINUTES = 720
 
 ACTIVE_APPOINTMENT_STATUSES = [
     Appointment.Status.CONFIRMED,
@@ -43,6 +44,7 @@ class BookingSettings:
     max_days_ahead: int = DEFAULT_BOOKING_MAX_DAYS_AHEAD
     slot_interval_minutes: int = DEFAULT_BOOKING_SLOT_INTERVAL_MINUTES
     reminder_offset_minutes: int = DEFAULT_APPOINTMENT_REMINDER_OFFSET_MINUTES
+    patient_cancellation_cutoff_minutes: int = DEFAULT_PATIENT_CANCELLATION_CUTOFF_MINUTES
 
 
 @dataclass(frozen=True)
@@ -137,6 +139,12 @@ def get_booking_settings():
             SystemSetting.APPOINTMENT_REMINDER_OFFSET_MINUTES,
             DEFAULT_APPOINTMENT_REMINDER_OFFSET_MINUTES,
             minimum=0,
+        ),
+        patient_cancellation_cutoff_minutes=get_integer_setting(
+            SystemSetting.PATIENT_CANCELLATION_CUTOFF_MINUTES,
+            DEFAULT_PATIENT_CANCELLATION_CUTOFF_MINUTES,
+            minimum=0,
+            maximum=168 * 60,
         ),
     )
 

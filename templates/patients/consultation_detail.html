@@ -3,6 +3,7 @@
 {% block patient_portal_content %}
 <div class="dashboard-content patient-page-content" data-patient-page="consultation-detail">
     <header class="patient-page-heading"><div><p class="dashboard-eyebrow">{% if is_arabic %}استشارة الطبيب{% else %}Consultations{% endif %}</p><h1>{% if is_arabic %}تفاصيل الاستشارة{% else %}Consultation Details{% endif %}</h1></div><a class="patient-secondary-action" href="{{ portal_consultations_url }}">{% if is_arabic %}كل الاستشارات{% else %}All Consultations{% endif %}</a></header>
+    {% include "patients/_portal_messages.html" %}
     <section class="dashboard-card patient-detail-card">
         <div class="dashboard-card-header"><div><p class="dashboard-card-kicker">{% if is_arabic %}أُرسلت{% else %}Submitted{% endif %} <time dir="ltr" datetime="{{ consultation.created_at|date:'c' }}">{{ consultation.created_at|date:"Y-m-d H:i" }}</time></p><h2>{% if is_arabic %}استشارتك{% else %}Your Consultation{% endif %}</h2></div><span class="dashboard-status-pill status-{{ consultation.status }}">{{ status_label }}</span></div>
         <div class="patient-card-body"><div class="patient-consultation-text">{{ consultation.question|linebreaksbr }}</div></div>
@@ -30,5 +31,13 @@
         <div class="dashboard-card-header"><div><p class="dashboard-card-kicker">{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</p><h2>{% if is_arabic %}الرد{% else %}Reply{% endif %}</h2></div></div>
         <div class="patient-card-body">{% if consultation.staff_reply %}<div class="patient-consultation-text">{{ consultation.staff_reply|linebreaksbr }}</div>{% else %}<p class="muted">{% if is_arabic %}لم يُضف رد بعد.{% else %}No reply has been added yet.{% endif %}</p>{% endif %}</div>
     </section>
+    {% if can_delete_consultation %}
+    <section class="dashboard-card patient-detail-card">
+        <div class="patient-card-body">
+            <p class="muted">{% if is_arabic %}يمكن حذف الاستشارة نهائيًا فقط قبل أن يبدأ فريق العيادة بمعالجتها.{% else %}A consultation can be permanently deleted only before clinic staff begin handling it.{% endif %}</p>
+            <a class="patient-secondary-action" href="{{ consultation_delete_url }}">{% if is_arabic %}حذف الاستشارة{% else %}Delete Consultation{% endif %}</a>
+        </div>
+    </section>
+    {% endif %}
 </div>
 {% endblock %}
