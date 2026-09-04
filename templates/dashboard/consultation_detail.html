@@ -23,10 +23,47 @@
         </section>
         <section class="appointment-panel appointment-operations">
             <div class="appointments-section-heading"><h2>{% if is_arabic %}رد الطبيب{% else %}Doctor Reply{% endif %}</h2></div>
-            <form class="appointment-operation-form" method="post">
+            <form class="appointment-operation-form" method="post" enctype="multipart/form-data" data-consultation-reply-form>
                 {% csrf_token %}
                 {{ form.non_field_errors }}
                 <div class="appointment-field">{{ form.staff_reply.label_tag }}{{ form.staff_reply }}{{ form.staff_reply.errors }}</div>
+                <div
+                    class="consultation-audio-recorder"
+                    data-consultation-audio-recorder
+                    data-has-existing-audio="{% if consultation.audio_reply %}true{% else %}false{% endif %}"
+                    data-max-duration-seconds="300"
+                    data-unsupported-message="{% if is_arabic %}التسجيل الصوتي غير مدعوم في هذا المتصفح. لا يزال بإمكانك حفظ رد نصي.{% else %}Audio recording is not supported in this browser. You can still save a text reply.{% endif %}"
+                    data-permission-message="{% if is_arabic %}تعذر الوصول إلى الميكروفون. تحقق من إذن المتصفح وحاول مرة أخرى.{% else %}The microphone could not be accessed. Check browser permission and try again.{% endif %}"
+                    data-ready-message="{% if is_arabic %}التسجيل جاهز للاستماع وسيُرفع فقط عند حفظ الرد.{% else %}The recording is ready to listen to and will upload only when you save the reply.{% endif %}"
+                    data-removed-message="{% if is_arabic %}سيُحذف التسجيل المحفوظ عند حفظ الرد.{% else %}The saved recording will be removed when you save the reply.{% endif %}"
+                    data-size-message="{% if is_arabic %}يتجاوز التسجيل الحد الأقصى البالغ 15 ميجابايت. أعد التسجيل بمدة أقصر.{% else %}The recording exceeds the 15 MiB limit. Record a shorter reply.{% endif %}"
+                    data-format-message="{% if is_arabic %}لم يُنتج المتصفح صيغة صوتية مدعومة.{% else %}The browser did not produce a supported audio format.{% endif %}"
+                    data-empty-message="{% if is_arabic %}لم يتم التقاط صوت. حاول التسجيل مرة أخرى.{% else %}No audio was captured. Try recording again.{% endif %}"
+                    data-max-time-message="{% if is_arabic %}تم إيقاف التسجيل تلقائياً عند الحد الأقصى البالغ 5 دقائق.{% else %}Recording stopped automatically at the 5-minute limit.{% endif %}"
+                >
+                    <div class="consultation-audio-heading">
+                        <label>{{ form.audio_reply.label }}</label>
+                        <output class="consultation-audio-timer" data-audio-timer aria-label="{% if is_arabic %}مدة التسجيل{% else %}Recording duration{% endif %}">00:00</output>
+                    </div>
+                    {{ form.audio_reply }}
+                    {{ form.remove_audio }}
+                    {{ form.audio_reply.errors }}
+                    <div class="consultation-audio-actions">
+                        <button class="appointment-button appointment-button-secondary" type="button" data-audio-start>{% if is_arabic %}بدء التسجيل{% else %}Start Recording{% endif %}</button>
+                        <button class="appointment-button appointment-button-secondary" type="button" data-audio-stop disabled>{% if is_arabic %}إيقاف التسجيل{% else %}Stop Recording{% endif %}</button>
+                        <button class="appointment-button appointment-button-secondary" type="button" data-audio-listen{% if not consultation.audio_reply %} disabled{% endif %}>{% if is_arabic %}استماع{% else %}Listen{% endif %}</button>
+                        <button class="appointment-button appointment-button-secondary" type="button" data-audio-record-again disabled>{% if is_arabic %}إعادة التسجيل{% else %}Record Again{% endif %}</button>
+                        <button class="appointment-button appointment-button-secondary" type="button" data-audio-remove{% if not consultation.audio_reply %} disabled{% endif %}>{% if is_arabic %}حذف التسجيل{% else %}Remove Recording{% endif %}</button>
+                    </div>
+                    <p class="consultation-audio-status muted" data-audio-status aria-live="polite"></p>
+                    <audio class="consultation-audio-preview" controls controlsList="nodownload" preload="metadata" data-audio-local-preview hidden></audio>
+                    {% if consultation.audio_reply %}
+                        {% url 'dashboard_consultation_audio_reply' public_id=consultation.audio_reply.public_id as staff_audio_url %}
+                        <audio class="consultation-audio-preview" controls controlsList="nodownload" preload="metadata" data-audio-existing-preview>
+                            <source src="{{ staff_audio_url }}{% if not is_arabic %}?lang=en{% endif %}" type="{{ consultation.audio_reply.content_type }}">
+                        </audio>
+                    {% endif %}
+                </div>
                 <div class="appointment-field">{{ form.status.label_tag }}{{ form.status }}{{ form.status.errors }}</div>
                 <button class="appointment-button appointment-button-primary" type="submit">{% if is_arabic %}حفظ الرد والحالة{% else %}Save Reply and Status{% endif %}</button>
             </form>
@@ -50,3 +87,5 @@
     {% endif %}
 </div>
 {% endblock %}
+
+{% block dashboard_scripts %}<script src="{% static 'js/consultation-recorder.js' %}" defer></script>{% endblock %}

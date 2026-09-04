@@ -460,6 +460,58 @@
     justify-self: start;
 }
 
+.consultation-audio-recorder {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.9rem;
+    background: var(--dashboard-ivory);
+}
+
+.consultation-audio-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.consultation-audio-heading label {
+    font-weight: 800;
+}
+
+.consultation-audio-timer {
+    min-width: 4.5rem;
+    font-variant-numeric: tabular-nums;
+    direction: ltr;
+    text-align: center;
+    font-weight: 800;
+}
+
+.consultation-audio-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.consultation-audio-actions .appointment-button {
+    min-height: 2.5rem;
+}
+
+.consultation-audio-status {
+    min-height: 1.4em;
+    margin: 0;
+}
+
+.consultation-audio-preview {
+    display: block;
+    width: min(100%, 32rem);
+}
+
+.consultation-audio-preview[hidden] {
+    display: none;
+}
+
 .appointment-operation-danger {
     border-inline-start: 0.2rem solid var(--dashboard-burgundy);
     padding-inline-start: 0.8rem;
@@ -544,6 +596,15 @@
 
     .appointment-top-actions .appointment-button,
     .appointment-operation-form > .appointment-button {
+        width: 100%;
+    }
+
+    .consultation-audio-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .consultation-audio-actions .appointment-button {
         width: 100%;
     }
 

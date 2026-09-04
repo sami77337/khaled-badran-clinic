@@ -29,8 +29,18 @@
     {% endif %}
     <section class="dashboard-card patient-detail-card">
         <div class="dashboard-card-header"><div><p class="dashboard-card-kicker">{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</p><h2>{% if is_arabic %}الرد{% else %}Reply{% endif %}</h2></div></div>
-        <div class="patient-card-body">{% if consultation.staff_reply %}<div class="patient-consultation-text">{{ consultation.staff_reply|linebreaksbr }}</div>{% else %}<p class="muted">{% if is_arabic %}لم يُضف رد بعد.{% else %}No reply has been added yet.{% endif %}</p>{% endif %}</div>
+        <div class="patient-card-body">{% if consultation.staff_reply %}<div class="patient-consultation-text">{{ consultation.staff_reply|linebreaksbr }}</div>{% elif consultation.audio_reply %}<p class="muted">{% if is_arabic %}لم يُضف رد نصي.{% else %}No text reply was added.{% endif %}</p>{% else %}<p class="muted">{% if is_arabic %}لم يُضف رد بعد.{% else %}No reply has been added yet.{% endif %}</p>{% endif %}</div>
     </section>
+    {% if consultation.audio_reply %}
+    <section class="dashboard-card patient-detail-card">
+        <div class="dashboard-card-header"><div><p class="dashboard-card-kicker">{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</p><h2>{% if is_arabic %}رد صوتي من الطبيب{% else %}Doctor Voice Reply{% endif %}</h2></div></div>
+        <div class="patient-card-body">
+            <audio class="consultation-audio-preview" controls controlsList="nodownload" preload="metadata">
+                <source src="{% if is_arabic %}{% url 'patient_portal_consultation_audio_reply' public_id=consultation.audio_reply.public_id %}{% else %}{% url 'patient_portal_consultation_audio_reply_en' public_id=consultation.audio_reply.public_id %}{% endif %}" type="{{ consultation.audio_reply.content_type }}">
+            </audio>
+        </div>
+    </section>
+    {% endif %}
     {% if can_delete_consultation %}
     <section class="dashboard-card patient-detail-card">
         <div class="patient-card-body">

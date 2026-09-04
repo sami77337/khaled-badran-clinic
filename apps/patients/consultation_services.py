@@ -1,3 +1,5 @@
+import logging
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -5,6 +7,8 @@ from apps.patients.models import (
     CONSULTATION_MAX_ATTACHMENTS,
     Consultation,
     ConsultationAttachment,
+    ConsultationAudioReply,
+    validate_consultation_audio_upload,
     validate_consultation_upload,
 )
 from apps.patients.profile_resolution import resolve_authenticated_patient
@@ -12,6 +16,27 @@ from apps.patients.profile_resolution import resolve_authenticated_patient
 
 class ConsultationDeleteError(ValueError):
     pass
+
+
+class ConsultationAudioStorageError(ValueError):
+    pass
+
+
+logger = logging.getLogger(__name__)
+
+
+def consultation_has_audio_reply(consultation):
+    try:
+        return consultation.audio_reply is not None
+    except ConsultationAudioReply.DoesNotExist:
+        return False
+
+
+def _delete_replaced_audio_file(storage, name):
+    try:
+        storage.delete(name)
+    except Exception:
+        logger.exception("Could not remove a replaced consultation audio file: %s", name)
 
 
 def patient_can_delete_consultation(consultation, user):
@@ -23,6 +48,7 @@ def patient_can_delete_consultation(consultation, user):
         and consultation.replied_at is None
         and consultation.replied_by_id is None
         and consultation.staff_handled_at is None
+        and not consultation_has_audio_reply(consultation)
     )
 
 
@@ -54,29 +80,119 @@ def create_consultation(*, user, question, uploaded_files):
     return consultation
 
 
-@transaction.atomic
-def update_consultation_reply(*, consultation, staff_user, reply, status):
-    locked = Consultation.objects.select_for_update().get(pk=consultation.pk)
-    locked.staff_reply = reply.strip()
-    locked.status = status
-    if locked.staff_reply:
-        locked.replied_by = staff_user
-        locked.replied_at = timezone.now()
-    else:
-        locked.replied_by = None
-        locked.replied_at = None
-    if locked.staff_handled_at is None:
-        locked.staff_handled_at = timezone.now()
-    locked.save(
-        update_fields=[
-            "staff_reply",
-            "status",
-            "replied_by",
-            "replied_at",
-            "staff_handled_at",
-            "updated_at",
-        ]
-    )
+def update_consultation_reply(
+    *,
+    consultation,
+    staff_user,
+    reply,
+    status,
+    audio_file=None,
+    remove_audio=False,
+):
+    audio_metadata = validate_consultation_audio_upload(audio_file) if audio_file else None
+    new_file_reference = None
+
+    try:
+        with transaction.atomic():
+            locked = Consultation.objects.select_for_update().get(pk=consultation.pk)
+            current_audio = (
+                ConsultationAudioReply.objects.select_for_update()
+                .filter(consultation=locked)
+                .first()
+            )
+            old_file_reference = None
+
+            if audio_file:
+                if current_audio is None:
+                    current_audio = ConsultationAudioReply(
+                        consultation=locked,
+                        file=audio_file,
+                        created_by=staff_user,
+                        **audio_metadata,
+                    )
+                else:
+                    if current_audio.file and current_audio.file.name:
+                        old_file_reference = (
+                            current_audio.file.storage,
+                            current_audio.file.name,
+                        )
+                    current_audio.file = audio_file
+                    current_audio.content_type = audio_metadata["content_type"]
+                    current_audio.file_size = audio_metadata["file_size"]
+                    current_audio.created_by = staff_user
+
+                try:
+                    current_audio.save()
+                except Exception:
+                    if (
+                        current_audio.file
+                        and current_audio.file.name
+                        and getattr(current_audio.file, "_committed", False)
+                        and (
+                            old_file_reference is None
+                            or current_audio.file.name != old_file_reference[1]
+                        )
+                    ):
+                        try:
+                            current_audio.file.storage.delete(current_audio.file.name)
+                        except Exception:
+                            logger.exception(
+                                "Could not clean up a failed consultation audio upload: %s",
+                                current_audio.file.name,
+                            )
+                    raise
+                new_file_reference = (current_audio.file.storage, current_audio.file.name)
+
+            has_audio_after_save = bool(current_audio) and not (
+                remove_audio and audio_file is None
+            )
+            locked.staff_reply = reply.strip()
+            locked.status = status
+            if locked.staff_reply or has_audio_after_save:
+                locked.replied_by = staff_user
+                locked.replied_at = timezone.now()
+            else:
+                locked.replied_by = None
+                locked.replied_at = None
+            if locked.staff_handled_at is None:
+                locked.staff_handled_at = timezone.now()
+            locked.save(
+                update_fields=[
+                    "staff_reply",
+                    "status",
+                    "replied_by",
+                    "replied_at",
+                    "staff_handled_at",
+                    "updated_at",
+                ]
+            )
+
+            if remove_audio and audio_file is None and current_audio is not None:
+                if current_audio.file and current_audio.file.name:
+                    try:
+                        current_audio.file.storage.delete(current_audio.file.name)
+                    except Exception as exc:
+                        raise ConsultationAudioStorageError(
+                            "Consultation audio could not be removed safely."
+                        ) from exc
+                current_audio.delete()
+
+            if old_file_reference and old_file_reference != new_file_reference:
+                transaction.on_commit(
+                    lambda storage=old_file_reference[0], name=old_file_reference[1]: (
+                        _delete_replaced_audio_file(storage, name)
+                    )
+                )
+    except Exception:
+        if new_file_reference:
+            try:
+                new_file_reference[0].delete(new_file_reference[1])
+            except Exception:
+                logger.exception(
+                    "Could not clean up rolled-back consultation audio: %s",
+                    new_file_reference[1],
+                )
+        raise
     return locked
 
 
@@ -84,7 +200,7 @@ def update_consultation_reply(*, consultation, staff_user, reply, status):
 def delete_unhandled_consultation(*, user, public_id):
     consultation = (
         Consultation.objects.select_for_update()
-        .select_related("patient")
+        .select_related("patient", "audio_reply")
         .filter(public_id=public_id, patient__user=user)
         .first()
     )

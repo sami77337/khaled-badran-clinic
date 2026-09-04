@@ -572,3 +572,8 @@
         transition-duration: 0.01ms !important;
     }
 }
+
+.consultation-audio-preview {
+    display: block;
+    width: min(100%, 32rem);
+}

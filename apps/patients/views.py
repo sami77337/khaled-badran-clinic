@@ -42,6 +42,7 @@ from apps.patients.models import (
     AppointmentLinkRecoveryChallenge,
     Consultation,
     ConsultationAttachment,
+    ConsultationAudioReply,
 )
 from apps.patients.otp import WhatsAppOtpServiceUnavailable
 from apps.patients.profile_resolution import PatientProfileConflictError
@@ -1132,7 +1133,9 @@ def portal_consultation_new(request, language="ar"):
 def portal_consultation_detail(request, public_id, language="ar"):
     language = _language(language)
     consultation = get_object_or_404(
-        Consultation.objects.select_related("patient", "replied_by").prefetch_related("attachments"),
+        Consultation.objects.select_related(
+            "patient", "replied_by", "audio_reply"
+        ).prefetch_related("attachments"),
         public_id=public_id,
         patient__user=request.user,
     )
@@ -1248,6 +1251,33 @@ def portal_consultation_attachment(request, public_id, language="ar"):
         consultation__patient__user=request.user,
     )
     return _consultation_attachment_response(attachment)
+
+
+@require_GET
+@_login_required
+def portal_consultation_audio_reply(request, public_id, language="ar"):
+    audio_reply = get_object_or_404(
+        ConsultationAudioReply.objects.select_related(
+            "consultation", "consultation__patient"
+        ),
+        public_id=public_id,
+        consultation__patient__user=request.user,
+    )
+    if not audio_reply.file_exists:
+        raise Http404("Audio reply unavailable.")
+    try:
+        file_handle = audio_reply.file.open("rb")
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        raise Http404("Audio reply unavailable.") from exc
+    response = FileResponse(
+        file_handle,
+        as_attachment=False,
+        filename=audio_reply.presentation_filename,
+        content_type=audio_reply.content_type,
+    )
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @_login_required

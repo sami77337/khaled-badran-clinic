@@ -239,6 +239,12 @@ urlpatterns = [
         name="patient_portal_consultation_attachment",
     ),
     path(
+        "portal/consultations/audio-replies/<uuid:public_id>/",
+        patient_views.portal_consultation_audio_reply,
+        {"language": "ar"},
+        name="patient_portal_consultation_audio_reply",
+    ),
+    path(
         "portal/appointments/",
         patient_views.portal_appointment_list,
         {"language": "ar"},
@@ -332,6 +338,12 @@ urlpatterns = [
         patient_views.portal_consultation_attachment,
         {"language": "en"},
         name="patient_portal_consultation_attachment_en",
+    ),
+    path(
+        "en/portal/consultations/audio-replies/<uuid:public_id>/",
+        patient_views.portal_consultation_audio_reply,
+        {"language": "en"},
+        name="patient_portal_consultation_audio_reply_en",
     ),
     path(
         "en/portal/appointments/",

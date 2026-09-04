@@ -31,7 +31,12 @@ from apps.core.models import AuditLog, SystemSetting
 from apps.core.views import _base_context
 from apps.patients import consultation_services
 from apps.patients.forms import ConsultationReplyForm
-from apps.patients.models import Consultation, ConsultationAttachment, Patient
+from apps.patients.models import (
+    Consultation,
+    ConsultationAttachment,
+    ConsultationAudioReply,
+    Patient,
+)
 from apps.records.models import (
     ClinicalNote,
     PatientTimelineEvent,
@@ -4905,31 +4910,50 @@ def dashboard_consultation_list(request):
 def dashboard_consultation_detail(request, public_id):
     language = _dashboard_language(request)
     consultation = get_object_or_404(
-        Consultation.objects.select_related("patient", "replied_by").prefetch_related("attachments"),
+        Consultation.objects.select_related(
+            "patient", "replied_by", "audio_reply"
+        ).prefetch_related("attachments"),
         public_id=public_id,
     )
+    has_audio_reply = consultation_services.consultation_has_audio_reply(consultation)
     if request.method == "POST":
-        form = ConsultationReplyForm(request.POST, language=language)
+        form = ConsultationReplyForm(
+            request.POST,
+            request.FILES,
+            language=language,
+            existing_audio=has_audio_reply,
+        )
         if form.is_valid():
-            consultation = consultation_services.update_consultation_reply(
-                consultation=consultation,
-                staff_user=request.user,
-                reply=form.cleaned_data["staff_reply"],
-                status=form.cleaned_data["status"],
-            )
-            messages.success(
-                request,
-                "تم حفظ رد الاستشارة."
-                if language == "ar"
-                else "The consultation reply was saved.",
-            )
-            return redirect(
-                _dashboard_consultation_url(
-                    "dashboard_consultation_detail",
-                    language,
-                    public_id=consultation.public_id,
+            try:
+                consultation = consultation_services.update_consultation_reply(
+                    consultation=consultation,
+                    staff_user=request.user,
+                    reply=form.cleaned_data["staff_reply"],
+                    status=form.cleaned_data["status"],
+                    audio_file=form.cleaned_data.get("audio_reply"),
+                    remove_audio=form.cleaned_data.get("remove_audio", False),
                 )
-            )
+            except consultation_services.ConsultationAudioStorageError:
+                form.add_error(
+                    None,
+                    "تعذر حذف التسجيل الصوتي بأمان. لم يتم تغيير الرد."
+                    if language == "ar"
+                    else "The audio recording could not be removed safely. The reply was not changed.",
+                )
+            else:
+                messages.success(
+                    request,
+                    "تم حفظ رد الاستشارة."
+                    if language == "ar"
+                    else "The consultation reply was saved.",
+                )
+                return redirect(
+                    _dashboard_consultation_url(
+                        "dashboard_consultation_detail",
+                        language,
+                        public_id=consultation.public_id,
+                    )
+                )
     else:
         initial_status = (
             consultation.status
@@ -4939,6 +4963,7 @@ def dashboard_consultation_detail(request, public_id):
         form = ConsultationReplyForm(
             initial={"staff_reply": consultation.staff_reply, "status": initial_status},
             language=language,
+            existing_audio=has_audio_reply,
         )
 
     context = _dashboard_consultation_context(
@@ -4986,5 +5011,29 @@ def dashboard_consultation_attachment(request, public_id):
         filename=attachment.presentation_filename,
         content_type=attachment.content_type,
     )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@_staff_required
+@require_GET
+def dashboard_consultation_audio_reply(request, public_id):
+    audio_reply = get_object_or_404(
+        ConsultationAudioReply.objects.select_related("consultation"),
+        public_id=public_id,
+    )
+    if not audio_reply.file_exists:
+        raise Http404("Audio reply unavailable.")
+    try:
+        file_handle = audio_reply.file.open("rb")
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        raise Http404("Audio reply unavailable.") from exc
+    response = FileResponse(
+        file_handle,
+        as_attachment=False,
+        filename=audio_reply.presentation_filename,
+        content_type=audio_reply.content_type,
+    )
+    response["Cache-Control"] = "private, no-store"
     response["X-Content-Type-Options"] = "nosniff"
     return response

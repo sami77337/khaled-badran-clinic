@@ -16,6 +16,11 @@ urlpatterns = [
         views.dashboard_consultation_attachment,
         name="dashboard_consultation_attachment",
     ),
+    path(
+        "consultations/audio-replies/<uuid:public_id>/",
+        views.dashboard_consultation_audio_reply,
+        name="dashboard_consultation_audio_reply",
+    ),
     path("scheduling/", views.dashboard_scheduling, name="dashboard_scheduling"),
     path(
         "scheduling/weekly/create/",

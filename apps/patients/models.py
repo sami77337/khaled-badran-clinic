@@ -7,13 +7,25 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
-from apps.patients.storage import consultation_attachment_storage, consultation_attachment_upload_path
+from apps.patients.storage import (
+    consultation_attachment_storage,
+    consultation_attachment_upload_path,
+    consultation_audio_reply_storage,
+    consultation_audio_reply_upload_path,
+)
 
 
 CONSULTATION_IMAGE_MAX_BYTES = 10 * 1024 * 1024
 CONSULTATION_PDF_MAX_BYTES = 10 * 1024 * 1024
 CONSULTATION_VIDEO_MAX_BYTES = 50 * 1024 * 1024
 CONSULTATION_MAX_ATTACHMENTS = 5
+CONSULTATION_AUDIO_MAX_BYTES = 15 * 1024 * 1024
+
+CONSULTATION_AUDIO_POLICIES = {
+    "audio/webm": {".webm"},
+    "audio/ogg": {".ogg"},
+    "audio/mp4": {".m4a", ".mp4"},
+}
 
 CONSULTATION_ATTACHMENT_POLICIES = {
     "image": {
@@ -70,6 +82,32 @@ def validate_consultation_upload(uploaded_file, *, category=""):
         "original_filename": filename,
         "file_size": size,
         "content_type": content_type,
+    }
+
+
+def validate_consultation_audio_upload(uploaded_file):
+    filename = safe_upload_basename(getattr(uploaded_file, "name", ""))
+    extension = PurePosixPath(filename).suffix.lower()
+    content_type = (
+        (getattr(uploaded_file, "content_type", "") or "")
+        .split(";", 1)[0]
+        .strip()
+        .lower()
+    )
+    size = getattr(uploaded_file, "size", 0) or 0
+    allowed_extensions = CONSULTATION_AUDIO_POLICIES.get(content_type)
+
+    if allowed_extensions is None:
+        raise ValidationError("Unsupported consultation audio content type.")
+    if extension not in allowed_extensions:
+        raise ValidationError("Consultation audio extension does not match its content type.")
+    if size <= 0:
+        raise ValidationError("Consultation audio cannot be empty.")
+    if size > CONSULTATION_AUDIO_MAX_BYTES:
+        raise ValidationError("Consultation audio exceeds the allowed size.")
+    return {
+        "content_type": content_type,
+        "file_size": size,
     }
 
 
@@ -238,6 +276,81 @@ class ConsultationAttachment(models.Model):
             errors["file_size"] = "Consultation attachments cannot be empty."
         elif policy is not None and self.file_size > policy["max_bytes"]:
             errors["file_size"] = "Consultation attachment exceeds the allowed size."
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.populate_file_metadata()
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class ConsultationAudioReply(models.Model):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
+    consultation = models.OneToOneField(
+        Consultation,
+        on_delete=models.CASCADE,
+        related_name="audio_reply",
+    )
+    file = models.FileField(
+        upload_to=consultation_audio_reply_upload_path,
+        storage=consultation_audio_reply_storage,
+    )
+    content_type = models.CharField(max_length=100)
+    file_size = models.PositiveBigIntegerField()
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="consultation_audio_replies_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"Consultation audio reply {self.public_id}"
+
+    @property
+    def presentation_filename(self):
+        extension = PurePosixPath(self.file.name if self.file else "").suffix.lower()
+        return f"consultation-audio-reply-{self.public_id}{extension}"
+
+    @property
+    def file_exists(self):
+        if not self.file or not self.file.name:
+            return False
+        try:
+            return self.file.storage.exists(self.file.name)
+        except Exception:
+            return False
+
+    def populate_file_metadata(self):
+        if not self.file:
+            return
+        uploaded_file = getattr(self.file, "_file", None)
+        if uploaded_file is not None and not getattr(self.file, "_committed", True):
+            metadata = validate_consultation_audio_upload(uploaded_file)
+            self.content_type = metadata["content_type"]
+            self.file_size = metadata["file_size"]
+
+    def clean(self):
+        if not self.file:
+            raise ValidationError({"file": "Consultation audio reply file is required."})
+        self.populate_file_metadata()
+        extension = PurePosixPath(self.file.name).suffix.lower()
+        allowed_extensions = CONSULTATION_AUDIO_POLICIES.get(self.content_type)
+        errors = {}
+        if allowed_extensions is None:
+            errors["content_type"] = "Unsupported consultation audio content type."
+        elif extension not in allowed_extensions:
+            errors["file"] = "Consultation audio extension does not match its content type."
+        if not self.file_size:
+            errors["file_size"] = "Consultation audio cannot be empty."
+        elif self.file_size > CONSULTATION_AUDIO_MAX_BYTES:
+            errors["file_size"] = "Consultation audio exceeds the allowed size."
         if errors:
             raise ValidationError(errors)
 

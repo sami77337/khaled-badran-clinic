@@ -8,8 +8,10 @@ from django.db import IntegrityError, transaction
 
 from apps.booking.phone import normalize_phone
 from apps.patients.models import (
+    CONSULTATION_AUDIO_MAX_BYTES,
     CONSULTATION_MAX_ATTACHMENTS,
     Consultation,
+    validate_consultation_audio_upload,
     validate_consultation_upload,
 )
 
@@ -341,6 +343,8 @@ class PatientRegistrationForm(forms.Form):
                     email=self.cleaned_data.get("email") or "",
                     password=self.cleaned_data["password1"],
                     first_name=self.cleaned_data["full_name"][:150],
+                    is_staff=False,
+                    is_superuser=False,
                 )
         except IntegrityError:
             if get_user_model().objects.filter(username=self.normalized_phone).exists():
@@ -503,6 +507,17 @@ class ConsultationCreateForm(forms.Form):
 
 class ConsultationReplyForm(forms.Form):
     staff_reply = forms.CharField(required=False, max_length=5000, widget=forms.Textarea(attrs={"rows": 8}))
+    audio_reply = forms.FileField(
+        required=False,
+        widget=forms.FileInput(
+            attrs={
+                "accept": ".webm,.ogg,.m4a,.mp4,audio/webm,audio/ogg,audio/mp4",
+                "data-consultation-audio-input": "",
+                "hidden": True,
+            }
+        ),
+    )
+    remove_audio = forms.BooleanField(required=False, widget=forms.HiddenInput())
     status = forms.ChoiceField(
         choices=(
             (Consultation.Status.ANSWERED, "Answered"),
@@ -510,10 +525,17 @@ class ConsultationReplyForm(forms.Form):
         )
     )
 
-    def __init__(self, *args, language="ar", **kwargs):
+    def __init__(self, *args, language="ar", existing_audio=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.language = "en" if language == "en" else "ar"
+        self.existing_audio = bool(existing_audio)
+        self.fields["audio_reply"].widget.attrs["data-max-size-bytes"] = str(
+            CONSULTATION_AUDIO_MAX_BYTES
+        )
         self.fields["staff_reply"].label = "رد الطبيب" if self.language == "ar" else "Doctor reply"
+        self.fields["audio_reply"].label = (
+            "رد صوتي من الطبيب" if self.language == "ar" else "Doctor voice reply"
+        )
         self.fields["status"].label = "الحالة" if self.language == "ar" else "Status"
         if self.language == "ar":
             self.fields["status"].choices = (
@@ -524,12 +546,42 @@ class ConsultationReplyForm(forms.Form):
     def clean(self):
         cleaned_data = super().clean()
         reply = (cleaned_data.get("staff_reply") or "").strip()
-        if cleaned_data.get("status") == Consultation.Status.ANSWERED and not reply:
+        audio_reply = cleaned_data.get("audio_reply")
+        remove_audio = bool(cleaned_data.get("remove_audio"))
+        if audio_reply:
+            try:
+                validate_consultation_audio_upload(audio_reply)
+            except ValidationError:
+                self.add_error(
+                    "audio_reply",
+                    (
+                        "التسجيل الصوتي غير مدعوم أو يتجاوز الحد الأقصى البالغ 15 ميجابايت."
+                        if self.language == "ar"
+                        else "The audio recording is unsupported or exceeds the 15 MiB limit."
+                    ),
+                )
+                cleaned_data["audio_reply"] = None
+                audio_reply = None
+        if audio_reply and remove_audio:
+            self.add_error(
+                "audio_reply",
+                (
+                    "لا يمكن استبدال التسجيل وحذفه في الحفظ نفسه."
+                    if self.language == "ar"
+                    else "A recording cannot be replaced and removed in the same save."
+                ),
+            )
+        has_audio_after_save = bool(audio_reply) or (self.existing_audio and not remove_audio)
+        if (
+            cleaned_data.get("status") == Consultation.Status.ANSWERED
+            and not reply
+            and not has_audio_after_save
+        ):
             self.add_error(
                 "staff_reply",
-                "الرد مطلوب عند تحديد تم الرد."
+                "أضف رداً نصياً أو صوتياً عند تحديد تم الرد."
                 if self.language == "ar"
-                else "A reply is required when marking the consultation answered.",
+                else "A text or audio reply is required when marking the consultation answered.",
             )
         cleaned_data["staff_reply"] = reply
         return cleaned_data
