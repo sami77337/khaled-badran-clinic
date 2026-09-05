@@ -2087,6 +2087,13 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
             "text-rendering: optimizeLegibility",
             'font-family: "IBM Plex Sans Arabic"',
             'font-family: "Noto Kufi Arabic"',
+            "@media (max-width: 40rem)",
+            "position: static",
+            "z-index: auto",
+            "grid-row: 2",
+            "max-height: clamp(7.5rem, calc(100dvh - 13rem), 15rem)",
+            "overflow-x: hidden",
+            "touch-action: pan-y",
             "@media (max-width: 389px)",
             "@media (min-width: 600px)",
             "@media (min-width: 900px)",
@@ -2109,6 +2116,27 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
                 self.assertIn(micro_ui_rule, stylesheet)
         self.assertNotIn("grid-template-columns: repeat(4, minmax(0, 1fr))", stylesheet)
         self.assertNotIn("position: fixed", stylesheet)
+
+    def test_phone_picker_opening_distinguishes_pointer_and_keyboard_input(self):
+        script = (
+            Path(__file__).resolve().parents[2] / "static" / "js" / "booking.js"
+        ).read_text(encoding="utf-8")
+
+        for contract in (
+            'form.querySelectorAll("[data-booking-phone-control]")',
+            "const openMenu = ({ focusSearch = false } = {}) =>",
+            "openMenu({ focusSearch: event.detail === 0 })",
+            "openMenu({ focusSearch: true })",
+            "window.visualViewport",
+            "keepMobileMenuVisible",
+            "window.scrollBy",
+            'event.key === "ArrowDown"',
+            'event.key === "Enter"',
+            'event.key === " "',
+        ):
+            with self.subTest(contract=contract):
+                self.assertIn(contract, script)
+        self.assertNotIn("showAllOptions();\n            search.focus();", script)
 
 
 class BookingModelAndAdminBehaviorTests(BookingTestDataMixin, TestCase):

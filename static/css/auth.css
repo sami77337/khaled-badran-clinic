@@ -672,6 +672,48 @@ body.auth-shell {
     text-align: center;
 }
 
+@media (max-width: 40rem) {
+    .auth-shell .booking-phone-control {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .auth-shell .booking-phone-row {
+        grid-row: 1;
+    }
+
+    .auth-shell .booking-country-menu,
+    .auth-shell .booking-phone-control.opens-up .booking-country-menu {
+        position: static;
+        z-index: auto;
+        grid-row: 2;
+        width: 100%;
+        max-width: 100%;
+        margin-block-start: 0.48rem;
+        overflow: hidden;
+    }
+
+    .auth-shell .booking-phone-hint {
+        grid-row: 3;
+    }
+
+    .auth-shell .booking-country-options {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        max-height: clamp(7.5rem, calc(100dvh - 13rem), 15rem);
+        overflow-x: hidden;
+        overscroll-behavior: contain;
+        touch-action: pan-y;
+    }
+
+    .auth-shell [data-booking-country-option] {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+    }
+}
+
 @media (max-width: 389px) {
     .auth-header-inner {
         width: calc(100% - 1rem);

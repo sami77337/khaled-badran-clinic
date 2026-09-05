@@ -130,6 +130,40 @@
             return;
         }
 
+        const phoneViewport = window.matchMedia("(max-width: 40rem)");
+        let menuVisibilityFrame = null;
+        const keepMobileMenuVisible = () => {
+            if (menu.hidden || !phoneViewport.matches) {
+                return;
+            }
+            if (menuVisibilityFrame !== null) {
+                window.cancelAnimationFrame(menuVisibilityFrame);
+            }
+            menuVisibilityFrame = window.requestAnimationFrame(() => {
+                menuVisibilityFrame = null;
+                if (menu.hidden) {
+                    return;
+                }
+                const viewport = window.visualViewport;
+                const viewportTop = viewport?.offsetTop || 0;
+                const viewportBottom = viewportTop + (viewport?.height || window.innerHeight);
+                const bottomNavigation = document.querySelector("[data-mobile-bottom-navigation]");
+                const navigationTop = bottomNavigation?.getBoundingClientRect().top ?? viewportBottom;
+                const safeBottom = Math.min(viewportBottom, navigationTop) - 8;
+                const safeTop = viewportTop + 8;
+                const menuRect = menu.getBoundingClientRect();
+                if (menuRect.height <= safeBottom - safeTop && menuRect.bottom > safeBottom) {
+                    window.scrollBy({ top: Math.ceil(menuRect.bottom - safeBottom), behavior: "auto" });
+                }
+            });
+        };
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener("resize", keepMobileMenuVisible);
+        } else {
+            window.addEventListener("resize", keepMobileMenuVisible);
+        }
+
         if (hint?.id) {
             input.setAttribute("aria-describedby", hint.id);
         }
@@ -201,7 +235,7 @@
             empty.hidden = true;
         };
 
-        const openMenu = () => {
+        const openMenu = ({ focusSearch = false } = {}) => {
             controls.forEach((candidate) => {
                 if (candidate !== control) {
                     closeControl(candidate);
@@ -217,7 +251,10 @@
             control.classList.toggle("opens-up", spaceBelow < menuHeight && spaceAbove > spaceBelow);
             search.value = "";
             showAllOptions();
-            search.focus({ preventScroll: true });
+            keepMobileMenuVisible();
+            if (focusSearch) {
+                search.focus({ preventScroll: true });
+            }
         };
 
         const chooseOption = (option) => {
@@ -230,11 +267,18 @@
             input.focus({ preventScroll: true });
         };
 
-        trigger.addEventListener("click", () => {
+        trigger.addEventListener("click", (event) => {
             if (menu.hidden) {
-                openMenu();
+                openMenu({ focusSearch: event.detail === 0 });
             } else {
                 closeControl(control, { restoreFocus: true });
+            }
+        });
+
+        trigger.addEventListener("keydown", (event) => {
+            if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openMenu({ focusSearch: true });
             }
         });
 

@@ -188,6 +188,37 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         self.assertIn('preventScroll: true', javascript)
         self.assertIn('addEventListener("formdata"', javascript)
 
+    def test_auth_phone_picker_uses_mobile_flow_and_interaction_mode_focus(self):
+        stylesheet = (settings.BASE_DIR / "static" / "css" / "auth.css").read_text(
+            encoding="utf-8"
+        )
+        javascript = (settings.BASE_DIR / "static" / "js" / "auth-login.js").read_text(
+            encoding="utf-8"
+        )
+
+        for contract in (
+            "@media (max-width: 40rem)",
+            ".auth-shell .booking-phone-control",
+            "position: static",
+            "z-index: auto",
+            "grid-row: 2",
+            "max-height: clamp(7.5rem, calc(100dvh - 13rem), 15rem)",
+            "touch-action: pan-y",
+        ):
+            with self.subTest(contract=contract):
+                self.assertIn(contract, stylesheet)
+        for contract in (
+            "const openMenu = ({ focusSearch = false } = {}) =>",
+            "openMenu({ focusSearch: event.detail === 0 })",
+            "openMenu({ focusSearch: true })",
+            'trigger.addEventListener("keydown"',
+            "window.visualViewport",
+            "keepMobileMenuVisible",
+            "window.scrollBy",
+        ):
+            with self.subTest(contract=contract):
+                self.assertIn(contract, javascript)
+
     def test_login_phone_ui_keeps_placeholder_and_selector_without_formatting_helper(self):
         response = self.client.get(reverse("login_en"))
 
@@ -1123,6 +1154,31 @@ class PatientPortalPasswordChangeTests(PatientPortalTestMixin, TestCase):
         response = self.client.get(reverse("patient_portal_password_change"))
 
         self.assert_no_cache(response)
+
+    def test_account_phone_change_reuses_picker_and_keeps_checkbox_compact(self):
+        user = self.create_user()
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("patient_portal_password_change_en"))
+        stylesheet = (settings.BASE_DIR / "static" / "css" / "patient-portal.css").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertTemplateUsed(response, "booking/partials/international_phone_field.html")
+        self.assertContains(response, "data-booking-phone-control", count=1)
+        self.assertContains(
+            response,
+            'type="checkbox" name="propagate_to_upcoming_appointments"',
+            count=1,
+        )
+        self.assertIn(
+            '.patient-form .form-field > input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])',
+            stylesheet,
+        )
+        self.assertNotIn(".patient-form .form-field input {", stylesheet)
+        self.assertIn(".patient-form .patient-checkbox-field > label", stylesheet)
+        self.assertIn('> label > input[type="checkbox"]', stylesheet)
+        self.assertIn("accent-color: var(--dashboard-burgundy)", stylesheet)
 
     def test_csrf_is_enforced_for_password_change_post(self):
         user = self.create_user()

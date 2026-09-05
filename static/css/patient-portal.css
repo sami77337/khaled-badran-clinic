@@ -402,7 +402,7 @@
     font-weight: 600;
 }
 
-.patient-form .form-field input {
+.patient-form .form-field > input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
     width: 100%;
     min-width: 0;
     min-height: 3rem;
@@ -414,9 +414,36 @@
     font: inherit;
 }
 
-.patient-form .form-field input:focus {
+.patient-form .form-field > input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):focus {
     border-color: var(--dashboard-burgundy);
     outline: 3px solid rgba(74, 15, 20, 0.12);
+}
+
+.patient-form .patient-checkbox-field > label {
+    display: flex;
+    min-width: 0;
+    min-height: 44px;
+    align-items: flex-start;
+    gap: 0.65rem;
+    cursor: pointer;
+    padding-block: 0.55rem;
+    line-height: 1.6;
+}
+
+.patient-form .patient-checkbox-field > label > input[type="checkbox"] {
+    width: 1.1rem;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    min-height: 1.1rem;
+    flex: 0 0 1.1rem;
+    margin: 0.18rem 0 0;
+    padding: 0;
+    accent-color: var(--dashboard-burgundy);
+}
+
+.patient-form .patient-checkbox-field > label > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .patient-form .patient-textarea {

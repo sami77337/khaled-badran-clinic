@@ -1546,6 +1546,46 @@ body.page-booking.is-ltr {
     }
 }
 
+@media (max-width: 40rem) {
+    .page-booking .booking-phone-control {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .page-booking .booking-phone-row {
+        grid-row: 1;
+    }
+
+    .page-booking .booking-country-menu {
+        position: static;
+        z-index: auto;
+        grid-row: 2;
+        width: 100%;
+        max-width: 100%;
+        margin-block-start: 0.45rem;
+        overflow: hidden;
+    }
+
+    .page-booking .booking-phone-hint {
+        grid-row: 3;
+    }
+
+    .page-booking .booking-country-options {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        max-height: clamp(7.5rem, calc(100dvh - 13rem), 15rem);
+        overflow-x: hidden;
+        overscroll-behavior: contain;
+        touch-action: pan-y;
+    }
+
+    .page-booking .booking-country-options button {
+        min-width: 0;
+        max-width: 100%;
+    }
+}
+
 @media (max-width: 389px) {
     .page-booking .booking-flow-container {
         width: min(calc(100% - 1rem), 48rem);
