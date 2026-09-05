@@ -4,13 +4,13 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 
-const bookingScriptPath = process.argv[2];
+const phoneScriptPath = process.argv[2];
 
-if (!bookingScriptPath) {
-    throw new Error("Expected the booking.js path as the first argument.");
+if (!phoneScriptPath) {
+    throw new Error("Expected a phone-picker script path as the first argument.");
 }
 
-const bookingScript = fs.readFileSync(bookingScriptPath, "utf8");
+const phoneScript = fs.readFileSync(phoneScriptPath, "utf8");
 
 class FakeEventTarget {
     constructor() {
@@ -202,6 +202,13 @@ const buildRuntime = () => {
     );
     form.querySelector = () => null;
 
+    const authRoot = new FakeElement("auth-root");
+    authRoot.dataset.selectedRole = "patient";
+    authRoot.querySelectorAll = () => [];
+    authRoot.querySelector = (selector) => (
+        selector === "[data-patient-login-form], [data-patient-register-form]" ? form : null
+    );
+
     const bottomNavigation = new FakeElement("bottom-navigation");
     bottomNavigation.rect = { top: 280, right: 320, bottom: 340, left: 0, width: 320, height: 60 };
     const compactHeader = new FakeElement("compact-header");
@@ -211,6 +218,7 @@ const buildRuntime = () => {
     document.documentElement = { style: {} };
     document.querySelectorAll = () => [];
     document.querySelector = (selector) => ({
+        "[data-auth-login], [data-auth-register]": authRoot,
         "[data-booking-patient-form]": form,
         "[data-mobile-bottom-navigation]": bottomNavigation,
         "[data-portal-compact-header]": compactHeader,
@@ -249,7 +257,7 @@ const buildRuntime = () => {
         URL,
         window,
     });
-    vm.runInContext(bookingScript, context, { filename: bookingScriptPath });
+    vm.runInContext(phoneScript, context, { filename: phoneScriptPath });
 
     const flushFrames = () => {
         while (frames.size) {
@@ -264,9 +272,11 @@ const buildRuntime = () => {
         control,
         dial,
         flushFrames,
+        form,
         heightProperty,
         input,
         menu,
+        option,
         scrolls,
         search,
         trigger,
@@ -310,6 +320,15 @@ assert.equal(runtime.dial.textContent, "+44");
 assert.equal(runtime.input.value, "790000000");
 assert.equal(runtime.input.focusCount, 0, "country selection must not force-open the phone keyboard");
 assert.ok(runtime.trigger.focusCount > 0, "country selection must restore focus to the trigger");
+
+runtime.option.dispatch("click");
+runtime.input.value = "791234567";
+runtime.form.dispatch("submit");
+assert.equal(
+    runtime.input.value,
+    "+962791234567",
+    "native submit must write the composed phone value before browser serialization",
+);
 
 runtime.trigger.dispatch("click");
 runtime.flushFrames();

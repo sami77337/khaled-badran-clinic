@@ -4,6 +4,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import parse_qs, urlsplit
+import subprocess
 import uuid
 from unittest.mock import patch
 
@@ -244,38 +245,54 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         self.assertIn('event.preventDefault()', javascript)
         self.assertIn('aria-selected', javascript)
         self.assertIn('preventScroll: true', javascript)
+        self.assertIn('addEventListener("submit"', javascript)
         self.assertIn('addEventListener("formdata"', javascript)
 
-    def test_auth_phone_picker_uses_mobile_flow_and_interaction_mode_focus(self):
+    def test_auth_phone_picker_matches_proven_mobile_runtime(self):
         stylesheet = (settings.BASE_DIR / "static" / "css" / "auth.css").read_text(
             encoding="utf-8"
         )
-        javascript = (settings.BASE_DIR / "static" / "js" / "auth-login.js").read_text(
-            encoding="utf-8"
+        script = settings.BASE_DIR / "static" / "js" / "auth-login.js"
+        runtime_test = (
+            settings.BASE_DIR
+            / "apps"
+            / "booking"
+            / "js_tests"
+            / "phone_picker_runtime_test.js"
         )
 
         for contract in (
             "@media (max-width: 40rem)",
             ".auth-shell .booking-phone-control",
+            "display: block",
             "position: static",
+            "inset: auto",
             "z-index: auto",
-            "grid-row: 2",
-            "max-height: clamp(7.5rem, calc(100dvh - 13rem), 15rem)",
+            "--booking-country-options-max-height",
+            "clamp(6rem, calc(100dvh - 13rem), 15rem)",
             "touch-action: pan-y",
+            "-webkit-overflow-scrolling: touch",
         ):
             with self.subTest(contract=contract):
                 self.assertIn(contract, stylesheet)
-        for contract in (
-            "const openMenu = ({ focusSearch = false } = {}) =>",
-            "openMenu({ focusSearch: event.detail === 0 })",
-            "openMenu({ focusSearch: true })",
-            'trigger.addEventListener("keydown"',
-            "window.visualViewport",
-            "keepMobileMenuVisible",
-            "window.scrollBy",
-        ):
-            with self.subTest(contract=contract):
-                self.assertIn(contract, javascript)
+        result = subprocess.run(
+            ["node", str(runtime_test), str(script)],
+            cwd=settings.BASE_DIR,
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=15,
+        )
+
+        self.assertEqual(
+            result.returncode,
+            0,
+            msg=(
+                "Authentication phone-picker behavior failed:\n"
+                f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+            ),
+        )
+        self.assertIn("phone picker runtime behavior passed", result.stdout)
 
     def test_login_phone_ui_keeps_placeholder_and_selector_without_formatting_helper(self):
         response = self.client.get(reverse("login_en"))
@@ -566,6 +583,32 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
 
         self.assertRedirects(response, reverse("patient_portal_dashboard"), fetch_redirect_response=False)
         self.assertEqual(self.client.session["_auth_user_id"], str(get_user_model().objects.get().pk))
+
+    def test_picker_visible_jordan_number_authenticates_in_arabic_and_english(self):
+        user = self.create_user()
+        route_cases = (
+            ("login", "patient_portal_dashboard"),
+            ("login_en", "patient_portal_dashboard_en"),
+        )
+
+        for route_name, dashboard_route_name in route_cases:
+            with self.subTest(route=route_name):
+                response = self.client.post(
+                    reverse(route_name),
+                    {
+                        "role": "patient",
+                        "phone": "791234567",
+                        "password": TEST_PASSWORD,
+                    },
+                )
+
+                self.assertRedirects(
+                    response,
+                    reverse(dashboard_route_name),
+                    fetch_redirect_response=False,
+                )
+                self.assertEqual(self.client.session["_auth_user_id"], str(user.pk))
+                self.client.logout()
 
     def test_patient_login_preserves_safe_next_and_rejects_external_next(self):
         user = self.create_user()

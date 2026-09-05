@@ -535,6 +535,9 @@ class PhoneNormalizationTests(TestCase):
     def test_local_jordan_mobile_normalizes_to_e164(self):
         self.assertEqual(normalize_phone("0791234567"), "+962791234567")
 
+    def test_picker_jordan_mobile_without_domestic_prefix_normalizes_to_e164(self):
+        self.assertEqual(normalize_phone("791234567"), "+962791234567")
+
     def test_local_jordan_mobile_with_spaces_normalizes_to_e164(self):
         self.assertEqual(normalize_phone("079 123 4567"), "+962791234567")
 

@@ -595,6 +595,24 @@
         }
     });
 
+    const writeComposedPhoneValues = () => {
+        controls.forEach((control) => {
+            const input = control.querySelector("input[type='text'], input[type='tel']");
+            if (
+                input?.name
+                && !input.disabled
+                && typeof control.bookingComposeNumber === "function"
+            ) {
+                input.value = control.bookingComposeNumber();
+            }
+        });
+    };
+
+    // Write the split country code and national number back into the real
+    // control before native form serialization. The formdata listener remains
+    // as a final serialization guard for browsers that support it.
+    form.addEventListener("submit", writeComposedPhoneValues);
+
     form.addEventListener("formdata", (event) => {
         controls.forEach((control) => {
             const input = control.querySelector("input[type='text'], input[type='tel']");

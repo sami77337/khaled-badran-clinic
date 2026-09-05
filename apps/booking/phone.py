@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 
 PLUS_NUMBER_RE = re.compile(r"^\+[1-9]\d{7,14}$")
 JORDAN_LOCAL_MOBILE_RE = re.compile(r"^07\d{8}$")
+JORDAN_PICKER_MOBILE_RE = re.compile(r"^7\d{8}$")
 JORDAN_INTERNATIONAL_RE = re.compile(r"^\+9627\d{8}$")
 
 
@@ -21,6 +22,11 @@ def normalize_phone(raw_value):
 
     if JORDAN_LOCAL_MOBILE_RE.match(compact):
         return "+962" + compact[1:]
+
+    # The shared picker renders +962 separately and intentionally asks for
+    # the national number without Jordan's domestic trunk prefix.
+    if JORDAN_PICKER_MOBILE_RE.match(compact):
+        return "+962" + compact
 
     if JORDAN_INTERNATIONAL_RE.match(compact):
         return compact
