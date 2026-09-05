@@ -1846,6 +1846,105 @@ summary:focus-visible {
 }
 
 @media (max-width: 767px) {
+    html,
+    body,
+    .mobile-drawer {
+        scrollbar-width: none;
+    }
+
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar,
+    .mobile-drawer::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+    }
+
+    .site-header {
+        border-color: rgba(255, 255, 255, 0.2);
+        background: var(--color-burgundy);
+        color: var(--color-ivory);
+        backdrop-filter: none;
+    }
+
+    .site-header .brand-name,
+    .site-header .brand:hover .brand-name {
+        color: var(--color-ivory);
+    }
+
+    .header-inner.has-auth-notifications {
+        gap: 0.25rem;
+    }
+
+    .header-inner.has-auth-notifications .brand-name {
+        font-size: clamp(0.8125rem, 3.7vw, 1.0625rem);
+    }
+
+    .mobile-menu-toggle,
+    .mobile-language-switch {
+        width: 44px;
+        height: 44px;
+        border-color: rgba(255, 255, 255, 0.28);
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--color-ivory);
+    }
+
+    .site-header .mobile-language-switch:hover {
+        color: var(--color-white);
+    }
+
+    .site-header .notification-placement-public-mobile .consultation-notification-trigger {
+        border-color: rgba(255, 255, 255, 0.28);
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--color-ivory);
+    }
+
+    .site-header .notification-placement-public-mobile .consultation-notification-badge {
+        border-color: var(--color-burgundy);
+    }
+
+    .mobile-drawer {
+        border-color: var(--color-line);
+        background: var(--color-ivory);
+    }
+
+    .mobile-nav {
+        gap: 0.2rem;
+        padding-block: 1rem max(1.25rem, calc(0.75rem + env(safe-area-inset-bottom)));
+    }
+
+    .mobile-nav > a:not(.btn) {
+        border-color: var(--color-line);
+        background: transparent;
+        color: var(--color-burgundy);
+    }
+
+    .mobile-nav > a.is-active:not(.btn) {
+        border-color: var(--color-line);
+        background: var(--color-soft);
+        color: var(--color-burgundy);
+        box-shadow: inset 4px 0 0 var(--color-burgundy);
+    }
+
+    .is-rtl .mobile-nav > a.is-active:not(.btn) {
+        box-shadow: inset -4px 0 0 var(--color-burgundy);
+    }
+
+    .mobile-nav > .mobile-drawer-booking {
+        background: var(--color-burgundy);
+        color: var(--color-white);
+    }
+
+    .mobile-nav > .btn-secondary {
+        border-color: var(--color-line);
+        background: var(--color-soft);
+        color: var(--color-burgundy);
+    }
+
+    .mobile-drawer-backdrop {
+        width: auto;
+        background: rgba(44, 36, 35, 0.38);
+    }
+
     .home-reviews[data-review-surface="empty"] {
         padding-block: 2.5rem;
     }

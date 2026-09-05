@@ -75,6 +75,7 @@ class MobileDashboardNavigationTests(TestCase):
                 self.assertIn(f'data-mobile-nav-item="{key}"', navigation)
                 self.assertIn(label, navigation)
         self.assertIn('aria-controls="dashboard-sidebar"', navigation)
+        self.assertIn("data-dashboard-menu", navigation)
         self.assertEqual(english.content.decode().count("data-dashboard-menu"), 2)
         self.assertContains(english, 'id="dashboard-sidebar"', count=1)
         self.assertRegex(
@@ -153,6 +154,9 @@ class MobileDashboardNavigationTests(TestCase):
         dashboard_javascript = (
             settings.BASE_DIR / "static" / "js" / "dashboard.js"
         ).read_text(encoding="utf-8")
+        public_stylesheet = (settings.BASE_DIR / "static" / "css" / "public.css").read_text(
+            encoding="utf-8"
+        )
         self.assertRegex(
             stylesheet,
             r"\.dashboard-mobile-bottom-nav\s*\{\s*display:\s*none;",
@@ -161,8 +165,17 @@ class MobileDashboardNavigationTests(TestCase):
         self.assertIn("env(safe-area-inset-bottom)", stylesheet)
         self.assertIn("padding-block-end", stylesheet)
         self.assertIn("grid-template-columns: repeat(5, minmax(0, 1fr))", stylesheet)
+        self.assertIn('[data-mobile-bottom-navigation="patient"]', stylesheet)
+        self.assertIn('[data-mobile-nav-item="book"]', stylesheet)
+        self.assertIn('[data-mobile-nav-item="more"]::before', stylesheet)
+        self.assertIn('[data-mobile-nav-item="more"] > *', stylesheet)
+        self.assertIn("scrollbar-width: none", stylesheet)
         self.assertIn('document.querySelectorAll("[data-dashboard-menu]")', dashboard_javascript)
         self.assertIn("setTriggerState", dashboard_javascript)
+        self.assertIn("@media (max-width: 767px)", public_stylesheet)
+        self.assertIn("backdrop-filter: none", public_stylesheet)
+        self.assertIn(".header-inner.has-auth-notifications .brand-name", public_stylesheet)
+        self.assertIn(".mobile-drawer-backdrop", public_stylesheet)
 
         notification_javascript = (
             settings.BASE_DIR / "static" / "js" / "consultation-notifications.js"
