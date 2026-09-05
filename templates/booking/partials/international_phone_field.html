@@ -1,0 +1,76 @@
+<div
+    class="booking-phone-control"
+    data-booking-phone-control
+    data-booking-phone-key="{{ control_key }}"
+    data-booking-default-dial-code="+962"
+    {% if not hide_phone_hint %}
+    data-booking-example-label="{% if is_arabic %}مثال للتنسيق{% else %}Formatting example{% endif %}"
+    {% endif %}
+>
+    <div class="booking-phone-row" dir="ltr">
+        <button
+            class="booking-country-trigger"
+            type="button"
+            aria-label="{% if is_arabic %}اختيار رمز الدولة{% else %}Choose country code{% endif %}"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-controls="booking-country-options-{{ control_key }}"
+            data-booking-country-trigger
+        >
+            <span class="booking-country-flag" aria-hidden="true" data-booking-country-flag>🇯🇴</span>
+            <span class="booking-country-dial" dir="ltr" data-booking-country-dial>+962</span>
+            <span class="booking-icon-chevron booking-country-chevron" aria-hidden="true"></span>
+        </button>
+        {{ field }}
+    </div>
+
+    {% if not hide_phone_hint %}
+        <p class="booking-phone-hint" id="booking-phone-hint-{{ control_key }}" data-booking-phone-hint>
+            {% if is_arabic %}مثال للتنسيق: 7XXXXXXXX{% else %}Formatting example: 7XXXXXXXX{% endif %}
+        </p>
+    {% endif %}
+
+    <div class="booking-country-menu" data-booking-country-menu hidden>
+        <label class="booking-country-search-label" for="booking-country-search-{{ control_key }}">
+            {% if is_arabic %}ابحث عن دولة أو رمز{% else %}Search country or code{% endif %}
+        </label>
+        <input
+            class="booking-country-search"
+            id="booking-country-search-{{ control_key }}"
+            type="search"
+            inputmode="search"
+            autocomplete="off"
+            placeholder="{% if is_arabic %}ابحث...{% else %}Search...{% endif %}"
+            data-booking-country-search
+        >
+        <div
+            class="booking-country-options"
+            id="booking-country-options-{{ control_key }}"
+            role="listbox"
+            aria-label="{% if is_arabic %}رموز الاتصال الدولية{% else %}International dialing codes{% endif %}"
+            data-booking-country-options
+        >
+            {% for country in phone_countries %}
+                <button
+                    type="button"
+                    role="option"
+                    aria-selected="{% if country.code == 'JO' %}true{% else %}false{% endif %}"
+                    data-booking-country-option
+                    data-country-code="{{ country.code }}"
+                    data-country-dial="{{ country.dial_code }}"
+                    data-country-flag="{{ country.flag }}"
+                    data-country-example="{{ country.example }}"
+                    data-country-national-prefix="{{ country.national_prefix }}"
+                    data-country-search="{{ country.name_en }} {{ country.name_ar }} {{ country.code }} {{ country.dial_code }}"
+                >
+                    <span aria-hidden="true">{{ country.flag }}</span>
+                    <span>{% if is_arabic %}{{ country.name_ar }}{% else %}{{ country.name_en }}{% endif %}</span>
+                    <bdi>{{ country.dial_code }}</bdi>
+                </button>
+            {% endfor %}
+        </div>
+        <p class="booking-country-empty" data-booking-country-empty hidden>
+            {% if is_arabic %}لا توجد نتائج مطابقة.{% else %}No matching countries.{% endif %}
+        </p>
+    </div>
+</div>

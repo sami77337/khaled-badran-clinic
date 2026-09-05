@@ -8,6 +8,54 @@ from apps.booking.selectors import get_active_doctor
 from apps.clinic.models import VisitType
 
 
+PUBLIC_BOOKING_ERROR_COPY = {
+    "ar": {
+        "full_name_required": "يرجى إدخال الاسم الكامل.",
+        "phone_required": "يرجى إدخال رقم الهاتف.",
+        "phone_invalid": "يرجى إدخال رقم هاتف أردني صحيح أو رقم دولي يبدأ بعلامة +.",
+        "whatsapp_invalid": "يرجى إدخال رقم واتساب صحيح أو اختيار استخدام رقم الهاتف نفسه.",
+        "visit_type_invalid": "نوع الزيارة المحدد غير متاح. يرجى اختيار نوع زيارة آخر.",
+        "slot_invalid": "وقت الموعد المحدد غير صالح. يرجى اختيار وقت متاح.",
+        "slot_unavailable": "لم يعد وقت الموعد المحدد متاحًا. يرجى اختيار وقت آخر.",
+        "booking_unavailable": "الحجز الإلكتروني غير متاح حاليًا.",
+        "doctor_unavailable": "لا يوجد طبيب متاح للحجز الإلكتروني حاليًا.",
+        "too_many_attempts": "تم تجاوز عدد محاولات الحجز المسموح. يرجى الانتظار قبل المحاولة مرة أخرى.",
+        "phone_limit": "بلغ رقم الهاتف الحد اليومي لمحاولات الحجز.",
+        "generic": "تعذر التحقق من طلب الحجز. يرجى مراجعة البيانات والمحاولة مرة أخرى.",
+    },
+    "en": {
+        "full_name_required": "Please enter the full name.",
+        "phone_required": "Please enter a phone number.",
+        "phone_invalid": "Enter a valid Jordanian mobile number or an international number starting with +.",
+        "whatsapp_invalid": "Enter a valid WhatsApp number or choose to use the same phone number.",
+        "visit_type_invalid": "The selected visit type is unavailable. Choose another visit type.",
+        "slot_invalid": "The selected appointment time is invalid. Choose an available time.",
+        "slot_unavailable": "The selected appointment time is no longer available. Choose another time.",
+        "booking_unavailable": "Online booking is currently unavailable.",
+        "doctor_unavailable": "No doctor is currently available for online booking.",
+        "too_many_attempts": "Too many booking attempts. Please wait before trying again.",
+        "phone_limit": "This phone number has reached the daily booking attempt limit.",
+        "generic": "We could not validate the booking request. Review the details and try again.",
+    },
+}
+
+
+PUBLIC_BOOKING_ERROR_KEYS = {
+    "Full name is required.": "full_name_required",
+    "Phone number is required.": "phone_required",
+    "Enter a plausible international phone number.": "phone_invalid",
+    "Enter a Jordanian mobile number or an international number starting with +.": "phone_invalid",
+    "Select an active visit type.": "visit_type_invalid",
+    "Select a valid appointment time.": "slot_invalid",
+    "This appointment time is no longer available.": "slot_unavailable",
+    "Online booking is currently unavailable.": "booking_unavailable",
+    "No active doctor is available for public booking.": "doctor_unavailable",
+    "Appointment end time must be after start time.": "slot_invalid",
+    "Too many booking attempts. Please wait before trying again.": "too_many_attempts",
+    "This phone number has reached the daily booking attempt limit.": "phone_limit",
+}
+
+
 class PublicBookingForm(forms.Form):
     full_name = forms.CharField(max_length=255)
     phone = forms.CharField(max_length=50)
@@ -17,34 +65,92 @@ class PublicBookingForm(forms.Form):
     starts_at = forms.CharField(widget=forms.HiddenInput)
     booking_note = forms.CharField(required=False, widget=forms.Textarea)
 
-    def __init__(self, *args, language="ar", **kwargs):
+    def __init__(self, *args, language="ar", authenticated_user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.language = language
+        self.authenticated_user = authenticated_user
+        self.error_copy = PUBLIC_BOOKING_ERROR_COPY[language]
         doctor = get_active_doctor()
         self.fields["visit_type"].queryset = services.public_visit_types()
         self.fields["full_name"].label = "الاسم الكامل" if language == "ar" else "Full name"
-        self.fields["phone"].label = "رقم الهاتف" if language == "ar" else "Phone number"
+        self.fields["phone"].label = "رقم التواصل" if language == "ar" else "Contact number"
         self.fields["same_as_phone"].label = (
-            "استخدام نفس الرقم للواتساب" if language == "ar" else "Use the same number for WhatsApp"
+            "رقم واتساب هو نفس رقم التواصل"
+            if language == "ar"
+            else "WhatsApp number is the same as contact number"
         )
         self.fields["whatsapp_phone"].label = "رقم واتساب" if language == "ar" else "WhatsApp number"
         self.fields["visit_type"].label = "نوع الزيارة" if language == "ar" else "Visit type"
         self.fields["booking_note"].label = "ملاحظة اختيارية" if language == "ar" else "Optional note"
-        self.fields["booking_note"].widget.attrs["rows"] = 3
+        self.fields["full_name"].error_messages["required"] = self.error_copy["full_name_required"]
+        self.fields["phone"].error_messages["required"] = self.error_copy["phone_required"]
+        self.fields["visit_type"].error_messages.update(
+            {
+                "required": self.error_copy["visit_type_invalid"],
+                "invalid_choice": self.error_copy["visit_type_invalid"],
+            }
+        )
+        self.fields["starts_at"].error_messages["required"] = self.error_copy["slot_invalid"]
+        self.fields["full_name"].widget.attrs.update(
+            {
+                "class": "booking-control",
+                "autocomplete": "name",
+                "placeholder": "الاسم الكامل" if language == "ar" else "Full name",
+            }
+        )
+        self.fields["phone"].widget.attrs.update(
+            {
+                "class": "booking-control",
+                "autocomplete": "tel",
+                "inputmode": "tel",
+                "dir": "ltr",
+                "placeholder": "7XXXXXXXX",
+            }
+        )
+        self.fields["whatsapp_phone"].widget.attrs.update(
+            {
+                "class": "booking-control",
+                "autocomplete": "tel",
+                "inputmode": "tel",
+                "dir": "ltr",
+                "placeholder": "7XXXXXXXX",
+            }
+        )
+        self.fields["booking_note"].widget.attrs.update(
+            {
+                "class": "booking-control booking-textarea",
+                "rows": 3,
+                "placeholder": "سبب الزيارة أو ملاحظة مختصرة" if language == "ar" else "Reason for visit or a brief note",
+            }
+        )
+        self.fields["same_as_phone"].widget.attrs["class"] = "booking-checkbox"
         self.fields["visit_type"].empty_label = None
         self.doctor = doctor
         self.normalized_phone = ""
         self.normalized_whatsapp_phone = ""
+        if authenticated_user is not None and authenticated_user.is_authenticated and not authenticated_user.is_staff:
+            self.fields["full_name"].disabled = True
+
+    def localized_error(self, error, *, fallback_key="generic"):
+        messages = getattr(error, "messages", None) or [str(error)]
+        localized_messages = []
+        for message in messages:
+            key = PUBLIC_BOOKING_ERROR_KEYS.get(message, fallback_key)
+            localized_messages.append(self.error_copy[key])
+        return ValidationError(localized_messages)
 
     def clean_full_name(self):
         value = self.cleaned_data["full_name"].strip()
         if not value:
-            raise ValidationError("Full name is required.")
+            raise ValidationError(self.error_copy["full_name_required"])
         return value
 
     def clean_phone(self):
         raw_phone = self.cleaned_data["phone"]
-        self.normalized_phone = normalize_phone(raw_phone)
+        try:
+            self.normalized_phone = normalize_phone(raw_phone)
+        except ValidationError as exc:
+            raise self.localized_error(exc, fallback_key="phone_invalid") from exc
         return raw_phone.strip()
 
     def clean(self):
@@ -54,11 +160,21 @@ class PublicBookingForm(forms.Form):
 
         same_as_phone = cleaned_data.get("same_as_phone")
         whatsapp_phone = (cleaned_data.get("whatsapp_phone") or "").strip()
-        if same_as_phone or not whatsapp_phone:
+        if same_as_phone:
             self.normalized_whatsapp_phone = self.normalized_phone
             cleaned_data["whatsapp_phone"] = cleaned_data.get("phone", "")
         else:
-            self.normalized_whatsapp_phone = normalize_phone(whatsapp_phone)
+            if not whatsapp_phone:
+                self.add_error("whatsapp_phone", self.error_copy["whatsapp_invalid"])
+                return cleaned_data
+            try:
+                self.normalized_whatsapp_phone = normalize_phone(whatsapp_phone)
+            except ValidationError as exc:
+                self.add_error(
+                    "whatsapp_phone",
+                    self.localized_error(exc, fallback_key="whatsapp_invalid"),
+                )
+                return cleaned_data
             cleaned_data["whatsapp_phone"] = whatsapp_phone
 
         visit_type = cleaned_data.get("visit_type")
@@ -70,7 +186,7 @@ class PublicBookingForm(forms.Form):
                 doctor=self.doctor,
             )
         except ValidationError as exc:
-            raise ValidationError(exc.messages)
+            raise self.localized_error(exc)
 
         return cleaned_data
 
@@ -84,6 +200,7 @@ class PublicBookingForm(forms.Form):
             visit_type_id=self.cleaned_data["visit_type"].id,
             starts_at=self.cleaned_data["starts_at"],
             booking_note=self.cleaned_data.get("booking_note", ""),
+            authenticated_user=self.authenticated_user,
         )
 
 
@@ -95,8 +212,49 @@ class StatusNoteForm(forms.Form):
         label="Staff note",
     )
 
+    def __init__(self, *args, language="en", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.language = "ar" if language == "ar" else "en"
+        if self.language == "ar":
+            self.fields["note"].label = "ملاحظة الموظف"
+            if self.fields["note"].required:
+                self.fields["note"].error_messages["required"] = "هذا الحقل مطلوب."
+            self.fields["note"].error_messages["max_length"] = (
+                "يجب ألا تتجاوز الملاحظة %(limit_value)s حرفًا."
+            )
+
     def clean_note(self):
         return (self.cleaned_data.get("note") or "").strip()
+
+
+class PatientCancellationCutoffForm(forms.Form):
+    cutoff_hours = forms.IntegerField(
+        min_value=0,
+        max_value=168,
+        widget=forms.NumberInput(attrs={"min": "0", "max": "168", "step": "1"}),
+    )
+
+    def __init__(self, *args, language="ar", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.language = "en" if language == "en" else "ar"
+        self.fields["cutoff_hours"].label = (
+            "مهلة إلغاء المريض للموعد"
+            if self.language == "ar"
+            else "Patient cancellation cutoff"
+        )
+        self.fields["cutoff_hours"].help_text = (
+            "ساعة قبل الموعد (من 0 إلى 168)"
+            if self.language == "ar"
+            else "Hours before the appointment (0–168)"
+        )
+        self.fields["cutoff_hours"].error_messages.update(
+            {
+                "required": "أدخل عدد الساعات." if self.language == "ar" else "Enter the number of hours.",
+                "invalid": "أدخل عددًا صحيحًا." if self.language == "ar" else "Enter a whole number.",
+                "min_value": "الحد الأدنى 0 ساعة." if self.language == "ar" else "The minimum is 0 hours.",
+                "max_value": "الحد الأقصى 168 ساعة." if self.language == "ar" else "The maximum is 168 hours.",
+            }
+        )
 
 
 class CancelAppointmentForm(StatusNoteForm):
@@ -110,7 +268,12 @@ class CancelAppointmentForm(StatusNoteForm):
     def clean_note(self):
         note = super().clean_note()
         if not note:
-            raise ValidationError("Cancellation reason is required.")
+            message = (
+                "يرجى إدخال سبب الإلغاء."
+                if self.language == "ar"
+                else "Cancellation reason is required."
+            )
+            raise ValidationError(message)
         return note
 
 
@@ -125,7 +288,12 @@ class MarkNoShowForm(StatusNoteForm):
     def clean_note(self):
         note = super().clean_note()
         if not note:
-            raise ValidationError("No-show reason is required.")
+            message = (
+                "يرجى إدخال سبب عدم الحضور."
+                if self.language == "ar"
+                else "No-show reason is required."
+            )
+            raise ValidationError(message)
         return note
 
 
@@ -146,16 +314,31 @@ class RescheduleAppointmentForm(forms.Form):
         label="Reschedule note",
     )
 
-    def __init__(self, *args, appointment, **kwargs):
+    def __init__(self, *args, appointment, language="en", **kwargs):
         super().__init__(*args, **kwargs)
         self.appointment = appointment
+        self.language = "ar" if language == "ar" else "en"
+        if self.language == "ar":
+            self.fields["starts_at"].label = "الموعد الجديد"
+            self.fields["starts_at"].error_messages.update(
+                {
+                    "required": "يرجى إدخال الموعد الجديد.",
+                    "invalid": "يرجى إدخال تاريخ ووقت صالحين.",
+                }
+            )
+            self.fields["note"].label = "ملاحظة إعادة الجدولة"
+            self.fields["note"].error_messages["max_length"] = (
+                "يجب ألا تتجاوز الملاحظة %(limit_value)s حرفًا."
+            )
 
     def clean_starts_at(self):
         starts_at = self.cleaned_data["starts_at"]
         try:
             starts_at, _ = operations.validate_reschedule_target(self.appointment, starts_at)
         except ValidationError as exc:
-            raise ValidationError(exc.messages)
+            if self.language == "ar":
+                raise ValidationError("هذا الموعد غير متاح لإعادة الجدولة.") from exc
+            raise ValidationError(exc.messages) from exc
         return starts_at
 
     def clean_note(self):

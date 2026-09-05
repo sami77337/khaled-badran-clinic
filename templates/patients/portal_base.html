@@ -1,0 +1,131 @@
+{% load static %}
+<!doctype html>
+<html lang="{{ language|default:'ar' }}" dir="{{ direction|default:'rtl' }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ page_title|default:"Patient Portal" }}</title>
+    <meta name="description" content="{{ meta_description }}">
+    <meta name="robots" content="noindex,nofollow">
+    <meta name="theme-color" content="#4A0F14">
+    <link rel="canonical" href="{{ canonical_url }}">
+    <link rel="icon" href="{% static 'img/icons/site-icon.svg' %}" type="image/svg+xml">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    <link rel="stylesheet" href="{% static 'css/patient-portal.css' %}">
+    <link rel="stylesheet" href="{% static 'css/portal-chrome.css' %}">
+    {% block patient_portal_styles %}{% endblock %}
+</head>
+<body class="dashboard-shell patient-portal-shell {% if is_arabic %}is-rtl{% else %}is-ltr{% endif %}">
+    <a class="dashboard-skip-link" href="#patient-portal-main">
+        {% if is_arabic %}تجاوز إلى المحتوى{% else %}Skip to content{% endif %}
+    </a>
+
+    <header class="dashboard-mobile-header patient-portal-mobile-header" data-patient-mobile-header data-portal-compact-header>
+        <a class="dashboard-mobile-brand" href="{{ portal_dashboard_url }}">
+            <span class="dashboard-mobile-monogram" aria-hidden="true">KB</span>
+            <span>{% if is_arabic %}بوابة المريض{% else %}Patient Portal{% endif %}</span>
+        </a>
+        {% include "partials/consultation_notifications.html" with notification_surface="patient-mobile" notification_placement="notification-placement-dashboard-mobile" %}
+        <button
+            class="dashboard-menu-button"
+            type="button"
+            aria-controls="patient-portal-sidebar"
+            aria-expanded="false"
+            data-dashboard-menu
+        >
+            <span class="dashboard-menu-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+            <span>{% if is_arabic %}القائمة{% else %}Menu{% endif %}</span>
+        </button>
+    </header>
+
+    <aside
+        class="dashboard-sidebar patient-portal-sidebar"
+        id="patient-portal-sidebar"
+        aria-label="{% if is_arabic %}التنقل في بوابة المريض{% else %}Patient Portal navigation{% endif %}"
+        data-dashboard-sidebar
+        data-patient-sidebar
+    >
+        <div class="dashboard-sidebar-top">
+            <div class="dashboard-sidebar-heading">
+                <a class="dashboard-brand" href="{{ portal_dashboard_url }}">
+                    <span class="dashboard-brand-mark" aria-hidden="true">KB</span>
+                    <span class="dashboard-brand-copy">
+                        <strong>{% if is_arabic %}بوابة المريض{% else %}Patient Portal{% endif %}</strong>
+                        <small>{% if is_arabic %}حساب المريض{% else %}Patient Access{% endif %}</small>
+                    </span>
+                </a>
+                {% include "partials/consultation_notifications.html" with notification_surface="patient-desktop" notification_placement="notification-placement-dashboard-desktop" %}
+                <button class="dashboard-drawer-close" type="button" data-dashboard-close>
+                    <span aria-hidden="true">×</span>
+                    <span class="dashboard-sr-only">{% if is_arabic %}إغلاق القائمة{% else %}Close menu{% endif %}</span>
+                </button>
+            </div>
+
+            <nav
+                class="dashboard-nav patient-portal-nav"
+                aria-label="{% if is_arabic %}أقسام بوابة المريض{% else %}Patient Portal sections{% endif %}"
+                data-patient-navigation
+                data-portal-navigation
+            >
+                {% for item in portal_nav_items %}
+                    <a
+                        class="dashboard-nav-link{% if portal_section == item.key %} is-active{% endif %}"
+                        href="{{ item.url }}"
+                        {% if portal_section == item.key %}aria-current="page"{% endif %}
+                    >
+                        <span class="dashboard-nav-indicator" aria-hidden="true"></span>
+                        <span>{{ item.label }}</span>
+                        {% if item.key == "consultations" and consultation_notification_unread_count %}
+                            <span class="dashboard-navigation-badge">{{ consultation_notification_unread_badge }}</span>
+                        {% endif %}
+                    </a>
+                {% endfor %}
+            </nav>
+        </div>
+
+        <div class="dashboard-sidebar-footer">
+            <a
+                class="dashboard-language-switch"
+                data-patient-public-site
+                href="{% if is_arabic %}{% url 'home' %}{% else %}{% url 'home_en' %}{% endif %}"
+            >
+                <span aria-hidden="true">↗</span>
+                <span>{% if is_arabic %}العودة للموقع العام{% else %}View Public Site{% endif %}</span>
+            </a>
+            <a
+                class="dashboard-language-switch"
+                href="{{ portal_language_switch_url }}"
+                hreflang="{% if is_arabic %}en{% else %}ar{% endif %}"
+                data-patient-language-switch
+            >
+                <span aria-hidden="true">{% if is_arabic %}EN{% else %}ع{% endif %}</span>
+                <span>{{ portal_language_switch_label }}</span>
+            </a>
+            <form class="dashboard-logout-form" method="post" action="{{ portal_logout_url }}">
+                {% csrf_token %}
+                <button type="submit">
+                    <span>{% if is_arabic %}تسجيل الخروج{% else %}Logout{% endif %}</span>
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <button
+        class="dashboard-drawer-overlay"
+        type="button"
+        tabindex="-1"
+        aria-label="{% if is_arabic %}إغلاق القائمة{% else %}Close menu{% endif %}"
+        data-dashboard-overlay
+        hidden
+    ></button>
+
+    <main class="dashboard-main" id="patient-portal-main" tabindex="-1">
+        {% block patient_portal_content %}{% endblock %}
+    </main>
+
+    {% include "partials/mobile_dashboard_navigation.html" with mobile_nav_scope="patient" %}
+    <script src="{% static 'js/dashboard.js' %}" defer></script>
+    <script src="{% static 'js/consultation-notifications.js' %}" defer></script>
+    {% block patient_portal_scripts %}{% endblock %}
+</body>
+</html>

@@ -1,8 +1,12 @@
-<nav class="booking-steps" aria-label="{% if is_arabic %}خطوات الحجز{% else %}Booking steps{% endif %}">
-    {% for key, label in booking_steps %}
-        <span class="booking-step {% if active_step == key %}is-active{% endif %}">
-            <span>{{ forloop.counter }}</span>
-            {{ label }}
-        </span>
-    {% endfor %}
+<nav class="booking-steps" aria-label="{% if is_arabic %}خطوات الحجز{% else %}Booking steps{% endif %}" data-booking-progress>
+    <ol>
+        {% for key, label in booking_steps %}
+            <li class="booking-step{% if active_step == key %} is-active{% endif %}{% if active_step == 'slot' and key == 'visit_type' %} is-complete{% elif active_step == 'confirm' and key != 'confirm' %} is-complete{% endif %}"{% if active_step == key %} aria-current="step"{% endif %}>
+                <span class="booking-step-marker" aria-hidden="true">
+                    {% if active_step == 'slot' and key == 'visit_type' %}<span class="booking-icon-check"></span>{% elif active_step == 'confirm' and key != 'confirm' %}<span class="booking-icon-check"></span>{% else %}{{ forloop.counter }}{% endif %}
+                </span>
+                <span class="booking-step-label">{{ label }}</span>
+            </li>
+        {% endfor %}
+    </ol>
 </nav>

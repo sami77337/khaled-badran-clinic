@@ -1,55 +1,58 @@
-{% extends "base.html" %}
+{% extends "patients/portal_base.html" %}
+{% load static %}
 
-{% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">{% if is_arabic %}ربط آمن{% else %}Secure Linking{% endif %}</p>
-        <h1>{% if is_arabic %}ربط موعد بالحساب{% else %}Link an Appointment{% endif %}</h1>
-        <p>{{ labels.not_emergency }}</p>
-    </div>
-</section>
+{% block patient_portal_styles %}<link rel="stylesheet" href="{% static 'css/booking.css' %}">{% endblock %}
 
-<section class="section">
-    <div class="container booking-layout">
-        {% include "patients/_portal_nav.html" %}
+{% block patient_portal_content %}
+<div class="dashboard-content patient-page-content page-booking" data-patient-page="link-appointment">
+    <header class="patient-page-heading">
+        <div>
+            <p class="dashboard-eyebrow">{% if is_arabic %}المواعيد{% else %}Appointments{% endif %}</p>
+            <h1>{% if is_arabic %}ربط موعد{% else %}Link Appointment{% endif %}</h1>
+        </div>
+        <a class="patient-secondary-action" href="{{ portal_appointments_url }}">
+            {% if is_arabic %}عرض المواعيد{% else %}View Appointments{% endif %}
+        </a>
+    </header>
 
-        {% if messages %}
-            <div class="staff-messages">
-                {% for message in messages %}
-                    <p class="muted">{{ message }}</p>
-                {% endfor %}
+    {% include "patients/_portal_messages.html" %}
+
+    <section class="dashboard-card patient-form-card" aria-labelledby="patient-link-form-title">
+        <div class="dashboard-card-header">
+            <div>
+                <p class="dashboard-card-kicker">{% if is_arabic %}إضافة إلى الحساب{% else %}Add to Account{% endif %}</p>
+                <h2 id="patient-link-form-title">{% if is_arabic %}بيانات الموعد{% else %}Appointment Details{% endif %}</h2>
             </div>
-        {% endif %}
-        <form class="booking-form" method="post" action="{{ portal_link_url }}">
-            {% csrf_token %}
-            {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
-            <div class="form-field">
-                {{ form.public_token.label_tag }}
-                {{ form.public_token }}
-                {{ form.public_token.errors }}
-            </div>
-            <div class="form-field">
-                {{ form.phone.label_tag }}
-                {{ form.phone }}
-                {{ form.phone.errors }}
-            </div>
-            <div class="hero-actions">
-                <button class="btn btn-primary" type="submit">{% if is_arabic %}ربط الموعد{% else %}Link appointment{% endif %}</button>
-                <a class="btn btn-secondary" href="{{ portal_dashboard_url }}">
-                    {% if is_arabic %}العودة للبوابة{% else %}Back to portal{% endif %}
+        </div>
+        <div class="patient-card-body">
+            <form class="patient-form booking-form" method="post" action="{{ portal_link_url }}" data-booking-patient-form>
+                {% csrf_token %}
+                {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+                <div class="form-field">
+                    {{ form.public_token.label_tag }}
+                    {{ form.public_token }}
+                    {{ form.public_token.errors }}
+                </div>
+                <div class="form-field">
+                    {{ form.phone.label_tag }}
+                    {% include "booking/partials/international_phone_field.html" with field=form.phone control_key="link-appointment" %}
+                    {{ form.phone.errors }}
+                </div>
+                <div class="patient-form-actions">
+                    <button class="patient-primary-action" type="submit">{% if is_arabic %}ربط الموعد{% else %}Link Appointment{% endif %}</button>
+                    <a class="patient-secondary-action" href="{{ portal_dashboard_url }}">
+                        {% if is_arabic %}الرئيسية{% else %}Dashboard{% endif %}
+                    </a>
+                </div>
+            </form>
+            <p class="muted">
+                <a class="patient-secondary-action" href="{{ portal_link_recovery_url }}">
+                    {% if is_arabic %}نسيت كود الموعد؟{% else %}Forgot appointment code?{% endif %}
                 </a>
-            </div>
-        </form>
-        <p class="trust-note">
-            {% if is_arabic %}
-                {% if False %}
-                يجب أن يتطابق رقم الهاتف مع الرقم المستخدم في الحجز. لا تعرض البوابة السجلات الطبية أو المرفقات حالياً.
-                {% endif %}
-                يجب أن يتطابق رقم الهاتف مع الرقم المستخدم في الحجز. تعرض البوابة السجلات المعتمدة فقط، ولا يتوفر رفع الملفات من بوابة المريض.
-            {% else %}
-                The phone number must match the booking phone number. Only approved records are visible, and patient uploads are not available in this portal.
-            {% endif %}
-        </p>
-    </div>
-</section>
+            </p>
+        </div>
+    </section>
+</div>
 {% endblock %}
+
+{% block patient_portal_scripts %}<script src="{% static 'js/booking.js' %}" defer></script>{% endblock %}

@@ -11,7 +11,7 @@ from apps.booking.audit import create_appointment_audit
 from apps.booking.models import Appointment, AppointmentStatusHistory
 from apps.booking.phone import normalize_phone
 from apps.booking.selectors import get_active_doctor, get_active_visit_type, get_active_visit_types
-from apps.clinic.models import ClosedDay, DoctorSchedule
+from apps.clinic.models import ClosedDay, DoctorSchedule, DoctorScheduleOverride
 from apps.core.models import AuditLog, SystemSetting
 from apps.patients.models import Patient
 
@@ -21,6 +21,7 @@ DEFAULT_BOOKING_MIN_LEAD_MINUTES = 180
 DEFAULT_BOOKING_MAX_DAYS_AHEAD = 30
 DEFAULT_BOOKING_SLOT_INTERVAL_MINUTES = 15
 DEFAULT_APPOINTMENT_REMINDER_OFFSET_MINUTES = 180
+DEFAULT_PATIENT_CANCELLATION_CUTOFF_MINUTES = 720
 
 ACTIVE_APPOINTMENT_STATUSES = [
     Appointment.Status.CONFIRMED,
@@ -28,6 +29,12 @@ ACTIVE_APPOINTMENT_STATUSES = [
     Appointment.Status.RESCHEDULED,
 ]
 BLOCKING_APPOINTMENT_STATUSES = ACTIVE_APPOINTMENT_STATUSES
+
+WORKING_PERIOD_SOURCE_CLOSED = "closed"
+WORKING_PERIOD_SOURCE_SPECIAL = "special"
+WORKING_PERIOD_SOURCE_WEEKLY = "weekly"
+
+_NOT_PRELOADED = object()
 
 
 @dataclass(frozen=True)
@@ -37,6 +44,7 @@ class BookingSettings:
     max_days_ahead: int = DEFAULT_BOOKING_MAX_DAYS_AHEAD
     slot_interval_minutes: int = DEFAULT_BOOKING_SLOT_INTERVAL_MINUTES
     reminder_offset_minutes: int = DEFAULT_APPOINTMENT_REMINDER_OFFSET_MINUTES
+    patient_cancellation_cutoff_minutes: int = DEFAULT_PATIENT_CANCELLATION_CUTOFF_MINUTES
 
 
 @dataclass(frozen=True)
@@ -55,6 +63,12 @@ class BookingSlot:
     @property
     def local_time(self):
         return timezone.localtime(self.starts_at).time()
+
+
+@dataclass(frozen=True)
+class EffectiveWorkingPeriods:
+    source: str
+    periods: tuple
 
 
 def _get_setting_value(key):
@@ -126,6 +140,12 @@ def get_booking_settings():
             DEFAULT_APPOINTMENT_REMINDER_OFFSET_MINUTES,
             minimum=0,
         ),
+        patient_cancellation_cutoff_minutes=get_integer_setting(
+            SystemSetting.PATIENT_CANCELLATION_CUTOFF_MINUTES,
+            DEFAULT_PATIENT_CANCELLATION_CUTOFF_MINUTES,
+            minimum=0,
+            maximum=168 * 60,
+        ),
     )
 
 
@@ -146,6 +166,44 @@ def is_closed_day(doctor, day):
     return ClosedDay.objects.filter(is_active=True, date=day).filter(
         Q(doctor=doctor) | Q(doctor__isnull=True)
     ).exists()
+
+
+def get_effective_working_periods(
+    doctor,
+    day,
+    *,
+    closed=_NOT_PRELOADED,
+    special_periods=_NOT_PRELOADED,
+    weekly_periods=_NOT_PRELOADED,
+):
+    """Resolve the one authoritative source of working periods for a local date.
+
+    Optional preloaded values let calendar views batch their queries while keeping
+    precedence in this function. Booking callers intentionally use the query-backed
+    defaults.
+    """
+    if closed is _NOT_PRELOADED:
+        closed = is_closed_day(doctor, day)
+    if closed:
+        return EffectiveWorkingPeriods(WORKING_PERIOD_SOURCE_CLOSED, ())
+
+    if special_periods is _NOT_PRELOADED:
+        special_periods = DoctorScheduleOverride.objects.filter(
+            doctor=doctor,
+            date=day,
+            is_active=True,
+        ).order_by("start_time", "id")
+    special_periods = tuple(special_periods)
+    if special_periods:
+        return EffectiveWorkingPeriods(WORKING_PERIOD_SOURCE_SPECIAL, special_periods)
+
+    if weekly_periods is _NOT_PRELOADED:
+        weekly_periods = DoctorSchedule.objects.filter(
+            doctor=doctor,
+            weekday=day.weekday(),
+            is_active=True,
+        ).order_by("start_time", "id")
+    return EffectiveWorkingPeriods(WORKING_PERIOD_SOURCE_WEEKLY, tuple(weekly_periods))
 
 
 def overlaps_existing_appointment(doctor, starts_at, ends_at, exclude_appointment_id=None):
@@ -232,21 +290,17 @@ def generate_available_slots(
 
     slots = []
     for day in dates:
-        if is_closed_day(doctor, day):
+        effective_periods = get_effective_working_periods(doctor, day)
+        if effective_periods.source == WORKING_PERIOD_SOURCE_CLOSED:
             continue
 
-        schedules = DoctorSchedule.objects.filter(
-            doctor=doctor,
-            weekday=day.weekday(),
-            is_active=True,
-        ).order_by("start_time")
         blocking_intervals = _blocking_intervals_for_day(
             doctor,
             day,
             exclude_appointment_id=exclude_appointment_id,
         )
 
-        for schedule in schedules:
+        for schedule in effective_periods.periods:
             for slot in _iter_schedule_slots(schedule, day, visit_type, settings, now):
                 if not _slot_overlaps_intervals(slot.starts_at, slot.ends_at, blocking_intervals):
                     slots.append(slot)
@@ -307,6 +361,7 @@ def create_public_appointment(
     starts_at,
     booking_note="",
     whatsapp_phone_raw="",
+    authenticated_user=None,
 ):
     settings = get_booking_settings()
     doctor = get_active_doctor()
@@ -321,28 +376,33 @@ def create_public_appointment(
     normalized_phone = normalize_phone(phone_raw)
     normalized_whatsapp = normalize_phone(whatsapp_phone_raw) if whatsapp_phone_raw else normalized_phone
 
-    patient = Patient.objects.filter(phone_e164=normalized_phone).order_by("id").first()
-    if patient is None:
-        patient = Patient.objects.create(
-            full_name=full_name.strip(),
-            phone_raw=phone_raw.strip(),
-            phone_e164=normalized_phone,
-            whatsapp_phone_raw=(whatsapp_phone_raw or phone_raw).strip(),
-            whatsapp_phone_e164=normalized_whatsapp,
-        )
+    if authenticated_user is not None and authenticated_user.is_authenticated and not authenticated_user.is_staff:
+        from apps.patients.profile_resolution import resolve_authenticated_patient
+
+        patient = resolve_authenticated_patient(authenticated_user)
     else:
-        changed_fields = []
-        updates = {
-            "phone_raw": phone_raw.strip(),
-            "whatsapp_phone_raw": (whatsapp_phone_raw or phone_raw).strip(),
-            "whatsapp_phone_e164": normalized_whatsapp,
-        }
-        for field, value in updates.items():
-            if getattr(patient, field) != value:
-                setattr(patient, field, value)
-                changed_fields.append(field)
-        if changed_fields:
-            patient.save(update_fields=changed_fields)
+        patient = Patient.objects.filter(phone_e164=normalized_phone).order_by("id").first()
+        if patient is None:
+            patient = Patient.objects.create(
+                full_name=full_name.strip(),
+                phone_raw=phone_raw.strip(),
+                phone_e164=normalized_phone,
+                whatsapp_phone_raw=(whatsapp_phone_raw or phone_raw).strip(),
+                whatsapp_phone_e164=normalized_whatsapp,
+            )
+        else:
+            changed_fields = []
+            updates = {
+                "phone_raw": phone_raw.strip(),
+                "whatsapp_phone_raw": (whatsapp_phone_raw or phone_raw).strip(),
+                "whatsapp_phone_e164": normalized_whatsapp,
+            }
+            for field, value in updates.items():
+                if getattr(patient, field) != value:
+                    setattr(patient, field, value)
+                    changed_fields.append(field)
+            if changed_fields:
+                patient.save(update_fields=changed_fields)
 
     appointment = Appointment(
         doctor=doctor,
@@ -352,6 +412,10 @@ def create_public_appointment(
         ends_at=ends_at,
         reminder_offset=timedelta(minutes=settings.reminder_offset_minutes),
         booking_note=(booking_note or "").strip(),
+        contact_phone_raw=phone_raw.strip(),
+        contact_phone_e164=normalized_phone,
+        whatsapp_phone_raw=(whatsapp_phone_raw or phone_raw).strip(),
+        whatsapp_phone_e164=normalized_whatsapp,
     )
     appointment.full_clean()
     try:

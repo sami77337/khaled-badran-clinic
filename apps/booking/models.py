@@ -54,6 +54,10 @@ class Appointment(models.Model):
     reminder_enabled = models.BooleanField(default=True)
     reminder_sent_at = models.DateTimeField(null=True, blank=True)
     booking_note = models.TextField(blank=True)
+    contact_phone_raw = models.CharField(max_length=50, blank=True)
+    contact_phone_e164 = models.CharField(max_length=20, blank=True)
+    whatsapp_phone_raw = models.CharField(max_length=50, blank=True)
+    whatsapp_phone_e164 = models.CharField(max_length=20, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -98,6 +102,18 @@ class Appointment(models.Model):
     @property
     def confirmation_reference(self):
         return str(self.public_token).split("-")[0].upper()
+
+    @property
+    def effective_contact_phone(self):
+        return self.contact_phone_e164 or self.patient.phone_e164 or self.patient.phone_raw
+
+    @property
+    def effective_whatsapp_phone(self):
+        return (
+            self.whatsapp_phone_e164
+            or self.patient.whatsapp_phone_e164
+            or self.effective_contact_phone
+        )
 
     def clean(self):
         if self.starts_at and self.ends_at and self.ends_at <= self.starts_at:

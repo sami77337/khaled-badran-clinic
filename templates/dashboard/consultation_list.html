@@ -1,0 +1,29 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block dashboard_styles %}<link rel="stylesheet" href="{% static 'css/dashboard-appointments.css' %}">{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content appointments-content">
+    <header class="appointments-page-header">
+        <p class="appointments-eyebrow">{% if is_arabic %}بوابة العيادة{% else %}Clinic Portal{% endif %}</p>
+        <h1>{% if is_arabic %}الاستشارات{% else %}Consultations{% endif %}</h1>
+        <p>{% if is_arabic %}راجع استشارات المرضى وأضف رد الطبيب.{% else %}Review patient consultations and add the doctor’s reply.{% endif %}</p>
+    </header>
+    <section class="appointment-panel" aria-labelledby="staff-consultations-title">
+        <div class="appointments-section-heading"><h2 id="staff-consultations-title">{% if is_arabic %}طلبات الاستشارة{% else %}Consultation Requests{% endif %}</h2></div>
+        <div class="appointments-table-scroll" role="region" tabindex="0">
+            <table class="appointments-table">
+                <thead><tr><th>{% if is_arabic %}المريض{% else %}Patient{% endif %}</th><th>{% if is_arabic %}تاريخ الإنشاء{% else %}Created{% endif %}</th><th>{% if is_arabic %}الحالة{% else %}Status{% endif %}</th><th>{% if is_arabic %}التفاصيل{% else %}Details{% endif %}</th></tr></thead>
+                <tbody>
+                {% for consultation in consultations %}
+                    <tr><td>{{ consultation.patient.full_name }}</td><td><time dir="ltr" datetime="{{ consultation.created_at|date:'c' }}">{{ consultation.created_at|date:"Y-m-d H:i" }}</time></td><td><span class="appointment-status status-{{ consultation.status }}">{{ consultation.dashboard_status_label }}</span></td><td><a class="appointment-button appointment-button-secondary" href="{{ consultation.dashboard_detail_url }}">{% if is_arabic %}فتح{% else %}Open{% endif %}</a></td></tr>
+                {% empty %}
+                    <tr><td class="appointments-empty-cell" colspan="4">{% if is_arabic %}لا توجد استشارات بعد.{% else %}There are no consultations yet.{% endif %}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

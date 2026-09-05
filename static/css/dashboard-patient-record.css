@@ -1,0 +1,1259 @@
+.patient-record-content {
+    width: min(100%, 78rem);
+}
+
+.record-page-header,
+.record-action-bar,
+.record-patient-card,
+.record-section,
+.record-media-summary,
+.record-form-panel {
+    min-width: 0;
+}
+
+.record-page-header {
+    margin-block-end: 1.25rem;
+}
+
+.record-back-link {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.45rem;
+    margin-block-end: 0.85rem;
+    border-radius: 0.7rem;
+    color: var(--dashboard-burgundy);
+    padding: 0.35rem 0.2rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.record-back-link:hover {
+    color: var(--dashboard-burgundy-deep);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+.is-rtl .record-back-link > span[aria-hidden="true"] {
+    transform: scaleX(-1);
+}
+
+.record-eyebrow,
+.record-entry-kicker {
+    margin-block-end: 0.18rem;
+    color: var(--dashboard-wood);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+}
+
+.is-rtl .record-eyebrow,
+.is-rtl .record-entry-kicker {
+    letter-spacing: 0;
+}
+
+.record-page-header h1 {
+    max-width: 30ch;
+    margin-block-end: 0;
+    overflow-wrap: anywhere;
+    font-size: clamp(1.65rem, 3vw, 2.35rem);
+}
+
+.record-action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+    margin-block-end: 1.25rem;
+}
+
+.record-action {
+    display: inline-flex;
+    min-height: 2.8rem;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 0.72rem;
+    padding: 0.58rem 1rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: center;
+    overflow-wrap: anywhere;
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.dashboard-shell .record-action-primary,
+.dashboard-shell .record-action-primary:link,
+.dashboard-shell .record-action-primary:visited,
+.dashboard-shell .record-action-primary:hover,
+.dashboard-shell .record-action-primary:focus-visible,
+.dashboard-shell .record-action-primary:active {
+    background: var(--dashboard-burgundy);
+    color: var(--dashboard-white);
+}
+
+.dashboard-shell .record-action-primary:hover,
+.dashboard-shell .record-action-primary:active {
+    background: var(--dashboard-burgundy-deep);
+}
+
+.record-action-secondary {
+    border-color: var(--dashboard-line);
+    background: var(--dashboard-white);
+    color: var(--dashboard-burgundy);
+}
+
+.record-action-secondary:hover {
+    border-color: rgba(74, 15, 20, 0.35);
+    background: var(--dashboard-soft-burgundy);
+}
+
+.record-messages {
+    margin-block-end: 1rem;
+    border-inline-start: 0.25rem solid var(--dashboard-burgundy);
+    border-radius: 0.8rem;
+    background: var(--dashboard-soft-burgundy);
+    color: var(--dashboard-burgundy-deep);
+    padding: 0.8rem 1rem;
+    font-weight: 600;
+}
+
+.record-messages p {
+    margin: 0;
+}
+
+.record-patient-card,
+.record-section,
+.record-media-summary,
+.record-form-panel {
+    border: 1px solid var(--dashboard-line);
+    border-radius: var(--dashboard-radius);
+    background: var(--dashboard-white);
+    box-shadow: var(--dashboard-shadow);
+}
+
+.record-patient-card {
+    margin-block-end: 1.25rem;
+    padding: clamp(1rem, 2vw, 1.35rem);
+}
+
+.record-section-heading {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-block-end: 1rem;
+}
+
+.record-section-heading h2 {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-size: clamp(1.15rem, 2vw, 1.4rem);
+}
+
+.record-count {
+    display: inline-grid;
+    min-width: 2rem;
+    min-height: 2rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--dashboard-soft-burgundy);
+    color: var(--dashboard-burgundy);
+    padding-inline: 0.55rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.record-patient-details,
+.record-entry-details,
+.record-media-summary dl {
+    margin: 0;
+}
+
+.record-patient-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+    gap: 0.9rem;
+}
+
+.record-patient-details > div {
+    min-width: 0;
+    border-inline-start: 2px solid var(--dashboard-line);
+    padding-inline-start: 0.75rem;
+}
+
+.record-patient-details dt,
+.record-entry-details dt,
+.record-media-summary dt {
+    color: var(--dashboard-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.record-patient-details dd,
+.record-entry-details dd,
+.record-media-summary dd {
+    min-width: 0;
+    margin: 0.15rem 0 0;
+    overflow-wrap: anywhere;
+}
+
+.record-patient-details dd {
+    font-weight: 600;
+}
+
+.record-patient-details dd[dir="ltr"],
+.record-patient-details time,
+.record-entry time,
+.record-media-summary time {
+    unicode-bidi: isolate;
+}
+
+.record-patient-timeline {
+    display: grid;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.record-timeline-event {
+    position: relative;
+    display: grid;
+    grid-template-columns: 0.8rem minmax(0, 1fr);
+    gap: 0.75rem;
+    padding-block: 0 1rem;
+}
+
+.record-timeline-event:not(:last-child)::before {
+    position: absolute;
+    inset-block: 0.7rem 0;
+    inset-inline-start: 0.34rem;
+    width: 1px;
+    background: var(--color-line);
+    content: "";
+}
+
+.record-timeline-marker {
+    position: relative;
+    z-index: 1;
+    width: 0.7rem;
+    height: 0.7rem;
+    margin-block-start: 0.35rem;
+    border: 2px solid var(--color-burgundy);
+    border-radius: 999px;
+    background: var(--color-white);
+}
+
+.record-timeline-content {
+    min-width: 0;
+}
+
+.record-timeline-content p {
+    margin: 0.2rem 0 0;
+    line-height: 1.65;
+}
+
+.record-timeline-date {
+    color: var(--color-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.record-timeline-action {
+    display: inline-flex;
+    width: fit-content;
+    margin-block-start: 0.35rem;
+    border: 0;
+    background: transparent;
+    color: var(--color-red);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+.record-timeline-action:focus-visible {
+    outline: 2px solid var(--color-burgundy);
+    outline-offset: 3px;
+}
+
+.record-flow {
+    display: grid;
+    min-width: 0;
+    gap: 1.25rem;
+}
+
+.record-section {
+    scroll-margin-block-start: 5.25rem;
+    padding: clamp(1rem, 2vw, 1.4rem);
+}
+
+.record-collapsible-section {
+    padding: 0;
+}
+
+.record-section-summary {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: inherit;
+    padding: clamp(1rem, 2vw, 1.4rem);
+    cursor: pointer;
+    list-style: none;
+}
+
+.record-section-summary::-webkit-details-marker {
+    display: none;
+}
+
+.record-section-summary::marker {
+    content: "";
+}
+
+.record-section-summary:hover {
+    background: var(--dashboard-soft-burgundy);
+}
+
+.record-section-summary:focus-visible {
+    outline: 3px solid rgba(139, 90, 43, 0.28);
+    outline-offset: 3px;
+}
+
+.record-section-title {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-size: clamp(1.15rem, 2vw, 1.4rem);
+    font-weight: 700;
+}
+
+.record-section-body {
+    min-width: 0;
+    border-block-start: 1px solid var(--dashboard-line);
+    padding: clamp(1rem, 2vw, 1.4rem);
+}
+
+.record-list {
+    display: grid;
+    min-width: 0;
+    gap: 0.8rem;
+}
+
+.record-media-tombstone {
+    margin: 0;
+    border-inline-start: 2px solid var(--dashboard-line);
+    color: var(--dashboard-muted);
+    padding: 0.28rem 0.7rem;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+
+.record-entry {
+    min-width: 0;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.9rem;
+    background: var(--dashboard-ivory);
+    padding: clamp(0.9rem, 1.8vw, 1.15rem);
+}
+
+.record-entry-header {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.9rem;
+}
+
+.record-entry-header > div:first-child {
+    min-width: 0;
+}
+
+.record-entry-header h3 {
+    max-width: 42ch;
+    margin-block-end: 0;
+    overflow-wrap: anywhere;
+    font-size: 1.02rem;
+}
+
+.record-entry-date,
+.record-related-meta,
+.record-media-meta {
+    color: var(--dashboard-muted);
+    font-size: 0.84rem;
+}
+
+.record-entry-date {
+    margin: 0.24rem 0 0;
+}
+
+.record-related-meta {
+    max-width: 72ch;
+    margin: 0.75rem 0 0;
+    overflow-wrap: anywhere;
+}
+
+.record-status-group {
+    display: flex;
+    min-width: 0;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.35rem;
+}
+
+.is-rtl .record-status-group {
+    justify-content: flex-start;
+}
+
+.record-status {
+    display: inline-flex;
+    min-width: 0;
+    min-height: 1.85rem;
+    flex: 0 1 auto;
+    align-items: center;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 999px;
+    background: var(--dashboard-white);
+    color: var(--dashboard-muted);
+    padding: 0.24rem 0.62rem;
+    font-size: 0.74rem;
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.record-status.status-private_only {
+    background: var(--dashboard-soft-wood);
+    color: #5d452f;
+}
+
+.record-status.status-visible_to_patient {
+    border-color: #c7d9d7;
+    background: #edf6f5;
+    color: #245b57;
+}
+
+.record-status.status-consent-confirmed {
+    border-color: #cbdccf;
+    background: #eff7f0;
+    color: #315f3a;
+}
+
+.record-status.status-inactive {
+    border-color: #d5d0cb;
+    background: #f1efed;
+    color: #59524c;
+}
+
+.record-entry-details {
+    display: grid;
+    min-width: 0;
+    gap: 0.75rem;
+    margin-block-start: 0.9rem;
+}
+
+.record-entry-details > div {
+    min-width: 0;
+    border-block-start: 1px solid var(--dashboard-line);
+    padding-block-start: 0.7rem;
+}
+
+.record-entry-details dd,
+.record-clinical-text {
+    max-width: 76ch;
+    color: var(--dashboard-ink);
+    line-height: 1.72;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.record-clinical-text {
+    margin-block-start: 0.9rem;
+}
+
+.record-media-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin-block: 0.85rem 0;
+}
+
+.record-section-note {
+    max-width: 68ch;
+    margin-block: 0 1rem;
+    color: var(--dashboard-muted);
+    line-height: 1.65;
+}
+
+.record-trash-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.record-trash-details dt {
+    color: var(--dashboard-muted);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.record-trash-details dd {
+    margin: 0.2rem 0 0;
+    overflow-wrap: anywhere;
+}
+
+.record-media-actions {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-block-start: 0.9rem;
+}
+
+.record-media-actions a,
+.record-media-actions button {
+    display: inline-flex;
+    min-height: 2.65rem;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.68rem;
+    background: var(--dashboard-white);
+    color: var(--dashboard-burgundy);
+    padding: 0.5rem 0.85rem;
+    font-size: 0.84rem;
+    font-weight: 700;
+    line-height: 1.3;
+    text-align: center;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+
+.record-media-actions button {
+    font: inherit;
+}
+
+.record-media-actions a:hover,
+.record-media-actions button:hover {
+    border-color: rgba(74, 15, 20, 0.32);
+    background: var(--dashboard-soft-burgundy);
+}
+
+.record-media-actions form {
+    min-width: 0;
+    margin: 0;
+}
+
+.public-case-counts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin: 0.9rem 0 0;
+}
+
+.public-case-counts > div {
+    min-width: 0;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.65rem;
+    background: var(--dashboard-white);
+    padding: 0.55rem 0.65rem;
+}
+
+.public-case-counts dt {
+    color: var(--dashboard-muted);
+    font-size: 0.73rem;
+    font-weight: 600;
+}
+
+.public-case-counts dd {
+    margin: 0.1rem 0 0;
+    color: var(--dashboard-ink);
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.record-media-actions .record-case-danger-link {
+    border-color: rgba(129, 33, 41, 0.3);
+    color: #812129;
+}
+
+.record-folder-organizer {
+    display: grid;
+    min-width: 0;
+    gap: 0.9rem;
+    margin-block-end: 1rem;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.9rem;
+    background: var(--dashboard-ivory);
+    padding: clamp(0.85rem, 2vw, 1.1rem);
+}
+
+.record-folder-organizer-heading,
+.record-folder-create-controls,
+.record-folder-row,
+.record-media-filter-summary {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.record-folder-organizer-heading {
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+
+.record-folder-organizer-heading h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.record-folder-safety {
+    color: var(--dashboard-muted);
+    font-size: 0.76rem;
+    font-weight: 600;
+}
+
+.record-folder-create {
+    display: grid;
+    min-width: 0;
+    gap: 0.35rem;
+}
+
+.record-folder-create > label,
+.record-folder-actions-panel label {
+    color: var(--dashboard-ink);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.record-folder-create-controls input,
+.record-folder-actions-panel input {
+    width: 100%;
+    min-width: 0;
+    min-height: 2.7rem;
+    border: 1px solid #cfc2b5;
+    border-radius: 0.68rem;
+    background: var(--dashboard-white);
+    color: var(--dashboard-ink);
+    padding: 0.55rem 0.68rem;
+    font: inherit;
+}
+
+.record-folder-create-controls input:focus,
+.record-folder-actions-panel input:focus {
+    border-color: var(--dashboard-wood);
+    outline: 3px solid rgba(139, 90, 43, 0.2);
+    outline-offset: 1px;
+}
+
+.record-folder-create-controls button,
+.record-folder-actions-panel button {
+    min-height: 2.7rem;
+    flex: 0 0 auto;
+    border-radius: 0.68rem;
+    background: var(--dashboard-burgundy);
+    color: var(--dashboard-white);
+    padding: 0.5rem 0.85rem;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.record-folder-list {
+    display: grid;
+    min-width: 0;
+    gap: 0.45rem;
+}
+
+.record-folder-row {
+    align-items: stretch;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.72rem;
+    background: var(--dashboard-white);
+    padding: 0.35rem;
+}
+
+.record-folder-row.is-selected {
+    border-color: rgba(74, 15, 20, 0.35);
+    background: var(--dashboard-soft-burgundy);
+}
+
+.record-folder-filter {
+    display: flex;
+    min-width: 0;
+    min-height: 2.65rem;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    border-radius: 0.58rem;
+    color: var(--dashboard-ink);
+    padding: 0.48rem 0.6rem;
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.record-folder-filter > span:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.record-folder-count {
+    display: inline-grid;
+    min-width: 1.8rem;
+    min-height: 1.8rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--dashboard-soft-wood);
+    color: var(--dashboard-wood);
+    padding-inline: 0.45rem;
+    font-size: 0.74rem;
+}
+
+.record-folder-actions {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.record-folder-actions summary {
+    display: inline-flex;
+    min-height: 2.65rem;
+    align-items: center;
+    border-radius: 0.58rem;
+    color: var(--dashboard-burgundy);
+    padding: 0.48rem 0.65rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    list-style: none;
+}
+
+.record-folder-actions summary::-webkit-details-marker {
+    display: none;
+}
+
+.record-folder-actions-panel {
+    display: grid;
+    width: min(18rem, calc(100vw - 3rem));
+    gap: 0.65rem;
+    margin-block-start: 0.35rem;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.72rem;
+    background: var(--dashboard-white);
+    box-shadow: var(--dashboard-shadow);
+    padding: 0.75rem;
+}
+
+.record-folder-actions-panel form {
+    display: grid;
+    min-width: 0;
+    gap: 0.4rem;
+}
+
+.record-folder-delete-link {
+    display: inline-flex;
+    min-height: 2.65rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.68rem;
+    color: #812129;
+    padding: 0.48rem 0.65rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.record-media-filter-summary {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    margin-block-end: 0.8rem;
+    color: var(--dashboard-muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.record-folder-delete-warning {
+    border-inline-start: 0.25rem solid var(--dashboard-burgundy);
+    border-radius: 0.68rem;
+    background: var(--dashboard-soft-burgundy);
+    color: var(--dashboard-burgundy-deep);
+    padding: 0.85rem 1rem;
+    line-height: 1.65;
+}
+
+.record-empty-state {
+    margin: 0;
+    border-block-start: 1px solid var(--dashboard-line);
+    color: var(--dashboard-muted);
+    padding-block-start: 0.9rem;
+    font-size: 0.92rem;
+}
+
+.public-case-visit-required {
+    display: grid;
+    justify-items: start;
+    gap: 1rem;
+}
+
+.public-case-visit-required p {
+    max-width: 56ch;
+    margin: 0;
+    color: var(--dashboard-muted);
+    line-height: 1.65;
+}
+
+.record-form-page {
+    width: min(100%, 62rem);
+}
+
+.record-form-header {
+    margin-block-end: 1.1rem;
+}
+
+.record-form-panel,
+.record-media-summary {
+    padding: clamp(1rem, 2.4vw, 1.5rem);
+}
+
+.record-media-summary {
+    margin-block-end: 1rem;
+}
+
+.record-media-summary h2 {
+    margin-block-end: 0.85rem;
+    font-size: 1.05rem;
+}
+
+.record-media-summary dl {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.record-media-summary dl > div {
+    min-width: 0;
+    border-inline-start: 2px solid var(--dashboard-line);
+    padding-inline-start: 0.7rem;
+}
+
+.record-form {
+    display: grid;
+    min-width: 0;
+    gap: 1rem;
+}
+
+.record-form-field {
+    display: grid;
+    min-width: 0;
+    gap: 0.35rem;
+}
+
+.record-form-field > label,
+.record-checkbox-control label {
+    color: var(--dashboard-ink);
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.record-form input:not([type="checkbox"]):not([type="hidden"]),
+.record-form select,
+.record-form textarea {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid #cfc2b5;
+    border-radius: 0.7rem;
+    background: var(--dashboard-white);
+    color: var(--dashboard-ink);
+    padding: 0.68rem 0.75rem;
+    font: inherit;
+    line-height: 1.45;
+}
+
+.record-form input:not([type="checkbox"]):not([type="hidden"]),
+.record-form select {
+    min-height: 2.9rem;
+}
+
+.record-form textarea {
+    min-height: 7.5rem;
+    resize: vertical;
+}
+
+.record-form input[type="file"] {
+    max-width: 100%;
+    min-height: 3.2rem;
+    overflow: hidden;
+    padding: 0.48rem;
+}
+
+.record-form input[type="file"]::file-selector-button {
+    min-height: 2.1rem;
+    margin-inline-end: 0.65rem;
+    border: 0;
+    border-radius: 0.52rem;
+    background: var(--dashboard-soft-burgundy);
+    color: var(--dashboard-burgundy);
+    padding: 0.35rem 0.7rem;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.record-upload-preview {
+    display: grid;
+    justify-items: start;
+    gap: 0.7rem;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.8rem;
+    background: var(--dashboard-ivory);
+    padding: 0.8rem;
+}
+
+.record-upload-preview[hidden],
+.record-upload-preview img[hidden],
+.record-upload-preview video[hidden] {
+    display: none;
+}
+
+.record-upload-preview img,
+.record-upload-preview video {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    max-height: 24rem;
+    border-radius: 0.65rem;
+    background: #171513;
+    object-fit: contain;
+}
+
+.record-upload-preview-remove {
+    min-height: 2.5rem;
+    border: 1px solid rgba(129, 33, 41, 0.3);
+    border-radius: 0.65rem;
+    background: var(--dashboard-white);
+    color: #812129;
+    padding: 0.45rem 0.8rem;
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.record-media-dialog,
+.record-confirm-dialog {
+    width: min(calc(100% - 2rem), 64rem);
+    max-height: calc(100vh - 2rem);
+    border: 0;
+    border-radius: 1rem;
+    background: var(--dashboard-white);
+    color: var(--dashboard-ink);
+    padding: 0;
+    box-shadow: 0 1.5rem 4rem rgba(24, 13, 8, 0.28);
+}
+
+.record-confirm-dialog {
+    width: min(calc(100% - 2rem), 36rem);
+}
+
+.record-media-dialog::backdrop,
+.record-confirm-dialog::backdrop {
+    background: rgba(20, 13, 10, 0.72);
+}
+
+.record-media-dialog-panel,
+.record-confirm-dialog-panel {
+    display: grid;
+    min-width: 0;
+    gap: 1rem;
+    padding: clamp(0.9rem, 2vw, 1.25rem);
+}
+
+.record-media-dialog-heading,
+.record-confirm-dialog-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.record-media-dialog-heading h2,
+.record-confirm-dialog-panel h2,
+.record-confirm-dialog-panel p {
+    margin: 0;
+}
+
+.record-confirm-dialog-panel p {
+    color: var(--dashboard-muted);
+    line-height: 1.7;
+}
+
+.record-media-dialog-heading button,
+.record-confirm-dialog-actions button {
+    min-height: 2.65rem;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.68rem;
+    background: var(--dashboard-white);
+    color: var(--dashboard-burgundy);
+    padding: 0.5rem 0.85rem;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.record-confirm-dialog-actions form {
+    margin: 0;
+}
+
+.record-confirm-dialog-actions .record-case-danger-link {
+    border-color: rgba(129, 33, 41, 0.3);
+    color: #812129;
+}
+
+.record-media-dialog-stage {
+    display: flex;
+    min-height: min(65vh, 34rem);
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.8rem;
+    background: #171513;
+    overflow: hidden;
+}
+
+.record-media-dialog-stage img,
+.record-media-dialog-stage video {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    max-height: 75vh;
+    object-fit: contain;
+}
+
+.record-media-dialog-stage img[hidden],
+.record-media-dialog-stage video[hidden] {
+    display: none;
+}
+
+.record-upload-preview-remove:focus-visible,
+.record-media-dialog button:focus-visible,
+.record-confirm-dialog button:focus-visible {
+    outline: 3px solid rgba(139, 90, 43, 0.28);
+    outline-offset: 3px;
+}
+
+.record-form input:focus,
+.record-form select:focus,
+.record-form textarea:focus {
+    border-color: var(--dashboard-wood);
+    outline: 3px solid rgba(139, 90, 43, 0.2);
+    outline-offset: 1px;
+}
+
+.record-form-field.has-errors input,
+.record-form-field.has-errors select,
+.record-form-field.has-errors textarea {
+    border-color: #9f2730;
+}
+
+.record-checkbox-control {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    gap: 0.6rem;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.7rem;
+    background: var(--dashboard-ivory);
+    padding: 0.72rem 0.8rem;
+}
+
+.record-checkbox-control input[type="checkbox"] {
+    width: 1.15rem;
+    height: 1.15rem;
+    flex: 0 0 1.15rem;
+    margin: 0.23rem 0 0;
+    accent-color: var(--dashboard-burgundy);
+}
+
+.record-field-help {
+    margin: 0;
+    color: var(--dashboard-muted);
+    font-size: 0.78rem;
+    line-height: 1.5;
+}
+
+.record-form-errors,
+.record-field-errors {
+    border-radius: 0.58rem;
+    background: #fff0f1;
+    color: #812129;
+    padding: 0.5rem 0.65rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.record-form-errors ul,
+.record-field-errors ul {
+    margin: 0;
+    padding-inline-start: 1.15rem;
+}
+
+.record-form-actions {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    border-block-start: 1px solid var(--dashboard-line);
+    padding-block-start: 1rem;
+}
+
+.record-form-actions button,
+.record-form-actions a {
+    display: inline-flex;
+    min-height: 2.85rem;
+    min-width: 8rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.72rem;
+    padding: 0.58rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: center;
+    cursor: pointer;
+}
+
+.record-form-actions button {
+    background: var(--dashboard-burgundy);
+    color: var(--dashboard-white);
+}
+
+.record-form-actions button:hover {
+    background: var(--dashboard-burgundy-deep);
+}
+
+.record-form-actions a {
+    border: 1px solid var(--dashboard-line);
+    background: var(--dashboard-white);
+    color: var(--dashboard-burgundy);
+}
+
+.record-form-actions a:hover {
+    border-color: rgba(74, 15, 20, 0.32);
+    background: var(--dashboard-soft-burgundy);
+}
+
+@media (max-width: 47.999rem) {
+    .record-entry-header {
+        flex-direction: column;
+        gap: 0.65rem;
+    }
+
+    .record-status-group {
+        justify-content: flex-start;
+    }
+
+    .record-media-summary dl {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .record-trash-details {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .public-case-counts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 35rem) {
+    .record-page-header h1 {
+        font-size: clamp(1.5rem, 8vw, 1.9rem);
+    }
+
+    .record-action-bar,
+    .record-form-actions,
+    .record-media-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .record-action,
+    .record-form-actions button,
+    .record-form-actions a,
+    .record-media-actions a {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .record-media-actions form,
+    .record-media-actions button {
+        width: 100%;
+    }
+
+    .record-patient-details {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .record-folder-create-controls,
+    .record-folder-row {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .record-folder-create-controls button,
+    .record-folder-actions,
+    .record-folder-actions summary,
+    .record-folder-actions-panel {
+        width: 100%;
+    }
+
+    .record-folder-actions-panel {
+        max-width: 100%;
+    }
+
+    .record-patient-card,
+    .record-section,
+    .record-form-panel,
+    .record-media-summary {
+        border-radius: 0.9rem;
+    }
+}
+
+@media (max-width: 22rem) {
+    .patient-record-content {
+        padding-inline: 0.75rem;
+    }
+
+    .record-patient-card,
+    .record-section,
+    .record-entry,
+    .record-form-panel,
+    .record-media-summary {
+        padding-inline: 0.8rem;
+    }
+
+    .record-entry-header h3 {
+        font-size: 0.96rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .record-action {
+        transition: none;
+    }
+}

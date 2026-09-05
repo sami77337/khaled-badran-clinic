@@ -1,11 +1,20 @@
-<nav class="hero-actions" aria-label="{% if is_arabic %}تنقل بوابة المريض{% else %}Patient portal navigation{% endif %}">
-    {% for item in portal_nav_items %}
-        <a class="btn btn-secondary" href="{{ item.url }}"{% if portal_section == item.key %} aria-current="page"{% endif %}>{{ item.label }}</a>
-    {% endfor %}
-    {% if request.user.is_authenticated %}
-        <form method="post" action="{{ portal_logout_url }}">
-            {% csrf_token %}
-            <button class="btn btn-secondary" type="submit">{{ portal_logout_label }}</button>
-        </form>
-    {% endif %}
+<nav class="portal-nav" data-portal-navigation aria-label="{% if is_arabic %}تنقل بوابة المريض{% else %}Patient portal navigation{% endif %}">
+    <div class="portal-nav-primary">
+        {% for item in portal_nav_items %}
+            <a class="portal-nav-link{% if portal_section == item.key %} is-active{% endif %}" href="{{ item.url }}"{% if portal_section == item.key %} aria-current="page"{% endif %}>{{ item.label }}</a>
+        {% endfor %}
+    </div>
+    <div class="portal-nav-utility">
+        <a
+            class="portal-nav-link portal-nav-public"
+            data-portal-public-site
+            href="{% if is_arabic %}{% url 'home' %}{% else %}{% url 'home_en' %}{% endif %}"
+        >{% if is_arabic %}الموقع العام{% else %}Public Site{% endif %}</a>
+        {% if request.user.is_authenticated %}
+            <form class="portal-nav-logout" method="post" action="{{ portal_logout_url }}">
+                {% csrf_token %}
+                <button class="portal-nav-link portal-nav-action" type="submit">{{ portal_logout_label }}</button>
+            </form>
+        {% endif %}
+    </div>
 </nav>

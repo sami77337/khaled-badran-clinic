@@ -4,6 +4,94 @@ from . import views
 
 
 urlpatterns = [
+    path("", views.dashboard_home, name="dashboard_home"),
+    path("consultations/", views.dashboard_consultation_list, name="dashboard_consultation_list"),
+    path(
+        "consultations/<uuid:public_id>/",
+        views.dashboard_consultation_detail,
+        name="dashboard_consultation_detail",
+    ),
+    path(
+        "consultations/attachments/<uuid:public_id>/",
+        views.dashboard_consultation_attachment,
+        name="dashboard_consultation_attachment",
+    ),
+    path(
+        "consultations/audio-replies/<uuid:public_id>/",
+        views.dashboard_consultation_audio_reply,
+        name="dashboard_consultation_audio_reply",
+    ),
+    path("scheduling/", views.dashboard_scheduling, name="dashboard_scheduling"),
+    path(
+        "scheduling/weekly/create/",
+        views.dashboard_scheduling_weekly_create,
+        name="dashboard_scheduling_weekly_create",
+    ),
+    path(
+        "scheduling/weekly/<int:period_id>/update/",
+        views.dashboard_scheduling_weekly_update,
+        name="dashboard_scheduling_weekly_update",
+    ),
+    path(
+        "scheduling/weekly/<int:period_id>/deactivate/",
+        views.dashboard_scheduling_weekly_deactivate,
+        name="dashboard_scheduling_weekly_deactivate",
+    ),
+    path(
+        "scheduling/special-hours/create/",
+        views.dashboard_scheduling_special_create,
+        name="dashboard_scheduling_special_create",
+    ),
+    path(
+        "scheduling/special-hours/<int:period_id>/update/",
+        views.dashboard_scheduling_special_update,
+        name="dashboard_scheduling_special_update",
+    ),
+    path(
+        "scheduling/special-hours/<int:period_id>/deactivate/",
+        views.dashboard_scheduling_special_deactivate,
+        name="dashboard_scheduling_special_deactivate",
+    ),
+    path(
+        "scheduling/special-hours/use-weekly/",
+        views.dashboard_scheduling_special_use_weekly,
+        name="dashboard_scheduling_special_use_weekly",
+    ),
+    path(
+        "scheduling/closures/create/",
+        views.dashboard_scheduling_closure_create,
+        name="dashboard_scheduling_closure_create",
+    ),
+    path(
+        "scheduling/closures/<int:closure_id>/deactivate/",
+        views.dashboard_scheduling_closure_deactivate,
+        name="dashboard_scheduling_closure_deactivate",
+    ),
+    path(
+        "scheduling/services/create/",
+        views.dashboard_scheduling_service_create,
+        name="dashboard_scheduling_service_create",
+    ),
+    path(
+        "scheduling/services/<int:visit_type_id>/duration/",
+        views.dashboard_scheduling_service_duration,
+        name="dashboard_scheduling_service_duration",
+    ),
+    path(
+        "scheduling/services/<int:visit_type_id>/deactivate/",
+        views.dashboard_scheduling_service_deactivate,
+        name="dashboard_scheduling_service_deactivate",
+    ),
+    path(
+        "scheduling/services/<int:visit_type_id>/reactivate/",
+        views.dashboard_scheduling_service_reactivate,
+        name="dashboard_scheduling_service_reactivate",
+    ),
+    path(
+        "scheduling/rules/update/",
+        views.dashboard_scheduling_rules_update,
+        name="dashboard_scheduling_rules_update",
+    ),
     path("patients/", views.dashboard_patient_list, name="dashboard_patient_list"),
     path(
         "patients/<int:patient_id>/records/",
@@ -26,8 +114,99 @@ urlpatterns = [
         name="dashboard_media_create",
     ),
     path(
+        "patients/<int:patient_id>/records/media-folders/create/",
+        views.dashboard_media_folder_create,
+        name="dashboard_media_folder_create",
+    ),
+    path(
+        "patients/<int:patient_id>/records/media-folders/<int:folder_id>/rename/",
+        views.dashboard_media_folder_rename,
+        name="dashboard_media_folder_rename",
+    ),
+    path(
+        "patients/<int:patient_id>/records/media-folders/<int:folder_id>/delete/",
+        views.dashboard_media_folder_delete,
+        name="dashboard_media_folder_delete",
+    ),
+    path("public-cases/", views.dashboard_public_case_list, name="dashboard_public_case_list"),
+    path(
+        "public-cases/create/",
+        views.dashboard_public_case_create,
+        name="dashboard_public_case_create",
+    ),
+    path(
+        "public-cases/<int:case_id>/edit/",
+        views.dashboard_public_case_edit,
+        name="dashboard_public_case_edit",
+    ),
+    path(
+        "public-cases/<int:case_id>/media/add/",
+        views.dashboard_public_case_add_media,
+        name="dashboard_public_case_add_media",
+    ),
+    path(
+        "public-cases/<int:case_id>/assets/",
+        views.dashboard_public_case_assets,
+        name="dashboard_public_case_assets",
+    ),
+    path(
+        "public-cases/<int:case_id>/assets/<uuid:public_id>/role/",
+        views.dashboard_public_case_asset_role,
+        name="dashboard_public_case_asset_role",
+    ),
+    path(
+        "public-cases/<int:case_id>/assets/<uuid:public_id>/preview/",
+        views.dashboard_public_case_asset_preview,
+        name="dashboard_public_case_asset_preview",
+    ),
+    path(
+        "public-cases/<int:case_id>/assets/<uuid:public_id>/download/",
+        views.dashboard_public_case_asset_download,
+        name="dashboard_public_case_asset_download",
+    ),
+    path(
+        "public-cases/<int:case_id>/assets/<uuid:public_id>/remove/",
+        views.dashboard_public_case_asset_remove,
+        name="dashboard_public_case_asset_remove",
+    ),
+    path(
+        "public-cases/<int:case_id>/publish/",
+        views.dashboard_public_case_publish,
+        name="dashboard_public_case_publish",
+    ),
+    path(
+        "public-cases/<int:case_id>/unpublish/",
+        views.dashboard_public_case_unpublish,
+        name="dashboard_public_case_unpublish",
+    ),
+    path(
+        "public-cases/<int:case_id>/republish/",
+        views.dashboard_public_case_republish,
+        name="dashboard_public_case_republish",
+    ),
+    path(
+        "public-cases/<int:case_id>/delete/",
+        views.dashboard_public_case_delete,
+        name="dashboard_public_case_delete",
+    ),
+    path(
         "patients/<int:patient_id>/records/media/<uuid:public_id>/edit/",
         views.dashboard_media_update,
         name="dashboard_media_update",
+    ),
+    path(
+        "patients/<int:patient_id>/records/media/<uuid:public_id>/trash/",
+        views.dashboard_media_trash,
+        name="dashboard_media_trash",
+    ),
+    path(
+        "patients/<int:patient_id>/records/media/<uuid:public_id>/discard/",
+        views.dashboard_media_discard_recent,
+        name="dashboard_media_discard_recent",
+    ),
+    path(
+        "patients/<int:patient_id>/records/media/<uuid:public_id>/restore/",
+        views.dashboard_media_restore,
+        name="dashboard_media_restore",
     ),
 ]

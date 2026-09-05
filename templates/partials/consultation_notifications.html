@@ -1,0 +1,93 @@
+<div
+    class="consultation-notifications {{ notification_placement }}"
+    data-consultation-notifications
+>
+    <button
+        class="consultation-notification-trigger"
+        id="consultation-notification-trigger-{{ notification_surface }}"
+        type="button"
+        aria-label="{% if is_arabic %}الإشعارات{% else %}Notifications{% endif %}"
+        aria-controls="consultation-notification-panel-{{ notification_surface }}"
+        aria-expanded="false"
+        data-consultation-notification-trigger
+    >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path>
+            <path d="M10 21h4"></path>
+        </svg>
+        {% if consultation_notification_unread_count %}
+            <span class="consultation-notification-badge" aria-hidden="true">
+                {{ consultation_notification_unread_badge }}
+            </span>
+            <span class="dashboard-sr-only">
+                {% if is_arabic %}{{ consultation_notification_unread_count }} غير مقروءة{% else %}{{ consultation_notification_unread_count }} unread{% endif %}
+            </span>
+        {% endif %}
+    </button>
+
+    <section
+        class="consultation-notification-panel"
+        id="consultation-notification-panel-{{ notification_surface }}"
+        aria-labelledby="consultation-notification-heading-{{ notification_surface }}"
+        data-consultation-notification-panel
+        hidden
+    >
+        <div class="consultation-notification-panel-header">
+            <h2 id="consultation-notification-heading-{{ notification_surface }}">
+                {% if is_arabic %}الإشعارات{% else %}Notifications{% endif %}
+            </h2>
+            {% if consultation_notification_unread_count %}
+                <span class="consultation-notification-count">
+                    {{ consultation_notification_unread_badge }}
+                    <span class="dashboard-sr-only">{% if is_arabic %}غير مقروءة{% else %}unread{% endif %}</span>
+                </span>
+            {% endif %}
+        </div>
+
+        <div class="consultation-notification-list">
+            {% for notification in consultation_notification_items %}
+                <form
+                    class="consultation-notification-item{% if not notification.read_at %} is-unread{% endif %}"
+                    method="post"
+                    action="{% url consultation_notification_open_route public_id=notification.public_id %}"
+                >
+                    {% csrf_token %}
+                    <button type="submit">
+                        <span class="consultation-notification-item-copy">
+                            <strong>
+                                {% if notification.kind == "new_consultation" %}
+                                    {% if is_arabic %}استشارة جديدة{% else %}New consultation{% endif %}
+                                {% else %}
+                                    {% if is_arabic %}تم الرد على استشارتك{% else %}Your consultation has been answered{% endif %}
+                                {% endif %}
+                            </strong>
+                            <time datetime="{{ notification.created_at|date:'c' }}">
+                                {{ notification.created_at|date:"Y-m-d H:i" }}
+                            </time>
+                        </span>
+                        {% if not notification.read_at %}
+                            <span class="consultation-notification-unread-dot" aria-hidden="true"></span>
+                            <span class="dashboard-sr-only">{% if is_arabic %}غير مقروءة{% else %}Unread{% endif %}</span>
+                        {% endif %}
+                    </button>
+                </form>
+            {% empty %}
+                <p class="consultation-notification-empty">
+                    {% if is_arabic %}لا توجد إشعارات جديدة{% else %}No new notifications{% endif %}
+                </p>
+            {% endfor %}
+        </div>
+
+        <div class="consultation-notification-panel-actions">
+            <form method="post" action="{{ consultation_notification_mark_all_url }}">
+                {% csrf_token %}
+                <button type="submit"{% if not consultation_notification_unread_count %} disabled{% endif %}>
+                    {% if is_arabic %}تحديد الكل كمقروء{% else %}Mark all as read{% endif %}
+                </button>
+            </form>
+            <a href="{{ consultation_notification_consultations_url }}">
+                {% if is_arabic %}عرض الاستشارات{% else %}View Consultations{% endif %}
+            </a>
+        </div>
+    </section>
+</div>

@@ -1,0 +1,465 @@
+.consultation-notifications {
+    position: relative;
+    min-width: 0;
+    flex: 0 0 auto;
+}
+
+.consultation-notifications .dashboard-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.consultation-notification-trigger {
+    position: relative;
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    place-items: center;
+    border: 1px solid rgba(74, 15, 20, 0.2);
+    border-radius: 0.72rem;
+    background: #FFFFFF;
+    color: #4A0F14;
+    cursor: pointer;
+    padding: 0;
+    font: inherit;
+}
+
+.consultation-notification-trigger svg {
+    width: 1.35rem;
+    height: 1.35rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.7;
+}
+
+.consultation-notification-badge,
+.dashboard-navigation-badge,
+.consultation-notification-count {
+    display: inline-grid;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    place-items: center;
+    border-radius: 999px;
+    background: #8B5A2B;
+    color: #FFFFFF;
+    padding-inline: 0.24rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.consultation-notification-badge {
+    position: absolute;
+    inset-block-start: -0.35rem;
+    inset-inline-end: -0.35rem;
+    border: 2px solid #FFFFFF;
+}
+
+.consultation-notification-panel {
+    position: absolute;
+    inset-block-start: calc(100% + 0.55rem);
+    inset-inline-end: 0;
+    z-index: 34;
+    width: min(22rem, calc(100vw - 2rem));
+    overflow: hidden;
+    border: 1px solid #E3D9CD;
+    border-radius: 1rem;
+    background: #FFFFFF;
+    color: #251D1A;
+    box-shadow: 0 0.7rem 2rem rgba(58, 42, 35, 0.14);
+    text-align: start;
+}
+
+.consultation-notification-panel[hidden] {
+    display: none;
+}
+
+.consultation-notification-panel-header {
+    display: flex;
+    min-height: 3.4rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-block-end: 1px solid #E3D9CD;
+    padding: 0.75rem 0.9rem;
+}
+
+.consultation-notification-panel-header h2 {
+    margin: 0;
+    color: #4A0F14;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.consultation-notification-list {
+    max-height: min(24rem, calc(100dvh - 13rem));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.consultation-notification-item {
+    margin: 0;
+}
+
+.consultation-notification-item + .consultation-notification-item {
+    border-block-start: 1px solid #E3D9CD;
+}
+
+.consultation-notification-item button {
+    display: flex;
+    width: 100%;
+    min-height: 4rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+    border: 0;
+    background: #FFFFFF;
+    color: #251D1A;
+    cursor: pointer;
+    padding: 0.72rem 0.9rem;
+    text-align: start;
+    font: inherit;
+}
+
+.consultation-notification-item.is-unread button {
+    background: #F5EDEE;
+}
+
+.consultation-notification-item button:hover {
+    background: #F4EEE7;
+}
+
+.consultation-notification-item-copy {
+    display: grid;
+    min-width: 0;
+    gap: 0.12rem;
+}
+
+.consultation-notification-item-copy strong {
+    color: #4A0F14;
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.consultation-notification-item-copy time {
+    color: #685E56;
+    font-size: 0.74rem;
+    direction: ltr;
+    unicode-bidi: isolate;
+}
+
+.consultation-notification-unread-dot {
+    width: 0.48rem;
+    height: 0.48rem;
+    flex: 0 0 0.48rem;
+    border-radius: 50%;
+    background: #8B5A2B;
+}
+
+.consultation-notification-empty {
+    margin: 0;
+    color: #685E56;
+    padding: 1.35rem 1rem;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.consultation-notification-panel-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-block-start: 1px solid #E3D9CD;
+}
+
+.consultation-notification-panel-actions form {
+    min-width: 0;
+    margin: 0;
+}
+
+.consultation-notification-panel-actions button,
+.consultation-notification-panel-actions a {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    min-height: 3rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: #FFFFFF;
+    color: #4A0F14;
+    cursor: pointer;
+    padding: 0.55rem 0.65rem;
+    text-align: center;
+    text-decoration: none;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.consultation-notification-panel-actions > * + * {
+    border-inline-start: 1px solid #E3D9CD;
+}
+
+.consultation-notification-panel-actions button:disabled {
+    color: #8B8179;
+    cursor: default;
+}
+
+.consultation-notification-panel-actions button:not(:disabled):hover,
+.consultation-notification-panel-actions a:hover {
+    background: #F4EEE7;
+}
+
+.notification-placement-dashboard-mobile,
+.notification-placement-public-mobile {
+    display: none;
+}
+
+.notification-placement-dashboard-desktop .consultation-notification-trigger {
+    border-color: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.1);
+    color: #FFFFFF;
+}
+
+.notification-placement-dashboard-desktop .consultation-notification-badge {
+    border-color: #4A0F14;
+}
+
+.notification-placement-dashboard-desktop .consultation-notification-panel {
+    inset-inline-end: 0;
+    width: calc(var(--dashboard-sidebar-width) - 2.2rem);
+}
+
+.dashboard-navigation-badge {
+    margin-inline-start: auto;
+}
+
+.dashboard-mobile-bottom-nav {
+    display: none;
+}
+
+@media (max-width: 63.999rem) {
+    .notification-placement-dashboard-mobile {
+        display: block;
+    }
+
+    .notification-placement-dashboard-desktop {
+        display: none;
+    }
+
+    .notification-placement-dashboard-mobile .consultation-notification-trigger {
+        border-color: rgba(255, 255, 255, 0.25);
+        background: rgba(255, 255, 255, 0.1);
+        color: #FFFFFF;
+    }
+
+    .notification-placement-dashboard-mobile .consultation-notification-badge {
+        border-color: #4A0F14;
+    }
+}
+
+@media (max-width: 40rem) {
+    html,
+    body.dashboard-shell,
+    .dashboard-sidebar {
+        scrollbar-width: none;
+    }
+
+    html::-webkit-scrollbar,
+    body.dashboard-shell::-webkit-scrollbar,
+    .dashboard-sidebar::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+    }
+
+    body.dashboard-shell .dashboard-main {
+        padding-block-end: calc(5rem + env(safe-area-inset-bottom));
+    }
+
+    .dashboard-mobile-bottom-nav {
+        position: fixed;
+        inset-inline: 0;
+        inset-block-end: 0;
+        z-index: 33;
+        display: grid;
+        width: 100%;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        align-items: stretch;
+        border-block-start: 1px solid var(--dashboard-line);
+        background: var(--dashboard-ivory);
+        padding-block: 0.3rem calc(0.3rem + env(safe-area-inset-bottom));
+        box-shadow: 0 -0.35rem 1.2rem rgba(58, 42, 35, 0.09);
+    }
+
+    .dashboard-mobile-nav-item {
+        position: relative;
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        min-height: 3.75rem;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 0.18rem;
+        border: 0;
+        border-radius: 0.65rem;
+        background: transparent;
+        color: var(--dashboard-burgundy);
+        cursor: pointer;
+        padding: 0.35rem 0.12rem;
+        touch-action: manipulation;
+        text-decoration: none;
+        font: inherit;
+        font-size: clamp(0.59rem, 2.7vw, 0.72rem);
+        font-weight: 600;
+        line-height: 1.15;
+        text-align: center;
+    }
+
+    .dashboard-mobile-nav-item > span:last-child {
+        width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .dashboard-mobile-nav-item.is-active {
+        background: var(--dashboard-soft-burgundy);
+        color: var(--dashboard-burgundy);
+    }
+
+    .dashboard-mobile-bottom-nav[data-mobile-bottom-navigation="patient"]
+        .dashboard-mobile-nav-item[data-mobile-nav-item="book"] {
+        width: calc(100% - 0.3rem);
+        min-height: 3.25rem;
+        align-self: center;
+        justify-self: center;
+        border-radius: 0.65rem;
+        background: var(--dashboard-burgundy);
+        color: var(--dashboard-white);
+    }
+
+    .dashboard-mobile-nav-item[data-mobile-nav-item="more"]::before {
+        position: absolute;
+        inset-block-start: -0.3rem;
+        inset-block-end: calc(-0.3rem - env(safe-area-inset-bottom));
+        inset-inline: 0;
+        content: "";
+    }
+
+    .dashboard-mobile-nav-item[data-mobile-nav-item="more"] > * {
+        pointer-events: none;
+    }
+
+    .dashboard-mobile-nav-item:focus-visible {
+        outline: 3px solid rgba(139, 90, 43, 0.48);
+        outline-offset: -2px;
+    }
+
+    .dashboard-mobile-nav-icon,
+    .dashboard-mobile-nav-icon-wrap {
+        width: 1.3rem;
+        height: 1.3rem;
+        flex: 0 0 1.3rem;
+    }
+
+    .dashboard-mobile-nav-icon {
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.7;
+    }
+
+    .dashboard-mobile-nav-icon-wrap {
+        position: relative;
+        display: block;
+    }
+
+    .dashboard-mobile-nav-icon-wrap .dashboard-navigation-badge {
+        position: absolute;
+        inset-block-start: -0.55rem;
+        inset-inline-end: -0.75rem;
+        min-width: 1.1rem;
+        height: 1.1rem;
+        border: 2px solid var(--dashboard-ivory);
+        margin: 0;
+        font-size: 0.58rem;
+    }
+
+    .notification-placement-dashboard-mobile .consultation-notification-panel {
+        position: fixed;
+        inset-block-start: 4.65rem;
+        inset-inline: 0.75rem;
+        width: auto;
+    }
+
+    .notification-placement-dashboard-mobile .consultation-notification-list,
+    .notification-placement-public-mobile .consultation-notification-list {
+        max-height: min(24rem, calc(100dvh - 18rem));
+    }
+}
+
+@media (max-width: 69.999rem) {
+    .header-inner.has-auth-notifications {
+        grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
+    }
+
+    .header-inner.has-auth-notifications .brand {
+        grid-column: 2;
+    }
+
+    .notification-placement-public-mobile {
+        display: block;
+        grid-column: 3;
+        grid-row: 1;
+        justify-self: center;
+    }
+
+    .header-inner.has-auth-notifications .mobile-language-switch {
+        grid-column: 4;
+    }
+
+    .notification-placement-public-desktop {
+        display: none;
+    }
+
+    .notification-placement-public-mobile .consultation-notification-panel {
+        position: fixed;
+        inset-block-start: 4.8rem;
+        inset-inline: 1rem;
+        z-index: 104;
+        width: auto;
+    }
+}
+
+@media (min-width: 70rem) {
+    .header-inner.has-auth-notifications {
+        grid-template-columns: minmax(190px, 1fr) auto auto;
+    }
+
+    .notification-placement-public-mobile {
+        display: none;
+    }
+
+    .notification-placement-public-desktop {
+        display: block;
+    }
+
+    .notification-placement-public-desktop .consultation-notification-panel {
+        z-index: 104;
+    }
+}

@@ -1,0 +1,26 @@
+<header class="site-header" data-site-header>
+    <div class="container header-inner">
+        <a class="brand" href="{{ home_url }}" aria-label="{% if is_arabic %}العودة إلى الصفحة الرئيسية{% else %}Back to home{% endif %}">
+            <span class="brand-mark" aria-hidden="true">KB</span>
+            <span class="brand-copy">
+                <span class="brand-name">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</span>
+                <span class="brand-subtitle">{% if is_arabic %}أنف وأذن وحنجرة{% else %}ENT Clinic{% endif %}</span>
+            </span>
+        </a>
+
+        <nav class="primary-nav" aria-label="{% if is_arabic %}التنقل الرئيسي{% else %}Primary navigation{% endif %}">
+            {% for key, label, url in nav_items %}
+                <a href="{{ url }}" class="{% if page_key == key %}is-active{% endif %}">{{ label }}</a>
+            {% endfor %}
+        </nav>
+
+        <div class="header-actions">
+            <a class="language-switch" href="{{ language_switch.url }}" hreflang="{% if is_arabic %}en{% else %}ar{% endif %}">
+                {{ language_switch.label }}
+            </a>
+            <a class="btn btn-small btn-primary" href="{{ booking_url }}">
+                {{ labels.book }}
+            </a>
+        </div>
+    </div>
+</header>

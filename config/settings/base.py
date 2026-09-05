@@ -29,6 +29,9 @@ CSRF_TRUSTED_ORIGINS = env_list(
 PRODUCTION = env_bool("DJANGO_PRODUCTION", False)
 BOOKING_TRUST_X_FORWARDED_FOR = env_bool("BOOKING_TRUST_X_FORWARDED_FOR", False)
 BOOKING_TRUSTED_PROXY_CONFIGURED = env_bool("BOOKING_TRUSTED_PROXY_CONFIGURED", False)
+ACCOUNT_PHONE_CHANGE_OTP_SENDER = ""
+ACCOUNT_PHONE_CHANGE_OTP_TTL_SECONDS = 10 * 60
+ACCOUNT_PHONE_CHANGE_OTP_RESEND_COOLDOWN_SECONDS = 60
 
 SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", False)
 SESSION_COOKIE_SECURE = env_bool("DJANGO_SESSION_COOKIE_SECURE", False)
@@ -96,6 +99,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.patients.context_processors.consultation_notifications",
             ],
         },
     },
@@ -145,6 +149,12 @@ MEDIA_URL = "/media/"
 PRIVATE_MEDIA_ROOT = Path(os.getenv("MEDIA_PRIVATE_ROOT", "media_private"))
 if not PRIVATE_MEDIA_ROOT.is_absolute():
     PRIVATE_MEDIA_ROOT = BASE_DIR / PRIVATE_MEDIA_ROOT
+
+PUBLIC_CASE_MEDIA_ROOT = Path(
+    os.getenv("PUBLIC_CASE_MEDIA_PRIVATE_ROOT", "media_public_cases_private")
+)
+if not PUBLIC_CASE_MEDIA_ROOT.is_absolute():
+    PUBLIC_CASE_MEDIA_ROOT = BASE_DIR / PUBLIC_CASE_MEDIA_ROOT
 
 
 CACHES = build_cache_config(

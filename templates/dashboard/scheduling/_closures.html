@@ -1,0 +1,102 @@
+<section class="scheduling-management" aria-labelledby="closures-title">
+    <header class="scheduling-management-header is-compact">
+        <div>
+            <p>{% if is_arabic %}إغلاق يوم كامل{% else %}Full-day closure{% endif %}</p>
+            <h2 id="closures-title">{% if is_arabic %}الإغلاقات{% else %}Closures{% endif %}</h2>
+        </div>
+    </header>
+
+    {% if not scheduling_doctor %}
+        <div class="scheduling-unavailable" role="status">
+            <span aria-hidden="true">—</span>
+            <div>
+                <h2>{% if is_arabic %}الإدارة غير متاحة حالياً{% else %}Management is currently unavailable{% endif %}</h2>
+                <p>{% if is_arabic %}لا يوجد طبيب نشط لإضافة إغلاق له.{% else %}There is no active doctor to scope a closure to.{% endif %}</p>
+            </div>
+        </div>
+    {% elif scheduling_closure_conflicts %}
+        <section class="scheduling-conflict-warning" id="closure-form" role="alert" aria-labelledby="closure-warning-title">
+            <header>
+                <p>{% if is_arabic %}إجراء تشغيلي مهم{% else %}Operational decision{% endif %}</p>
+                <h3 id="closure-warning-title">
+                    {% if scheduling_closure_stage == "cancel_confirmation" %}
+                        {% if is_arabic %}تأكيد إلغاء {{ scheduling_closure_conflicts|length }} موعد{% else %}Confirm cancellation of {{ scheduling_closure_conflicts|length }} appointment{{ scheduling_closure_conflicts|length|pluralize }}{% endif %}
+                    {% else %}
+                        {% if is_arabic %}يوجد {{ scheduling_closure_conflicts|length }} موعد محجوز في هذا اليوم{% else %}There are {{ scheduling_closure_conflicts|length }} booked appointment{{ scheduling_closure_conflicts|length|pluralize }} on this date{% endif %}
+                    {% endif %}
+                </h3>
+                <p>
+                    {% if scheduling_closure_stage == "cancel_confirmation" %}
+                        {% if is_arabic %}سيتم إلغاء المواعيد التالية فوراً. لن يتم حذف سجلات المرضى.{% else %}The following appointments will be cancelled immediately. Patient records will not be deleted.{% endif %}
+                    {% else %}
+                        {% if is_arabic %}اختر إغلاق اليوم مع إبقاء المواعيد كما هي، أو المتابعة إلى تأكيد إلغائها.{% else %}Choose whether to close the day and keep these appointments, or continue to an explicit cancellation confirmation.{% endif %}
+                    {% endif %}
+                </p>
+                <p><strong>{% if is_arabic %}التاريخ{% else %}Date{% endif %}:</strong> <time dir="ltr" datetime="{{ scheduling_closure_form.date.value }}">{{ scheduling_closure_form.date.value }}</time></p>
+            </header>
+            <div class="scheduling-conflict-list" role="list">
+                {% for conflict in scheduling_closure_conflicts %}
+                    <div class="scheduling-conflict-item" role="listitem">
+                        <span><small>{% if is_arabic %}الوقت{% else %}Time{% endif %}</small><strong dir="ltr">{{ conflict.time }}</strong></span>
+                        <span><small>{% if is_arabic %}المريض{% else %}Patient{% endif %}</small>{{ conflict.patient_name }}</span>
+                        <span><small>{% if is_arabic %}الخدمة{% else %}Service{% endif %}</small>{{ conflict.service }}</span>
+                        <span><small>{% if is_arabic %}الحالة{% else %}Status{% endif %}</small>{{ conflict.status }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+            <form method="post" action="{{ scheduling_closure_create_url }}" class="scheduling-confirm-form scheduling-closure-choice-form">
+                {% csrf_token %}
+                {{ scheduling_closure_form.date.as_hidden }}
+                {{ scheduling_closure_form.reason_ar.as_hidden }}
+                {{ scheduling_closure_form.reason_en.as_hidden }}
+                {% if scheduling_closure_stage == "cancel_confirmation" %}
+                    <input type="hidden" name="closure_action" value="cancel">
+                    <input type="hidden" name="confirm_cancellation" value="yes">
+                    <button class="scheduling-button is-danger is-destructive" type="submit">{% if is_arabic %}تأكيد إلغاء المواعيد وإغلاق اليوم{% else %}Confirm cancellations and close day{% endif %}</button>
+                {% else %}
+                    <button class="scheduling-button" type="submit" name="closure_action" value="keep">{% if is_arabic %}إغلاق اليوم وترك المواعيد كما هي{% else %}Close day and keep appointments{% endif %}</button>
+                    <button class="scheduling-button is-danger" type="submit" name="closure_action" value="cancel">{% if is_arabic %}إغلاق اليوم وإلغاء المواعيد المتأثرة{% else %}Close day and cancel affected appointments{% endif %}</button>
+                {% endif %}
+                <a class="scheduling-cancel-link" href="{% url 'dashboard_scheduling' %}?section=calendar&amp;view=day&amp;date={{ scheduling_closure_form.date.value|urlencode }}{% if not is_arabic %}&amp;lang=en{% endif %}#day-management">{% if is_arabic %}رجوع{% else %}Go back{% endif %}</a>
+            </form>
+        </section>
+    {% else %}
+        <form method="post" action="{{ scheduling_closure_create_url }}" class="scheduling-management-card scheduling-closure-form" id="closure-form">
+            {% csrf_token %}
+            {{ scheduling_closure_form.non_field_errors }}
+            <div class="scheduling-closure-fields">
+                {% for field in scheduling_closure_form.visible_fields %}
+                    <div class="scheduling-field">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {{ field.errors }}
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="scheduling-form-actions"><button class="scheduling-button" type="submit">{% if is_arabic %}إضافة إغلاق{% else %}Add Closure{% endif %}</button></div>
+        </form>
+
+        <section class="scheduling-closure-list" id="closures-list" aria-labelledby="active-closures-title">
+            <header><h3 id="active-closures-title">{% if is_arabic %}الإغلاقات النشطة الحالية والقادمة{% else %}Current and upcoming active closures{% endif %}</h3></header>
+            {% for item in scheduling_closure_items %}
+                <article class="scheduling-management-card scheduling-closure-item">
+                    <div>
+                        <time datetime="{{ item.closure.date|date:'Y-m-d' }}">{{ item.closure.date|date:"Y-m-d" }}</time>
+                        {% if item.closure.reason_ar or item.closure.reason_en %}
+                            <p>{% if is_arabic %}{{ item.closure.reason_ar|default:item.closure.reason_en }}{% else %}{{ item.closure.reason_en|default:item.closure.reason_ar }}{% endif %}</p>
+                        {% else %}
+                            <p>{% if is_arabic %}لا يوجد سبب مسجل.{% else %}No reason recorded.{% endif %}</p>
+                        {% endif %}
+                        {% if not item.closure.doctor_id %}<small>{% if is_arabic %}إغلاق حالي على مستوى العيادة{% else %}Existing clinic-wide closure{% endif %}</small>{% endif %}
+                    </div>
+                    <form method="post" action="{{ item.deactivate_url }}">
+                        {% csrf_token %}
+                        <button class="scheduling-button is-danger" type="submit">{% if is_arabic %}فتح اليوم مجدداً{% else %}Reopen day{% endif %}</button>
+                    </form>
+                </article>
+            {% empty %}
+                <div class="scheduling-management-empty" role="status">{% if is_arabic %}لا توجد إغلاقات نشطة حالية أو قادمة.{% else %}There are no current or upcoming active closures.{% endif %}</div>
+            {% endfor %}
+        </section>
+    {% endif %}
+</section>

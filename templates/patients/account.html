@@ -1,41 +1,40 @@
-{% extends "base.html" %}
+{% extends "patients/portal_base.html" %}
 
-{% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">{% if is_arabic %}حساب البوابة{% else %}Portal Account{% endif %}</p>
-        <h1>{% if is_arabic %}بيانات حسابك{% else %}Your Account{% endif %}</h1>
-        <p>{{ labels.not_emergency }}</p>
-    </div>
-</section>
+{% block patient_portal_content %}
+<div class="dashboard-content patient-page-content" data-patient-page="account">
+    <header class="patient-page-heading">
+        <div>
+            <p class="dashboard-eyebrow">{% if is_arabic %}حساب المريض{% else %}Patient Access{% endif %}</p>
+            <h1>{% if is_arabic %}الحساب{% else %}Account{% endif %}</h1>
+        </div>
+        <a class="patient-secondary-action" href="{{ portal_password_change_url }}">
+            {% if is_arabic %}تغيير كلمة المرور{% else %}Change Password{% endif %}
+        </a>
+    </header>
 
-<section class="section">
-    <div class="container booking-layout">
-        {% include "patients/_portal_nav.html" %}
+    {% include "patients/_portal_messages.html" %}
 
-        {% if messages %}
-            <div class="staff-messages">
-                {% for message in messages %}
-                    <p class="muted">{{ message }}</p>
-                {% endfor %}
+    <div class="patient-account-grid">
+        <section class="dashboard-card" aria-labelledby="patient-account-information-title">
+            <div class="dashboard-card-header">
+                <div>
+                    <p class="dashboard-card-kicker">{% if is_arabic %}الملف الشخصي{% else %}Profile{% endif %}</p>
+                    <h2 id="patient-account-information-title">{% if is_arabic %}معلومات الحساب{% else %}Account Information{% endif %}</h2>
+                </div>
             </div>
-        {% endif %}
-
-        <div class="booking-summary">
-            <div class="success-card">
-                <h2>{% if is_arabic %}معلومات الحساب{% else %}Account Information{% endif %}</h2>
-                <dl class="detail-list">
+            <div class="patient-card-body">
+                <dl class="patient-detail-list patient-account-details">
                     <div>
                         <dt>{% if is_arabic %}الاسم الظاهر{% else %}Display name{% endif %}</dt>
                         <dd>{{ display_name }}</dd>
                     </div>
                     <div>
                         <dt>{% if is_arabic %}رقم الدخول{% else %}Username / phone{% endif %}</dt>
-                        <dd>{{ masked_username }}</dd>
+                        <dd><bdi class="portal-ltr-value" dir="ltr">{{ masked_username }}</bdi></dd>
                     </div>
                     <div>
                         <dt>{% if is_arabic %}البريد الإلكتروني{% else %}Email{% endif %}</dt>
-                        <dd>{% if email %}{{ email }}{% else %}{% if is_arabic %}غير مضاف{% else %}Not provided{% endif %}{% endif %}</dd>
+                        <dd>{% if email %}<bdi class="portal-ltr-value" dir="ltr">{{ email }}</bdi>{% else %}{% if is_arabic %}غير مضاف{% else %}Not provided{% endif %}{% endif %}</dd>
                     </div>
                     <div>
                         <dt>{% if is_arabic %}المواعيد المرتبطة{% else %}Linked appointments{% endif %}</dt>
@@ -43,40 +42,30 @@
                     </div>
                 </dl>
             </div>
+        </section>
 
-            <div class="success-card">
-                <h2>{% if is_arabic %}إدارة الحساب{% else %}Account Actions{% endif %}</h2>
-                <p class="muted">
-                    {% if is_arabic %}
-                        تعديل الهاتف أو البريد الإلكتروني يتطلب التواصل مع العيادة حاليا حتى يتم اعتماد سياسة تحقق آمنة.
-                    {% else %}
-                        Phone and email changes require clinic support for now until a verified ownership policy is approved.
-                    {% endif %}
-                </p>
-                <div class="hero-actions">
-                    <a class="btn btn-primary" href="{{ portal_appointments_url }}">
-                        {% if is_arabic %}المواعيد{% else %}Appointments{% endif %}
-                    </a>
-                    <a class="btn btn-secondary" href="{{ portal_link_url }}">
-                        {% if is_arabic %}ربط موعد{% else %}Link Appointment{% endif %}
-                    </a>
-                    <a class="btn btn-secondary" href="{{ portal_password_change_url }}">
-                        {% if is_arabic %}تغيير كلمة المرور{% else %}Change Password{% endif %}
-                    </a>
-                    <a class="btn btn-secondary" href="{{ portal_account_recovery_url }}">
-                        {% if is_arabic %}استعادة الحساب{% else %}Account Recovery{% endif %}
-                    </a>
+        <section class="dashboard-card dashboard-quick-actions" aria-labelledby="patient-account-actions-title">
+            <div class="dashboard-card-header dashboard-quick-actions-header">
+                <div>
+                    <p class="dashboard-card-kicker">{% if is_arabic %}الحساب{% else %}Account{% endif %}</p>
+                    <h2 id="patient-account-actions-title">{% if is_arabic %}إدارة الحساب{% else %}Account Actions{% endif %}</h2>
                 </div>
             </div>
-        </div>
-
-        <p class="trust-note">
-            {% if is_arabic %}
-                تعرض هذه الصفحة معلومات حساب آمنة فقط. السجلات الطبية ورفع الملفات والمدفوعات ورسائل واتساب غير متاحة في البوابة حاليا.
-            {% else %}
-                This page shows safe account information only. Medical records, uploads, payments, and WhatsApp messages are not available in the portal yet.
-            {% endif %}
-        </p>
+            <div class="dashboard-action-list">
+                <a class="dashboard-action-link is-primary" href="{{ portal_password_change_url }}">
+                    <span>{% if is_arabic %}تغيير كلمة المرور{% else %}Change Password{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                </a>
+                <a class="dashboard-action-link" href="{{ portal_link_url }}">
+                    <span>{% if is_arabic %}ربط موعد{% else %}Link Appointment{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                </a>
+                <a class="dashboard-action-link" href="{{ portal_account_recovery_url }}">
+                    <span>{% if is_arabic %}استعادة الحساب{% else %}Account Recovery{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                </a>
+            </div>
+        </section>
     </div>
-</section>
+</div>
 {% endblock %}

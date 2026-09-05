@@ -1,101 +1,164 @@
-{% extends "base.html" %}
+{% extends "dashboard/base.html" %}
+{% load static %}
 
-{% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">Staff booking operations</p>
-        <h1>Appointments</h1>
-        <p>Staff-only appointment operations for scheduling, arrival, completion, cancellation, and no-show handling.</p>
-    </div>
-</section>
+{% block dashboard_styles %}
+    <link rel="stylesheet" href="{% static 'css/dashboard-appointments.css' %}">
+{% endblock %}
 
-<section class="section">
-    <div class="container staff-layout">
-        <form class="staff-filter-panel" method="get">
-            <div class="form-field">
-                <label for="status">Status</label>
-                <select id="status" name="status">
-                    <option value="">Any status</option>
+{% block dashboard_content %}
+<div class="dashboard-content appointments-content">
+    <header class="appointments-page-header">
+        <p class="appointments-eyebrow">{% if is_arabic %}إدارة الحجوزات{% else %}Booking Operations{% endif %}</p>
+        <h1>{% if is_arabic %}المواعيد{% else %}Appointments{% endif %}</h1>
+        <p>
+            {% if is_arabic %}
+                راجع المواعيد وابحث عنها ونفّذ إجراءات الحالة المعتمدة.
+            {% else %}
+                Review appointments, find patients, and open approved status actions.
+            {% endif %}
+        </p>
+    </header>
+
+    <section class="appointments-filter-panel" aria-labelledby="patient-cancellation-cutoff-title">
+        <h2 id="patient-cancellation-cutoff-title">{% if is_arabic %}مهلة إلغاء المريض للموعد{% else %}Patient cancellation cutoff{% endif %}</h2>
+        <form class="appointments-filter-form" method="post" action="{{ patient_cancellation_cutoff_url }}">
+            {% csrf_token %}
+            {{ patient_cancellation_cutoff_form.non_field_errors }}
+            <div class="appointment-field">
+                {{ patient_cancellation_cutoff_form.cutoff_hours.label_tag }}
+                {{ patient_cancellation_cutoff_form.cutoff_hours }}
+                <p>{{ patient_cancellation_cutoff_form.cutoff_hours.help_text }}</p>
+                {{ patient_cancellation_cutoff_form.cutoff_hours.errors }}
+            </div>
+            <div class="appointments-filter-actions">
+                <button class="appointment-button appointment-button-primary" type="submit">{% if is_arabic %}حفظ المهلة{% else %}Save Cutoff{% endif %}</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="appointments-filter-panel" aria-labelledby="appointments-filter-title">
+        <h2 class="dashboard-sr-only" id="appointments-filter-title">
+            {% if is_arabic %}تصفية المواعيد{% else %}Filter appointments{% endif %}
+        </h2>
+        <form class="appointments-filter-form" method="get" action="{{ staff_filter_action_url }}">
+            {% if not is_arabic %}<input type="hidden" name="lang" value="en">{% endif %}
+            <div class="appointment-field">
+                <label for="appointment-status">{% if is_arabic %}الحالة{% else %}Status{% endif %}</label>
+                <select id="appointment-status" name="status">
+                    <option value="">{% if is_arabic %}كل الحالات{% else %}Any status{% endif %}</option>
                     {% for value, label in status_choices %}
                         <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="form-field">
-                <label for="scope">Range</label>
-                <select id="scope" name="scope">
-                    <option value="upcoming" {% if filters.scope == "upcoming" %}selected{% endif %}>Upcoming</option>
-                    <option value="past" {% if filters.scope == "past" %}selected{% endif %}>Past</option>
-                    <option value="all" {% if filters.scope == "all" %}selected{% endif %}>All</option>
+            <div class="appointment-field">
+                <label for="appointment-scope">{% if is_arabic %}النطاق{% else %}Scope{% endif %}</label>
+                <select id="appointment-scope" name="scope">
+                    <option value="upcoming" {% if filters.scope == "upcoming" %}selected{% endif %}>{% if is_arabic %}القادمة{% else %}Upcoming{% endif %}</option>
+                    <option value="past" {% if filters.scope == "past" %}selected{% endif %}>{% if is_arabic %}السابقة{% else %}Past{% endif %}</option>
+                    <option value="all" {% if filters.scope == "all" %}selected{% endif %}>{% if is_arabic %}الكل{% else %}All{% endif %}</option>
                 </select>
             </div>
-            <div class="form-field">
-                <label for="doctor">Doctor</label>
-                <select id="doctor" name="doctor">
-                    <option value="">Any doctor</option>
+            <div class="appointment-field">
+                <label for="appointment-doctor">{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</label>
+                <select id="appointment-doctor" name="doctor">
+                    <option value="">{% if is_arabic %}كل الأطباء{% else %}Any doctor{% endif %}</option>
                     {% for doctor in doctors %}
-                        <option value="{{ doctor.id }}" {% if filters.doctor == doctor.id|stringformat:"s" %}selected{% endif %}>{{ doctor.display_name_en }}</option>
+                        <option value="{{ doctor.id }}" {% if filters.doctor == doctor.id|stringformat:"s" %}selected{% endif %}>{% if is_arabic %}{{ doctor.display_name_ar }}{% else %}{{ doctor.display_name_en }}{% endif %}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="form-field">
-                <label for="visit_type">Visit type</label>
-                <select id="visit_type" name="visit_type">
-                    <option value="">Any visit type</option>
+            <div class="appointment-field">
+                <label for="appointment-visit-type">{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</label>
+                <select id="appointment-visit-type" name="visit_type">
+                    <option value="">{% if is_arabic %}كل أنواع الزيارات{% else %}Any visit type{% endif %}</option>
                     {% for visit_type in visit_types %}
-                        <option value="{{ visit_type.id }}" {% if filters.visit_type == visit_type.id|stringformat:"s" %}selected{% endif %}>{{ visit_type.name_en }}</option>
+                        <option value="{{ visit_type.id }}" {% if filters.visit_type == visit_type.id|stringformat:"s" %}selected{% endif %}>{% if is_arabic %}{{ visit_type.name_ar }}{% else %}{{ visit_type.name_en }}{% endif %}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="form-field">
-                <label for="date_from">From</label>
-                <input id="date_from" type="date" name="date_from" value="{{ filters.date_from }}">
+            <div class="appointment-field">
+                <label for="appointment-date-from">{% if is_arabic %}من تاريخ{% else %}From date{% endif %}</label>
+                <input id="appointment-date-from" type="date" name="date_from" value="{{ filters.date_from }}">
             </div>
-            <div class="form-field">
-                <label for="date_to">To</label>
-                <input id="date_to" type="date" name="date_to" value="{{ filters.date_to }}">
+            <div class="appointment-field">
+                <label for="appointment-date-to">{% if is_arabic %}إلى تاريخ{% else %}To date{% endif %}</label>
+                <input id="appointment-date-to" type="date" name="date_to" value="{{ filters.date_to }}">
             </div>
-            <div class="form-field">
-                <label for="q">Patient search</label>
-                <input id="q" type="search" name="q" value="{{ filters.q }}" placeholder="Name or phone">
+            <div class="appointment-field appointment-search-field">
+                <label for="appointment-patient-search">{% if is_arabic %}البحث عن المريض{% else %}Patient search{% endif %}</label>
+                <input
+                    id="appointment-patient-search"
+                    type="search"
+                    name="q"
+                    value="{{ filters.q }}"
+                    placeholder="{% if is_arabic %}الاسم أو رقم الهاتف{% else %}Name or phone{% endif %}"
+                    autocomplete="off"
+                >
             </div>
-            <div class="staff-filter-actions">
-                <button class="btn btn-primary" type="submit">Filter</button>
-                <a class="btn btn-secondary" href="{{ staff_appointments_url }}">Reset</a>
+            <div class="appointments-filter-actions">
+                <button class="appointment-button appointment-button-primary" type="submit">
+                    {% if is_arabic %}تصفية{% else %}Filter{% endif %}
+                </button>
+                <a class="appointment-button appointment-button-secondary" href="{{ staff_appointments_url }}">
+                    {% if is_arabic %}إعادة تعيين{% else %}Reset{% endif %}
+                </a>
             </div>
         </form>
+    </section>
 
-        <div class="staff-table-wrap">
-            <table class="staff-table">
+    <section class="appointments-results" aria-labelledby="appointments-results-title">
+        <div class="appointments-section-heading">
+            <h2 id="appointments-results-title">{% if is_arabic %}قائمة المواعيد{% else %}Appointment list{% endif %}</h2>
+            <span class="appointments-result-count">{{ page_obj.paginator.count }}</span>
+        </div>
+        <div
+            class="appointments-table-scroll"
+            role="region"
+            aria-label="{% if is_arabic %}جدول المواعيد قابل للتمرير أفقيًا عند الحاجة{% else %}Scrollable appointment table{% endif %}"
+            tabindex="0"
+        >
+            <table class="appointments-table">
                 <thead>
                     <tr>
-                        <th>Time</th>
-                        <th>Patient</th>
-                        <th>Phone</th>
-                        <th>Visit type</th>
-                        <th>Doctor</th>
-                        <th>Status</th>
-                        <th></th>
+                        <th scope="col">{% if is_arabic %}التاريخ والوقت{% else %}Date and time{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}المريض{% else %}Patient{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}رقم التواصل{% else %}Contact number{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}الحالة{% else %}Status{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}الإجراءات{% else %}Actions{% endif %}</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for appointment in appointments %}
                         <tr>
-                            <td>{{ appointment.starts_at|date:"Y-m-d H:i" }}</td>
                             <td>
-                                {{ appointment.patient.full_name }}
-                                <br>
-                                <a class="btn btn-small btn-secondary" href="{% url 'dashboard_patient_record_detail' appointment.patient_id %}">Records</a>
+                                <time datetime="{{ appointment.starts_at|date:'c' }}" dir="ltr">
+                                    {{ appointment.starts_at|date:"Y-m-d H:i" }}
+                                </time>
                             </td>
-                            <td>{{ appointment.patient.phone_e164|default:appointment.patient.phone_raw }}</td>
-                            <td>{{ appointment.visit_type.name_en }}</td>
-                            <td>{{ appointment.doctor.display_name_en }}</td>
-                            <td><span class="status-pill status-{{ appointment.status }}">{{ appointment.get_status_display }}</span></td>
-                            <td><a class="btn btn-small btn-secondary" href="{% url 'staff_appointment_detail' appointment.id %}">Open</a></td>
+                            <td>
+                                <strong>{{ appointment.patient.full_name }}</strong>
+                                <a class="appointment-inline-link" href="{{ appointment.staff_patient_record_url }}">
+                                    {% if is_arabic %}فتح سجل المريض{% else %}Open patient record{% endif %}
+                                </a>
+                            </td>
+                            <td><span class="appointment-phone" dir="ltr">{{ appointment.effective_contact_phone }}</span></td>
+                            <td>{{ appointment.staff_visit_type_label }}</td>
+                            <td>{{ appointment.staff_doctor_label }}</td>
+                            <td><span class="appointment-status status-{{ appointment.status }}">{{ appointment.staff_status_label }}</span></td>
+                            <td>
+                                <a class="appointment-button appointment-button-secondary appointment-button-small" href="{{ appointment.staff_detail_url }}">
+                                    {% if is_arabic %}فتح الموعد{% else %}Open appointment{% endif %}
+                                </a>
+                            </td>
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="7">No appointments match the current filters.</td>
+                            <td class="appointments-empty-cell" colspan="7">
+                                {% if is_arabic %}لا توجد مواعيد مطابقة لعوامل التصفية الحالية.{% else %}No appointments match the current filters.{% endif %}
+                            </td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -103,16 +166,22 @@
         </div>
 
         {% if page_obj.has_other_pages %}
-            <nav class="staff-pagination" aria-label="Appointment pages">
-                {% if page_obj.has_previous %}
-                    <a class="btn btn-small btn-secondary" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+            <nav class="appointments-pagination" aria-label="{% if is_arabic %}صفحات المواعيد{% else %}Appointment pages{% endif %}">
+                {% if previous_page_url %}
+                    <a class="appointment-button appointment-button-secondary appointment-button-small" href="{{ previous_page_url }}">
+                        {% if is_arabic %}السابق{% else %}Previous{% endif %}
+                    </a>
                 {% endif %}
-                <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-                {% if page_obj.has_next %}
-                    <a class="btn btn-small btn-secondary" href="?page={{ page_obj.next_page_number }}">Next</a>
+                <span>
+                    {% if is_arabic %}صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}{% else %}Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}{% endif %}
+                </span>
+                {% if next_page_url %}
+                    <a class="appointment-button appointment-button-secondary appointment-button-small" href="{{ next_page_url }}">
+                        {% if is_arabic %}التالي{% else %}Next{% endif %}
+                    </a>
                 {% endif %}
             </nav>
         {% endif %}
-    </div>
-</section>
+    </section>
+</div>
 {% endblock %}
