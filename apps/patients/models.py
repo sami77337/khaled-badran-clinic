@@ -360,6 +360,49 @@ class ConsultationAudioReply(models.Model):
         return super().save(*args, **kwargs)
 
 
+class ConsultationNotification(models.Model):
+    class Kind(models.TextChoices):
+        NEW_CONSULTATION = "new_consultation", "New consultation"
+        CONSULTATION_REPLIED = "consultation_replied", "Consultation replied"
+
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="consultation_notifications",
+    )
+    consultation = models.ForeignKey(
+        Consultation,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    kind = models.CharField(max_length=32, choices=Kind.choices)
+    read_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["recipient", "consultation", "kind"],
+                name="unique_consultation_notification",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["recipient", "read_at", "created_at"],
+                name="pat_not_rec_read_created",
+            ),
+            models.Index(
+                fields=["consultation", "kind"],
+                name="pat_not_consult_kind",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Consultation notification {self.public_id}"
+
+
 class AccountPhoneChangeChallenge(models.Model):
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
     user = models.ForeignKey(

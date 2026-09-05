@@ -209,6 +209,18 @@ urlpatterns = [
         name="patient_portal_book",
     ),
     path(
+        "portal/consultation-notifications/read-all/",
+        patient_views.consultation_notifications_mark_all_read,
+        {"language": "ar"},
+        name="consultation_notifications_mark_all_read",
+    ),
+    path(
+        "portal/consultation-notifications/<uuid:public_id>/open/",
+        patient_views.consultation_notification_open,
+        {"language": "ar"},
+        name="consultation_notification_open",
+    ),
+    path(
         "portal/consultations/",
         patient_views.portal_consultation_list,
         {"language": "ar"},
@@ -308,6 +320,18 @@ urlpatterns = [
         patient_views.portal_book_appointment,
         {"language": "en"},
         name="patient_portal_book_en",
+    ),
+    path(
+        "en/portal/consultation-notifications/read-all/",
+        patient_views.consultation_notifications_mark_all_read,
+        {"language": "en"},
+        name="consultation_notifications_mark_all_read_en",
+    ),
+    path(
+        "en/portal/consultation-notifications/<uuid:public_id>/open/",
+        patient_views.consultation_notification_open,
+        {"language": "en"},
+        name="consultation_notification_open_en",
     ),
     path(
         "en/portal/consultations/",

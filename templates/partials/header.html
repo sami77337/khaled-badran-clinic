@@ -15,7 +15,7 @@
 </div>
 
 <header class="site-header" data-site-header>
-    <div class="container header-inner">
+    <div class="container header-inner{% if request.user.is_authenticated %} has-auth-notifications{% endif %}">
         <button
             class="mobile-menu-toggle"
             type="button"
@@ -36,6 +36,10 @@
             </span>
         </a>
 
+        {% if request.user.is_authenticated %}
+            {% include "partials/consultation_notifications.html" with notification_surface="public-mobile" notification_placement="notification-placement-public-mobile" %}
+        {% endif %}
+
         <nav class="primary-nav" aria-label="{% if is_arabic %}التنقل الرئيسي{% else %}Primary navigation{% endif %}">
             {% for key, label, url in nav_items %}
                 {% if key == "patient_portal" %}
@@ -54,6 +58,9 @@
         </nav>
 
         <div class="header-actions">
+            {% if request.user.is_authenticated %}
+                {% include "partials/consultation_notifications.html" with notification_surface="public-desktop" notification_placement="notification-placement-public-desktop" %}
+            {% endif %}
             <a class="btn btn-small btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
             {% if request.user.is_authenticated %}
                 {% if request.user.is_staff %}

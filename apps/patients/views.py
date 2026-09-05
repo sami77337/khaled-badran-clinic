@@ -9,6 +9,7 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import ValidationError
 from django.core.signing import BadSignature, dumps as signing_dumps, loads as signing_loads
+from django.db import transaction
 from django.http import FileResponse, Http404, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import NoReverseMatch, reverse
@@ -16,7 +17,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_post_parameters
-from django.views.decorators.http import require_GET, require_http_methods
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from apps.booking import operations as booking_operations
 from apps.booking import services as booking_services
@@ -43,6 +44,7 @@ from apps.patients.models import (
     Consultation,
     ConsultationAttachment,
     ConsultationAudioReply,
+    ConsultationNotification,
 )
 from apps.patients.otp import WhatsAppOtpServiceUnavailable
 from apps.patients.profile_resolution import PatientProfileConflictError
@@ -1278,6 +1280,72 @@ def portal_consultation_audio_reply(request, public_id, language="ar"):
     response["Cache-Control"] = "private, no-store"
     response["X-Content-Type-Options"] = "nosniff"
     return response
+
+
+def _notification_destination(notification, user, language):
+    consultation = notification.consultation
+    if notification.kind == ConsultationNotification.Kind.NEW_CONSULTATION:
+        if not user.is_staff or not user.is_active:
+            raise Http404("Notification unavailable.")
+        destination = reverse(
+            "dashboard_consultation_detail",
+            kwargs={"public_id": consultation.public_id},
+        )
+        return f"{destination}?lang=en" if language == "en" else destination
+    if notification.kind == ConsultationNotification.Kind.CONSULTATION_REPLIED:
+        if consultation.patient.user_id != user.id or not user.is_active:
+            raise Http404("Notification unavailable.")
+        return _portal_url(
+            "patient_portal_consultation_detail",
+            language,
+            public_id=consultation.public_id,
+        )
+    raise Http404("Notification unavailable.")
+
+
+@require_POST
+@_login_required
+def consultation_notification_open(request, public_id, language="ar"):
+    language = _language(language)
+    with transaction.atomic():
+        notification = get_object_or_404(
+            ConsultationNotification.objects.select_for_update().select_related(
+                "consultation",
+                "consultation__patient",
+            ),
+            public_id=public_id,
+            recipient=request.user,
+        )
+        destination = _notification_destination(notification, request.user, language)
+        if notification.read_at is None:
+            notification.read_at = timezone.now()
+            notification.save(update_fields=["read_at"])
+    return redirect(destination)
+
+
+def _notification_return_url(request, language):
+    candidate = request.POST.get("next", "")
+    if candidate and url_has_allowed_host_and_scheme(
+        candidate,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return candidate
+    if request.user.is_staff:
+        destination = reverse("dashboard_consultation_list")
+        return f"{destination}?lang=en" if language == "en" else destination
+    return _portal_url("patient_portal_consultation_list", language)
+
+
+@require_POST
+@_login_required
+def consultation_notifications_mark_all_read(request, language="ar"):
+    language = _language(language)
+    ConsultationNotification.objects.filter(
+        recipient=request.user,
+        read_at__isnull=True,
+    ).update(read_at=timezone.now())
+    return redirect(_notification_return_url(request, language))
 
 
 @_login_required

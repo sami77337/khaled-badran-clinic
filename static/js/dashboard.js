@@ -1,12 +1,12 @@
 (() => {
     "use strict";
 
-    const menuButton = document.querySelector("[data-dashboard-menu]");
+    const menuButtons = Array.from(document.querySelectorAll("[data-dashboard-menu]"));
     const sidebar = document.querySelector("[data-dashboard-sidebar]");
     const closeButton = document.querySelector("[data-dashboard-close]");
     const overlay = document.querySelector("[data-dashboard-overlay]");
 
-    if (!menuButton || !sidebar || !closeButton || !overlay) {
+    if (!menuButtons.length || !sidebar || !closeButton || !overlay) {
         return;
     }
 
@@ -21,6 +21,12 @@
     ].join(",");
     let drawerOpen = false;
     let returnFocus = null;
+
+    const setTriggerState = (expanded) => {
+        menuButtons.forEach((button) => {
+            button.setAttribute("aria-expanded", String(expanded));
+        });
+    };
 
     const updateSidebarMode = () => {
         if (mobileViewport.matches) {
@@ -44,7 +50,7 @@
         drawerOpen = false;
         sidebar.classList.remove("is-open");
         document.body.classList.remove("dashboard-drawer-open");
-        menuButton.setAttribute("aria-expanded", "false");
+        setTriggerState(false);
         overlay.hidden = true;
         updateSidebarMode();
         if (restoreFocus && returnFocus instanceof HTMLElement) {
@@ -53,26 +59,28 @@
         returnFocus = null;
     };
 
-    const openDrawer = () => {
+    const openDrawer = (trigger) => {
         if (!mobileViewport.matches) {
             return;
         }
-        returnFocus = document.activeElement;
+        returnFocus = trigger;
         drawerOpen = true;
         sidebar.classList.add("is-open");
         document.body.classList.add("dashboard-drawer-open");
-        menuButton.setAttribute("aria-expanded", "true");
+        setTriggerState(true);
         overlay.hidden = false;
         updateSidebarMode();
         closeButton.focus({ preventScroll: true });
     };
 
-    menuButton.addEventListener("click", () => {
-        if (drawerOpen) {
-            closeDrawer();
-        } else {
-            openDrawer();
-        }
+    menuButtons.forEach((menuButton) => {
+        menuButton.addEventListener("click", () => {
+            if (drawerOpen) {
+                closeDrawer();
+            } else {
+                openDrawer(menuButton);
+            }
+        });
     });
     closeButton.addEventListener("click", () => closeDrawer());
     overlay.addEventListener("click", () => closeDrawer());

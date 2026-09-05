@@ -11,6 +11,7 @@
     <link rel="canonical" href="{{ canonical_url }}">
     <link rel="icon" href="{% static 'img/icons/site-icon.svg' %}" type="image/svg+xml">
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    <link rel="stylesheet" href="{% static 'css/portal-chrome.css' %}">
     {% block dashboard_styles %}{% endblock %}
 </head>
 <body class="dashboard-shell {% if is_arabic %}is-rtl{% else %}is-ltr{% endif %}">
@@ -23,6 +24,7 @@
             <span class="dashboard-mobile-monogram" aria-hidden="true">{{ dashboard_doctor_initials }}</span>
             <span>{% if is_arabic %}بوابة العيادة{% else %}Clinic Portal{% endif %}</span>
         </a>
+        {% include "partials/consultation_notifications.html" with notification_surface="dashboard-mobile" notification_placement="notification-placement-dashboard-mobile" %}
         <button
             class="dashboard-menu-button"
             type="button"
@@ -50,6 +52,7 @@
                         <small>{% if is_arabic %}وصول الموظفين{% else %}Staff Access{% endif %}</small>
                     </span>
                 </a>
+                {% include "partials/consultation_notifications.html" with notification_surface="dashboard-desktop" notification_placement="notification-placement-dashboard-desktop" %}
                 <button class="dashboard-drawer-close" type="button" data-dashboard-close>
                     <span aria-hidden="true">×</span>
                     <span class="dashboard-sr-only">{% if is_arabic %}إغلاق القائمة{% else %}Close menu{% endif %}</span>
@@ -65,6 +68,9 @@
                     >
                         <span class="dashboard-nav-indicator" aria-hidden="true"></span>
                         <span>{{ item.label }}</span>
+                        {% if item.key == "consultations" and consultation_notification_unread_count %}
+                            <span class="dashboard-navigation-badge">{{ consultation_notification_unread_badge }}</span>
+                        {% endif %}
                     </a>
                 {% endfor %}
             </nav>
@@ -109,7 +115,9 @@
         {% block dashboard_content %}{% endblock %}
     </main>
 
+    {% include "partials/mobile_dashboard_navigation.html" with mobile_nav_scope="staff" %}
     <script src="{% static 'js/dashboard.js' %}" defer></script>
+    <script src="{% static 'js/consultation-notifications.js' %}" defer></script>
     {% block dashboard_scripts %}{% endblock %}
 </body>
 </html>

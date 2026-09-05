@@ -30,7 +30,6 @@ from apps.core.models import AuditLog, SystemSetting
 from apps.dashboard import views as dashboard_views
 from apps.patients.models import Patient
 from apps.records.models import (
-    IMAGE_MAX_BYTES,
     ClinicalNote,
     PatientTimelineEvent,
     PublicCase,
@@ -782,7 +781,7 @@ class DashboardPatientRecordDetailTests(DashboardRecordWorkflowMixin, TestCase):
             visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
             title="Selected patient-visible media",
         )
-        inactive_media = self.create_media(
+        self.create_media(
             patient=self.patient,
             visibility=RecordMedia.Visibility.PRIVATE_ONLY,
             is_active=False,
@@ -3249,7 +3248,9 @@ class DashboardOverviewTests(DashboardOverviewTestMixin, TestCase):
             response = dashboard_views.dashboard_home(request)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(captured_queries), 6)
+        # Dashboard chrome adds one constant query for the unread count and
+        # latest ten notification items. Appointment rows must add none.
+        self.assertEqual(len(captured_queries), 7)
 
     def test_today_schedule_empty_state_is_bilingual_and_has_no_fake_rows(self):
         arabic = self.dashboard(language="ar")
@@ -5587,7 +5588,7 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             time(12),
             time(13),
         )
-        special_use_weekly = self.create_schedule_override(
+        self.create_schedule_override(
             special_date,
             time(14),
             time(15),

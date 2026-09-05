@@ -1,5 +1,6 @@
 import logging
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 
@@ -8,6 +9,7 @@ from apps.patients.models import (
     Consultation,
     ConsultationAttachment,
     ConsultationAudioReply,
+    ConsultationNotification,
     validate_consultation_audio_upload,
     validate_consultation_upload,
 )
@@ -70,6 +72,21 @@ def create_consultation(*, user, question, uploaded_files):
             )
             attachment.save()
             stored_files.append((attachment.file.storage, attachment.file.name))
+        recipient_ids = list(
+            get_user_model()
+            .objects.filter(is_active=True, is_staff=True)
+            .values_list("pk", flat=True)
+        )
+        ConsultationNotification.objects.bulk_create(
+            [
+                ConsultationNotification(
+                    recipient_id=recipient_id,
+                    consultation=consultation,
+                    kind=ConsultationNotification.Kind.NEW_CONSULTATION,
+                )
+                for recipient_id in recipient_ids
+            ]
+        )
     except Exception:
         for storage, name in stored_files:
             try:
@@ -94,12 +111,17 @@ def update_consultation_reply(
 
     try:
         with transaction.atomic():
-            locked = Consultation.objects.select_for_update().get(pk=consultation.pk)
+            locked = (
+                Consultation.objects.select_for_update()
+                .select_related("patient", "patient__user")
+                .get(pk=consultation.pk)
+            )
             current_audio = (
                 ConsultationAudioReply.objects.select_for_update()
                 .filter(consultation=locked)
                 .first()
             )
+            had_visible_reply = bool(locked.staff_reply.strip()) or current_audio is not None
             old_file_reference = None
 
             if audio_file:
@@ -176,6 +198,19 @@ def update_consultation_reply(
                             "Consultation audio could not be removed safely."
                         ) from exc
                 current_audio.delete()
+
+            has_visible_reply = bool(locked.staff_reply) or has_audio_after_save
+            patient_user = locked.patient.user
+            if (
+                not had_visible_reply
+                and has_visible_reply
+                and patient_user is not None
+            ):
+                ConsultationNotification.objects.get_or_create(
+                    recipient=patient_user,
+                    consultation=locked,
+                    kind=ConsultationNotification.Kind.CONSULTATION_REPLIED,
+                )
 
             if old_file_reference and old_file_reference != new_file_reference:
                 transaction.on_commit(

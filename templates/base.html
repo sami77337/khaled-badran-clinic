@@ -18,6 +18,7 @@
     <link rel="icon" href="{% static 'img/icons/site-icon.svg' %}" type="image/svg+xml">
     <link rel="stylesheet" href="{% static 'css/site.css' %}">
     {% if use_public_shell %}<link rel="stylesheet" href="{% static 'css/public.css' %}">{% endif %}
+    {% if use_public_shell %}<link rel="stylesheet" href="{% static 'css/portal-chrome.css' %}">{% endif %}
     {% if page_key == "patient_portal" %}<link rel="stylesheet" href="{% static 'css/patient-portal.css' %}">{% endif %}
     {% block extra_head %}{% endblock %}
 </head>
@@ -52,5 +53,6 @@
         {% endif %}
     {% endif %}
     <script src="{% static 'js/site.js' %}" defer></script>
+    {% if use_public_shell %}<script src="{% static 'js/consultation-notifications.js' %}" defer></script>{% endif %}
 </body>
 </html>
