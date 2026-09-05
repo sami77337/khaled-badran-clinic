@@ -1,5 +1,6 @@
 
 from datetime import datetime, time, timedelta
+from html.parser import HTMLParser
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import parse_qs, urlsplit
@@ -33,6 +34,63 @@ from .models import Patient
 
 TEST_PASSWORD = "PortalPass123!Strong"
 NEW_TEST_PASSWORD = "NewPortalPass123!Strong"
+
+
+class PatientFormStructureParser(HTMLParser):
+    """Collect direct-child order for the shared phone picker and account checkbox."""
+
+    VOID_ELEMENTS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+
+    def __init__(self):
+        super().__init__()
+        self.checkbox_children = []
+        self.picker_children = []
+        self.stack = []
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        classes = set(attributes.get("class", "").split())
+        parent = self.stack[-1] if self.stack else None
+
+        if parent and parent["picker_index"] is not None:
+            for picker_class in (
+                "booking-phone-row",
+                "booking-country-menu",
+                "booking-phone-hint",
+            ):
+                if picker_class in classes:
+                    self.picker_children[parent["picker_index"]].append(picker_class)
+
+        if parent and parent["checkbox_index"] is not None:
+            self.checkbox_children[parent["checkbox_index"]].append(
+                (tag, attributes.get("type"))
+            )
+
+        picker_index = None
+        if "data-booking-phone-control" in attributes:
+            picker_index = len(self.picker_children)
+            self.picker_children.append([])
+
+        checkbox_index = None
+        if tag == "label" and parent and "patient-checkbox-field" in parent["classes"]:
+            checkbox_index = len(self.checkbox_children)
+            self.checkbox_children.append([])
+
+        if tag not in self.VOID_ELEMENTS:
+            self.stack.append(
+                {
+                    "checkbox_index": checkbox_index,
+                    "classes": classes,
+                    "picker_index": picker_index,
+                    "tag": tag,
+                }
+            )
+
+    def handle_endtag(self, tag):
+        while self.stack:
+            node = self.stack.pop()
+            if node["tag"] == tag:
+                break
 
 
 class PatientModelTests(TestCase):
@@ -1159,18 +1217,33 @@ class PatientPortalPasswordChangeTests(PatientPortalTestMixin, TestCase):
         user = self.create_user()
         self.client.force_login(user)
 
-        response = self.client.get(reverse("patient_portal_password_change_en"))
         stylesheet = (settings.BASE_DIR / "static" / "css" / "patient-portal.css").read_text(
             encoding="utf-8"
         )
+        for route_name in (
+            "patient_portal_password_change",
+            "patient_portal_password_change_en",
+        ):
+            with self.subTest(route=route_name):
+                response = self.client.get(reverse(route_name))
+                structure = PatientFormStructureParser()
+                structure.feed(response.content.decode())
 
-        self.assertTemplateUsed(response, "booking/partials/international_phone_field.html")
-        self.assertContains(response, "data-booking-phone-control", count=1)
-        self.assertContains(
-            response,
-            'type="checkbox" name="propagate_to_upcoming_appointments"',
-            count=1,
-        )
+                self.assertTemplateUsed(response, "booking/partials/international_phone_field.html")
+                self.assertContains(response, "data-booking-phone-control", count=1)
+                self.assertContains(
+                    response,
+                    'type="checkbox" name="propagate_to_upcoming_appointments"',
+                    count=1,
+                )
+                self.assertEqual(
+                    structure.picker_children,
+                    [["booking-phone-row", "booking-country-menu", "booking-phone-hint"]],
+                )
+                self.assertEqual(
+                    structure.checkbox_children,
+                    [[("input", "checkbox"), ("span", None)]],
+                )
         self.assertIn(
             '.patient-form .form-field > input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])',
             stylesheet,
@@ -1433,6 +1506,22 @@ class PatientPortalLinkingTests(PatientPortalTestMixin, TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response["Location"])
+
+    def test_link_page_phone_picker_uses_natural_flow_dom_order(self):
+        for route_name in (
+            "patient_portal_link_appointment",
+            "patient_portal_link_appointment_en",
+        ):
+            with self.subTest(route=route_name):
+                response = self.client.get(reverse(route_name))
+                structure = PatientFormStructureParser()
+                structure.feed(response.content.decode())
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    structure.picker_children,
+                    [["booking-phone-row", "booking-country-menu", "booking-phone-hint"]],
+                )
 
     def test_matching_phone_links_appointment_patient_to_user(self):
         appointment = self.create_appointment()

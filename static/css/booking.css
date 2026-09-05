@@ -3,7 +3,8 @@
  *
  * Page-scoped booking components use the public shell's approved tokens.
  */
-body.page-booking {
+body.page-booking,
+.patient-portal-shell .page-booking {
     --color-ivory: #FDFBF8;
     --color-beige: #C19A6B;
     --color-wood: #8B5A2B;
@@ -20,6 +21,9 @@ body.page-booking {
     --shadow-card: 0 12px 32px -8px rgba(44, 36, 35, 0.12);
     --radius: 0.75rem;
     --radius-card: 1.5rem;
+}
+
+body.page-booking {
     overflow-x: clip;
     background: var(--color-ivory);
     color: var(--color-charcoal);
@@ -1548,36 +1552,31 @@ body.page-booking.is-ltr {
 
 @media (max-width: 40rem) {
     .page-booking .booking-phone-control {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .page-booking .booking-phone-row {
-        grid-row: 1;
+        display: block;
     }
 
     .page-booking .booking-country-menu {
         position: static;
+        inset: auto;
         z-index: auto;
-        grid-row: 2;
         width: 100%;
         max-width: 100%;
         margin-block-start: 0.45rem;
         overflow: hidden;
     }
 
-    .page-booking .booking-phone-hint {
-        grid-row: 3;
-    }
-
     .page-booking .booking-country-options {
         width: 100%;
         min-width: 0;
         max-width: 100%;
-        max-height: clamp(7.5rem, calc(100dvh - 13rem), 15rem);
+        max-height: var(
+            --booking-country-options-max-height,
+            clamp(6rem, calc(100dvh - 13rem), 15rem)
+        );
         overflow-x: hidden;
         overscroll-behavior: contain;
         touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
     }
 
     .page-booking .booking-country-options button {

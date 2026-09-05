@@ -241,9 +241,11 @@
     );
 
     const controls = Array.from(form.querySelectorAll("[data-booking-phone-control]"));
+    const mobileOptionsHeightProperty = "--booking-country-options-max-height";
     const closeControl = (control, { restoreFocus = false } = {}) => {
         const trigger = control.querySelector("[data-booking-country-trigger]");
         const menu = control.querySelector("[data-booking-country-menu]");
+        control.style.removeProperty(mobileOptionsHeightProperty);
         if (!trigger || !menu || menu.hidden) {
             return;
         }
@@ -269,12 +271,13 @@
         const dial = control.querySelector("[data-booking-country-dial]");
         const menu = control.querySelector("[data-booking-country-menu]");
         const search = control.querySelector("[data-booking-country-search]");
+        const optionsList = control.querySelector("[data-booking-country-options]");
         const empty = control.querySelector("[data-booking-country-empty]");
         const hint = control.querySelector("[data-booking-phone-hint]");
         const input = control.querySelector("input[type='text'], input[type='tel']");
         const options = Array.from(control.querySelectorAll("[data-booking-country-option]"));
 
-        if (!trigger || !flag || !dial || !menu || !search || !input || !options.length) {
+        if (!trigger || !flag || !dial || !menu || !search || !optionsList || !input || !options.length) {
             return;
         }
 
@@ -282,6 +285,7 @@
         let menuVisibilityFrame = null;
         const keepMobileMenuVisible = () => {
             if (menu.hidden || !phoneViewport.matches) {
+                control.style.removeProperty(mobileOptionsHeightProperty);
                 return;
             }
             if (menuVisibilityFrame !== null) {
@@ -292,25 +296,66 @@
                 if (menu.hidden) {
                     return;
                 }
+                const viewportGutter = 8;
                 const viewport = window.visualViewport;
                 const viewportTop = viewport?.offsetTop || 0;
                 const viewportBottom = viewportTop + (viewport?.height || window.innerHeight);
                 const bottomNavigation = document.querySelector("[data-mobile-bottom-navigation]");
-                const navigationTop = bottomNavigation?.getBoundingClientRect().top ?? viewportBottom;
-                const safeBottom = Math.min(viewportBottom, navigationTop) - 8;
-                const safeTop = viewportTop + 8;
+                const compactHeader = document.querySelector("[data-portal-compact-header]");
+                const navigationRect = bottomNavigation?.getClientRects().length
+                    ? bottomNavigation.getBoundingClientRect()
+                    : null;
+                const headerRect = compactHeader?.getClientRects().length
+                    ? compactHeader.getBoundingClientRect()
+                    : null;
+                const safeBottom = Math.min(
+                    viewportBottom,
+                    navigationRect?.top ?? viewportBottom
+                ) - viewportGutter;
+                const safeTop = Math.max(
+                    viewportTop,
+                    headerRect?.bottom ?? viewportTop
+                ) + viewportGutter;
+                if (safeBottom <= safeTop) {
+                    return;
+                }
                 const menuRect = menu.getBoundingClientRect();
-                if (menuRect.height <= safeBottom - safeTop && menuRect.bottom > safeBottom) {
-                    window.scrollBy({ top: Math.ceil(menuRect.bottom - safeBottom), behavior: "auto" });
+                const optionsRect = optionsList.getBoundingClientRect();
+                const menuChromeHeight = Math.max(0, menuRect.height - optionsRect.height);
+                const safeViewportHeight = safeBottom - safeTop;
+                const availableOptionsHeight = Math.max(
+                    48,
+                    Math.min(240, safeViewportHeight - menuChromeHeight)
+                );
+                control.style.setProperty(
+                    mobileOptionsHeightProperty,
+                    `${Math.floor(availableOptionsHeight)}px`
+                );
+
+                const fittedMenuRect = menu.getBoundingClientRect();
+                let scrollDelta = 0;
+                if (fittedMenuRect.height <= safeViewportHeight) {
+                    if (fittedMenuRect.bottom > safeBottom) {
+                        scrollDelta = fittedMenuRect.bottom - safeBottom;
+                    } else if (fittedMenuRect.top < safeTop) {
+                        scrollDelta = fittedMenuRect.top - safeTop;
+                    }
+                } else if (fittedMenuRect.top !== safeTop) {
+                    scrollDelta = fittedMenuRect.top - safeTop;
+                }
+                if (Math.abs(scrollDelta) >= 1) {
+                    window.scrollBy({ top: Math.ceil(scrollDelta), behavior: "auto" });
                 }
             });
         };
 
         if (window.visualViewport) {
             window.visualViewport.addEventListener("resize", keepMobileMenuVisible);
+            window.visualViewport.addEventListener("scroll", keepMobileMenuVisible);
         } else {
             window.addEventListener("resize", keepMobileMenuVisible);
         }
+        phoneViewport.addEventListener?.("change", keepMobileMenuVisible);
 
         if (hint?.id) {
             input.setAttribute("aria-describedby", hint.id);
@@ -408,12 +453,11 @@
                 option.dataset.countryNationalPrefix || ""
             );
             closeControl(control, { restoreFocus: true });
-            input.focus({ preventScroll: true });
         };
 
-        trigger.addEventListener("click", (event) => {
+        trigger.addEventListener("click", () => {
             if (menu.hidden) {
-                openMenu({ focusSearch: event.detail === 0 });
+                openMenu();
             } else {
                 closeControl(control, { restoreFocus: true });
             }
@@ -436,6 +480,8 @@
             });
             empty.hidden = visibleCount !== 0;
         });
+
+        search.addEventListener("focus", keepMobileMenuVisible);
 
         search.addEventListener("keydown", (event) => {
             if (event.key === "Escape") {

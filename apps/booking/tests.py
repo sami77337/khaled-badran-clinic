@@ -1,6 +1,7 @@
 from datetime import datetime, time, timedelta
 from io import StringIO
 from pathlib import Path
+import subprocess
 from urllib.parse import parse_qs, urlencode, urlsplit
 from unittest.mock import patch
 
@@ -2087,11 +2088,14 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
             "text-rendering: optimizeLegibility",
             'font-family: "IBM Plex Sans Arabic"',
             'font-family: "Noto Kufi Arabic"',
+            ".patient-portal-shell .page-booking",
             "@media (max-width: 40rem)",
+            "display: block",
             "position: static",
+            "inset: auto",
             "z-index: auto",
-            "grid-row: 2",
-            "max-height: clamp(7.5rem, calc(100dvh - 13rem), 15rem)",
+            "--booking-country-options-max-height",
+            "clamp(6rem, calc(100dvh - 13rem), 15rem)",
             "overflow-x: hidden",
             "touch-action: pan-y",
             "@media (max-width: 389px)",
@@ -2104,6 +2108,34 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
         for rule in required_rules:
             with self.subTest(rule=rule):
                 self.assertIn(rule, stylesheet)
+        self.assertRegex(
+            stylesheet,
+            r"body\.page-booking,\s*\.patient-portal-shell \.page-booking\s*\{"
+            r"[^}]*--color-white:\s*#FFFFFF;",
+        )
+        mobile_styles = stylesheet[
+            stylesheet.index("@media (max-width: 40rem)") :
+            stylesheet.index("@media (max-width: 389px)")
+        ]
+        self.assertRegex(
+            mobile_styles,
+            r"\.booking-phone-control\s*\{[^}]*display:\s*block;",
+        )
+        self.assertRegex(
+            mobile_styles,
+            r"\.booking-country-menu\s*\{[^}]*position:\s*static;"
+            r"[^}]*inset:\s*auto;[^}]*width:\s*100%;",
+        )
+        self.assertRegex(
+            mobile_styles,
+            r"\.booking-country-options\s*\{[^}]*max-height:\s*var\("
+            r"\s*--booking-country-options-max-height,[^}]*\);",
+        )
+        self.assertRegex(
+            stylesheet,
+            r"\.booking-country-options\s*\{[^}]*overflow-y:\s*auto;",
+        )
+        self.assertNotIn("grid-row:", mobile_styles)
         for micro_ui_rule in (
             ".page-booking .booking-icon-arrow",
             ".page-booking .booking-icon-chevron",
@@ -2117,26 +2149,33 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
         self.assertNotIn("grid-template-columns: repeat(4, minmax(0, 1fr))", stylesheet)
         self.assertNotIn("position: fixed", stylesheet)
 
-    def test_phone_picker_opening_distinguishes_pointer_and_keyboard_input(self):
+    def test_phone_picker_runtime_owns_mobile_viewport_and_focus_behavior(self):
         script = (
             Path(__file__).resolve().parents[2] / "static" / "js" / "booking.js"
-        ).read_text(encoding="utf-8")
+        )
+        runtime_test = (
+            Path(__file__).resolve().parent
+            / "js_tests"
+            / "phone_picker_runtime_test.js"
+        )
+        result = subprocess.run(
+            ["node", str(runtime_test), str(script)],
+            cwd=Path(__file__).resolve().parents[2],
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=15,
+        )
 
-        for contract in (
-            'form.querySelectorAll("[data-booking-phone-control]")',
-            "const openMenu = ({ focusSearch = false } = {}) =>",
-            "openMenu({ focusSearch: event.detail === 0 })",
-            "openMenu({ focusSearch: true })",
-            "window.visualViewport",
-            "keepMobileMenuVisible",
-            "window.scrollBy",
-            'event.key === "ArrowDown"',
-            'event.key === "Enter"',
-            'event.key === " "',
-        ):
-            with self.subTest(contract=contract):
-                self.assertIn(contract, script)
-        self.assertNotIn("showAllOptions();\n            search.focus();", script)
+        self.assertEqual(
+            result.returncode,
+            0,
+            msg=(
+                "JavaScript phone-picker behavior failed:\n"
+                f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+            ),
+        )
+        self.assertIn("phone picker runtime behavior passed", result.stdout)
 
 
 class BookingModelAndAdminBehaviorTests(BookingTestDataMixin, TestCase):
