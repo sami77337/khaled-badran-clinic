@@ -604,3 +604,16 @@
     display: block;
     width: min(100%, 32rem);
 }
+
+/* Match the Login typography inside the shared picker, independently of the
+   dashboard font. Keep surrounding fields and the compact checkbox in portal scope. */
+.patient-phone-picker .booking-phone-control {
+    font-family: Tahoma, Arial, sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.55;
+}
+
+.is-ltr .patient-phone-picker .booking-phone-control {
+    font-family: Arial, Helvetica, sans-serif;
+}

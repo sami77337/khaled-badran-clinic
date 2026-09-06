@@ -1,16 +1,3 @@
-:root {
-    --auth-burgundy: #4A0F14;
-    --auth-burgundy-deep: #350A0E;
-    --auth-wood: #8B5A2B;
-    --auth-ink: #251D1A;
-    --auth-muted: #5F554E;
-    --auth-line: #CBBEAF;
-    --auth-soft-line: #DED4C9;
-    --auth-ivory: #F8F5EF;
-    --auth-paper: #FFFFFF;
-    --auth-error: #8B302D;
-}
-
 html {
     background: var(--auth-ivory);
 }
@@ -75,10 +62,7 @@ body.auth-shell {
 .auth-role-tab:focus-visible,
 .auth-submit:focus-visible,
 .auth-recovery-secondary:focus-visible,
-.auth-password-toggle:focus-visible,
-.auth-shell .booking-country-trigger:focus-visible,
-.auth-shell .booking-country-search:focus-visible,
-.auth-shell [data-booking-country-option]:focus-visible {
+.auth-password-toggle:focus-visible {
     outline: 3px solid rgba(74, 15, 20, 0.26);
     outline-offset: 2px;
 }
@@ -242,9 +226,7 @@ body.auth-shell {
 }
 
 .auth-field > input,
-.auth-password-control > input,
-.auth-shell .booking-phone-row > input,
-.auth-shell .booking-country-search {
+.auth-password-control > input {
     width: 100%;
     min-width: 0;
     min-height: 3rem;
@@ -260,16 +242,12 @@ body.auth-shell {
 }
 
 .auth-field > input:hover,
-.auth-password-control > input:hover,
-.auth-shell .booking-phone-row:hover,
-.auth-shell .booking-country-search:hover {
+.auth-password-control > input:hover {
     border-color: #A9927D;
 }
 
 .auth-field > input:focus,
-.auth-password-control > input:focus,
-.auth-shell .booking-phone-row:focus-within,
-.auth-shell .booking-country-search:focus {
+.auth-password-control > input:focus {
     border-color: var(--auth-burgundy);
     box-shadow: 0 0 0 3px rgba(74, 15, 20, 0.14);
     outline: none;
@@ -316,8 +294,7 @@ body.auth-shell {
     height: 1.16rem;
 }
 
-.auth-field-hint,
-.auth-shell .booking-phone-hint {
+.auth-field-hint {
     margin: 0;
     color: var(--auth-muted);
     font-size: 0.8rem;
@@ -513,196 +490,6 @@ body.auth-shell {
     padding: 0.7rem 0.8rem;
 }
 
-.auth-shell .booking-phone-control {
-    position: relative;
-    min-width: 0;
-}
-
-.auth-shell .booking-phone-row {
-    display: flex;
-    min-width: 0;
-    border: 1px solid var(--auth-line);
-    border-radius: 0.78rem;
-    background: var(--auth-paper);
-    transition: border-color 150ms ease, box-shadow 150ms ease;
-}
-
-.auth-shell .booking-phone-row > input {
-    min-height: 2.95rem;
-    border: 0;
-    border-radius: 0 0.76rem 0.76rem 0;
-    box-shadow: none;
-}
-
-.auth-shell .booking-phone-row > input:focus {
-    box-shadow: none;
-    outline: none;
-}
-
-.auth-shell .booking-country-trigger {
-    display: inline-flex;
-    width: 7.15rem;
-    min-width: 7.15rem;
-    min-height: 2.95rem;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    border: 0;
-    border-inline-end: 1px solid var(--auth-line);
-    border-radius: 0.76rem 0 0 0.76rem;
-    background: #FAF8F5;
-    color: var(--auth-ink);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.86rem;
-    font-weight: 700;
-    padding: 0.55rem 0.65rem;
-}
-
-.auth-shell .booking-country-trigger:hover,
-.auth-shell .booking-phone-control.is-open .booking-country-trigger {
-    background: rgba(74, 15, 20, 0.075);
-    color: var(--auth-burgundy);
-}
-
-.auth-shell .booking-country-flag {
-    font-size: 1rem;
-    line-height: 1;
-}
-
-.auth-shell .booking-country-dial {
-    unicode-bidi: isolate;
-}
-
-.auth-shell .booking-icon-chevron {
-    display: inline-block;
-    width: 0.43rem;
-    height: 0.43rem;
-    border-inline-end: 1.5px solid currentColor;
-    border-bottom: 1.5px solid currentColor;
-    transform: translateY(-0.1rem) rotate(45deg);
-    transition: transform 150ms ease;
-}
-
-.auth-shell .booking-phone-control.is-open .booking-icon-chevron {
-    transform: translateY(0.1rem) rotate(225deg);
-}
-
-.auth-shell .booking-phone-hint {
-    margin-top: 0.36rem;
-}
-
-.auth-shell .booking-country-menu {
-    position: absolute;
-    z-index: 30;
-    inset-block-start: calc(100% + 0.48rem);
-    inset-inline-start: 0;
-    width: min(100%, 28rem);
-    max-width: calc(100vw - 3rem);
-    overflow: hidden;
-    border: 1px solid var(--auth-line);
-    border-radius: 0.85rem;
-    background: var(--auth-paper);
-    box-shadow: 0 1rem 2.4rem rgba(46, 41, 38, 0.16);
-    padding: 0.7rem;
-}
-
-.auth-shell .booking-country-search-label {
-    display: block;
-    margin-bottom: 0.38rem;
-    color: var(--auth-wood);
-    font-size: 0.8rem;
-    font-weight: 700;
-}
-
-.auth-shell .booking-country-search {
-    min-height: 2.65rem;
-    font-size: 0.88rem;
-}
-
-.auth-shell .booking-country-options {
-    display: grid;
-    max-height: min(16rem, 45vh);
-    gap: 0.12rem;
-    margin-top: 0.55rem;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding-inline-end: 0.15rem;
-}
-
-.auth-shell [data-booking-country-option] {
-    display: grid;
-    grid-template-columns: 1.45rem minmax(0, 1fr) auto;
-    min-height: 2.65rem;
-    align-items: center;
-    gap: 0.55rem;
-    border: 0;
-    border-radius: 0.55rem;
-    background: transparent;
-    color: var(--auth-ink);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.82rem;
-    font-weight: 600;
-    line-height: 1.35;
-    padding: 0.5rem 0.58rem;
-    text-align: start;
-}
-
-.auth-shell [data-booking-country-option]:hover,
-.auth-shell [data-booking-country-option][aria-selected="true"] {
-    background: rgba(74, 15, 20, 0.075);
-    color: var(--auth-burgundy);
-}
-
-.auth-shell [data-booking-country-option] bdi {
-    color: var(--auth-muted);
-    font-weight: 700;
-}
-
-.auth-shell .booking-country-empty {
-    margin: 0.7rem 0 0;
-    color: var(--auth-muted);
-    font-size: 0.82rem;
-    text-align: center;
-}
-
-@media (max-width: 40rem) {
-    .auth-shell .booking-phone-control {
-        display: block;
-    }
-
-    .auth-shell .booking-country-menu {
-        position: static;
-        inset: auto;
-        z-index: auto;
-        width: 100%;
-        max-width: 100%;
-        margin-block-start: 0.48rem;
-        overflow: hidden;
-    }
-
-    .auth-shell .booking-country-options {
-        width: 100%;
-        min-width: 0;
-        max-width: 100%;
-        max-height: var(
-            --booking-country-options-max-height,
-            clamp(6rem, calc(100dvh - 13rem), 15rem)
-        );
-        overflow-x: hidden;
-        overscroll-behavior: contain;
-        touch-action: pan-y;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .auth-shell [data-booking-country-option] {
-        width: 100%;
-        min-width: 0;
-        max-width: 100%;
-    }
-}
-
 @media (max-width: 389px) {
     .auth-header-inner {
         width: calc(100% - 1rem);
@@ -730,13 +517,6 @@ body.auth-shell {
 
     .auth-heading h1 {
         font-size: 1.75rem;
-    }
-
-    .auth-shell .booking-country-trigger {
-        width: 6.55rem;
-        min-width: 6.55rem;
-        gap: 0.3rem;
-        padding-inline: 0.45rem;
     }
 
     .auth-patient-actions {

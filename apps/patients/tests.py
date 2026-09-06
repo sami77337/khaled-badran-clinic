@@ -249,7 +249,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         self.assertIn('addEventListener("formdata"', javascript)
 
     def test_auth_phone_picker_matches_proven_mobile_runtime(self):
-        stylesheet = (settings.BASE_DIR / "static" / "css" / "auth.css").read_text(
+        stylesheet = (settings.BASE_DIR / "static" / "css" / "auth-phone.css").read_text(
             encoding="utf-8"
         )
         script = settings.BASE_DIR / "static" / "js" / "auth-login.js"
@@ -263,7 +263,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
 
         for contract in (
             "@media (max-width: 40rem)",
-            ".auth-shell .booking-phone-control",
+            ":is(.auth-shell, .patient-phone-picker) .booking-phone-control",
             "display: block",
             "position: static",
             "inset: auto",
@@ -307,7 +307,10 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
     def test_unified_login_omits_owner_removed_visual_copy_in_both_languages(self):
         arabic = self.client.get(reverse("login"))
         english = self.client.get(reverse("login_en"))
-        stylesheet = (settings.BASE_DIR / "static" / "css" / "auth.css").read_text(encoding="utf-8")
+        stylesheet = "\n".join(
+            (settings.BASE_DIR / "static" / "css" / name).read_text(encoding="utf-8")
+            for name in ("auth.css", "auth-phone.css")
+        )
 
         for response in (arabic, english):
             self.assertNotContains(response, "auth-secure-badge")
@@ -410,7 +413,10 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
     def test_registration_omits_legacy_copy_and_keeps_the_auth_visual_contract(self):
         arabic = self.client.get(reverse("patient_portal_register"))
         english = self.client.get(reverse("patient_portal_register_en"))
-        stylesheet = (settings.BASE_DIR / "static" / "css" / "auth.css").read_text(encoding="utf-8")
+        stylesheet = "\n".join(
+            (settings.BASE_DIR / "static" / "css" / name).read_text(encoding="utf-8")
+            for name in ("auth.css", "auth-phone.css")
+        )
 
         for removed_copy in (
             "حساب اختياري",
@@ -1269,6 +1275,9 @@ class PatientPortalPasswordChangeTests(PatientPortalTestMixin, TestCase):
         ):
             with self.subTest(route=route_name):
                 response = self.client.get(reverse(route_name))
+                self.assertContains(response, "css/auth-phone.css")
+                self.assertNotContains(response, "css/booking.css")
+                self.assertContains(response, "patient-form patient-phone-picker")
                 structure = PatientFormStructureParser()
                 structure.feed(response.content.decode())
 
@@ -1557,6 +1566,9 @@ class PatientPortalLinkingTests(PatientPortalTestMixin, TestCase):
         ):
             with self.subTest(route=route_name):
                 response = self.client.get(reverse(route_name))
+                self.assertContains(response, "css/auth-phone.css")
+                self.assertNotContains(response, "css/booking.css")
+                self.assertContains(response, "patient-form patient-phone-picker")
                 structure = PatientFormStructureParser()
                 structure.feed(response.content.decode())
 
