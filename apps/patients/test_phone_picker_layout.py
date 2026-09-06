@@ -50,7 +50,12 @@ class PatientPhonePickerLayoutTests(PatientPortalTestMixin, TestCase):
                     self.assertContains(response, "css/auth-phone.css")
                     self.assertNotContains(response, "css/booking.css")
                     self.assertContains(response, "patient-form patient-phone-picker")
+                    self.assertTemplateUsed(response, "booking/partials/international_phone_field.html")
                     pages[f"{name}-{language}"] = response.content.decode()
+                    invalid = self.client.post(reverse(route + suffix), {"action": "phone_start"} if name == "phone" else {})
+                    self.assertEqual(invalid.status_code, 200)
+                    self.assertContains(invalid, "errorlist")
+                    pages[f"{name}-errors-{language}"] = invalid.content.decode()
             fixture = Path(directory) / "pages.json"
             # Optional local comparison with the owner's immutable reference SHA.
             # Only the named CSS file is read; no checkout or worktree is needed.

@@ -127,7 +127,7 @@ class FakeElement extends FakeEventTarget {
     }
 }
 
-const buildRuntime = () => {
+const buildRuntime = ({ portal = false, width = 360 } = {}) => {
     const heightProperty = "--booking-country-options-max-height";
     const control = new FakeElement("control");
     control.dataset.bookingDefaultDialCode = "+962";
@@ -201,6 +201,7 @@ const buildRuntime = () => {
         selector === "[data-booking-phone-control]" ? [control] : []
     );
     form.querySelector = () => null;
+    form.closest = (selector) => portal && selector === ".patient-portal-shell" ? form : null;
 
     const authRoot = new FakeElement("auth-root");
     authRoot.dataset.selectedRole = "patient";
@@ -238,7 +239,10 @@ const buildRuntime = () => {
     window.history = null;
     window.innerHeight = 640;
     window.location = { href: "https://example.test/portal/link/" };
-    window.matchMedia = () => mediaQuery;
+    window.matchMedia = (query) => {
+        mediaQuery.matches = width <= Number.parseFloat(query.match(/max-width: ([\d.]+)rem/)[1]) * 16;
+        return mediaQuery;
+    };
     window.requestAnimationFrame = (callback) => {
         const frameId = nextFrameId;
         nextFrameId += 1;
@@ -276,6 +280,7 @@ const buildRuntime = () => {
         heightProperty,
         input,
         menu,
+        mediaQuery,
         option,
         scrolls,
         search,
@@ -340,5 +345,58 @@ assert.equal(
     "90px",
     "visual viewport resize must keep a reduced-height options list scrollable",
 );
+
+assert.equal(
+    runtime.visualViewport.listeners.get("scroll")[0],
+    runtime.visualViewport.listeners.get("resize")[0],
+    "viewport movement must use the same existing updater as resizing",
+);
+runtime.visualViewport.offsetTop = 100;
+runtime.visualViewport.dispatch("scroll");
+runtime.flushFrames();
+assert.equal(
+    runtime.control.style.getPropertyValue(runtime.heightProperty),
+    "94px",
+    "viewport scroll without resize must recalculate space using offsetTop",
+);
+
+const formDataValues = new Map();
+runtime.form.dispatch("formdata", { formData: formDataValues });
+assert.equal(formDataValues.get("phone"), "+962791234567", "formdata guard must preserve E.164");
+
+for (const portal of [false, true]) {
+    const wide = buildRuntime({ portal, width: 844 });
+    wide.trigger.dispatch("click");
+    wide.flushFrames();
+    const portalBooking = portal && phoneScriptPath.endsWith("booking.js");
+    assert.equal(
+        wide.control.style.getPropertyValue(wide.heightProperty),
+        portalBooking ? "130px" : "",
+        "only Portal extends viewport fitting through the fixed-header landscape range",
+    );
+    wide.mediaQuery.matches = false;
+    wide.mediaQuery.dispatch("change");
+    wide.flushFrames();
+    assert.equal(wide.control.style.getPropertyValue(wide.heightProperty), "", "desktop transition clears fitting");
+}
+
+if (phoneScriptPath.endsWith("booking.js")) {
+    const short = buildRuntime({ portal: true, width: 640 });
+    short.visualViewport.height = 160;
+    short.trigger.dispatch("click");
+    short.flushFrames();
+    assert.equal(short.control.style.getPropertyValue("--booking-country-menu-max-height"), "80px");
+    assert(short.control.classList.contains("is-viewport-constrained"), "cramped Portal menu must scroll as a whole");
+    short.trigger.dispatch("click");
+    assert.equal(short.control.style.getPropertyValue("--booking-country-menu-max-height"), "");
+    assert(!short.control.classList.contains("is-viewport-constrained"), "closing clears the short-viewport state");
+
+    short.trigger.dispatch("click");
+    short.mediaQuery.matches = false;
+    short.mediaQuery.dispatch("change");
+    short.flushFrames();
+    assert.equal(short.control.style.getPropertyValue(short.heightProperty), "", "queued fitting must not run after crossing to desktop");
+    assert(!short.control.classList.contains("is-viewport-constrained"));
+}
 
 process.stdout.write("phone picker runtime behavior passed\n");

@@ -617,3 +617,31 @@
 .is-ltr .patient-phone-picker .booking-phone-control {
     font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Keep the shared Login picker in flow while Portal's fixed header is visible,
+   including phone landscape. Its presentation still comes from auth-phone.css. */
+@media (max-width: 63.999rem) {
+    .patient-portal-shell .patient-phone-picker .booking-country-menu {
+        position: static;
+        inset: auto;
+        z-index: auto;
+        width: 100%;
+        max-width: 100%;
+        margin-block-start: 0.48rem;
+    }
+
+    .patient-portal-shell .patient-phone-picker .is-viewport-constrained .booking-country-menu {
+        max-height: var(--booking-country-menu-max-height, none);
+        overflow-y: auto;
+    }
+
+    .patient-portal-shell .patient-phone-picker .booking-country-options {
+        max-height: var(
+            --booking-country-options-max-height,
+            clamp(6rem, calc(100dvh - 13rem), 15rem)
+        );
+        overflow-x: hidden;
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
+    }
+}

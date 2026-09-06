@@ -9,6 +9,8 @@ const http = require("node:http");
 const { spawn } = require("node:child_process");
 const [browser, fixture, root] = process.argv.slice(2);
 const pages = JSON.parse(fs.readFileSync(fixture, "utf8"));
+const pickerTokens = [...new Set([...fs.readFileSync(path.join(root, "static/css/auth-phone.css"), "utf8")
+    .matchAll(/var\(\s*(--auth-[\w-]+)/g)].map(match => match[1]))];
 const profile = path.join(path.dirname(fixture), "browser-profile");
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -64,12 +66,12 @@ async function main() {
             await send("Emulation.setDeviceMetricsOverride", { width, height: 844, deviceScaleFactor: 1, mobile: true });
             for (const language of ["ar", "en"]) {
                 let reference;
-                const pageNames = ["login", "register", "link", "phone"];
+                const pageNames = ["login", "register", "link", "phone", "link-errors", "phone-errors"];
                 if (pages[`before-login-${language}`]) pageNames.push("before-login", "before-link");
                 for (const page of pageNames) {
                     await send("Page.navigate", { url: `http://127.0.0.1:${server.address().port}/${page}-${language}` });
                     for (let i = 0; i < 100; i++) {
-                        if (await evaluate(`document.readyState === 'complete' && !!document.querySelector('[data-booking-phone-control]')?.bookingComposeNumber`)) break;
+                        if (await evaluate(`document.readyState === 'complete' && (() => { const c = document.querySelector('[data-booking-phone-control]'); return !!(c?.bookingComposeNumber || c?.composePhoneNumber); })()`)) break;
                         await delay(20);
                     }
                     // Give every picker the same available parent width when comparing
@@ -92,6 +94,21 @@ async function main() {
                             return [selector, Object.fromEntries(properties.map(p => [p, css[p]]))];
                         }));
                         const rect = el => { const r=el.getBoundingClientRect(); return {top:r.top,bottom:r.bottom,width:r.width,height:r.height}; };
+                        const unresolvedTokens = ${JSON.stringify(pickerTokens)}.filter(token => !getComputedStyle(control).getPropertyValue(token).trim());
+                        const portalForm = control.closest('.patient-form');
+                        const surrounding = portalForm ? [portalForm, ...portalForm.querySelectorAll('.form-field, .form-field > label, .form-field > input, .patient-form-actions')] : [];
+                        const formChrome = () => surrounding.map(el => {
+                            const css = getComputedStyle(el);
+                            const properties = ['gap', 'fontSize', 'lineHeight', 'padding', 'border', 'borderRadius'];
+                            if (!el.contains(control)) properties.push('height');
+                            return properties.map(p => css[p]);
+                        });
+                        const surroundingBefore = formChrome();
+                        const pickerSheet = [...document.styleSheets].find(sheet => sheet.href?.endsWith('/auth-phone.css'));
+                        if (portalForm && pickerSheet) pickerSheet.disabled = true;
+                        const surroundingAfter = formChrome();
+                        if (portalForm && pickerSheet) pickerSheet.disabled = false;
+                        const formIsolated = JSON.stringify(surroundingBefore) === JSON.stringify(surroundingAfter);
                         const dimensions = { trigger: rect(trigger), menu: rect(menu), row: rect(control.querySelector('.booking-phone-row')), option: rect(options.querySelector('button')) };
                         const field = control.parentElement;
                         const following = field.nextElementSibling;
@@ -112,6 +129,7 @@ async function main() {
                         option.click();
                         const closed = menu.hidden && trigger.getAttribute('aria-expanded') === 'false';
                         const input = control.querySelector('.booking-phone-row > input');
+                        const selectionFocus = document.activeElement === trigger;
                         input.focus();
                         const inputUsable = document.activeElement === input && !input.disabled;
                         input.value = '4165550123';
@@ -126,14 +144,22 @@ async function main() {
                         const nativeFlow = !following || rect(following).top >= rect(field).bottom - 1;
                         const nativeOverflow = document.documentElement.scrollWidth > innerWidth;
                         const nativeNavClear = !nav || rect(menu).bottom <= rect(nav).top;
-                        return {styles, dimensions, nativeWidth, nativeFlow, nativeOverflow, nativeNavClear, noSearchFocus, noOverlap, precedingClear, navClear, overflow, scrolls, deliberateFocus, filtered, closed, inputUsable, e164, outsideCloses, escapeCloses, checkboxWidth:checkbox ? rect(checkbox).width : null};
+                        return {styles, dimensions, unresolvedTokens, formIsolated, selectionFocus, nativeWidth, nativeFlow, nativeOverflow, nativeNavClear, noSearchFocus, noOverlap, precedingClear, navClear, overflow, scrolls, deliberateFocus, filtered, closed, inputUsable, e164, outsideCloses, escapeCloses, checkboxWidth:checkbox ? rect(checkbox).width : null, checkboxHeight:checkbox ? rect(checkbox).height : null, checkboxLabelHeight:checkbox ? rect(checkbox.closest('label')).height : null};
                     })()`);
                     const label = `${page}-${language} ${width}px`;
                     for (const key of ["nativeWidth", "nativeFlow", "nativeNavClear", "noSearchFocus", "noOverlap", "precedingClear", "navClear", "scrolls", "deliberateFocus", "filtered", "closed", "inputUsable", "outsideCloses", "escapeCloses"]) assert.equal(result[key], true, `${label}: ${key}`);
                     assert.equal(result.overflow, false, `${label}: horizontal overflow`);
                     assert.equal(result.nativeOverflow, false, `${label}: native horizontal overflow`);
+                    if (page !== "before-link") {
+                        assert.deepEqual(result.unresolvedTokens, [], `${label}: all picker visual tokens resolve`);
+                        assert.equal(result.formIsolated, true, `${label}: picker CSS does not change Portal form chrome`);
+                    }
+                    assert.equal(result.selectionFocus, true, `${label}: selection restores trigger focus`);
                     assert.equal(result.e164, "+14165550123", `${label}: E.164 serialization`);
-                    if (result.checkboxWidth !== null) assert(result.checkboxWidth <= 20, `${label}: checkbox compact`);
+                    if (result.checkboxWidth !== null) {
+                        assert(Math.abs(result.checkboxWidth - 17.6) < 1 && Math.abs(result.checkboxHeight - 17.6) < 1, `${label}: checkbox compact`);
+                        assert(result.checkboxLabelHeight >= 44, `${label}: checkbox label touch area`);
+                    }
                     if (page === "login") reference = result;
                     else if (page === "before-link") {
                         assert.notDeepEqual(result.styles, reference.styles, `${label}: reproduce the old visual mismatch`);
@@ -166,12 +192,93 @@ async function main() {
                         return {fits: rect.top >= top && rect.bottom <= bottom, top:rect.top, bottom:rect.bottom, safeTop:top, safeBottom:bottom};
                     })()`);
                     assert(keyboardFits.fits, `${label}: menu fits reduced keyboard viewport ${JSON.stringify(keyboardFits)}`);
+                    if (process.env.KBC_QA_SCREENSHOTS && width === 390) {
+                        fs.mkdirSync(process.env.KBC_QA_SCREENSHOTS, { recursive: true });
+                        const screenshot = await send("Page.captureScreenshot", { format: "png" });
+                        fs.writeFileSync(path.join(process.env.KBC_QA_SCREENSHOTS, `${page}-${language}.png`), Buffer.from(screenshot.data, "base64"));
+                    }
                     await send("Emulation.setDeviceMetricsOverride", { width, height: 844, deviceScaleFactor: 1, mobile: true });
                     cases++;
                 }
             }
         }
-        console.log(`${cases} rendered mobile cases passed: Login/Register/Link/Phone, AR/EN, 320/360/390/412/640px; computed style parity, layout, scrolling, focus, closing, E.164.`);
+        console.log(`${cases} rendered mobile cases passed: Login/Register/Link/Phone plus Portal field errors, AR/EN, 320/360/390/412/640px; computed style parity, tokens, form isolation, checkbox, layout, scrolling, focus, closing, E.164.`);
+        let landscapeCases = 0;
+        for (const width of [640, 667, 720, 740, 800, 844, 900]) {
+            for (const language of ["ar", "en"]) {
+                for (const page of ["link", "phone"]) {
+                    await send("Emulation.setDeviceMetricsOverride", { width, height: 360, deviceScaleFactor: 1, mobile: true });
+                    await send("Page.navigate", { url: `http://127.0.0.1:${server.address().port}/${page}-${language}` });
+                    for (let i = 0; i < 100; i++) {
+                        if (await evaluate(`document.readyState === 'complete' && (() => { const c = document.querySelector('[data-booking-phone-control]'); return !!(c?.bookingComposeNumber || c?.composePhoneNumber); })()`)) break;
+                        await delay(20);
+                    }
+                    const layout = await evaluate(`(async () => {
+                        await document.fonts.ready;
+                        const control = document.querySelector('[data-booking-phone-control]');
+                        const trigger = control.querySelector('[data-booking-country-trigger]');
+                        const menu = control.querySelector('[data-booking-country-menu]');
+                        const options = control.querySelector('[data-booking-country-options]');
+                        const field = control.parentElement;
+                        const following = field.nextElementSibling;
+                        const closedTop = following.getBoundingClientRect().top + scrollY;
+                        trigger.scrollIntoView({block:'center'});
+                        trigger.click();
+                        await new Promise(r => setTimeout(r, 100));
+                        const rect = menu.getBoundingClientRect();
+                        const header = document.querySelector('[data-portal-compact-header]');
+                        const nav = document.querySelector('[data-mobile-bottom-navigation]');
+                        const safeTop = Math.max(visualViewport.offsetTop, header.getBoundingClientRect().bottom);
+                        const safeBottom = Math.min(visualViewport.offsetTop + visualViewport.height,
+                            nav.getClientRects().length ? nav.getBoundingClientRect().top : Infinity);
+                        options.scrollTop = options.scrollHeight;
+                        return {position:getComputedStyle(menu).position, top:rect.top, bottom:rect.bottom, safeTop, safeBottom,
+                            pushes:following.getBoundingClientRect().top + scrollY > closedTop + rect.height,
+                            contained:rect.bottom <= field.getBoundingClientRect().bottom,
+                            scrollable:options.scrollTop > 0,
+                            overflow:document.documentElement.scrollWidth > innerWidth};
+                    })()`);
+                    const label = `${page}-${language} ${width}x360 landscape`;
+                    assert.equal(layout.position, "static", `${label}: menu must occupy document flow ${JSON.stringify(layout)}`);
+                    assert(layout.pushes && layout.contained, `${label}: following fields must move below menu ${JSON.stringify(layout)}`);
+                    assert(layout.top >= layout.safeTop && layout.bottom <= layout.safeBottom, `${label}: fixed chrome clearance ${JSON.stringify(layout)}`);
+                    assert(layout.scrollable && !layout.overflow, `${label}: scrollable options without horizontal overflow`);
+                    await send("Emulation.setDeviceMetricsOverride", { width, height: 260, deviceScaleFactor: 1, mobile: true });
+                    const reduced = await evaluate(`(async () => {
+                        const control = document.querySelector('[data-booking-phone-control]');
+                        control.querySelector('[data-booking-country-search]').focus();
+                        await new Promise(r => setTimeout(r, 100));
+                        const menuElement = control.querySelector('[data-booking-country-menu]');
+                        const menu = menuElement.getBoundingClientRect();
+                        const header = document.querySelector('[data-portal-compact-header]').getBoundingClientRect();
+                        const nav = document.querySelector('[data-mobile-bottom-navigation]');
+                        const top = Math.max(visualViewport.offsetTop, header.bottom);
+                        const bottom = Math.min(visualViewport.offsetTop + visualViewport.height,
+                            nav.getClientRects().length ? nav.getBoundingClientRect().top : Infinity);
+                        const options = control.querySelector('[data-booking-country-options]');
+                        options.scrollTop = options.scrollHeight;
+                        menuElement.scrollTop = menuElement.scrollHeight;
+                        const lastOption = options.lastElementChild;
+                        const lastRect = lastOption.getBoundingClientRect();
+                        const trigger = control.querySelector('[data-booking-country-trigger]');
+                        const focus = trigger.focus.bind(trigger);
+                        let focusScrollDelta = 0;
+                        trigger.focus = (...args) => { const before = scrollY; focus(...args); focusScrollDelta = scrollY - before; };
+                        const scrollable = options.scrollTop > 0;
+                        lastOption.click();
+                        const selected = menuElement.hidden && document.activeElement === trigger
+                            && control.dataset.bookingCountryCode === lastOption.dataset.countryCode;
+                        return {fits:menu.top >= top && menu.bottom <= bottom, scrollable, selected, focusScrollDelta,
+                            lastOptionReachable:lastRect.top >= top && lastRect.bottom <= bottom,
+                            top:menu.top, bottom:menu.bottom, safeTop:top, safeBottom:bottom};
+                    })()`);
+                    assert(reduced.fits && reduced.scrollable, `${label}: reduced landscape viewport ${JSON.stringify(reduced)}`);
+                    assert(reduced.lastOptionReachable && reduced.selected && Math.abs(reduced.focusScrollDelta) < 1, `${label}: bottom option selection stays usable without focus scrolling ${JSON.stringify(reduced)}`);
+                    landscapeCases++;
+                }
+            }
+        }
+        console.log(`${landscapeCases} Portal landscape cases passed: Link/Phone, AR/EN, 640/667/720/740/800/844/900px.`);
     } finally {
         if (send && ws?.readyState === WebSocket.OPEN) {
             send("Browser.close").catch(() => {});

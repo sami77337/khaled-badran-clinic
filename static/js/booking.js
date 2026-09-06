@@ -242,10 +242,13 @@
 
     const controls = Array.from(form.querySelectorAll("[data-booking-phone-control]"));
     const mobileOptionsHeightProperty = "--booking-country-options-max-height";
+    const mobileMenuHeightProperty = "--booking-country-menu-max-height";
     const closeControl = (control, { restoreFocus = false } = {}) => {
         const trigger = control.querySelector("[data-booking-country-trigger]");
         const menu = control.querySelector("[data-booking-country-menu]");
         control.style.removeProperty(mobileOptionsHeightProperty);
+        control.style.removeProperty(mobileMenuHeightProperty);
+        control.classList.remove("is-viewport-constrained");
         if (!trigger || !menu || menu.hidden) {
             return;
         }
@@ -281,11 +284,19 @@
             return;
         }
 
-        const phoneViewport = window.matchMedia("(max-width: 40rem)");
+        // Portal keeps its fixed header through tablet/phone landscape widths.
+        const portalPicker = Boolean(form.closest(".patient-portal-shell"));
+        const phoneViewport = window.matchMedia(
+            portalPicker
+                ? "(max-width: 63.999rem)"
+                : "(max-width: 40rem)"
+        );
         let menuVisibilityFrame = null;
         const keepMobileMenuVisible = () => {
             if (menu.hidden || !phoneViewport.matches) {
                 control.style.removeProperty(mobileOptionsHeightProperty);
+                control.style.removeProperty(mobileMenuHeightProperty);
+                control.classList.remove("is-viewport-constrained");
                 return;
             }
             if (menuVisibilityFrame !== null) {
@@ -293,9 +304,12 @@
             }
             menuVisibilityFrame = window.requestAnimationFrame(() => {
                 menuVisibilityFrame = null;
-                if (menu.hidden) {
+                if (menu.hidden || !phoneViewport.matches) {
                     return;
                 }
+                // Measure natural menu chrome before applying any short-viewport cap.
+                control.style.removeProperty(mobileMenuHeightProperty);
+                control.classList.remove("is-viewport-constrained");
                 const viewportGutter = 8;
                 const viewport = window.visualViewport;
                 const viewportTop = viewport?.offsetTop || 0;
@@ -331,6 +345,15 @@
                     mobileOptionsHeightProperty,
                     `${Math.floor(availableOptionsHeight)}px`
                 );
+                if (portalPicker && menu.getBoundingClientRect().height > safeViewportHeight) {
+                    // If search plus one option cannot fit, keep the whole menu
+                    // scrollable inside the same safe area instead of behind chrome.
+                    control.style.setProperty(
+                        mobileMenuHeightProperty,
+                        `${Math.floor(safeViewportHeight)}px`
+                    );
+                    control.classList.add("is-viewport-constrained");
+                }
 
                 const fittedMenuRect = menu.getBoundingClientRect();
                 let scrollDelta = 0;
