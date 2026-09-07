@@ -52,6 +52,10 @@
                 </div>
             </div>
             <div class="dashboard-action-list">
+                <a class="dashboard-action-link" href="{{ portal_review_url }}">
+                    <span>{% if is_arabic %}تقييمي{% else %}My Review{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                </a>
                 <a class="dashboard-action-link is-primary" href="{{ portal_password_change_url }}">
                     <span>{% if is_arabic %}تغيير كلمة المرور{% else %}Change Password{% endif %}</span>
                     <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>

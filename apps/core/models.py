@@ -89,8 +89,16 @@ class PublicReview(models.Model):
     class Source(models.TextChoices):
         GOOGLE = "google", "Google"
         OTHER = "other", "Other approved source"
+        PATIENT_PORTAL = "patient_portal", "Patient review"
 
-    reviewer_name = models.CharField(max_length=160)
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="submitted_reviews",
+    )
+    reviewer_name = models.CharField(max_length=160, blank=True)
     body = models.TextField()
     rating = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(5)],
@@ -112,6 +120,13 @@ class PublicReview(models.Model):
 
     class Meta:
         ordering = ["display_order", "-reviewed_at", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["submitted_by"],
+                condition=models.Q(source="patient_portal", submitted_by__isnull=False),
+                name="core_one_portal_review_per_user",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.reviewer_name} ({self.rating}/5)"
@@ -119,3 +134,11 @@ class PublicReview(models.Model):
     @property
     def star_text(self):
         return "★" * self.rating + "☆" * (5 - self.rating)
+
+    @property
+    def public_name_ar(self):
+        return self.reviewer_name.strip() or "مريض"
+
+    @property
+    def public_name_en(self):
+        return self.reviewer_name.strip() or "Patient"

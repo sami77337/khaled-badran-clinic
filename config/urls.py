@@ -7,6 +7,7 @@ from django.views.generic.base import RedirectView
 from apps.booking import views as booking_views
 from apps.core import review_views, views
 from apps.patients import views as patient_views
+from apps.patients import review_views as patient_review_views
 
 
 urlpatterns = [
@@ -178,6 +179,9 @@ urlpatterns = [
     path("portal/logout/", patient_views.portal_logout, {"language": "ar"}, name="patient_portal_logout"),
     path("portal/register/", patient_views.portal_register, {"language": "ar"}, name="patient_portal_register"),
     path("portal/account/", patient_views.portal_account, {"language": "ar"}, name="patient_portal_account"),
+    path("portal/review/", patient_review_views.my_review, {"language": "ar"}, name="patient_portal_review"),
+    path("portal/review/<int:review_id>/edit/", patient_review_views.edit_review, {"language": "ar"}, name="patient_portal_review_edit"),
+    path("portal/review/<int:review_id>/delete/", patient_review_views.delete_review, {"language": "ar"}, name="patient_portal_review_delete"),
     path(
         "portal/password/change/",
         patient_views.portal_password_change,
@@ -291,6 +295,9 @@ urlpatterns = [
     path("en/portal/logout/", patient_views.portal_logout, {"language": "en"}, name="patient_portal_logout_en"),
     path("en/portal/register/", patient_views.portal_register, {"language": "en"}, name="patient_portal_register_en"),
     path("en/portal/account/", patient_views.portal_account, {"language": "en"}, name="patient_portal_account_en"),
+    path("en/portal/review/", patient_review_views.my_review, {"language": "en"}, name="patient_portal_review_en"),
+    path("en/portal/review/<int:review_id>/edit/", patient_review_views.edit_review, {"language": "en"}, name="patient_portal_review_edit_en"),
+    path("en/portal/review/<int:review_id>/delete/", patient_review_views.delete_review, {"language": "en"}, name="patient_portal_review_delete_en"),
     path(
         "en/portal/password/change/",
         patient_views.portal_password_change,

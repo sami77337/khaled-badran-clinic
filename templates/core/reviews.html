@@ -18,7 +18,7 @@
     <div class="container home-reviews-panel">
         <div class="home-reviews-heading">
             <div>
-                <p class="eyebrow">{% if is_arabic %}من Google{% else %}From Google{% endif %}</p>
+                <p class="eyebrow">{% if is_arabic %}آراء معتمدة{% else %}Approved Feedback{% endif %}</p>
                 <h2 id="reviews-page-title">{% if is_arabic %}تجارب وآراء المراجعين{% else %}Reviewer experiences and feedback{% endif %}</h2>
             </div>
             {% if review_summary %}
@@ -43,8 +43,8 @@
                         <div class="review-stars" aria-label="{{ review.rating }} / 5"><span aria-hidden="true">{{ review.star_text }}</span></div>
                         <blockquote>{{ review.body }}</blockquote>
                         <div class="review-card-footer">
-                            <p>{{ review.reviewer_name }}</p>
-                            <span>{% if review.source == 'other' and is_arabic %}مصدر آخر معتمد{% else %}{{ review.get_source_display }}{% endif %}</span>
+                            <p>{% if is_arabic %}{{ review.public_name_ar }}{% else %}{{ review.public_name_en }}{% endif %}</p>
+                            <span>{% if review.source == 'patient_portal' and is_arabic %}تقييم مريض{% elif review.source == 'other' and is_arabic %}مصدر آخر معتمد{% else %}{{ review.get_source_display }}{% endif %}</span>
                         </div>
                     </article>
                 {% endfor %}

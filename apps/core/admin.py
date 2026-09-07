@@ -1,6 +1,8 @@
 from django.contrib import admin
+from django.db import router, transaction
 
 from .models import AuditLog, PublicReview, SystemSetting
+from .review_forms import ReviewModerationForm
 
 
 @admin.register(SystemSetting)
@@ -28,6 +30,10 @@ class AuditLogAdmin(admin.ModelAdmin):
 
 @admin.register(PublicReview)
 class PublicReviewAdmin(admin.ModelAdmin):
+    form = ReviewModerationForm
+    moderation_fields = (
+        "is_approved_for_publication", "is_active", "is_featured", "display_order",
+    )
     list_display = (
         "reviewer_name",
         "rating",
@@ -54,4 +60,25 @@ class PublicReviewAdmin(admin.ModelAdmin):
         "is_featured",
         "display_order",
     )
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = (
+        "reviewer_name", "body", "rating", "language", "source", "source_reference",
+        "submitted_by", "reviewed_at", "created_at", "updated_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def get_changelist_form(self, request, **kwargs):
+        kwargs.setdefault("form", self.form)
+        return super().get_changelist_form(request, **kwargs)
+
+    def changelist_view(self, request, extra_context=None):
+        # Django's change form already has an outer transaction; list editing
+        # needs one around validation too, to retain the revision-check locks.
+        with transaction.atomic(using=router.db_for_write(self.model)):
+            return super().changelist_view(request, extra_context=extra_context)
+
+    def save_model(self, request, obj, form, change):
+        # A stale moderation form must never overwrite patient-authored content.
+        if change:
+            obj.save(update_fields=[*self.moderation_fields, "updated_at"])
