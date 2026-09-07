@@ -66,9 +66,76 @@ async function main() {
             await evaluate("document.fonts.ready.then(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))))");
         };
         await send("Page.enable");
-        const widths = [320, 360, 375, 390, 412, 430, 479, 480, 540, 600, 639, 640, 641, 667, 720, 767, 768, 800, 844, 900, 1023, 1024];
-        let reviews = 0, folders = 0, notifications = 0, rotations = 0;
+        const widths = [320, 360, 375, 390, 412, 430, 479, 480, 540, 600, 639, 640, 641, 667, 719, 720, 767, 768, 799, 800, 844, 899, 900, 1023, 1024, 1279, 1280, 1440];
+        let reviews = 0, folders = 0, notifications = 0, rotations = 0, closeout = 0;
         for (const language of ["ar", "en"]) {
+            for (const surface of ["home", "contact", "case-detail", "medical-records", "consultation-patient", "consultation-staff", "folder-delete", "link", "link-errors"]) {
+                await navigate(`${surface}-${language}`);
+                for (const width of widths) {
+                    for (const height of [260, 844]) {
+                        await resize(width, height);
+                        const result = await evaluate(`(() => {
+                            const failures = [];
+                            const surface = ${JSON.stringify(surface)};
+                            const selectors = {
+                                'case-detail': '.public-case-detail-hero h1, .public-case-detail-hero p, .public-case-detail-note-card',
+                                'medical-records': '.portal-rich-text, .portal-media-card h3',
+                                'consultation-patient': '.portal-media-meta',
+                                'consultation-staff': '.portal-media-meta',
+                                'folder-delete': '#folder-delete-title',
+                            };
+                            const nodes = selectors[surface] ? [...document.querySelectorAll(selectors[surface])] : [];
+                            for (const el of nodes) {
+                                const bounds = el.getBoundingClientRect();
+                                // pre-wrap may hang trailing spaces outside a line.
+                                // Check visible words, including every fragment of an
+                                // unbroken filename/URL, rather than those spaces.
+                                const rects = [];
+                                const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+                                let text;
+                                while ((text = walker.nextNode())) {
+                                    for (const word of text.textContent.matchAll(/\\S+/g)) {
+                                        const range = document.createRange();
+                                        range.setStart(text, word.index);
+                                        range.setEnd(text, word.index + word[0].length);
+                                        rects.push(...range.getClientRects());
+                                    }
+                                }
+                                if (rects.some(r => r.left < bounds.left - 1 || r.right > bounds.right + 1)) {
+                                    failures.push({ kind: 'clipped-text', text: el.textContent.slice(0, 30), bounds: bounds.toJSON() });
+                                }
+                            }
+                            const map = document.querySelector('.home-map-preview, .contact-map-panel');
+                            if (map && map.getBoundingClientRect().width) {
+                                const bounds = map.getBoundingClientRect();
+                                const link = map.querySelector('a');
+                                const rect = link.getBoundingClientRect();
+                                if (rect.left < bounds.left || rect.right > bounds.right || Math.abs((rect.left + rect.right) - (bounds.left + bounds.right)) > 2) {
+                                    failures.push({ kind: 'map-link-outside-or-off-center', rect: rect.toJSON(), bounds: bounds.toJSON() });
+                                }
+                                link.scrollIntoView({ block: 'center', behavior: 'instant' });
+                                const target = link.getBoundingClientRect();
+                                if (!link.contains(document.elementFromPoint((target.left + target.right) / 2, (target.top + target.bottom) / 2))) failures.push({ kind: 'map-link-unreachable' });
+                            }
+                            if (surface.startsWith('link')) {
+                                const actions = document.querySelector('.patient-form-actions');
+                                const recovery = document.querySelector('.patient-card-body > .muted > a');
+                                const gap = recovery.getBoundingClientRect().top - actions.getBoundingClientRect().bottom;
+                                const expected = parseFloat(getComputedStyle(actions).rowGap);
+                                if (Math.abs(gap - expected) > 1) failures.push({ kind: 'recovery-action-gap', gap, expected });
+                            }
+                            return { failures, count: nodes.length, expectsText: !!selectors[surface], direction: document.documentElement.dir,
+                                width: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth };
+                        })()`);
+                        const label = `${surface}/${language} ${width}x${height}`;
+                        assert(!result.expectsText || result.count > 0, `${label}: missing stress fixture`);
+                        assert.equal(result.direction, language === 'ar' ? 'rtl' : 'ltr', label);
+                        assert.equal(result.failures.length, 0, `${label}: ${JSON.stringify(result.failures)}`);
+                        assert(result.scrollWidth <= result.width, `${label}: horizontal overflow ${JSON.stringify(result)}`);
+                        closeout++;
+                    }
+                }
+            }
             for (const surface of ["home", "reviews", "record"]) {
                 await navigate(`${surface}-${language}`);
                 for (const width of widths) {
@@ -156,7 +223,7 @@ async function main() {
                 `${label}: panel usability ${JSON.stringify(result)}`);
             assert(result.firstReachable && result.lastReachable, `${label}: entries inaccessible ${JSON.stringify(result)}`);
         }
-        console.log(`PASS: ${reviews} Home/Reviews long-content cases; ${folders} medical-folder text geometry cases; ${notifications} notification viewport cases; ${rotations} open-panel rotations (AR/EN).`);
+        console.log(`PASS: ${closeout} additional closeout cases (maps, case details, medical text, attachment names, folder deletion, link actions); ${reviews} Home/Reviews long-content cases; ${folders} medical-folder text geometry cases; ${notifications} notification viewport cases; ${rotations} open-panel rotations (AR/EN).`);
     } finally {
         if (send && ws?.readyState === WebSocket.OPEN) { send("Browser.close").catch(() => {}); await delay(300); }
         ws?.close();

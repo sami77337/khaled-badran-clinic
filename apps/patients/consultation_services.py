@@ -38,7 +38,7 @@ def _delete_replaced_audio_file(storage, name):
     try:
         storage.delete(name)
     except Exception:
-        logger.exception("Could not remove a replaced consultation audio file: %s", name)
+        logger.exception("Could not remove an obsolete consultation audio file: %s", name)
 
 
 def patient_can_delete_consultation(consultation, user):
@@ -191,12 +191,12 @@ def update_consultation_reply(
 
             if remove_audio and audio_file is None and current_audio is not None:
                 if current_audio.file and current_audio.file.name:
-                    try:
-                        current_audio.file.storage.delete(current_audio.file.name)
-                    except Exception as exc:
-                        raise ConsultationAudioStorageError(
-                            "Consultation audio could not be removed safely."
-                        ) from exc
+                    # Removal follows the same commit-only storage cleanup as
+                    # replacement; a database rollback must preserve the audio.
+                    old_file_reference = (
+                        current_audio.file.storage,
+                        current_audio.file.name,
+                    )
                 current_audio.delete()
 
             has_visible_reply = bool(locked.staff_reply) or has_audio_after_save

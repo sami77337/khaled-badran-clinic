@@ -504,7 +504,9 @@
 }
 
 .public-case-detail-hero .page-hero-inner {
+    min-width: 0;
     max-width: 68rem;
+    overflow-wrap: anywhere;
 }
 
 .public-case-back-link,

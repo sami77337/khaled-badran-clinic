@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import DatabaseError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -17,6 +18,7 @@ from apps.patients.models import (
     validate_consultation_audio_upload,
 )
 from apps.patients.storage import consultation_audio_reply_storage
+from apps.patients.consultation_services import update_consultation_reply
 from apps.records.models import ClinicalNote, PublicCaseMedia, RecordMedia
 
 
@@ -356,16 +358,19 @@ class ConsultationAudioReplyTests(TestCase):
         stored_name = audio_reply.file.name
         storage = audio_reply.file.storage
 
-        response = self.client.post(
-            self.staff_reply_url(consultation),
-            {
-                "staff_reply": "",
-                "status": Consultation.Status.CLOSED,
-                "remove_audio": "on",
-            },
-        )
+        with self.captureOnCommitCallbacks(execute=True) as callbacks:
+            response = self.client.post(
+                self.staff_reply_url(consultation),
+                {
+                    "staff_reply": "",
+                    "status": Consultation.Status.CLOSED,
+                    "remove_audio": "on",
+                },
+            )
+            self.assertTrue(storage.exists(stored_name))
 
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(callbacks), 1)
         consultation.refresh_from_db()
         self.assertEqual(consultation.staff_handled_at, handled_at)
         self.assertFalse(ConsultationAudioReply.objects.filter(consultation=consultation).exists())
@@ -385,7 +390,54 @@ class ConsultationAudioReplyTests(TestCase):
         )
         self.assertNotContains(detail, "Delete Consultation")
 
-    def test_removal_storage_failure_rolls_back_reply_and_audio_changes(self):
+    def test_audio_removal_database_failure_preserves_original_file(self):
+        consultation = self.create_consultation()
+        audio_reply = self.create_audio_reply(consultation)
+        original_name = audio_reply.file.name
+        original_delete = ConsultationAudioReply.delete
+
+        def delete_then_fail(instance, *args, **kwargs):
+            original_delete(instance, *args, **kwargs)
+            raise DatabaseError("Synthetic failure after audio row deletion")
+
+        with self.captureOnCommitCallbacks(execute=True) as callbacks:
+            with patch.object(ConsultationAudioReply, "delete", delete_then_fail):
+                with self.assertRaises(DatabaseError):
+                    update_consultation_reply(
+                        consultation=consultation, staff_user=self.staff,
+                        reply="Changed reply", status=Consultation.Status.CLOSED,
+                        remove_audio=True,
+                    )
+
+        self.assertEqual(callbacks, [])
+        audio_reply.refresh_from_db()
+        consultation.refresh_from_db()
+        self.assertEqual(consultation.staff_reply, "")
+        self.assertEqual(consultation.status, Consultation.Status.NEW)
+        self.assertIsNone(consultation.staff_handled_at)
+        self.assertTrue(audio_reply.file.storage.exists(original_name))
+
+    def test_audio_removal_enclosing_rollback_preserves_original_file(self):
+        consultation = self.create_consultation()
+        audio_reply = self.create_audio_reply(consultation)
+        original_name = audio_reply.file.name
+        with self.captureOnCommitCallbacks(execute=True) as callbacks:
+            with transaction.atomic():
+                update_consultation_reply(
+                    consultation=consultation, staff_user=self.staff,
+                    reply="Changed reply", status=Consultation.Status.CLOSED,
+                    remove_audio=True,
+                )
+                self.assertFalse(ConsultationAudioReply.objects.filter(pk=audio_reply.pk).exists())
+                self.assertTrue(audio_reply.file.storage.exists(original_name))
+                transaction.set_rollback(True)
+        self.assertEqual(callbacks, [])
+        audio_reply.refresh_from_db()
+        consultation.refresh_from_db()
+        self.assertEqual(consultation.status, Consultation.Status.NEW)
+        self.assertTrue(audio_reply.file.storage.exists(original_name))
+
+    def test_removal_storage_failure_keeps_committed_removal_private(self):
         consultation = self.create_consultation()
         audio_reply = self.create_audio_reply(consultation)
         consultation.staff_reply = "Original reply"
@@ -398,10 +450,10 @@ class ConsultationAudioReplyTests(TestCase):
         original_name = audio_reply.file.name
         self.client.force_login(self.staff)
 
-        with patch.object(
-            consultation_audio_reply_storage,
-            "delete",
-            side_effect=OSError("synthetic storage failure"),
+        with (
+            patch.object(consultation_audio_reply_storage, "delete", side_effect=OSError("synthetic storage failure")),
+            self.assertLogs("apps.patients.consultation_services", level="ERROR"),
+            self.captureOnCommitCallbacks(execute=True),
         ):
             response = self.client.post(
                 f"{self.staff_reply_url(consultation)}?lang=en",
@@ -412,15 +464,19 @@ class ConsultationAudioReplyTests(TestCase):
                 },
             )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "could not be removed safely")
+        self.assertEqual(response.status_code, 302)
         consultation.refresh_from_db()
-        audio_reply.refresh_from_db()
-        self.assertEqual(consultation.staff_reply, "Original reply")
-        self.assertEqual(consultation.status, Consultation.Status.ANSWERED)
+        self.assertFalse(ConsultationAudioReply.objects.filter(pk=audio_reply.pk).exists())
+        self.assertEqual(consultation.staff_reply, "Changed reply")
+        self.assertEqual(consultation.status, Consultation.Status.CLOSED)
         self.assertEqual(consultation.staff_handled_at, original_handled_at)
-        self.assertEqual(audio_reply.file.name, original_name)
         self.assertTrue(audio_reply.file.storage.exists(original_name))
+        for route, user in (
+            ("dashboard_consultation_audio_reply", self.staff),
+            ("patient_portal_consultation_audio_reply", self.patient_user),
+        ):
+            self.client.force_login(user)
+            self.assertEqual(self.client.get(reverse(route, kwargs={"public_id": audio_reply.public_id})).status_code, 404)
 
     def test_missing_audio_file_returns_404(self):
         consultation = self.create_consultation()

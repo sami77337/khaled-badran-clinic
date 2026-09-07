@@ -794,6 +794,10 @@
     font-weight: 700;
 }
 
+.record-folder-delete-confirmation h2 {
+    overflow-wrap: anywhere;
+}
+
 .record-folder-delete-warning {
     border-inline-start: 0.25rem solid var(--dashboard-burgundy);
     border-radius: 0.68rem;

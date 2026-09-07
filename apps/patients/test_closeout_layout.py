@@ -13,8 +13,8 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.core.models import PublicReview
-from apps.patients.models import Consultation, ConsultationNotification, Patient
-from apps.records.models import RecordMedia, RecordMediaFolder
+from apps.patients.models import Consultation, ConsultationAttachment, ConsultationNotification, Patient
+from apps.records.models import ClinicalNote, PublicCase, PublicCaseMedia, RecordMedia, RecordMediaFolder
 
 
 class FinalCloseoutLayoutTests(TestCase):
@@ -45,13 +45,32 @@ class FinalCloseoutLayoutTests(TestCase):
                 is_approved_for_publication=True, is_active=True,
             )
         with TemporaryDirectory(prefix="kbc-closeout-layout-") as directory:
-            with override_settings(PRIVATE_MEDIA_ROOT=Path(directory) / "private"):
+            with override_settings(
+                PRIVATE_MEDIA_ROOT=Path(directory) / "private",
+                PUBLIC_CASE_MEDIA_ROOT=Path(directory) / "public-cases",
+            ):
+                long_text = "W" * 180 + " " + "س" * 180 + " https://example.test/" + "x" * 240
                 folder = RecordMediaFolder.objects.create(patient=patient, name="W" * 120, created_by=staff)
                 RecordMedia.objects.create(
                     patient=patient, folder=folder, media_type=RecordMedia.MediaType.IMAGE,
                     file=SimpleUploadedFile("synthetic.jpg", b"synthetic-media", content_type="image/jpeg"),
-                    visibility=RecordMedia.Visibility.PRIVATE_ONLY,
+                    visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
+                    title="W" * 180, description=long_text,
                 )
+                ClinicalNote.objects.create(patient=patient, title="W" * 180, body=long_text, is_visible_to_patient=True)
+                ConsultationAttachment.objects.create(
+                    consultation=consultation, file_category="image",
+                    file=SimpleUploadedFile("W" * 170 + ".jpg", b"synthetic-media", content_type="image/jpeg"),
+                )
+                public_case = PublicCase.objects.create(
+                    title="W" * 180, note=long_text, detail_note=long_text, consent_confirmed=True,
+                )
+                PublicCaseMedia.objects.create(
+                    public_case=public_case, role="primary", media_type="image", consent_confirmed=True,
+                    file=SimpleUploadedFile("synthetic.jpg", b"synthetic-media", content_type="image/jpeg"),
+                )
+                public_case.is_published = True
+                public_case.save()
                 pages = {}
 
                 def add_page(name, url):
@@ -62,9 +81,18 @@ class FinalCloseoutLayoutTests(TestCase):
                 for language in ("ar", "en"):
                     suffix = "_en" if language == "en" else ""
                     self.client.logout()
-                    for route in ("home", "reviews"):
+                    for route in ("home", "reviews", "contact"):
                         add_page(f"{route}-{language}", reverse(route + suffix))
+                    add_page(f"case-detail-{language}", reverse("public_case_detail" + suffix, kwargs={"case_id": public_case.pk}))
                     self.client.force_login(user)
+                    for name, route in (("medical-records", "patient_portal_medical_records"), ("link", "patient_portal_link_appointment")):
+                        add_page(f"{name}-{language}", reverse(route + suffix))
+                    invalid_link = self.client.post(reverse("patient_portal_link_appointment" + suffix), {})
+                    self.assertEqual(invalid_link.status_code, 200)
+                    pages[f"link-errors-{language}"] = invalid_link.content.decode()
+                    add_page(f"consultation-patient-{language}", reverse(
+                        "patient_portal_consultation_detail" + suffix, kwargs={"public_id": consultation.public_id},
+                    ))
                     add_page(f"notifications-public-{language}", reverse("home" + suffix))
                     add_page(f"notifications-patient-{language}", reverse("patient_portal_dashboard" + suffix))
                     self.client.force_login(staff)
@@ -73,6 +101,12 @@ class FinalCloseoutLayoutTests(TestCase):
                         "dashboard_patient_record_detail", kwargs={"patient_id": patient.pk},
                     ) + f"?lang={language}")
                     self.assertIn(folder.name, pages[f"record-{language}"])
+                    add_page(f"folder-delete-{language}", reverse(
+                        "dashboard_media_folder_delete", kwargs={"patient_id": patient.pk, "folder_id": folder.pk},
+                    ) + f"?lang={language}")
+                    add_page(f"consultation-staff-{language}", reverse(
+                        "dashboard_consultation_detail", kwargs={"public_id": consultation.public_id},
+                    ) + f"?lang={language}")
                 fixture = Path(directory) / "pages.json"
                 fixture.write_text(json.dumps(pages), encoding="utf-8")
                 result = subprocess.run(

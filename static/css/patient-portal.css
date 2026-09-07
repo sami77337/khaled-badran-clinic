@@ -314,6 +314,7 @@
 
 .portal-rich-text {
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 .patient-record-entry .patient-detail-list {
@@ -335,6 +336,7 @@
 .portal-media-card {
     min-width: 0;
     overflow: hidden;
+    overflow-wrap: anywhere;
     border: 1px solid var(--dashboard-line);
     border-radius: 0.9rem;
     background: var(--dashboard-ivory);
@@ -644,4 +646,8 @@
         touch-action: pan-y;
         -webkit-overflow-scrolling: touch;
     }
+}
+
+[data-patient-page="link-appointment"] .patient-card-body > .muted {
+    margin-block-start: 0.65rem;
 }
