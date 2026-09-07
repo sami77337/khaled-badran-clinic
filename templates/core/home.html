@@ -151,7 +151,7 @@
                         <blockquote>{{ review.body }}</blockquote>
                         <div class="review-card-footer">
                             <p>{{ review.reviewer_name }}</p>
-                            <span>Google</span>
+                            <span>{% if review.source == 'other' and is_arabic %}مصدر آخر معتمد{% else %}{{ review.get_source_display }}{% endif %}</span>
                         </div>
                     </article>
                 {% endfor %}

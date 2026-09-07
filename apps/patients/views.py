@@ -38,6 +38,7 @@ from apps.patients.forms import (
     StaffLoginForm,
     auth_error_message,
 )
+from apps.patients.localization import use_page_language
 from apps.patients.models import (
     AccountPhoneChangeChallenge,
     AppointmentLinkRecoveryChallenge,
@@ -547,6 +548,7 @@ def portal_account(request, language="ar"):
     "otp",
 )
 @_login_required
+@use_page_language
 def portal_password_change(request, language="ar"):
     language = _language(language)
     action = request.POST.get("action", "password") if request.method == "POST" else ""
@@ -756,6 +758,7 @@ def portal_account_recovery(request, language="ar"):
 
 @sensitive_post_parameters("public_token", "phone")
 @_login_required
+@use_page_language
 def portal_link_appointment(request, language="ar"):
     language = _language(language)
     initial = {"public_token": _token_initial(request)}
@@ -826,6 +829,7 @@ def _link_recovery_generic_message(language):
 @sensitive_post_parameters("phone", "otp")
 @_login_required
 @never_cache
+@use_page_language
 def portal_link_appointment_recovery(request, language="ar"):
     language = _language(language)
     action = request.POST.get("action", "") if request.method == "POST" else ""
@@ -1068,6 +1072,7 @@ def portal_consultation_list(request, language="ar"):
 
 @sensitive_post_parameters()
 @_login_required
+@use_page_language
 def portal_consultation_new(request, language="ar"):
     language = _language(language)
     if request.method == "POST":
@@ -1207,9 +1212,9 @@ def portal_consultation_delete(request, public_id, language="ar"):
     except consultation_services.ConsultationDeleteError:
         messages.error(
             request,
-            "تعذر حذف الاستشارة بأمان. لم يتم تغييرها."
+            "تعذر حذف الاستشارة. يرجى المحاولة مرة أخرى."
             if language == "ar"
-            else "The consultation could not be deleted safely and was not changed.",
+            else "The consultation could not be deleted. Please try again.",
         )
         return redirect(
             _portal_url(

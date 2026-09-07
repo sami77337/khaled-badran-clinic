@@ -1,7 +1,7 @@
 import logging
 
 from django.contrib.auth import get_user_model
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.utils import timezone
 
 from apps.patients.models import (
@@ -112,7 +112,7 @@ def update_consultation_reply(
     try:
         with transaction.atomic():
             locked = (
-                Consultation.objects.select_for_update()
+                Consultation.objects.select_for_update(of=("self",))
                 .select_related("patient", "patient__user")
                 .get(pk=consultation.pk)
             )
@@ -231,27 +231,48 @@ def update_consultation_reply(
     return locked
 
 
-@transaction.atomic
 def delete_unhandled_consultation(*, user, public_id):
-    consultation = (
-        Consultation.objects.select_for_update()
-        .select_related("patient", "audio_reply")
-        .filter(public_id=public_id, patient__user=user)
-        .first()
-    )
-    if consultation is None or not patient_can_delete_consultation(consultation, user):
-        raise ConsultationDeleteError("Consultation cannot be deleted.")
-
-    attachments = list(
-        ConsultationAttachment.objects.select_for_update()
-        .filter(consultation=consultation)
-        .order_by("id")
-    )
     try:
-        for attachment in attachments:
-            if attachment.file and attachment.file.name:
-                attachment.file.storage.delete(attachment.file.name)
-    except Exception:
-        raise ConsultationDeleteError("Consultation files could not be deleted safely.") from None
+        with transaction.atomic():
+            consultation = (
+                Consultation.objects.select_for_update(of=("self",))
+                .select_related("patient", "audio_reply")
+                .filter(public_id=public_id, patient__user=user)
+                .first()
+            )
+            if consultation is None or not patient_can_delete_consultation(consultation, user):
+                raise ConsultationDeleteError("Consultation cannot be deleted.")
 
-    consultation.delete()
+            attachments = list(
+                ConsultationAttachment.objects.select_for_update()
+                .filter(consultation=consultation)
+                .order_by("id")
+            )
+            files = [
+                (attachment.pk, attachment.file.storage, attachment.file.name)
+                for attachment in attachments
+                if attachment.file and attachment.file.name
+            ]
+            consultation.delete()
+            # Storage cannot roll back. Remove files only once the authoritative
+            # database deletion commits, including any enclosing transaction.
+            transaction.on_commit(lambda: _delete_consultation_files(files))
+    except DatabaseError as exc:
+        logger.exception("Consultation database deletion failed: %s", public_id)
+        raise ConsultationDeleteError("Consultation could not be deleted.") from exc
+
+
+def _delete_consultation_files(files):
+    for attachment_id, storage, name in files:
+        try:
+            storage.delete(name)
+        except FileNotFoundError:
+            # An already missing file needs no further cleanup.
+            continue
+        except Exception:
+            # The consultation is deleted. Continue cleaning up the remaining
+            # private files; never report a rollback that did not occur.
+            logger.exception(
+                "Consultation deleted; private file cleanup failed for attachment %s",
+                attachment_id,
+            )

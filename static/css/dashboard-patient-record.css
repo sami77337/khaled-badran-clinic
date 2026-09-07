@@ -492,6 +492,12 @@
     margin-block: 0.85rem 0;
 }
 
+.record-media-meta > * {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
 .record-section-note {
     max-width: 68ch;
     margin-block: 0 1rem;

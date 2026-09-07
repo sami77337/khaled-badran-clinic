@@ -31,6 +31,7 @@ from apps.core.models import AuditLog, SystemSetting
 from apps.core.views import _base_context
 from apps.patients import consultation_services
 from apps.patients.forms import ConsultationReplyForm
+from apps.patients.localization import use_page_language
 from apps.patients.models import (
     Consultation,
     ConsultationAttachment,
@@ -4907,6 +4908,7 @@ def dashboard_consultation_list(request):
 
 
 @_staff_required
+@use_page_language(language_getter=_dashboard_language)
 def dashboard_consultation_detail(request, public_id):
     language = _dashboard_language(request)
     consultation = get_object_or_404(

@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import DatabaseError, transaction
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -375,7 +376,8 @@ class ConsultationSafeDeleteTests(OwnerExpansionMixin, TestCase):
         self.assertContains(detail, "Delete Consultation")
         confirmation = self.client.get(self.delete_url(consultation, english=True))
         self.assertContains(confirmation, "Confirm Permanent Deletion")
-        response = self.client.post(self.delete_url(consultation, english=True))
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self.delete_url(consultation, english=True))
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Consultation.objects.filter(pk=consultation.pk).exists())
         self.assertFalse(ConsultationAttachment.objects.filter(pk=attachment.pk).exists())
@@ -432,7 +434,7 @@ class ConsultationSafeDeleteTests(OwnerExpansionMixin, TestCase):
         )
         self.assertEqual(updated.staff_handled_at, first_handled_at)
 
-    def test_storage_failure_preserves_database_state(self):
+    def test_storage_failure_keeps_deletion_committed_and_logs_private_cleanup_failure(self):
         consultation = self.create_consultation()
         attachment = self.add_attachment(consultation)
         self.client.force_login(self.user)
@@ -440,11 +442,105 @@ class ConsultationSafeDeleteTests(OwnerExpansionMixin, TestCase):
             consultation_attachment_storage,
             "delete",
             side_effect=OSError("synthetic storage failure"),
-        ):
-            response = self.client.post(self.delete_url(consultation, english=True))
-        self.assertEqual(response.status_code, 302)
+        ), self.assertLogs(consultation_services.logger, level="ERROR") as logs:
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.post(self.delete_url(consultation, english=True), follow=True)
+        self.assertRedirects(response, reverse("patient_portal_consultation_list_en"))
+        self.assertContains(response, "The consultation was deleted.")
+        self.assertNotContains(response, "was not changed")
+        self.assertFalse(Consultation.objects.filter(pk=consultation.pk).exists())
+        self.assertFalse(ConsultationAttachment.objects.filter(pk=attachment.pk).exists())
+        self.assertTrue(attachment.file.storage.exists(attachment.file.name))
+        self.assertIn("Consultation deleted; private file cleanup failed", logs.output[0])
+        self.assertNotContains(response, attachment.file.name)
+
+    def test_multi_file_cleanup_continues_after_second_file_failure(self):
+        consultation = self.create_consultation()
+        attachments = [self.add_attachment(consultation) for _ in range(3)]
+        storage = attachments[0].file.storage
+        names = [item.file.name for item in attachments]
+        original_delete = storage.delete
+
+        def delete_file(name):
+            if name == names[1]:
+                raise OSError("synthetic second-file failure")
+            original_delete(name)
+
+        self.client.force_login(self.user)
+        with patch.object(storage, "delete", side_effect=delete_file) as cleanup:
+            with self.assertLogs(consultation_services.logger, level="ERROR"):
+                with self.captureOnCommitCallbacks(execute=True):
+                    response = self.client.post(self.delete_url(consultation, english=True), follow=True)
+        self.assertEqual(cleanup.call_count, 3)
+        self.assertEqual([storage.exists(name) for name in names], [False, True, False])
+        self.assertFalse(Consultation.objects.filter(pk=consultation.pk).exists())
+        self.assertFalse(ConsultationAttachment.objects.filter(consultation=consultation).exists())
+        self.assertContains(response, "The consultation was deleted.")
+        for attachment in attachments:
+            self.assertEqual(self.client.get(reverse(
+                "patient_portal_consultation_attachment_en",
+                kwargs={"public_id": attachment.public_id},
+            )).status_code, 404)
+
+    def test_successful_multi_file_deletion_and_missing_file(self):
+        for missing in (False, True):
+            with self.subTest(missing=missing):
+                consultation = self.create_consultation()
+                attachments = [self.add_attachment(consultation) for _ in range(2)]
+                if missing:
+                    attachments[0].file.storage.delete(attachments[0].file.name)
+                with self.captureOnCommitCallbacks(execute=True):
+                    consultation_services.delete_unhandled_consultation(
+                        user=self.user, public_id=consultation.public_id,
+                    )
+                    self.assertFalse(Consultation.objects.filter(pk=consultation.pk).exists())
+                    # No storage mutation until the outer commit callback runs.
+                    for index, attachment in enumerate(attachments):
+                        self.assertEqual(attachment.file.storage.exists(attachment.file.name), not (missing and index == 0))
+                self.assertFalse(Consultation.objects.filter(pk=consultation.pk).exists())
+                self.assertFalse(ConsultationAttachment.objects.filter(consultation=consultation).exists())
+                for attachment in attachments:
+                    self.assertFalse(attachment.file.storage.exists(attachment.file.name))
+
+    def test_database_failure_preserves_all_files_rows_and_error_redirect(self):
+        consultation = self.create_consultation()
+        attachments = [self.add_attachment(consultation) for _ in range(2)]
+        original_delete = Consultation.delete
+
+        def fail_after_delete(instance, *args, **kwargs):
+            original_delete(instance, *args, **kwargs)
+            raise DatabaseError("synthetic failure after cascade")
+
+        self.client.force_login(self.user)
+        with patch.object(Consultation, "delete", fail_after_delete):
+            with self.assertLogs(consultation_services.logger, level="ERROR"):
+                with self.captureOnCommitCallbacks(execute=True) as callbacks:
+                    response = self.client.post(self.delete_url(consultation, english=True), follow=True)
+        self.assertEqual(callbacks, [])
+        self.assertRedirects(response, reverse(
+            "patient_portal_consultation_detail_en", kwargs={"public_id": consultation.public_id},
+        ))
+        self.assertContains(response, "The consultation could not be deleted. Please try again.")
+        self.assertTrue(Consultation.objects.filter(pk=consultation.pk).exists())
+        self.assertEqual(ConsultationAttachment.objects.filter(consultation=consultation).count(), 2)
+        for attachment in attachments:
+            self.assertTrue(attachment.file.storage.exists(attachment.file.name))
+
+    def test_enclosing_transaction_rollback_discards_file_cleanup(self):
+        consultation = self.create_consultation()
+        attachment = self.add_attachment(consultation)
+        with self.captureOnCommitCallbacks(execute=True) as callbacks:
+            with self.assertRaises(DatabaseError):
+                with transaction.atomic():
+                    consultation_services.delete_unhandled_consultation(
+                        user=self.user, public_id=consultation.public_id,
+                    )
+                    self.assertTrue(attachment.file.storage.exists(attachment.file.name))
+                    raise DatabaseError("synthetic outer rollback")
+        self.assertEqual(callbacks, [])
         self.assertTrue(Consultation.objects.filter(pk=consultation.pk).exists())
         self.assertTrue(ConsultationAttachment.objects.filter(pk=attachment.pk).exists())
+        self.assertTrue(attachment.file.storage.exists(attachment.file.name))
 
     def test_delete_post_enforces_csrf(self):
         consultation = self.create_consultation()

@@ -228,6 +228,26 @@
     display: none;
 }
 
+.notification-placement-dashboard-mobile .consultation-notification-panel:not([hidden]),
+.notification-placement-public-mobile .consultation-notification-panel:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 5.6rem);
+}
+
+.notification-placement-dashboard-mobile .consultation-notification-panel-header,
+.notification-placement-public-mobile .consultation-notification-panel-header,
+.notification-placement-dashboard-mobile .consultation-notification-panel-actions,
+.notification-placement-public-mobile .consultation-notification-panel-actions {
+    flex-shrink: 0;
+}
+
+.notification-placement-dashboard-mobile .consultation-notification-list,
+.notification-placement-public-mobile .consultation-notification-list {
+    min-height: 0;
+    max-height: 24rem;
+}
+
 .notification-placement-dashboard-desktop .consultation-notification-trigger {
     border-color: rgba(255, 255, 255, 0.25);
     background: rgba(255, 255, 255, 0.1);
@@ -272,6 +292,12 @@
 }
 
 @media (max-width: 40rem) {
+    /* The open panel can extend over the bottom nav in a short viewport.
+       Keep its actions clickable, below the existing drawer overlay (35). */
+    .dashboard-mobile-header:has(.consultation-notification-panel:not([hidden])) {
+        z-index: 34;
+    }
+
     html,
     body.dashboard-shell,
     .dashboard-sidebar {
@@ -405,11 +431,6 @@
         inset-block-start: 4.65rem;
         inset-inline: 0.75rem;
         width: auto;
-    }
-
-    .notification-placement-dashboard-mobile .consultation-notification-list,
-    .notification-placement-public-mobile .consultation-notification-list {
-        max-height: min(24rem, calc(100dvh - 18rem));
     }
 }
 

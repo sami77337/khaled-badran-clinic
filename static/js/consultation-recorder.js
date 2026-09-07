@@ -42,6 +42,8 @@
     let autoStopped = false;
     let submitAfterStop = false;
     let pendingSubmitter = null;
+    let recordingState = "idle";
+    let startGeneration = 0;
 
     const recordingSupported = Boolean(
         window.MediaRecorder
@@ -88,22 +90,43 @@
     }
 
     function updateButtons() {
-        const recording = Boolean(mediaRecorder && mediaRecorder.state === "recording");
+        const busy = recordingState !== "idle";
         const preview = activePreview();
-        startButton.disabled = recording || !recordingSupported;
-        stopButton.disabled = !recording;
-        listenButton.disabled = recording || !preview;
-        recordAgainButton.disabled = recording || !recordingSupported || !preview;
-        removeButton.disabled = recording || (!pendingRecording && (!hasExistingAudio || existingRemovalPending));
+        startButton.disabled = busy || !recordingSupported;
+        stopButton.disabled = recordingState !== "starting" && recordingState !== "recording";
+        listenButton.disabled = busy || !preview;
+        recordAgainButton.disabled = busy || !recordingSupported || !preview;
+        removeButton.disabled = busy || (!pendingRecording && (!hasExistingAudio || existingRemovalPending));
     }
 
-    function stopMicrophone() {
-        if (mediaStream) {
-            mediaStream.getTracks().forEach(function (track) {
+    function stopStream(stream) {
+        if (stream) {
+            stream.getTracks().forEach(function (track) {
                 track.stop();
             });
         }
+    }
+
+    function stopMicrophone() {
+        stopStream(mediaStream);
         mediaStream = null;
+    }
+
+    function cancelRecording() {
+        startGeneration += 1;
+        const recorder = mediaRecorder;
+        mediaRecorder = null;
+        recordingState = "idle";
+        clearRecordingTimers();
+        stopMicrophone();
+        recordingStartedAt = 0;
+        recordedChunks = [];
+        submitAfterStop = false;
+        pendingSubmitter = null;
+        if (recorder && recorder.state !== "inactive") {
+            recorder.stop();
+        }
+        updateButtons();
     }
 
     function clearRecordingTimers() {
@@ -233,6 +256,7 @@
 
         recordedChunks = [];
         mediaRecorder = null;
+        recordingState = "idle";
         updateButtons();
 
         if (submitAfterStop) {
@@ -248,10 +272,13 @@
     }
 
     async function startRecording() {
-        if (!recordingSupported || (mediaRecorder && mediaRecorder.state === "recording")) {
+        if (!recordingSupported || recordingState !== "idle") {
             return;
         }
 
+        recordingState = "starting";
+        const generation = ++startGeneration;
+        updateButtons();
         clearPendingRecording();
         stopPreview(existingPreview);
         removeInput.value = "";
@@ -263,11 +290,39 @@
         timerOutput.textContent = "00:00";
 
         try {
-            mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = createRecorder(mediaStream);
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            if (generation !== startGeneration || recordingState !== "starting") {
+                stopStream(stream);
+                return;
+            }
+            mediaStream = stream;
+            const recorder = createRecorder(stream);
+            mediaRecorder = recorder;
+            recordedChunks = [];
+            autoStopped = false;
+            recorder.addEventListener("dataavailable", function (event) {
+                if (mediaRecorder === recorder && event.data && event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            });
+            recorder.addEventListener("stop", function () {
+                if (mediaRecorder === recorder) {
+                    finishRecording();
+                }
+            }, { once: true });
+            recorder.addEventListener("error", function () {
+                if (mediaRecorder === recorder) {
+                    cancelRecording();
+                    setStatus(recorderRoot.dataset.emptyMessage);
+                }
+            }, { once: true });
+            recorder.start(1000);
+            recordingState = "recording";
         } catch (error) {
-            stopMicrophone();
-            mediaRecorder = null;
+            if (generation !== startGeneration) {
+                return;
+            }
+            cancelRecording();
             setStatus(
                 error.message === "unsupported-audio-format"
                     ? recorderRoot.dataset.formatMessage
@@ -277,18 +332,6 @@
             return;
         }
 
-        recordedChunks = [];
-        autoStopped = false;
-        mediaRecorder.addEventListener("dataavailable", function (event) {
-            if (event.data && event.data.size > 0) {
-                recordedChunks.push(event.data);
-            }
-        });
-        mediaRecorder.addEventListener("stop", finishRecording, { once: true });
-        mediaRecorder.addEventListener("error", function () {
-            setStatus(recorderRoot.dataset.emptyMessage);
-        }, { once: true });
-        mediaRecorder.start(1000);
         recordingStartedAt = Date.now();
         updateTimer();
         timerIntervalId = window.setInterval(updateTimer, 250);
@@ -300,11 +343,15 @@
     }
 
     function stopRecording() {
-        if (mediaRecorder && mediaRecorder.state === "recording") {
+        if (recordingState === "starting") {
+            cancelRecording();
+        } else if (recordingState === "recording" && mediaRecorder) {
             updateTimer();
+            recordingState = "stopping";
             mediaRecorder.stop();
+            stopMicrophone();
             clearRecordingTimers();
-            stopButton.disabled = true;
+            updateButtons();
         }
     }
 
@@ -339,7 +386,9 @@
     });
 
     replyForm.addEventListener("submit", function (event) {
-        if (mediaRecorder && mediaRecorder.state === "recording") {
+        if (recordingState === "starting") {
+            cancelRecording();
+        } else if (recordingState === "recording" || recordingState === "stopping") {
             event.preventDefault();
             submitAfterStop = true;
             pendingSubmitter = event.submitter || null;
@@ -347,13 +396,14 @@
         }
     });
 
-    window.addEventListener("beforeunload", function () {
-        clearRecordingTimers();
-        stopMicrophone();
-        if (pendingObjectUrl) {
-            URL.revokeObjectURL(pendingObjectUrl);
-        }
-    });
+    function cleanupPage() {
+        cancelRecording();
+        clearPendingRecording();
+        updateButtons();
+    }
+
+    window.addEventListener("beforeunload", cleanupPage);
+    window.addEventListener("pagehide", cleanupPage);
 
     if (!recordingSupported) {
         setStatus(recorderRoot.dataset.unsupportedMessage);

@@ -1,4 +1,5 @@
 import json
+import re
 import tempfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -57,6 +58,24 @@ class PublicReviewShowcaseTests(TestCase):
         )
         with self.assertRaises(ValidationError):
             review.full_clean()
+
+    def test_individual_review_source_labels_on_both_pages_and_languages(self):
+        self.en_review.source = PublicReview.Source.OTHER
+        self.en_review.save(update_fields=["source"])
+        for language in ("ar", "en"):
+            for route in ("home", "reviews"):
+                with self.subTest(language=language, route=route):
+                    response = self.client.get(reverse(route + ("_en" if language == "en" else "")))
+                    cards = re.findall(r'<article class="home-review-card\b.*?</article>', response.content.decode(), re.S)
+                    self.assertEqual(len(cards), 2)
+                    for card in cards:
+                        if self.en_review.reviewer_name in card:
+                            label = "مصدر آخر معتمد" if language == "ar" else "Other approved source"
+                            self.assertIn(f"<span>{label}</span>", card)
+                            self.assertNotIn("<span>Google</span>", card)
+                        else:
+                            self.assertIn(self.ar_review.reviewer_name, card)
+                            self.assertIn("<span>Google</span>", card)
 
     def test_home_renders_only_approved_active_reviews(self):
         response = self.client.get(reverse("home"))
