@@ -1,0 +1,36 @@
+/* Keep long patient-authored text readable in desktop review moderation. */
+@media (min-width: 1024px) {
+    body.app-core.model-publicreview .breadcrumbs,
+    body.app-core.model-publicreview #content {
+        overflow-wrap: anywhere;
+    }
+
+    body.app-core.model-publicreview .aligned .readonly {
+        min-width: 0;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+    }
+
+    body.app-core.model-publicreview.change-form #content > h2 {
+        padding-inline-end: 8rem;
+    }
+
+    body.app-core.model-publicreview #result_list {
+        overflow-wrap: normal;
+    }
+
+    body.app-core.model-publicreview #result_list .field-reviewer_name {
+        width: 18rem;
+        min-width: 12rem;
+        max-width: 18rem;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    body.app-core.model-publicreview #result_list .field-reviewer_name a {
+        display: block;
+        max-width: 18rem;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+}

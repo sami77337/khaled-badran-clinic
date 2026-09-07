@@ -66,6 +66,7 @@ async function main() {
             await evaluate("document.fonts.ready.then(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))))");
         };
         await send("Page.enable");
+        await send("Emulation.setFocusEmulationEnabled", { enabled: true });
         const widths = [320, 360, 375, 390, 412, 430, 479, 480, 540, 600, 639, 640, 641, 667, 719, 720, 767, 768, 799, 800, 844, 899, 900, 1023, 1024, 1279, 1280, 1440];
         let reviews = 0, folders = 0, notifications = 0, rotations = 0, closeout = 0;
         for (const language of ["ar", "en"]) {
@@ -184,11 +185,32 @@ async function main() {
                 await resize(390, 844);
                 await navigate(`notifications-${surface}-${language}`);
                 await evaluate("[...document.querySelectorAll('.consultation-notification-trigger')].find(el => el.getBoundingClientRect().width).click()");
-                for (const [width, height] of [[640, 260], [641, 288], [390, 844]]) {
+                for (const [width, height] of [[640, 260], [641, 288], [390, 844],
+                    [1024, 768], [1120, 768], [1920, 1080], [1024, 768], [390, 844]]) {
+                    await evaluate("document.querySelector('.consultation-notification-panel:not([hidden]) .consultation-notification-panel-actions a').focus({preventScroll: true})");
                     await resize(width, height);
+                    await evaluate("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))");
                     await checkNotification(`open rotation ${surface}/${language} ${width}x${height}`);
+                    assert(await evaluate(`document.activeElement.matches('.consultation-notification-panel-actions a') &&
+                        document.activeElement.getBoundingClientRect().width > 0`),
+                    `${surface}/${language} ${width}x${height}: keyboard focus follows the visible panel`);
                     rotations++;
                 }
+                await evaluate(`(() => {
+                    const panel = document.querySelector('.consultation-notification-panel:not([hidden])');
+                    panel.querySelector('.consultation-notification-panel-actions a').focus();
+                    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+                })()`);
+                assert(await evaluate(`(() => {
+                    const trigger = document.activeElement;
+                    return trigger.matches('.consultation-notification-trigger') &&
+                        trigger.getBoundingClientRect().width > 0 &&
+                        !document.querySelector('.consultation-notification-panel:not([hidden])');
+                })()`), `${surface}/${language}: Escape closes resized panel and restores visible focus`);
+                await resize(1920, 1080);
+                await evaluate("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))");
+                assert(await evaluate("!document.querySelector('.consultation-notification-panel:not([hidden])')"),
+                    `${surface}/${language}: resize must not reopen a closed panel`);
             }
         }
 
@@ -212,13 +234,17 @@ async function main() {
                 list.scrollTop = list.scrollHeight;
                 const lastReachable = buttons.length && hit(buttons.at(-1), list.getBoundingClientRect());
                 const actionControls = [...actions.querySelectorAll('button, a')];
+                const root = panel.closest('[data-consultation-notifications]');
+                const expanded = root.querySelector('.consultation-notification-trigger').getAttribute('aria-expanded');
                 return { count: buttons.length, height: list.clientHeight, scrollHeight: list.scrollHeight,
+                    expanded, openPanels: document.querySelectorAll('.consultation-notification-panel:not([hidden])').length,
                     firstReachable, lastReachable, actionsReachable: actionControls.every(el => hit(el, bounds)),
                     headerVisible: header.getBoundingClientRect().top >= bounds.top,
                     fits: bounds.top >= 0 && bounds.bottom <= innerHeight && bounds.left >= 0 && bounds.right <= innerWidth,
                     bounds: bounds.toJSON(), viewport: [innerWidth, innerHeight] };
             })()`);
             assert(!result.missing && result.count >= 8, `${label}: notification fixture ${JSON.stringify(result)}`);
+            assert(result.expanded === "true" && result.openPanels === 1, `${label}: one accessible open panel`);
             assert(result.height >= 48 && result.fits && result.headerVisible && result.actionsReachable,
                 `${label}: panel usability ${JSON.stringify(result)}`);
             assert(result.firstReachable && result.lastReachable, `${label}: entries inaccessible ${JSON.stringify(result)}`);

@@ -31,6 +31,10 @@ class AuditLogAdmin(admin.ModelAdmin):
 @admin.register(PublicReview)
 class PublicReviewAdmin(admin.ModelAdmin):
     form = ReviewModerationForm
+
+    class Media:
+        css = {"all": ("css/admin-review.css",)}
+
     moderation_fields = (
         "is_approved_for_publication", "is_active", "is_featured", "display_order",
     )
