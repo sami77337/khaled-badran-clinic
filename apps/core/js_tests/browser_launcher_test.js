@@ -36,7 +36,11 @@ function endpointScript(mode) {
         let requests = 0;
         const server = http.createServer((req, res) => {
             requests++;
-            if (${JSON.stringify(mode)} === 'unavailable') { res.writeHead(503); res.end(); return; }
+            if (${JSON.stringify(mode)} === 'unavailable' ||
+                (${JSON.stringify(mode)} === 'last-response' && requests === 1)) {
+                res.writeHead(503); res.end(); return;
+            }
+            if (${JSON.stringify(mode)} === 'last-response') return;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify(${JSON.stringify(mode)} === 'missing' || requests < 2 ? [] : [{
                 type: 'page', webSocketDebuggerUrl: 'ws://127.0.0.1:' + server.address().port + '/devtools/page/test'
@@ -102,6 +106,7 @@ test("missing port file times out with diagnostics and stops the live child", as
 
 for (const [mode, message] of [
     ["unavailable", /CDP endpoint unavailable: HTTP 503/],
+    ["last-response", /CDP endpoint unavailable: HTTP 503; latest request:/],
     ["missing", /CDP page target missing/],
     ["refused", /CDP WebSocket connection failed|CDP WebSocket closed/],
     ["stalled", /Timed out connecting to the CDP WebSocket/],

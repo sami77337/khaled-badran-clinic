@@ -19,8 +19,9 @@ from apps.records.models import ClinicalNote, PublicCase, PublicCaseMedia, Recor
 
 class FinalCloseoutLayoutTests(TestCase):
     def test_notifications_reviews_and_folder_text_geometry(self):
+        # Prefer stable Chrome over the slower Chromium launcher on hosted Linux.
         candidates = [
-            os.environ.get("KBC_QA_BROWSER"), shutil.which("chromium"), shutil.which("google-chrome"),
+            os.environ.get("KBC_QA_BROWSER"), shutil.which("google-chrome"), shutil.which("chromium"),
             "C:/Program Files/Google/Chrome/Application/chrome.exe",
             "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
         ]

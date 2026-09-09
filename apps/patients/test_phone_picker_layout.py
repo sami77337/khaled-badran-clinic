@@ -20,10 +20,11 @@ from .tests import PatientPortalTestMixin
 
 class PatientPhonePickerLayoutTests(PatientPortalTestMixin, TestCase):
     def test_portal_matches_login_computed_mobile_layout(self):
+        # Prefer stable Chrome over the slower Chromium launcher on hosted Linux.
         candidates = [
             os.environ.get("KBC_QA_BROWSER"),
-            shutil.which("chromium"),
             shutil.which("google-chrome"),
+            shutil.which("chromium"),
             "C:/Program Files/Google/Chrome/Application/chrome.exe",
             "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
         ]

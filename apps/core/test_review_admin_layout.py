@@ -18,8 +18,9 @@ from .models import PublicReview
 
 class ReviewAdminDesktopLayoutTests(TestCase):
     def test_long_review_text_and_moderation_controls_fit_desktop(self):
+        # Prefer stable Chrome over the slower Chromium launcher on hosted Linux.
         candidates = (
-            os.environ.get("KBC_QA_BROWSER"), shutil.which("chromium"), shutil.which("google-chrome"),
+            os.environ.get("KBC_QA_BROWSER"), shutil.which("google-chrome"), shutil.which("chromium"),
             "C:/Program Files/Google/Chrome/Application/chrome.exe",
             "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
         )

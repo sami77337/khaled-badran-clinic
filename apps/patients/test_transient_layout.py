@@ -21,7 +21,8 @@ from apps.patients.models import TransientConsultation, TransientConsultationAud
 
 class GuestConsultationLayoutTests(TestCase):
     def test_guest_states_all_requested_widths_in_arabic_and_english(self):
-        candidates = [os.environ.get("KBC_QA_BROWSER"), shutil.which("chromium"), shutil.which("google-chrome"),
+        # Prefer stable Chrome over the slower Chromium launcher on hosted Linux.
+        candidates = [os.environ.get("KBC_QA_BROWSER"), shutil.which("google-chrome"), shutil.which("chromium"),
                       "C:/Program Files/Google/Chrome/Application/chrome.exe",
                       "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"]
         browser = next((item for item in candidates if item and Path(item).is_file()), None)

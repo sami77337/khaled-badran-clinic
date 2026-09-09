@@ -19,7 +19,7 @@ function browserArgs(profile, platform = process.platform, env = process.env) {
     return [...args, "about:blank"];
 }
 
-async function launchBrowser(browser, profile, { timeoutMs = 15000, spawnProcess = spawn } = {}) {
+async function launchBrowser(browser, profile, { timeoutMs = 30000, spawnProcess = spawn } = {}) {
     const child = spawnProcess(browser, browserArgs(profile), {
         windowsHide: true, stdio: ["ignore", "ignore", "pipe"],
     });
@@ -71,21 +71,28 @@ async function launchBrowser(browser, profile, { timeoutMs = 15000, spawnProcess
         checkProcess("before creating DevToolsActivePort");
         if (!port) throw diagnostic(`Timed out waiting for Chromium DevToolsActivePort after ${timeoutMs} ms.`);
 
-        let target, endpointProblem = "CDP endpoint unavailable";
+        let target, lastResponseProblem, endpointProblem = "CDP endpoint unavailable";
         while (Date.now() < deadline) {
             checkProcess("before the CDP endpoint became ready");
             try {
                 const response = await fetch(`http://127.0.0.1:${port}/json/list`, {
                     signal: AbortSignal.timeout(Math.max(1, Math.min(1000, deadline - Date.now()))),
                 });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                if (!response.ok) {
+                    lastResponseProblem = `CDP endpoint unavailable: HTTP ${response.status}`;
+                    throw new Error(`HTTP ${response.status}`);
+                }
                 const targets = await response.json();
                 if (!Array.isArray(targets)) throw new Error("invalid target list");
                 target = targets.find(item => item.type === "page" && item.webSocketDebuggerUrl);
                 if (target) break;
-                endpointProblem = "CDP page target missing";
+                lastResponseProblem = endpointProblem = "CDP page target missing";
             } catch (error) {
-                endpointProblem = `CDP endpoint unavailable: ${error.message}`;
+                // A final short deadline can abort an otherwise responsive probe.
+                // Retain the last actual HTTP/target result in the diagnostic.
+                endpointProblem = lastResponseProblem
+                    ? `${lastResponseProblem}; latest request: ${error.message}`
+                    : `CDP endpoint unavailable: ${error.message}`;
             }
             await delay(50);
         }
