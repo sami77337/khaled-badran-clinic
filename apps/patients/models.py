@@ -204,35 +204,7 @@ class Consultation(models.Model):
         return f"Consultation {self.public_id}"
 
 
-class ConsultationAttachment(models.Model):
-    class FileCategory(models.TextChoices):
-        IMAGE = "image", "Image"
-        SHORT_VIDEO = "short_video", "Short video"
-        PDF = "pdf", "PDF"
-
-    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
-    consultation = models.ForeignKey(
-        Consultation,
-        on_delete=models.CASCADE,
-        related_name="attachments",
-    )
-    file = models.FileField(
-        upload_to=consultation_attachment_upload_path,
-        storage=consultation_attachment_storage,
-    )
-    file_category = models.CharField(max_length=20, choices=FileCategory.choices)
-    original_filename = models.CharField(max_length=255)
-    file_size = models.PositiveBigIntegerField()
-    content_type = models.CharField(max_length=100)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["uploaded_at", "id"]
-        indexes = [models.Index(fields=["consultation", "uploaded_at"])]
-
-    def __str__(self):
-        return f"Attachment {self.public_id}"
-
+class ConsultationAttachmentPolicy:
     @property
     def presentation_filename(self):
         extension = PurePosixPath(self.original_filename).suffix.lower()
@@ -285,34 +257,37 @@ class ConsultationAttachment(models.Model):
         return super().save(*args, **kwargs)
 
 
-class ConsultationAudioReply(models.Model):
+class ConsultationAttachment(ConsultationAttachmentPolicy, models.Model):
+    class FileCategory(models.TextChoices):
+        IMAGE = "image", "Image"
+        SHORT_VIDEO = "short_video", "Short video"
+        PDF = "pdf", "PDF"
+
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
-    consultation = models.OneToOneField(
+    consultation = models.ForeignKey(
         Consultation,
         on_delete=models.CASCADE,
-        related_name="audio_reply",
+        related_name="attachments",
     )
     file = models.FileField(
-        upload_to=consultation_audio_reply_upload_path,
-        storage=consultation_audio_reply_storage,
+        upload_to=consultation_attachment_upload_path,
+        storage=consultation_attachment_storage,
     )
-    content_type = models.CharField(max_length=100)
+    file_category = models.CharField(max_length=20, choices=FileCategory.choices)
+    original_filename = models.CharField(max_length=255)
     file_size = models.PositiveBigIntegerField()
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name="consultation_audio_replies_created",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    content_type = models.CharField(max_length=100)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at", "-id"]
+        ordering = ["uploaded_at", "id"]
+        indexes = [models.Index(fields=["consultation", "uploaded_at"])]
 
     def __str__(self):
-        return f"Consultation audio reply {self.public_id}"
+        return f"Attachment {self.public_id}"
 
+
+class ConsultationAudioPolicy:
     @property
     def presentation_filename(self):
         extension = PurePosixPath(self.file.name if self.file else "").suffix.lower()
@@ -360,6 +335,35 @@ class ConsultationAudioReply(models.Model):
         return super().save(*args, **kwargs)
 
 
+class ConsultationAudioReply(ConsultationAudioPolicy, models.Model):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
+    consultation = models.OneToOneField(
+        Consultation,
+        on_delete=models.CASCADE,
+        related_name="audio_reply",
+    )
+    file = models.FileField(
+        upload_to=consultation_audio_reply_upload_path,
+        storage=consultation_audio_reply_storage,
+    )
+    content_type = models.CharField(max_length=100)
+    file_size = models.PositiveBigIntegerField()
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="consultation_audio_replies_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"Consultation audio reply {self.public_id}"
+
+
 class ConsultationNotification(models.Model):
     class Kind(models.TextChoices):
         NEW_CONSULTATION = "new_consultation", "New consultation"
@@ -401,6 +405,87 @@ class ConsultationNotification(models.Model):
 
     def __str__(self):
         return f"Consultation notification {self.public_id}"
+
+
+class TransientConsultation(models.Model):
+    """A phone-verified consultation; deliberately unrelated to Patient."""
+
+    Status = Consultation.Status
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    phone_e164 = models.CharField(max_length=20)
+    display_name = models.CharField(max_length=100, blank=True)
+    language = models.CharField(max_length=2, choices=[("ar", "Arabic"), ("en", "English")], default="ar")
+    question = models.TextField(max_length=5000)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW, db_index=True)
+    staff_reply = models.TextField(max_length=5000, blank=True)
+    replied_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                  blank=True, related_name="transient_consultations_replied")
+    replied_at = models.DateTimeField(null=True, blank=True)
+    staff_handled_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"Guest consultation {self.public_id}"
+
+
+class TransientConsultationAttachment(ConsultationAttachmentPolicy, models.Model):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    consultation = models.ForeignKey(TransientConsultation, on_delete=models.CASCADE, related_name="attachments")
+    file = models.FileField(upload_to=consultation_attachment_upload_path, storage=consultation_attachment_storage)
+    file_category = models.CharField(max_length=20, choices=ConsultationAttachment.FileCategory.choices)
+    original_filename = models.CharField(max_length=255)
+    file_size = models.PositiveBigIntegerField()
+    content_type = models.CharField(max_length=100)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["uploaded_at", "id"]
+
+    def __str__(self):
+        return f"Guest attachment {self.public_id}"
+
+
+class TransientConsultationAudioReply(ConsultationAudioPolicy, models.Model):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    consultation = models.OneToOneField(TransientConsultation, on_delete=models.CASCADE, related_name="audio_reply")
+    file = models.FileField(upload_to=consultation_audio_reply_upload_path, storage=consultation_audio_reply_storage)
+    content_type = models.CharField(max_length=100)
+    file_size = models.PositiveBigIntegerField()
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                   related_name="transient_audio_replies_created")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Guest audio reply {self.public_id}"
+
+
+class TransientConsultationChallenge(models.Model):
+    """OTP challenge and expiring server-side grant bound to one browser secret.
+
+    A verified entry grant is atomically assigned to the submitted consultation.
+    It can never authorize other consultations, even for the same phone.
+    """
+
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    consultation = models.ForeignKey(TransientConsultation, on_delete=models.CASCADE, null=True,
+                                     blank=True, related_name="access_challenges")
+    session_digest = models.CharField(max_length=64, db_index=True)
+    phone_e164 = models.CharField(max_length=20)
+    otp_digest = models.CharField(max_length=128)
+    expires_at = models.DateTimeField()
+    attempt_count = models.PositiveSmallIntegerField(default=0)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    grant_expires_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Guest verification {self.public_id}"
 
 
 class AccountPhoneChangeChallenge(models.Model):

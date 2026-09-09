@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load static %}
+{% block extra_head %}<meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="{% static 'css/guest-consultation.css' %}">{% endblock %}
+{% block content %}
+<div class="guest-consultation" data-guest-state="{{ state }}">
+    <header>
+        <p class="guest-eyebrow">{% if is_arabic %}عيادة الدكتور خالد بدران{% else %}Dr. Khaled Badran Clinic{% endif %}</p>
+        <h1>{% if is_arabic %}استشارة كزائر{% else %}Guest Consultation{% endif %}</h1>
+        <p>{% if is_arabic %}أرسل استشارتك واقرأ الرد الكامل هنا بأمان. نستخدم واتساب للتحقق والتنبيهات وروابط الوصول الآمن.{% else %}Submit your consultation and read the full reply securely here. WhatsApp is used for verification, notifications, and secure access links.{% endif %}</p>
+    </header>
+    {% if error_message %}<div class="guest-alert" role="alert">{{ error_message }}</div>{% endif %}
+    {% if state == "phone" or state == "reverify" %}
+    <section class="guest-card">
+        <h2>{% if is_reverification %}{% if is_arabic %}تحقق لعرض الاستشارة{% else %}Verify to view your consultation{% endif %}{% else %}{% if is_arabic %}تحقق من رقمك{% else %}Verify your number{% endif %}{% endif %}</h2>
+        {% if is_reverification %}<p>{% if is_arabic %}سنرسل رمزًا إلى الرقم المرتبط بهذه الاستشارة:{% else %}We will send a code to the number associated with this consultation:{% endif %} <bdi dir="ltr">{{ masked_destination }}</bdi></p>{% endif %}
+        <form method="post" class="guest-form">
+            {% csrf_token %}<input type="hidden" name="action" value="send">
+            {% if not is_reverification %}{{ phone_form.as_p }}{% endif %}
+            <button class="btn btn-primary" type="submit">{% if is_arabic %}إرسال رمز عبر واتساب{% else %}Send WhatsApp code{% endif %}</button>
+        </form>
+        {% if not is_reverification %}<p class="guest-note">{% if is_arabic %}لا تحتاج إلى حساب مريض. يمكنك إرسال الاستشارة مباشرة بعد التحقق.{% else %}No patient account is required. You can submit directly after verification.{% endif %}</p><a href="{{ registered_consultation_url }}">{% if is_arabic %}لدي حساب مريض — الانتقال إلى البوابة{% else %}I have a patient account — open the Portal{% endif %}</a>{% endif %}
+    </section>
+    {% elif state == "otp" %}
+    <section class="guest-card">
+        <h2>{% if is_arabic %}أدخل رمز التحقق{% else %}Enter the verification code{% endif %}</h2>
+        <p>{% if is_arabic %}تم إرسال الرمز إلى{% else %}The code was sent to{% endif %} <bdi dir="ltr">{{ masked_destination }}</bdi>.</p>
+        <form method="post" class="guest-form" novalidate>
+            {% csrf_token %}<input type="hidden" name="action" value="verify">{{ otp_form.as_p }}
+            <button class="btn btn-primary" type="submit">{% if is_arabic %}تحقق ومتابعة{% else %}Verify and continue{% endif %}</button>
+        </form>
+        <div class="guest-actions">
+            <form method="post">{% csrf_token %}<button class="btn btn-secondary" name="action" value="resend">{% if is_arabic %}إرسال رمز جديد{% else %}Send a new code{% endif %}</button></form>
+            {% if not is_reverification %}<form method="post">{% csrf_token %}<button class="btn btn-secondary" name="action" value="change_phone">{% if is_arabic %}تغيير الرقم{% else %}Change number{% endif %}</button></form>{% endif %}
+        </div>
+    </section>
+    {% elif state == "form" %}
+    <section class="guest-card">
+        <h2>{% if is_arabic %}تفاصيل الاستشارة{% else %}Consultation details{% endif %}</h2>
+        <p>{% if is_arabic %}تم التحقق من{% else %}Verified{% endif %} <bdi dir="ltr">{{ masked_destination }}</bdi></p>
+        <form method="post" enctype="multipart/form-data" class="guest-form" novalidate>
+            {% csrf_token %}<input type="hidden" name="action" value="submit">{{ form.as_p }}
+            <p class="guest-note">{% if is_arabic %}حتى 5 ملفات: JPG أو PNG أو WebP أو PDF بحجم 10 ميجابايت لكل ملف، أو فيديو MP4 قصير بحجم 50 ميجابايت.{% else %}Up to 5 files: JPG, PNG, WebP, or PDF up to 10 MiB each; short MP4 video up to 50 MiB.{% endif %}</p>
+            <button class="btn btn-primary" type="submit">{% if is_arabic %}إرسال الاستشارة{% else %}Submit consultation{% endif %}</button>
+        </form>
+        <form method="post" class="guest-actions">{% csrf_token %}<button class="btn btn-secondary" name="action" value="change_phone">{% if is_arabic %}تغيير الرقم{% else %}Change number{% endif %}</button></form>
+    </section>
+    {% elif state == "detail" %}
+        {% if submitted %}<p class="guest-success" role="status">{% if is_arabic %}تم إرسال استشارتك بنجاح.{% else %}Your consultation was submitted successfully.{% endif %}</p>{% endif %}
+        <section class="guest-card">
+            <div class="guest-heading"><h2>{% if is_arabic %}استشارتك{% else %}Your consultation{% endif %}</h2><span class="guest-status">{{ status_label }}</span></div>
+            <p><time dir="ltr" datetime="{{ consultation.created_at|date:'c' }}">{{ consultation.created_at|date:"Y-m-d H:i" }}</time></p>
+            <div class="guest-text">{{ consultation.question|linebreaksbr }}</div>
+        </section>
+        {% if attachments %}<section class="guest-card"><h2>{% if is_arabic %}المرفقات الخاصة{% else %}Private attachments{% endif %}</h2><div class="guest-media-grid">
+            {% for attachment in attachments %}<article>
+                {% if attachment.file_category == "image" %}<img class="guest-media" src="{{ attachment.access_url }}" alt="{% if is_arabic %}مرفق الاستشارة{% else %}Consultation attachment{% endif %}">
+                {% elif attachment.file_category == "short_video" %}<video class="guest-media" controls playsinline preload="metadata"><source src="{{ attachment.access_url }}" type="video/mp4"></video>
+                {% else %}<a class="btn btn-secondary" href="{{ attachment.access_url }}" target="_blank" rel="noopener noreferrer">{% if is_arabic %}عرض PDF{% else %}View PDF{% endif %}</a>{% endif %}
+                <p class="guest-filename">{{ attachment.original_filename }} · {{ attachment.file_size|filesizeformat }}</p>
+            </article>{% endfor %}
+        </div></section>{% endif %}
+        <section class="guest-card"><h2>{% if is_arabic %}رد الطبيب{% else %}Doctor reply{% endif %}</h2>
+            {% if consultation.staff_reply %}<div class="guest-text">{{ consultation.staff_reply|linebreaksbr }}</div>
+            {% elif audio_url %}<p>{% if is_arabic %}لم يُضف رد نصي.{% else %}No text reply was added.{% endif %}</p>
+            {% elif consultation.status == "closed" %}<p>{% if is_arabic %}أُغلقت الاستشارة دون إضافة رد.{% else %}This consultation was closed without a reply.{% endif %}</p>
+            {% else %}<p>{% if is_arabic %}بانتظار رد العيادة. لم يُضف رد بعد.{% else %}Awaiting the clinic’s reply. No reply has been added yet.{% endif %}</p>{% endif %}
+            {% if audio_url %}<audio class="guest-media" controls preload="metadata" aria-label="{% if is_arabic %}رد الطبيب الصوتي{% else %}Doctor voice reply{% endif %}"><source src="{{ audio_url }}" type="{{ consultation.audio_reply.content_type }}"></audio>{% endif %}
+        </section>
+        <a href="{{ entry_url }}">{% if is_arabic %}استشارة جديدة{% else %}New consultation{% endif %}</a>
+    {% endif %}
+</div>
+{% endblock %}

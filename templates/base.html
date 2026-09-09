@@ -40,7 +40,7 @@
             </a>
         </div>
     {% endif %}
-    {% if use_public_shell and whatsapp_is_configured and whatsapp_url %}
+    {% if use_public_shell and whatsapp_is_configured and whatsapp_url and not suppress_whatsapp_quick_link %}
         <a class="whatsapp-quick-link" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ labels.whatsapp }}">
             <span aria-hidden="true">WA</span>
         </a>

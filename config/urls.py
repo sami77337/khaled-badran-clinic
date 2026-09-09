@@ -7,6 +7,7 @@ from django.views.generic.base import RedirectView
 from apps.booking import views as booking_views
 from apps.core import review_views, views
 from apps.patients import views as patient_views
+from apps.patients import transient_views
 from apps.patients import review_views as patient_review_views
 
 
@@ -410,3 +411,13 @@ urlpatterns = [
 ]
 
 handler404 = "apps.core.views.public_404"
+
+
+# Explicit localized guest routes; portal routes retain their existing handlers.
+for language, prefix, suffix in (("ar", "", ""), ("en", "en/", "_en")):
+    urlpatterns += [
+        path(prefix + "consult/", transient_views.guest_entry, {"language": language}, name="guest_consultation_entry" + suffix),
+        path(prefix + "consult/<uuid:public_id>/", transient_views.guest_entry, {"language": language}, name="guest_consultation_detail" + suffix),
+        path(prefix + "consult/attachments/<uuid:public_id>/", transient_views.guest_media, {"language": language}, name="guest_consultation_attachment" + suffix),
+        path(prefix + "consult/audio-replies/<uuid:public_id>/", transient_views.guest_media, {"language": language, "audio": True}, name="guest_consultation_audio" + suffix),
+    ]

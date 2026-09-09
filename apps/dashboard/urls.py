@@ -4,6 +4,9 @@ from . import views
 
 
 urlpatterns = [
+    path("consultations/guests/<uuid:public_id>/", views.dashboard_consultation_detail, {"guest": True}, name="dashboard_guest_consultation_detail"),
+    path("consultations/guests/attachments/<uuid:public_id>/", views.dashboard_consultation_attachment, {"guest": True}, name="dashboard_guest_consultation_attachment"),
+    path("consultations/guests/audio-replies/<uuid:public_id>/", views.dashboard_consultation_audio_reply, {"guest": True}, name="dashboard_guest_consultation_audio_reply"),
     path("", views.dashboard_home, name="dashboard_home"),
     path("consultations/", views.dashboard_consultation_list, name="dashboard_consultation_list"),
     path(

@@ -1,6 +1,7 @@
 import logging
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.db import DatabaseError, transaction
 from django.utils import timezone
 
@@ -10,6 +11,8 @@ from apps.patients.models import (
     ConsultationAttachment,
     ConsultationAudioReply,
     ConsultationNotification,
+    TransientConsultation,
+    TransientConsultationAudioReply,
     validate_consultation_audio_upload,
     validate_consultation_upload,
 )
@@ -30,7 +33,7 @@ logger = logging.getLogger(__name__)
 def consultation_has_audio_reply(consultation):
     try:
         return consultation.audio_reply is not None
-    except ConsultationAudioReply.DoesNotExist:
+    except ObjectDoesNotExist:
         return False
 
 
@@ -106,27 +109,32 @@ def update_consultation_reply(
     audio_file=None,
     remove_audio=False,
 ):
+    if not staff_user.is_active or not staff_user.is_staff:
+        raise PermissionDenied("Staff access required.")
+    guest = isinstance(consultation, TransientConsultation)
+    consultation_model = TransientConsultation if guest else Consultation
+    audio_model = TransientConsultationAudioReply if guest else ConsultationAudioReply
     audio_metadata = validate_consultation_audio_upload(audio_file) if audio_file else None
     new_file_reference = None
 
     try:
         with transaction.atomic():
-            locked = (
-                Consultation.objects.select_for_update(of=("self",))
-                .select_related("patient", "patient__user")
-                .get(pk=consultation.pk)
-            )
+            queryset = consultation_model.objects.select_for_update(of=("self",))
+            if not guest:
+                queryset = queryset.select_related("patient", "patient__user")
+            locked = queryset.get(pk=consultation.pk)
             current_audio = (
-                ConsultationAudioReply.objects.select_for_update()
+                audio_model.objects.select_for_update()
                 .filter(consultation=locked)
                 .first()
             )
-            had_visible_reply = bool(locked.staff_reply.strip()) or current_audio is not None
+            previous_reply = locked.staff_reply.strip()
+            had_visible_reply = bool(previous_reply) or current_audio is not None
             old_file_reference = None
 
             if audio_file:
                 if current_audio is None:
-                    current_audio = ConsultationAudioReply(
+                    current_audio = audio_model(
                         consultation=locked,
                         file=audio_file,
                         created_by=staff_user,
@@ -200,7 +208,7 @@ def update_consultation_reply(
                 current_audio.delete()
 
             has_visible_reply = bool(locked.staff_reply) or has_audio_after_save
-            patient_user = locked.patient.user
+            patient_user = None if guest else locked.patient.user
             if (
                 not had_visible_reply
                 and has_visible_reply
@@ -211,6 +219,10 @@ def update_consultation_reply(
                     consultation=locked,
                     kind=ConsultationNotification.Kind.CONSULTATION_REPLIED,
                 )
+
+            if has_visible_reply and (not had_visible_reply or locked.staff_reply != previous_reply or audio_file):
+                from apps.whatsapp.notifications import schedule_reply_notification
+                schedule_reply_notification(locked, guest=guest)
 
             if old_file_reference and old_file_reference != new_file_reference:
                 transaction.on_commit(

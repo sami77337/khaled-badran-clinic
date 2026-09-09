@@ -13,16 +13,23 @@
     {% if messages %}<div class="appointment-messages" role="status">{% for message in messages %}<p>{{ message }}</p>{% endfor %}</div>{% endif %}
     <div class="appointment-detail-grid">
         <section class="appointment-panel">
-            <div class="appointments-section-heading"><h2>{% if is_arabic %}طلب المريض{% else %}Patient Request{% endif %}</h2><span class="appointment-status status-{{ consultation.status }}">{{ status_label }}</span></div>
+            <div class="appointments-section-heading"><h2>{% if is_arabic %}طلب الاستشارة{% else %}Consultation Request{% endif %}</h2><span class="appointment-status status-{{ consultation.status }}">{{ status_label }}</span></div>
+            <p>{% if is_guest %}{% if is_arabic %}زائر{% else %}Guest{% endif %}{% else %}{% if is_arabic %}مريض مسجل{% else %}Registered Patient{% endif %}{% endif %}</p>
             <dl class="appointment-details-list">
+                {% if is_guest %}
+                <div><dt>{% if is_arabic %}الاسم المعروض{% else %}Display name{% endif %}</dt><dd>{{ consultation.display_name|default:"—" }}</dd></div>
+                <div><dt>{% if is_arabic %}رقم واتساب المتحقق{% else %}Verified WhatsApp number{% endif %}</dt><dd dir="ltr">{{ consultation.phone_e164 }}</dd></div>
+                {% else %}
                 <div><dt>{% if is_arabic %}المريض{% else %}Patient{% endif %}</dt><dd>{{ consultation.patient.full_name }}</dd></div>
                 <div><dt>{% if is_arabic %}هاتف الحساب{% else %}Account phone{% endif %}</dt><dd dir="ltr">{{ consultation.patient.phone }}</dd></div>
+                {% endif %}
                 <div><dt>{% if is_arabic %}وقت الإنشاء{% else %}Created{% endif %}</dt><dd><time dir="ltr" datetime="{{ consultation.created_at|date:'c' }}">{{ consultation.created_at|date:"Y-m-d H:i" }}</time></dd></div>
                 <div class="appointment-detail-note"><dt>{% if is_arabic %}الاستشارة{% else %}Consultation{% endif %}</dt><dd>{{ consultation.question|linebreaksbr }}</dd></div>
             </dl>
         </section>
         <section class="appointment-panel appointment-operations">
             <div class="appointments-section-heading"><h2>{% if is_arabic %}رد الطبيب{% else %}Doctor Reply{% endif %}</h2></div>
+            {% if notification_unavailable %}<p class="muted" role="status">{% if is_arabic %}تنبيهات واتساب غير متاحة حاليًا. سيُحفظ الرد ويكون متاحًا على الموقع.{% else %}WhatsApp notifications are currently unavailable. The reply will still be saved and available on the website.{% endif %}</p>{% endif %}
             <form class="appointment-operation-form" method="post" enctype="multipart/form-data" data-consultation-reply-form>
                 {% csrf_token %}
                 {{ form.non_field_errors }}
@@ -58,7 +65,7 @@
                     <p class="consultation-audio-status muted" data-audio-status aria-live="polite"></p>
                     <audio class="consultation-audio-preview" controls controlsList="nodownload" preload="metadata" data-audio-local-preview hidden></audio>
                     {% if consultation.audio_reply %}
-                        {% url 'dashboard_consultation_audio_reply' public_id=consultation.audio_reply.public_id as staff_audio_url %}
+                        {% url staff_audio_route public_id=consultation.audio_reply.public_id as staff_audio_url %}
                         <audio class="consultation-audio-preview" controls controlsList="nodownload" preload="metadata" data-audio-existing-preview>
                             <source src="{{ staff_audio_url }}{% if not is_arabic %}?lang=en{% endif %}" type="{{ consultation.audio_reply.content_type }}">
                         </audio>
@@ -75,7 +82,7 @@
         <div class="patient-media-list">
         {% for attachment in consultation.attachments.all %}
             <article class="portal-media-card">
-                {% url 'dashboard_consultation_attachment' public_id=attachment.public_id as attachment_url %}
+                {% url staff_attachment_route public_id=attachment.public_id as attachment_url %}
                 {% if attachment.file_category == "image" %}<img class="portal-media-asset" src="{{ attachment_url }}{% if not is_arabic %}?lang=en{% endif %}" alt="{% if is_arabic %}مرفق الاستشارة{% else %}Consultation attachment{% endif %}">
                 {% elif attachment.file_category == "short_video" %}<video class="portal-media-asset" controls playsinline controlsList="nodownload" preload="metadata"><source src="{{ attachment_url }}{% if not is_arabic %}?lang=en{% endif %}" type="video/mp4"></video>
                 {% else %}<a class="appointment-button appointment-button-secondary" target="_blank" rel="noopener" href="{{ attachment_url }}{% if not is_arabic %}?lang=en{% endif %}">{% if is_arabic %}عرض ملف PDF{% else %}View PDF{% endif %}</a>{% endif %}

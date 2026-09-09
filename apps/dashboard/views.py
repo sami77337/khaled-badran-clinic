@@ -4,6 +4,7 @@ from datetime import date, datetime, time, timedelta
 from functools import wraps
 from urllib.parse import urlencode
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
 from django.db import transaction
@@ -36,6 +37,9 @@ from apps.patients.models import (
     Consultation,
     ConsultationAttachment,
     ConsultationAudioReply,
+    TransientConsultation,
+    TransientConsultationAttachment,
+    TransientConsultationAudioReply,
     Patient,
 )
 from apps.records.models import (
@@ -4890,13 +4894,17 @@ def dashboard_consultation_list(request):
         .prefetch_related("attachments")
         .order_by("-created_at", "-id")
     )
+    consultations += list(TransientConsultation.objects.all())
+    consultations.sort(key=lambda item: (item.created_at, item.pk), reverse=True)
     for consultation in consultations:
+        consultation.is_guest = isinstance(consultation, TransientConsultation)
+        consultation.entry_name = consultation.display_name if consultation.is_guest else consultation.patient.full_name
         consultation.dashboard_status_label = _dashboard_consultation_status_label(
             consultation.status,
             language,
         )
         consultation.dashboard_detail_url = _dashboard_consultation_url(
-            "dashboard_consultation_detail",
+            "dashboard_guest_consultation_detail" if consultation.is_guest else "dashboard_consultation_detail",
             language,
             public_id=consultation.public_id,
         )
@@ -4909,12 +4917,12 @@ def dashboard_consultation_list(request):
 
 @_staff_required
 @use_page_language(language_getter=_dashboard_language)
-def dashboard_consultation_detail(request, public_id):
+def dashboard_consultation_detail(request, public_id, guest=False):
     language = _dashboard_language(request)
+    model = TransientConsultation if guest else Consultation
+    detail_route = "dashboard_guest_consultation_detail" if guest else "dashboard_consultation_detail"
     consultation = get_object_or_404(
-        Consultation.objects.select_related(
-            "patient", "replied_by", "audio_reply"
-        ).prefetch_related("attachments"),
+        model.objects.select_related(*(["replied_by", "audio_reply"] if guest else ["patient", "replied_by", "audio_reply"])).prefetch_related("attachments"),
         public_id=public_id,
     )
     has_audio_reply = consultation_services.consultation_has_audio_reply(consultation)
@@ -4951,7 +4959,7 @@ def dashboard_consultation_detail(request, public_id):
                 )
                 return redirect(
                     _dashboard_consultation_url(
-                        "dashboard_consultation_detail",
+                        detail_route,
                         language,
                         public_id=consultation.public_id,
                     )
@@ -4973,19 +4981,23 @@ def dashboard_consultation_detail(request, public_id):
         consultation=consultation,
         status_label=_dashboard_consultation_status_label(consultation.status, language),
         form=form,
+        is_guest=guest,
+        notification_unavailable=not (getattr(settings, "WHATSAPP_CONSULTATION_NOTIFICATION_SENDER", "") and getattr(settings, "WHATSAPP_WEBSITE_ORIGIN", "")),
+        staff_attachment_route="dashboard_guest_consultation_attachment" if guest else "dashboard_consultation_attachment",
+        staff_audio_route="dashboard_guest_consultation_audio_reply" if guest else "dashboard_consultation_audio_reply",
     )
     alternate_language = "en" if language == "ar" else "ar"
     context.update(
         {
             "canonical_url": request.build_absolute_uri(
                 _dashboard_consultation_url(
-                    "dashboard_consultation_detail",
+                    detail_route,
                     language,
                     public_id=consultation.public_id,
                 )
             ),
             "dashboard_language_switch_url": _dashboard_consultation_url(
-                "dashboard_consultation_detail",
+                detail_route,
                 alternate_language,
                 public_id=consultation.public_id,
             ),
@@ -4996,9 +5008,10 @@ def dashboard_consultation_detail(request, public_id):
 
 @_staff_required
 @require_GET
-def dashboard_consultation_attachment(request, public_id):
+def dashboard_consultation_attachment(request, public_id, guest=False):
+    model = TransientConsultationAttachment if guest else ConsultationAttachment
     attachment = get_object_or_404(
-        ConsultationAttachment.objects.select_related("consultation", "consultation__patient"),
+        model.objects.select_related("consultation"),
         public_id=public_id,
     )
     if not attachment.file_exists:
@@ -5013,15 +5026,17 @@ def dashboard_consultation_attachment(request, public_id):
         filename=attachment.presentation_filename,
         content_type=attachment.content_type,
     )
+    response["Cache-Control"] = "private, no-store"
     response["X-Content-Type-Options"] = "nosniff"
     return response
 
 
 @_staff_required
 @require_GET
-def dashboard_consultation_audio_reply(request, public_id):
+def dashboard_consultation_audio_reply(request, public_id, guest=False):
+    model = TransientConsultationAudioReply if guest else ConsultationAudioReply
     audio_reply = get_object_or_404(
-        ConsultationAudioReply.objects.select_related("consultation"),
+        model.objects.select_related("consultation"),
         public_id=public_id,
     )
     if not audio_reply.file_exists:

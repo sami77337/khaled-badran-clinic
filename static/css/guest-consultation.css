@@ -1,0 +1,24 @@
+.guest-consultation { width: min(100% - 2rem, 52rem); margin: 2rem auto 4rem; overflow-wrap: anywhere; }
+.guest-consultation > header { margin-block-end: 1.5rem; }
+.guest-consultation h1 { font-size: clamp(1.7rem, 5vw, 2.5rem); line-height: 1.4; }
+.guest-consultation h2 { font-size: clamp(1.2rem, 4vw, 1.6rem); margin: 0 0 1rem; }
+.guest-consultation p, .guest-text { line-height: 1.9; }
+.guest-eyebrow, .guest-note { color: #526367; }
+.guest-card { background: #fff; border: 1px solid #d8e1dd; border-radius: 1.2rem; padding: clamp(1rem, 4vw, 2rem); margin-block: 1.2rem; min-width: 0; }
+.guest-form p { display: grid; gap: .5rem; margin-block: 1rem; }
+.guest-form input:not([type=hidden]), .guest-form textarea { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; padding: .8rem; border: 1px solid #8caaa0; border-radius: .6rem; font: inherit; background: #fff; color: #173b35; }
+.guest-form input[type=file] { font-size: .85rem; }
+.guest-form textarea { resize: vertical; }
+.guest-consultation .btn { min-height: 44px; white-space: normal; max-width: 100%; text-align: center; }
+.guest-form .helptext { font-size: .9rem; }
+.guest-consultation .errorlist { color: #9c2626; padding-inline-start: 1.3rem; }
+.guest-alert, .guest-success { padding: 1rem; border-radius: .7rem; border: 1px solid #d4a49a; background: #fff2ed; }
+.guest-success { background: #edf7f0; border-color: #7aa98b; }
+.guest-actions, .guest-heading { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; margin-block-start: 1rem; }
+.guest-heading { justify-content: space-between; }
+.guest-status { padding: .3rem .8rem; background: #edf4f1; border-radius: 2rem; }
+.guest-media-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; }
+.guest-media-grid article { min-width: 0; }
+.guest-media { display: block; width: 100%; max-width: 100%; border-radius: .5rem; margin-block: .8rem; }
+.guest-filename { overflow-wrap: anywhere; font-size: .85rem; }
+@media (max-width: 360px) { .guest-consultation { width: calc(100% - 1rem); } }
