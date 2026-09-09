@@ -1,20 +1,22 @@
-/* Keep long patient-authored text readable in desktop review moderation. */
-@media (min-width: 1024px) {
-    body.app-core.model-publicreview .breadcrumbs,
-    body.app-core.model-publicreview #content {
-        overflow-wrap: anywhere;
-    }
+/* Keep long patient-authored text readable at every moderation viewport. */
+body.app-core.model-publicreview .breadcrumbs,
+body.app-core.model-publicreview #content {
+    overflow-wrap: anywhere;
+}
 
-    body.app-core.model-publicreview .aligned .readonly {
-        min-width: 0;
-        max-width: 100%;
-        overflow-wrap: anywhere;
-    }
+body.app-core.model-publicreview .aligned .readonly {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
 
+@media (min-width: 768px) {
     body.app-core.model-publicreview.change-form #content > h2 {
         padding-inline-end: 8rem;
     }
+}
 
+@media (min-width: 1024px) {
     body.app-core.model-publicreview #result_list {
         overflow-wrap: normal;
     }

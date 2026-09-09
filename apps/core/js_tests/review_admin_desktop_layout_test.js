@@ -7,7 +7,8 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 const [browser, fixture] = process.argv.slice(2);
 const { pages, assets } = JSON.parse(fs.readFileSync(fixture, "utf8"));
-const viewports = [[1024, 768], [1280, 720], [1280, 800], [1366, 768], [1440, 900],
+const viewports = [[320, 568], [360, 640], [390, 844], [412, 915], [640, 960], [768, 1024],
+    [1024, 768], [1280, 720], [1280, 800], [1366, 768], [1440, 900],
     [1536, 864], [1600, 900], [1920, 1080], [1440, 1200]];
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -71,7 +72,8 @@ async function main() {
                 await delay(20);
             }
             for (const [width, height] of viewports) {
-                await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+                await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width < 768 });
+                await evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
                 const result = await evaluate(`(() => {
                     scrollTo({top: 0, behavior: 'instant'});
                     const issues = [];
@@ -94,7 +96,8 @@ async function main() {
                             Math.min(r.bottom, control.bottom) - Math.max(r.top, control.top) > 1)) issues.push('history overlaps title');
                     }
                     for (const name of document.querySelectorAll('#result_list .field-reviewer_name a')) {
-                        if (name.getBoundingClientRect().width > 300) issues.push('unbounded reviewer column');
+                        // Smaller screens use Django's horizontally scrollable table.
+                        if (innerWidth >= 1024 && name.getBoundingClientRect().width > 300) issues.push('unbounded reviewer column');
                     }
                     const controls = [...document.querySelectorAll('#content input[type=submit], #content button, #content .cancel-link, #content .deletelink')]
                         .filter(el => !el.disabled && el.checkVisibility() && el.getBoundingClientRect().width);
@@ -110,7 +113,7 @@ async function main() {
                 cases++;
             }
         }
-        console.log(`PASS: ${cases} review admin desktop cases (AR/EN; long text, bounded columns, History spacing, moderation/delete actions).`);
+        console.log(`PASS: ${cases} review admin responsive cases (AR/EN; long text, bounded desktop columns, History spacing, moderation/delete actions).`);
     } finally {
         if (send && ws?.readyState === WebSocket.OPEN) { send("Browser.close").catch(() => {}); await delay(300); }
         ws?.close();

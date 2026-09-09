@@ -57,39 +57,44 @@ def patient_can_delete_consultation(consultation, user):
     )
 
 
-@transaction.atomic
 def create_consultation(*, user, question, uploaded_files):
     uploaded_files = list(uploaded_files or [])
     if len(uploaded_files) > CONSULTATION_MAX_ATTACHMENTS:
         raise ValueError("Too many consultation attachments.")
     metadata_items = [validate_consultation_upload(item) for item in uploaded_files]
-    patient = resolve_authenticated_patient(user)
-    consultation = Consultation.objects.create(patient=patient, question=question.strip())
     stored_files = []
     try:
-        for uploaded_file, metadata in zip(uploaded_files, metadata_items):
-            attachment = ConsultationAttachment(
-                consultation=consultation,
-                file=uploaded_file,
-                **metadata,
-            )
-            attachment.save()
-            stored_files.append((attachment.file.storage, attachment.file.name))
-        recipient_ids = list(
-            get_user_model()
-            .objects.filter(is_active=True, is_staff=True)
-            .values_list("pk", flat=True)
-        )
-        ConsultationNotification.objects.bulk_create(
-            [
-                ConsultationNotification(
-                    recipient_id=recipient_id,
+        # Keep commit failures inside the same storage cleanup boundary.
+        with transaction.atomic():
+            patient = resolve_authenticated_patient(user)
+            consultation = Consultation.objects.create(patient=patient, question=question.strip())
+            for uploaded_file, metadata in zip(uploaded_files, metadata_items):
+                attachment = ConsultationAttachment(
                     consultation=consultation,
-                    kind=ConsultationNotification.Kind.NEW_CONSULTATION,
+                    file=uploaded_file,
+                    **metadata,
                 )
-                for recipient_id in recipient_ids
-            ]
-        )
+                try:
+                    attachment.save()
+                finally:
+                    # FileField writes storage before inserting the database row.
+                    if attachment.file and getattr(attachment.file, "_committed", False):
+                        stored_files.append((attachment.file.storage, attachment.file.name))
+            recipient_ids = list(
+                get_user_model()
+                .objects.filter(is_active=True, is_staff=True)
+                .values_list("pk", flat=True)
+            )
+            ConsultationNotification.objects.bulk_create(
+                [
+                    ConsultationNotification(
+                        recipient_id=recipient_id,
+                        consultation=consultation,
+                        kind=ConsultationNotification.Kind.NEW_CONSULTATION,
+                    )
+                    for recipient_id in recipient_ids
+                ]
+            )
     except Exception:
         for storage, name in stored_files:
             try:
