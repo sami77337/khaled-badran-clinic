@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
-const { spawn } = require("node:child_process");
+const { launchBrowser } = require("./browser_launcher");
 const [browser, fixture] = process.argv.slice(2);
 const { pages, assets } = JSON.parse(fs.readFileSync(fixture, "utf8"));
 const viewports = [[320, 568], [360, 640], [390, 844], [412, 915], [640, 960], [768, 1024],
@@ -32,17 +32,10 @@ async function main() {
     });
     await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
     const profile = path.join(path.dirname(fixture), "browser-profile");
-    const child = spawn(browser, ["--headless=new", "--disable-gpu", "--no-first-run",
-        "--no-default-browser-check", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank"],
-    { windowsHide: true, stdio: "ignore" });
-    let ws, send;
+    let launcher, ws, send;
     try {
-        const portFile = path.join(profile, "DevToolsActivePort");
-        for (let i = 0; !fs.existsSync(portFile) && i < 100; i++) await delay(100);
-        const port = fs.readFileSync(portFile, "utf8").split("\n")[0];
-        const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-        ws = new WebSocket(targets.find(target => target.type === "page").webSocketDebuggerUrl);
-        await new Promise(resolve => ws.addEventListener("open", resolve, { once: true }));
+        launcher = await launchBrowser(browser, profile);
+        ws = launcher.ws;
         let id = 0;
         const pending = new Map();
         ws.addEventListener("message", ({ data }) => {
@@ -116,9 +109,8 @@ async function main() {
         console.log(`PASS: ${cases} review admin responsive cases (AR/EN; long text, bounded desktop columns, History spacing, moderation/delete actions).`);
     } finally {
         if (send && ws?.readyState === WebSocket.OPEN) { send("Browser.close").catch(() => {}); await delay(300); }
-        ws?.close();
-        if (child.exitCode === null) child.kill();
         server.close();
+        await launcher?.stop();
     }
 }
 

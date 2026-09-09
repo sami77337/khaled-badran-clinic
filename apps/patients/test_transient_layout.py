@@ -25,7 +25,9 @@ class GuestConsultationLayoutTests(TestCase):
                       "C:/Program Files/Google/Chrome/Application/chrome.exe",
                       "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"]
         browser = next((item for item in candidates if item and Path(item).is_file()), None)
-        if not browser:
+        if not browser or not shutil.which("node"):
+            if os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true":
+                self.fail("Node and Chromium are required for guest layout QA in CI")
             self.skipTest("Install Chromium or set KBC_QA_BROWSER for guest layout QA")
         staff = get_user_model().objects.create_user(username="synthetic-guest-layout-staff", is_staff=True)
         pages = {}

@@ -25,6 +25,8 @@ class ReviewAdminDesktopLayoutTests(TestCase):
         )
         browser = next((item for item in candidates if item and Path(item).is_file()), None)
         if not browser or not shutil.which("node"):
+            if os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true":
+                self.fail("Node and Chromium are required for desktop layout QA in CI")
             self.skipTest("Install Node and Chromium or set KBC_QA_BROWSER for desktop layout QA")
         moderator = get_user_model().objects.create_superuser(username="synthetic-desktop-moderator")
         self.client.force_login(moderator)

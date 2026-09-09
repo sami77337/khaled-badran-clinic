@@ -28,7 +28,9 @@ class PatientPhonePickerLayoutTests(PatientPortalTestMixin, TestCase):
             "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
         ]
         browser = next((p for p in candidates if p and Path(p).is_file()), None)
-        if not browser:
+        if not browser or not shutil.which("node"):
+            if os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true":
+                self.fail("Node and Chromium are required for computed layout QA in CI")
             self.skipTest("Install Chromium or set KBC_QA_BROWSER for computed layout QA")
 
         with TemporaryDirectory(prefix="kbc-phone-layout-") as directory:

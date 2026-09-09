@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
-const { spawn } = require("node:child_process");
+const { launchBrowser } = require("../../core/js_tests/browser_launcher");
 const [browser, fixture, root, screenshotDir] = process.argv.slice(2);
 const pages = JSON.parse(fs.readFileSync(fixture, "utf8"));
 const profile = path.join(path.dirname(fixture), "browser-profile");
@@ -24,17 +24,10 @@ async function main() {
         } else { res.writeHead(404); res.end(); }
     });
     await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
-    const child = spawn(browser, ["--headless=new", "--disable-gpu", "--no-first-run",
-        "--no-default-browser-check", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank"],
-    { windowsHide: true, stdio: "ignore" });
-    let ws, send;
+    let launcher, ws, send;
     try {
-        const portFile = path.join(profile, "DevToolsActivePort");
-        for (let i = 0; !fs.existsSync(portFile) && i < 100; i++) await delay(100);
-        const port = fs.readFileSync(portFile, "utf8").split("\n")[0];
-        const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-        ws = new WebSocket(targets.find(target => target.type === "page").webSocketDebuggerUrl);
-        await new Promise(resolve => ws.addEventListener("open", resolve, { once: true }));
+        launcher = await launchBrowser(browser, profile);
+        ws = launcher.ws;
         let id = 0;
         const pending = new Map();
         ws.addEventListener("message", ({ data }) => {
@@ -106,9 +99,8 @@ async function main() {
         console.log(`PASS: ${cases} guest/staff layout cases; ${Object.keys(pages).length} AR/EN states at 9 requested widths and 2 heights.`);
     } finally {
         if (send && ws?.readyState === WebSocket.OPEN) { send('Browser.close').catch(() => {}); await delay(300); }
-        ws?.close();
-        if (child.exitCode === null) child.kill();
         server.close();
+        await launcher?.stop();
     }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
