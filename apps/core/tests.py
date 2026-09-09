@@ -1,3 +1,4 @@
+import hashlib
 import html as html_lib
 import json
 import os
@@ -1708,7 +1709,7 @@ class PublicUiFoundationTests(TestCase):
         response = self.client.get(reverse("contact"))
 
         self.assertContains(response, "شارع رفيق العظم 13")
-        self.assertContains(response, "31.970276,35.8934391")
+        self.assertContains(response, html_lib.escape(response.context["clinic"]["map_url"]))
         self.assertContains(response, "+962 7 8976 6332")
         self.assertContains(response, 'href="tel:+962789766332"')
         self.assertContains(response, 'href="https://wa.me/962789766332"')
@@ -1716,6 +1717,70 @@ class PublicUiFoundationTests(TestCase):
         self.assertNotContains(response, "+962 7X XXX XXXX")
         self.assertNotContains(response, "ساعات العمل")
         self.assertNotContains(response, "ساعات الدوام")
+
+    def assert_illustrated_location(self, route_name, language):
+        response = self.client.get(reverse(route_name))
+        content = response.content.decode()
+        panel = re.search(r'<div class="(?:home-map-preview|contact-map-panel)">(.*?)</div>', content, re.S).group(1)
+        clinic = response.context["clinic"]
+        self.assertIn('src="/static/img/location/clinic-location-illustrated-map.png"', panel)
+        self.assertIn('width="1536" height="1024"', panel)
+        self.assertIn('loading="lazy"', panel)
+        self.assertNotIn("<iframe", panel)
+        alt = (
+            "خريطة توضيحية لموقع عيادة الدكتور خالد بدران في الشميساني" if language == "ar"
+            else "Illustrated location map for Dr. Khaled Badran Clinic in Al Shmesani"
+        )
+        link_label = (
+            "فتح موقع عيادة الدكتور خالد بدران على خرائط Google" if language == "ar"
+            else "Open Dr. Khaled Badran Clinic location in Google Maps"
+        )
+        self.assertIn(f'alt="{alt}"', panel)
+        self.assertIn(f'aria-label="{link_label}"', panel)
+        self.assertIn('class="map-open-link"', panel)
+        links = re.findall(r'<a\b([^>]+)>', panel)
+        self.assertEqual(len(links), 2)
+        for attrs in links:
+            self.assertIn(f'href="{html_lib.escape(clinic["map_url"])}"', attrs)
+            self.assertIn('target="_blank"', attrs)
+            self.assertIn('rel="noopener noreferrer"', attrs)
+        directions = "الحصول على الاتجاهات" if language == "ar" else "Get Directions"
+        self.assertContains(response, f'href="{html_lib.escape(clinic["map_url"])}" target="_blank" rel="noopener noreferrer">{directions}</a>')
+        for line in clinic[f"address_{language}"].splitlines():
+            self.assertContains(response, html_lib.escape(line))
+        self.assertContains(response, clinic["phone_display"])
+        self.assertContains(response, f'href="tel:{clinic["phone_e164"]}"')
+        self.assertContains(response, f'href="{html_lib.escape(response.context["whatsapp_url"])}"')
+        self.assertContains(response, f'href="{response.context["booking_url"]}"')
+        self.assertTrue(clinic["map_embed_url"])
+        return response
+
+    def test_home_arabic_uses_approved_illustrated_map(self):
+        self.assert_illustrated_location("home", "ar")
+
+    def test_home_english_uses_approved_illustrated_map(self):
+        self.assert_illustrated_location("home_en", "en")
+
+    def test_contact_arabic_uses_approved_illustrated_map(self):
+        self.assert_illustrated_location("contact", "ar")
+
+    def test_contact_english_uses_approved_illustrated_map(self):
+        self.assert_illustrated_location("contact_en", "en")
+
+    def test_illustrated_map_navigation_uses_clinic_context(self):
+        clinic = dict(core_views._clinic_context())
+        clinic["map_url"] = "https://navigation.example.test/clinic?test=1&mode=walk"
+        with patch("apps.core.views._clinic_context", return_value=clinic):
+            for route, language in (("home", "ar"), ("home_en", "en"), ("contact", "ar"), ("contact_en", "en")):
+                with self.subTest(route=route):
+                    self.assert_illustrated_location(route, language)
+
+    def test_illustrated_map_is_the_byte_identical_approved_asset(self):
+        asset = settings.BASE_DIR / "static/img/location/clinic-location-illustrated-map.png"
+        self.assertEqual(
+            hashlib.sha256(asset.read_bytes()).hexdigest(),
+            "46355b71969be08c9f97a6baf9b822a5a65401ccd7da43218d7b2695e3c4954e",
+        )
 
     def test_public_shell_has_accessible_mobile_drawer_and_language_switch_outside_it(self):
         response = self.client.get(reverse("services"))

@@ -850,8 +850,8 @@ summary:focus-visible {
 
 .home-map-preview {
     position: relative;
-    display: none;
-    min-height: 420px;
+    display: block;
+    align-self: center;
     overflow: hidden;
     border: 1px solid var(--color-line);
     border-radius: var(--radius-card);
@@ -859,18 +859,21 @@ summary:focus-visible {
     box-shadow: var(--shadow-card);
 }
 
-.home-map-preview iframe {
-    width: 100%;
-    height: 100%;
-    border: 0;
-    pointer-events: none;
+.location-map-visual {
+    display: block;
+    margin: 1rem;
 }
 
-.home-map-preview > a {
-    position: absolute;
-    inset-inline: 0;
-    bottom: 1.5rem;
-    margin-inline: auto;
+.home-map-preview img,
+.contact-map-panel img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.home-map-preview > .map-open-link {
+    display: block;
+    margin: 1.5rem auto;
     width: max-content;
     max-width: calc(100% - 2rem);
     border: 1px solid var(--color-line);
@@ -1168,22 +1171,13 @@ summary:focus-visible {
 
 .contact-map-panel {
     position: relative;
-    min-height: 360px;
+    align-self: center;
     background: var(--color-soft);
 }
 
-.contact-map-panel iframe {
-    width: 100%;
-    height: 100%;
-    min-height: 360px;
-    border: 0;
-}
-
 .map-open-link {
-    position: absolute;
-    inset-inline: 0;
-    bottom: 1.25rem;
-    margin-inline: auto;
+    display: block;
+    margin: 1.25rem auto;
     width: max-content;
     max-width: calc(100% - 2rem);
     border: 1px solid var(--color-line);
@@ -1659,10 +1653,6 @@ summary:focus-visible {
         display: block;
     }
 
-    .home-map-preview {
-        display: block;
-    }
-
     .case-card-row {
         grid-auto-columns: calc(50% - 0.75rem);
         gap: 1.5rem;
@@ -1687,11 +1677,6 @@ summary:focus-visible {
     .doctor-content-grid {
         grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.75fr);
         align-items: start;
-    }
-
-    .contact-map-panel,
-    .contact-map-panel iframe {
-        min-height: 520px;
     }
 
     .clinic-gallery-viewport {

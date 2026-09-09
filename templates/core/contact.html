@@ -13,12 +13,9 @@
 <section class="section contact-location-section">
     <div class="container contact-location-card">
         <div class="contact-map-panel">
-            <iframe
-                src="{{ clinic.map_embed_url }}"
-                title="{% if is_arabic %}خريطة موقع عيادة الدكتور خالد بدران{% else %}Map showing Dr. Khaled Badran Clinic{% endif %}"
-                loading="lazy"
-                referrerpolicy="no-referrer-when-downgrade"
-            ></iframe>
+            <a class="location-map-visual" href="{{ clinic.map_url }}" target="_blank" rel="noopener noreferrer" aria-label="{% if is_arabic %}فتح موقع عيادة الدكتور خالد بدران على خرائط Google{% else %}Open Dr. Khaled Badran Clinic location in Google Maps{% endif %}">
+                <img src="{% static 'img/location/clinic-location-illustrated-map.png' %}" width="1536" height="1024" alt="{% if is_arabic %}خريطة توضيحية لموقع عيادة الدكتور خالد بدران في الشميساني{% else %}Illustrated location map for Dr. Khaled Badran Clinic in Al Shmesani{% endif %}" loading="lazy">
+            </a>
             <a class="map-open-link" href="{{ clinic.map_url }}" target="_blank" rel="noopener noreferrer">
                 <span aria-hidden="true">⌖</span>
                 {% if is_arabic %}فتح الموقع على Google Maps{% else %}Open in Google Maps{% endif %}

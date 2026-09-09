@@ -16,6 +16,9 @@ async function main() {
         if (pages[pathname.slice(1)]) {
             res.setHeader("Content-Type", "text/html; charset=utf-8");
             res.end(pages[pathname.slice(1)]);
+        } else if (pathname === '/static/img/location/clinic-location-illustrated-map.png') {
+            res.setHeader("Content-Type", "image/png");
+            res.end(fs.readFileSync(path.join(root, pathname.slice(1))));
         } else if (/^\/static\/(css|js|fonts)\/[\w./-]+$/.test(pathname) && !pathname.includes("..")) {
             const file = path.join(root, pathname.slice(1));
             if (!fs.existsSync(file)) { res.writeHead(404); res.end(); return; }
@@ -54,8 +57,8 @@ async function main() {
             assert(!result.exceptionDetails, JSON.stringify(result.exceptionDetails));
             return result.result.value;
         };
-        const resize = (width, height) => send("Emulation.setDeviceMetricsOverride", {
-            width, height, deviceScaleFactor: 1, mobile: true,
+        const resize = (width, height, mobile = true) => send("Emulation.setDeviceMetricsOverride", {
+            width, height, deviceScaleFactor: 1, mobile,
         });
         const navigate = async page => {
             await send("Page.navigate", { url: `http://127.0.0.1:${server.address().port}/${page}` });
@@ -67,6 +70,85 @@ async function main() {
         };
         await send("Page.enable");
         await send("Emulation.setFocusEmulationEnabled", { enabled: true });
+        const mapViewports = [[320, 568], [360, 640], [390, 844], [412, 915], [640, 960],
+            [768, 1024], [1024, 768], [1280, 720], [1280, 800], [1366, 768], [1440, 900],
+            [1536, 864], [1600, 900], [1920, 1080]];
+        let illustratedMaps = 0;
+        for (const language of ['ar', 'en']) {
+            for (const surface of ['home', 'contact']) {
+                await navigate(`${surface}-${language}`);
+                for (const [width, height] of mapViewports) {
+                    await resize(width, height, width < 768);
+                    await evaluate(`(async () => {
+                        const map = document.querySelector('.home-map-preview, .contact-map-panel');
+                        map.scrollIntoView({ block: 'center', behavior: 'instant' });
+                        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                        const img = map.querySelector('img');
+                        try { await img.decode(); } catch (error) {
+                            const response = await fetch(img.src);
+                            throw new Error('Map image failed to decode: ' + JSON.stringify({
+                                src: img.src, status: response.status,
+                                type: response.headers.get('content-type'),
+                                bytes: (await response.arrayBuffer()).byteLength,
+                            }));
+                        }
+                        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                    })()`);
+                    const result = await evaluate(`(() => {
+                        const errors = [];
+                        const map = document.querySelector('.home-map-preview, .contact-map-panel');
+                        const img = map.querySelector('img');
+                        const visual = map.querySelector('.location-map-visual');
+                        const cta = map.querySelector('.map-open-link');
+                        const directions = document.querySelector('.contact-actions .btn-secondary, .contact-page-actions .btn-secondary');
+                        const details = document.querySelector('.home-contact-copy, .contact-details-panel');
+                        const b = img.getBoundingClientRect(), panel = map.getBoundingClientRect();
+                        const style = getComputedStyle(img);
+                        if (!img.complete || img.naturalWidth !== 1536 || img.naturalHeight !== 1024 || b.width <= 0) errors.push('image missing');
+                        if (Math.abs(b.height - b.width * 1024 / 1536) > 1) errors.push('distorted image');
+                        if (style.objectFit === 'cover' || style.clipPath !== 'none' || style.transform !== 'none') errors.push('cropped or transformed image');
+                        if (map.querySelector('iframe')) errors.push('iframe remains');
+                        if (img.getAttribute('src') !== '/static/img/location/clinic-location-illustrated-map.png') errors.push('wrong asset');
+                        if (document.documentElement.scrollWidth > innerWidth + 1) errors.push('horizontal overflow');
+                        if (panel.height > b.height + 140) errors.push('unexpected blank map height');
+                        for (let el = img.parentElement; el; el = el.parentElement) {
+                            const css = getComputedStyle(el), r = el.getBoundingClientRect();
+                            if (['hidden', 'clip', 'auto', 'scroll'].includes(css.overflowX) && (b.left < r.left - 1 || b.right > r.right + 1)) errors.push('horizontal artwork clipping');
+                            if (['hidden', 'clip', 'auto', 'scroll'].includes(css.overflowY) && (b.top < r.top - 1 || b.bottom > r.bottom + 1)) errors.push('vertical artwork clipping');
+                        }
+                        const d = details.getBoundingClientRect(), c = cta.getBoundingClientRect();
+                        const overlaps = (x, y) => Math.min(x.right, y.right) > Math.max(x.left, y.left) + 1 && Math.min(x.bottom, y.bottom) > Math.max(x.top, y.top) + 1;
+                        if (overlaps(b, d) || overlaps(b, c)) errors.push('text or CTA overlaps artwork');
+                        if (${width} >= 768 && (b.height > 600 || Math.abs(panel.top + panel.height / 2 - d.top - d.height / 2) > 2)) errors.push('unbalanced desktop map');
+                        for (const link of [visual, cta, directions]) {
+                            if (!link || link.href !== directions.href || link.target !== '_blank' || !link.relList.contains('noopener') || !link.relList.contains('noreferrer')) errors.push('navigation contract');
+                            link.scrollIntoView({ block: 'center', behavior: 'instant' });
+                            const r = link.getBoundingClientRect();
+                            if (!link.contains(document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2))) errors.push('navigation covered or unreachable');
+                        }
+                        // Every area can be brought clear of fixed mobile chrome by normal scrolling.
+                        for (const fraction of [0.08, 0.5, 0.92]) {
+                            const r = img.getBoundingClientRect();
+                            window.scrollTo({ top: scrollY + r.top + r.height * fraction - innerHeight / 2, behavior: 'instant' });
+                            const moved = img.getBoundingClientRect();
+                            for (const x of [0.08, 0.5, 0.92]) {
+                                if (!visual.contains(document.elementFromPoint(moved.left + moved.width * x, moved.top + moved.height * fraction))) errors.push('artwork covered by fixed chrome');
+                            }
+                        }
+                        return { errors, direction: document.documentElement.dir };
+                    })()`);
+                    assert.deepEqual(result.errors, [], `${surface}/${language} ${width}x${height}: ${JSON.stringify(result)}`);
+                    assert.equal(result.direction, language === 'ar' ? 'rtl' : 'ltr');
+                    illustratedMaps++;
+                    if (process.env.KBC_LOCATION_QA_DIR) {
+                        await evaluate(`document.querySelector('.home-map-preview, .contact-map-panel').scrollIntoView({ block: 'center', behavior: 'instant' })`);
+                        const shot = await send('Page.captureScreenshot', { format: 'png' });
+                        fs.mkdirSync(process.env.KBC_LOCATION_QA_DIR, { recursive: true });
+                        fs.writeFileSync(path.join(process.env.KBC_LOCATION_QA_DIR, `${surface}-${language}-${width}x${height}.png`), Buffer.from(shot.data, 'base64'));
+                    }
+                }
+            }
+        }
         const widths = [320, 360, 375, 390, 412, 430, 479, 480, 540, 600, 639, 640, 641, 667, 719, 720, 767, 768, 799, 800, 844, 899, 900, 1023, 1024, 1279, 1280, 1440];
         let reviews = 0, folders = 0, notifications = 0, rotations = 0, closeout = 0;
         for (const language of ["ar", "en"]) {
@@ -109,7 +191,7 @@ async function main() {
                             const map = document.querySelector('.home-map-preview, .contact-map-panel');
                             if (map && map.getBoundingClientRect().width) {
                                 const bounds = map.getBoundingClientRect();
-                                const link = map.querySelector('a');
+                                const link = map.querySelector('.map-open-link');
                                 const rect = link.getBoundingClientRect();
                                 if (rect.left < bounds.left || rect.right > bounds.right || Math.abs((rect.left + rect.right) - (bounds.left + bounds.right)) > 2) {
                                     failures.push({ kind: 'map-link-outside-or-off-center', rect: rect.toJSON(), bounds: bounds.toJSON() });
@@ -249,7 +331,7 @@ async function main() {
                 `${label}: panel usability ${JSON.stringify(result)}`);
             assert(result.firstReachable && result.lastReachable, `${label}: entries inaccessible ${JSON.stringify(result)}`);
         }
-        console.log(`PASS: ${closeout} additional closeout cases (maps, case details, medical text, attachment names, folder deletion, link actions); ${reviews} Home/Reviews long-content cases; ${folders} medical-folder text geometry cases; ${notifications} notification viewport cases; ${rotations} open-panel rotations (AR/EN).`);
+        console.log(`PASS: ${illustratedMaps} approved illustrated map cases (Home/Contact, AR/EN, 14 exact viewports); ${closeout} additional closeout cases (maps, case details, medical text, attachment names, folder deletion, link actions); ${reviews} Home/Reviews long-content cases; ${folders} medical-folder text geometry cases; ${notifications} notification viewport cases; ${rotations} open-panel rotations (AR/EN).`);
     } finally {
         if (send && ws?.readyState === WebSocket.OPEN) { send("Browser.close").catch(() => {}); await delay(300); }
         ws?.close();
