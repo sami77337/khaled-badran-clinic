@@ -1,4 +1,4 @@
-"""Localized website destinations, ready for a future provider menu adapter."""
+"""Localized website destinations shared by the Meta menu and website flows."""
 
 from dataclasses import dataclass
 
@@ -20,6 +20,7 @@ def localized_url(route, language="ar", **kwargs):
 def entry_actions(language="ar"):
     definitions = (
         ("book", "حجز موعد", "Book Appointment", "book", ""),
+        ("portal", "حساب المريض", "Patient Account", "patient_portal_dashboard", ""),
         ("consult_patient", "استشارة لمريض مسجل", "Registered Patient Consultation", "patient_portal_consultation_new", "consult"),
         ("consult_guest", "استشارة كزائر", "Guest Consultation", "guest_consultation_entry", "consult"),
         ("appointments", "مواعيدي", "Existing Appointments", "patient_portal_appointment_list", "appointments"),
