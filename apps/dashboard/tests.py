@@ -27,6 +27,7 @@ from apps.clinic.models import (
     VisitType,
 )
 from apps.core.models import AuditLog, SystemSetting
+from apps.core.test_utils import close_test_response
 from apps.dashboard import views as dashboard_views
 from apps.patients.models import Patient
 from apps.records.models import (
@@ -2053,16 +2054,16 @@ class DashboardStandalonePublicCaseTests(DashboardRecordWorkflowMixin, TestCase)
         self.assertIn("attachment", download["Content-Disposition"])
         self.assertNotIn("private-marketing-source", preview["Content-Disposition"])
         self.assertNotIn(str(media.file.name), preview["Content-Disposition"])
-        preview.close()
-        download.close()
+        close_test_response(preview)
+        close_test_response(download)
 
         media.file.storage.delete(media.file.name)
         missing_preview = self.client.get(preview_url)
         missing_download = self.client.get(download_url)
         self.assertEqual(missing_preview.status_code, 404)
         self.assertEqual(missing_download.status_code, 404)
-        missing_preview.close()
-        missing_download.close()
+        close_test_response(missing_preview)
+        close_test_response(missing_download)
 
     def test_publish_requires_case_and_asset_consent_existing_file_and_valid_role(self):
         case = self.create_case(consent_confirmed=False)
@@ -2417,7 +2418,7 @@ class DashboardUpdateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertEqual(media.visibility, RecordMedia.Visibility.VISIBLE_TO_PATIENT)
         self.assertEqual(own_response.status_code, 200)
         self.assertEqual(other_response.status_code, 404)
-        own_response.close()
+        close_test_response(own_response)
 
     def test_generic_media_edit_rejects_removed_public_visibility(self):
         media = self.create_media(patient=self.patient, visibility=RecordMedia.Visibility.PRIVATE_ONLY)
@@ -2463,7 +2464,7 @@ class DashboardUpdateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
                 kwargs={"public_id": visible_media.public_id},
             )
         )
-        visible_before.close()
+        close_test_response(visible_before)
 
         self.client.post(
             self.media_update_url(visible_media),

@@ -15,6 +15,7 @@ from apps.booking import services as booking_services
 from apps.booking.models import Appointment
 from apps.clinic.models import Doctor, DoctorSchedule, VisitType
 from apps.core.models import SystemSetting
+from apps.core.test_utils import close_test_response
 from apps.patients import phone_change
 from apps.patients.models import (
     CONSULTATION_IMAGE_MAX_BYTES,
@@ -420,7 +421,7 @@ class ConsultationExpansionTests(ExpansionTestMixin, TestCase):
         )
         self.assertEqual(media.status_code, 200)
         self.assertEqual(media["X-Content-Type-Options"], "nosniff")
-        media.close()
+        close_test_response(media)
 
     def test_patient_attachment_is_protected_and_not_direct_url(self):
         _, attachment = self.create_consultation_with_attachment()
@@ -433,7 +434,7 @@ class ConsultationExpansionTests(ExpansionTestMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
         self.assertIn(str(attachment.public_id), response["Content-Disposition"])
-        response.close()
+        close_test_response(response)
         detail = self.client.get(
             reverse(
                 "patient_portal_consultation_detail",

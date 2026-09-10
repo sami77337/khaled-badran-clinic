@@ -2220,7 +2220,7 @@ def dashboard_scheduling_closure_create(request):
         # cancellation operation, so it never trusts a previously rendered count.
         conflict_queryset = _closure_conflict_queryset(doctor, closure_date)
         if closure_action == "cancel" and confirm_cancellation:
-            conflict_queryset = conflict_queryset.select_for_update()
+            conflict_queryset = conflict_queryset.select_for_update(of=("self",))
         conflicts = list(conflict_queryset)
         if conflicts:
             if closure_action == "cancel" and not confirm_cancellation:
