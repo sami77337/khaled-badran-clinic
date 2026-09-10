@@ -14,16 +14,16 @@ from apps.whatsapp.actions import localized_url
 logger = logging.getLogger(__name__)
 
 REPLY_MESSAGES = {
-    "ar": "تم الرد على استشارتك من عيادة الدكتور خالد بدران. اضغط لعرض الرد بشكل آمن.",
-    "en": "Dr. Khaled Badran Clinic has replied to your consultation. Open the secure link to view the reply.",
+    "ar": "تم إضافة رد جديد من عيادة الدكتور خالد بدران على استشارتك.",
+    "en": "Dr. Khaled Badran Clinic has added a new reply to your consultation.",
 }
 
 
 def send_reply_notification(*, phone_e164, path, language):
-    """Callable signature: (phone_e164, message, secure_url, language).
+    """Callable signature: (phone_e164, message, website_url, language).
 
     Runs after commit; missing configuration, False results and exceptions are
-    safe delivery failures. Never log provider exceptions, phone or payload.
+    delivery failures. Never log provider exceptions, phone or payload.
     """
     try:
         sender = settings.WHATSAPP_CONSULTATION_NOTIFICATION_SENDER
