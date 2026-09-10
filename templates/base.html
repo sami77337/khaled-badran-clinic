@@ -14,6 +14,37 @@
     <meta property="og:description" content="{{ meta_description|default:'Dr. Khaled Badran Clinic public website.' }}">
     <meta property="og:image" content="{{ og_image_url }}">
     <meta property="og:locale" content="{% if is_arabic %}ar_JO{% else %}en_US{% endif %}">
+    {% if page_key == "home" %}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "MedicalClinic",
+      "@id": "{{ canonical_url|escapejs }}#clinic",
+      "name": "{{ clinic.name_en|escapejs }}",
+      "alternateName": "{{ clinic.name_ar|escapejs }}",
+      "url": "{{ canonical_url|escapejs }}",
+      "telephone": "{{ clinic.phone_e164|escapejs }}",
+      "image": "{{ og_image_url|escapejs }}",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "{{ clinic.address_en|escapejs }}",
+        "addressLocality": "Amman",
+        "addressCountry": "JO"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 31.970276,
+        "longitude": 35.8934391
+      },
+      "employee": {
+        "@type": "Person",
+        "name": "{{ doctor.full_name_en|escapejs }}",
+        "alternateName": "{{ doctor.full_name_ar|escapejs }}",
+        "jobTitle": "{{ doctor.specialty_en|escapejs }}"
+      }
+    }
+    </script>
+    {% endif %}
     <link rel="manifest" href="{% static 'site.webmanifest' %}">
     <link rel="icon" href="{% static 'img/icons/site-icon.svg' %}" type="image/svg+xml">
     <link rel="stylesheet" href="{% static 'css/site.css' %}">
