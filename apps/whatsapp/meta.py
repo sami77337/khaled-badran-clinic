@@ -15,14 +15,13 @@ from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.urls import reverse
-from django.utils import timezone
 
 from apps.booking.phone import normalize_phone
 
 
 _GRAPH_VERSION_RE = re.compile(r"^v\d+\.\d+$")
 _PHONE_NUMBER_ID_RE = re.compile(r"^\d+$")
+_META_RECIPIENT_RE = re.compile(r"^[1-9]\d{7,14}$")
 
 
 class WhatsAppConfigurationError(ImproperlyConfigured):
@@ -57,9 +56,21 @@ def _template_language(language: str) -> str:
     return _setting(setting_name)
 
 
-def _recipient(phone_e164: str) -> str:
-    normalized = normalize_phone(phone_e164)
-    return normalized.lstrip("+")
+def _recipient(phone_value: str) -> str:
+    """Return Meta's international digit-only recipient form.
+
+    Webhook `from` values arrive digit-only, while application-owned phone
+    values normally use E.164 with a leading plus. Accept both without making
+    Jordan-specific assumptions for inbound international users.
+    """
+    raw = str(phone_value or "").strip()
+    if _META_RECIPIENT_RE.fullmatch(raw):
+        return raw
+    normalized = normalize_phone(raw)
+    recipient = normalized.lstrip("+")
+    if not _META_RECIPIENT_RE.fullmatch(recipient):
+        raise WhatsAppConfigurationError("WhatsApp recipient is invalid.")
+    return recipient
 
 
 def _graph_endpoint() -> str:
@@ -95,28 +106,28 @@ def _post(payload: dict) -> bool:
     return True
 
 
-def _base_payload(phone_e164: str) -> dict:
+def _base_payload(phone_value: str) -> dict:
     return {
         "messaging_product": "whatsapp",
         "recipient_type": "individual",
-        "to": _recipient(phone_e164),
+        "to": _recipient(phone_value),
     }
 
 
-def send_text(phone_e164: str, text: str) -> bool:
-    payload = _base_payload(phone_e164)
+def send_text(phone_value: str, text: str) -> bool:
+    payload = _base_payload(phone_value)
     payload.update({"type": "text", "text": {"preview_url": False, "body": text}})
     return _post(payload)
 
 
-def send_template(phone_e164: str, template_name: str, language: str, components=None) -> bool:
+def send_template(phone_value: str, template_name: str, language: str, components=None) -> bool:
     template = {
         "name": template_name,
         "language": {"code": _template_language(language)},
     }
     if components:
         template["components"] = components
-    payload = _base_payload(phone_e164)
+    payload = _base_payload(phone_value)
     payload.update({"type": "template", "template": template})
     return _post(payload)
 
@@ -150,11 +161,11 @@ def _template_url_suffix(url: str) -> str:
     return url[len(origin) + 1 :]
 
 
-def send_cta_url(phone_e164: str, *, body: str, label: str, url: str) -> bool:
+def send_cta_url(phone_value: str, *, body: str, label: str, url: str) -> bool:
     parsed = urlsplit(url)
     if parsed.scheme != "https" or not parsed.hostname:
         raise WhatsAppConfigurationError("WhatsApp CTA destination is invalid.")
-    payload = _base_payload(phone_e164)
+    payload = _base_payload(phone_value)
     payload.update(
         {
             "type": "interactive",
@@ -202,10 +213,10 @@ MAIN_MENU_ROWS = {
 }
 
 
-def main_menu_payload(phone_e164: str, language: str = "ar") -> dict:
+def main_menu_payload(phone_value: str, language: str = "ar") -> dict:
     language = _language(language)
     copy = MAIN_MENU_COPY[language]
-    payload = _base_payload(phone_e164)
+    payload = _base_payload(phone_value)
     payload.update(
         {
             "type": "interactive",
@@ -230,11 +241,11 @@ def main_menu_payload(phone_e164: str, language: str = "ar") -> dict:
     return payload
 
 
-def send_main_menu(phone_e164: str, language: str = "ar") -> bool:
-    return _post(main_menu_payload(phone_e164, language))
+def send_main_menu(phone_value: str, language: str = "ar") -> bool:
+    return _post(main_menu_payload(phone_value, language))
 
 
-def consultation_menu_payload(phone_e164: str, language: str = "ar") -> dict:
+def consultation_menu_payload(phone_value: str, language: str = "ar") -> dict:
     language = _language(language)
     body = "اختر طريقة المتابعة:" if language == "ar" else "Choose how to continue:"
     choices = (
@@ -242,7 +253,7 @@ def consultation_menu_payload(phone_e164: str, language: str = "ar") -> dict:
         if language == "ar"
         else (("kbc_consult_registered", "I have an account"), ("kbc_consult_guest", "Continue as guest"))
     )
-    payload = _base_payload(phone_e164)
+    payload = _base_payload(phone_value)
     payload.update(
         {
             "type": "interactive",
@@ -264,11 +275,11 @@ def consultation_menu_payload(phone_e164: str, language: str = "ar") -> dict:
     return payload
 
 
-def send_consultation_menu(phone_e164: str, language: str = "ar") -> bool:
-    return _post(consultation_menu_payload(phone_e164, language))
+def send_consultation_menu(phone_value: str, language: str = "ar") -> bool:
+    return _post(consultation_menu_payload(phone_value, language))
 
 
-def send_guest_otp(phone_e164: str, code: str, language: str) -> bool:
+def send_guest_otp(phone_value: str, code: str, language: str) -> bool:
     """Existing guest OTP callable contract: (phone_e164, code, language)."""
     template_name = _setting("WHATSAPP_META_TEMPLATE_GUEST_OTP")
     components = [
@@ -283,10 +294,10 @@ def send_guest_otp(phone_e164: str, code: str, language: str) -> bool:
             "parameters": [{"type": "text", "text": str(code)}],
         },
     ]
-    return send_template(phone_e164, template_name, language, components)
+    return send_template(phone_value, template_name, language, components)
 
 
-def send_consultation_notice(phone_e164: str, message: str, website_url_value: str, language: str) -> bool:
+def send_consultation_notice(phone_value: str, message: str, website_url_value: str, language: str) -> bool:
     """Existing reply callable contract; the free-form message is not sent."""
     del message
     template_name = _setting("WHATSAPP_META_TEMPLATE_CONSULTATION_REPLY")
@@ -299,67 +310,4 @@ def send_consultation_notice(phone_e164: str, message: str, website_url_value: s
             "parameters": [{"type": "text", "text": suffix}],
         }
     ]
-    return send_template(phone_e164, template_name, language, components)
-
-
-def _appointment_language(language: str | None = None) -> str:
-    return _language(language or getattr(settings, "WHATSAPP_DEFAULT_LANGUAGE", "ar"))
-
-
-def _appointment_time_text(appointment, language: str) -> str:
-    local = timezone.localtime(appointment.starts_at)
-    if language == "en":
-        return local.strftime("%Y-%m-%d %H:%M")
-    return local.strftime("%Y-%m-%d %H:%M")
-
-
-def _appointment_detail_url(appointment, language: str) -> str:
-    route = "patient_portal_appointment_detail_en" if language == "en" else "patient_portal_appointment_detail"
-    path = reverse(route, kwargs={"public_token": appointment.public_token})
-    return website_url(path)
-
-
-def send_booking_confirmation(appointment, language: str | None = None) -> bool:
-    language = _appointment_language(language)
-    template_name = _setting("WHATSAPP_META_TEMPLATE_BOOKING_CONFIRMATION")
-    components = [
-        {
-            "type": "body",
-            "parameters": [
-                {"type": "text", "text": appointment.confirmation_reference},
-                {"type": "text", "text": _appointment_time_text(appointment, language)},
-            ],
-        },
-        {
-            "type": "button",
-            "sub_type": "url",
-            "index": "0",
-            "parameters": [
-                {"type": "text", "text": _template_url_suffix(_appointment_detail_url(appointment, language))}
-            ],
-        },
-    ]
-    return send_template(appointment.effective_whatsapp_phone, template_name, language, components)
-
-
-def send_appointment_reminder(appointment, language: str | None = None) -> bool:
-    language = _appointment_language(language)
-    template_name = _setting("WHATSAPP_META_TEMPLATE_APPOINTMENT_REMINDER")
-    components = [
-        {
-            "type": "body",
-            "parameters": [
-                {"type": "text", "text": _appointment_time_text(appointment, language)},
-                {"type": "text", "text": appointment.confirmation_reference},
-            ],
-        },
-        {
-            "type": "button",
-            "sub_type": "url",
-            "index": "0",
-            "parameters": [
-                {"type": "text", "text": _template_url_suffix(_appointment_detail_url(appointment, language))}
-            ],
-        },
-    ]
-    return send_template(appointment.effective_whatsapp_phone, template_name, language, components)
+    return send_template(phone_value, template_name, language, components)
