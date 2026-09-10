@@ -177,3 +177,89 @@ def check_registration_attempt_rate_limit(request, *, normalized_phone=""):
         )
 
     return _first_blocked(results)
+
+
+def check_consultation_submission_rate_limit(request):
+    return _rate_limit(
+        "consultation-submit",
+        _user_ip_identity(request),
+        limit=_setting_int("PATIENT_CONSULTATION_RATE_LIMIT_PER_HOUR", 5),
+        timeout=60 * 60,
+        message="Too many consultation submissions. Please try again later.",
+    )
+
+
+def check_phone_change_start_rate_limit(request):
+    return _rate_limit(
+        "phone-change-start",
+        _user_ip_identity(request),
+        limit=_setting_int("ACCOUNT_PHONE_CHANGE_START_RATE_LIMIT_PER_HOUR", 5),
+        timeout=60 * 60,
+        message="Too many phone verification requests. Please try again later.",
+    )
+
+
+def check_phone_change_resend_rate_limit(request):
+    return _rate_limit(
+        "phone-change-resend",
+        _user_ip_identity(request),
+        limit=_setting_int("ACCOUNT_PHONE_CHANGE_RESEND_RATE_LIMIT_PER_HOUR", 5),
+        timeout=60 * 60,
+        message="Too many verification-code requests. Please try again later.",
+    )
+
+
+def check_phone_change_verify_rate_limit(request):
+    return _rate_limit(
+        "phone-change-verify",
+        _user_ip_identity(request),
+        limit=_setting_int("ACCOUNT_PHONE_CHANGE_VERIFY_RATE_LIMIT_PER_HOUR", 20),
+        timeout=60 * 60,
+        message="Too many verification attempts. Please try again later.",
+    )
+
+
+def check_link_recovery_start_rate_limit(request, *, normalized_phone=""):
+    results = [
+        _rate_limit(
+            "link-recovery-start-user-ip",
+            _user_ip_identity(request),
+            limit=_setting_int("APPOINTMENT_LINK_RECOVERY_START_RATE_LIMIT_PER_HOUR", 5),
+            timeout=60 * 60,
+            message=GENERIC_LINK_RATE_LIMIT_MESSAGE,
+        )
+    ]
+    if normalized_phone:
+        results.append(
+            _rate_limit(
+                "link-recovery-start-phone",
+                normalized_phone,
+                limit=_setting_int(
+                    "APPOINTMENT_LINK_RECOVERY_PHONE_RATE_LIMIT_PER_HOUR",
+                    5,
+                ),
+                timeout=60 * 60,
+                message=GENERIC_LINK_RATE_LIMIT_MESSAGE,
+            )
+        )
+    return _first_blocked(results)
+
+
+def check_link_recovery_resend_rate_limit(request):
+    return _rate_limit(
+        "link-recovery-resend",
+        _user_ip_identity(request),
+        limit=_setting_int("APPOINTMENT_LINK_RECOVERY_RESEND_RATE_LIMIT_PER_HOUR", 5),
+        timeout=60 * 60,
+        message=GENERIC_LINK_RATE_LIMIT_MESSAGE,
+    )
+
+
+def check_link_recovery_verify_rate_limit(request):
+    return _rate_limit(
+        "link-recovery-verify",
+        _user_ip_identity(request),
+        limit=_setting_int("APPOINTMENT_LINK_RECOVERY_VERIFY_RATE_LIMIT_PER_HOUR", 20),
+        timeout=60 * 60,
+        message=GENERIC_LINK_RATE_LIMIT_MESSAGE,
+    )

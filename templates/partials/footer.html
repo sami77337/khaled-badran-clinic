@@ -1,26 +1,44 @@
 <footer class="site-footer">
-    <div class="container footer-grid">
-        <div>
+    <div class="container footer-main">
+        <div class="footer-identity">
             <p class="footer-brand">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</p>
-            <p class="muted">
-                {% if is_arabic %}
-                    موقع عيادة الدكتور خالد بدران مع حجز إلكتروني وبوابة مريض اختيارية ضمن نطاق آمن ومحدود.
-                {% else %}
-                    Public website for Dr. Khaled Badran Clinic with online booking and an optional bounded patient portal.
-                {% endif %}
+            <p class="footer-specialization">
+                {% if is_arabic %}{{ doctor.footer_summary_ar }}{% else %}{{ doctor.footer_summary_en }}{% endif %}
             </p>
+            <div class="footer-actions">
+                <a class="btn btn-light" href="{{ footer_primary_url|default:booking_url }}">{{ footer_primary_label|default:labels.book }}</a>
+                <a class="btn btn-outline-light" href="{% if is_arabic %}{% url 'login' %}{% else %}{% url 'login_en' %}{% endif %}">{{ labels.patient_portal }}</a>
+            </div>
         </div>
-        <div>
-            <h2 class="footer-heading">{% if is_arabic %}روابط{% else %}Links{% endif %}</h2>
-            <ul class="footer-links">
-                {% for label, url in legal_links %}
-                    <li><a href="{{ url }}">{{ label }}</a></li>
-                {% endfor %}
-            </ul>
+
+        <div class="footer-column">
+            <h2 class="footer-heading">{% if is_arabic %}العيادة{% else %}Clinic{% endif %}</h2>
+            <nav class="footer-links" aria-label="{% if is_arabic %}روابط العيادة{% else %}Clinic links{% endif %}">
+                <a href="{{ doctor_url }}">{{ labels.doctor }}</a>
+                <a href="{{ services_url }}">{{ labels.services }}</a>
+                <a href="{{ cases_url }}">{{ labels.cases }}</a>
+                <a href="{% if is_arabic %}{% url 'patient_portal_dashboard' %}{% else %}{% url 'patient_portal_dashboard_en' %}{% endif %}">{{ labels.patient_portal }}</a>
+            </nav>
         </div>
-        <div>
-            <h2 class="footer-heading">{% if is_arabic %}تنبيه سلامة{% else %}Safety Note{% endif %}</h2>
-            <p class="muted">{{ labels.not_emergency }}</p>
+
+        <div class="footer-column footer-contact">
+            <h2 class="footer-heading">{{ labels.contact }}</h2>
+            <address>
+                <a class="footer-location" href="{{ clinic.map_url }}" target="_blank" rel="noopener noreferrer">
+                    {% if is_arabic %}{{ clinic.address_ar|linebreaksbr }}{% else %}{{ clinic.address_en|linebreaksbr }}{% endif %}
+                </a>
+                <a class="footer-phone" href="tel:{{ clinic.phone_e164 }}" dir="ltr">{{ clinic.phone_display }}</a>
+                <a class="footer-whatsapp" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">{{ labels.whatsapp }}</a>
+            </address>
         </div>
+    </div>
+
+    <div class="container footer-meta">
+        <p class="footer-emergency">{{ labels.public_emergency }}</p>
+        <nav class="footer-legal" aria-label="{% if is_arabic %}الروابط القانونية{% else %}Legal links{% endif %}">
+            {% for label, url in legal_links %}<a href="{{ url }}">{{ label }}</a>{% endfor %}
+            <a href="{% if is_arabic %}{% url 'login' %}{% else %}{% url 'login_en' %}{% endif %}?role=doctor">{% if is_arabic %}دخول الموظفين{% else %}Staff Login{% endif %}</a>
+        </nav>
+        <p class="footer-copyright">© {% now "Y" %} {% if is_arabic %}{{ clinic.name_ar }}. جميع الحقوق محفوظة.{% else %}{{ clinic.name_en }}. All rights reserved.{% endif %}</p>
     </div>
 </footer>

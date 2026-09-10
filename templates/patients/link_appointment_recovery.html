@@ -1,0 +1,96 @@
+{% extends "patients/portal_base.html" %}
+{% load static %}
+
+{% block patient_portal_styles %}<link rel="stylesheet" href="{% static 'css/booking.css' %}">{% endblock %}
+
+{% block patient_portal_content %}
+<div class="dashboard-content patient-page-content page-booking" data-patient-page="link-appointment-recovery">
+    <header class="patient-page-heading">
+        <div>
+            <p class="dashboard-eyebrow">{% if is_arabic %}المواعيد{% else %}Appointments{% endif %}</p>
+            <h1>{% if is_arabic %}استعادة ربط المواعيد{% else %}Recover Appointment Link{% endif %}</h1>
+        </div>
+        <a class="patient-secondary-action" href="{{ portal_link_url }}">{% if is_arabic %}لدي كود الموعد{% else %}I have the appointment code{% endif %}</a>
+    </header>
+
+    {% include "patients/_portal_messages.html" %}
+
+    {% if recovery_candidates %}
+        <section class="dashboard-card patient-form-card" aria-labelledby="recovery-results-title">
+            <div class="dashboard-card-header"><div><p class="dashboard-card-kicker">{% if is_arabic %}تم التحقق{% else %}Verified{% endif %}</p><h2 id="recovery-results-title">{% if is_arabic %}المواعيد المطابقة{% else %}Matching Appointments{% endif %}</h2></div></div>
+            <div class="patient-card-body">
+                {% if recovery_candidates.conflict or not recovery_candidates.appointments %}
+                    <p role="alert">{{ recovery_generic_message }}</p>
+                {% else %}
+                    <div class="patient-table-scroll" role="region" tabindex="0" aria-label="{% if is_arabic %}المواعيد المطابقة{% else %}Matching appointments{% endif %}">
+                        <table class="patient-table">
+                            <thead><tr><th>{% if is_arabic %}التاريخ والوقت{% else %}Date and Time{% endif %}</th><th>{% if is_arabic %}نوع الزيارة{% else %}Visit Type{% endif %}</th><th>{% if is_arabic %}الحالة{% else %}Status{% endif %}</th></tr></thead>
+                            <tbody>
+                            {% for appointment in recovery_candidates.appointments %}
+                                <tr>
+                                    <td><time dir="ltr" datetime="{{ appointment.starts_at|date:'c' }}">{{ appointment.starts_at|date:"Y-m-d H:i" }}</time></td>
+                                    <td>{% if appointment.visit_type %}{% if is_arabic %}{{ appointment.visit_type.name_ar }}{% else %}{{ appointment.visit_type.name_en }}{% endif %}{% else %}{% if is_arabic %}غير محدد{% else %}Not specified{% endif %}{% endif %}</td>
+                                    <td><span class="dashboard-status-pill status-{{ appointment.status }}">{{ appointment.portal_status_label }}</span></td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if recovery_candidates.can_link %}
+                        <form class="patient-inline-form" method="post" action="{{ portal_link_recovery_url }}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="link">
+                            <button class="patient-primary-action" type="submit">{% if is_arabic %}ربط هذه المواعيد بحسابي{% else %}Link these appointments to my account{% endif %}</button>
+                        </form>
+                    {% elif recovery_candidates.already_linked %}
+                        <p>{% if is_arabic %}هذه المواعيد مرتبطة بحسابك بالفعل.{% else %}These appointments are already linked to your account.{% endif %}</p>
+                        <a class="patient-primary-action" href="{{ portal_appointments_url }}">{% if is_arabic %}عرض مواعيدي{% else %}View My Appointments{% endif %}</a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </section>
+    {% else %}
+        <section class="dashboard-card patient-form-card" aria-labelledby="recovery-phone-title">
+            <div class="dashboard-card-header"><div><p class="dashboard-card-kicker">{% if is_arabic %}تحقق آمن{% else %}Secure Verification{% endif %}</p><h2 id="recovery-phone-title">{% if is_arabic %}رقم هاتف الحجز{% else %}Booking Phone Number{% endif %}</h2></div></div>
+            <div class="patient-card-body">
+                <p class="muted">{% if is_arabic %}سنرسل رمزًا من 6 أرقام عبر واتساب. لن تظهر أي مواعيد قبل التحقق.{% else %}We will send a 6-digit code by WhatsApp. No appointments are shown before verification.{% endif %}</p>
+                <form class="patient-form booking-form" method="post" action="{{ portal_link_recovery_url }}" novalidate data-booking-patient-form>
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="start">
+                    {% if start_form.non_field_errors %}<div class="form-errors" role="alert">{{ start_form.non_field_errors }}</div>{% endif %}
+                    <div class="form-field">
+                        {{ start_form.phone.label_tag }}
+                        {% include "booking/partials/international_phone_field.html" with field=start_form.phone control_key="link-appointment-recovery" %}
+                        {{ start_form.phone.errors }}
+                    </div>
+                    <div class="patient-form-actions"><button class="patient-primary-action" type="submit">{% if is_arabic %}إرسال رمز واتساب{% else %}Send WhatsApp Code{% endif %}</button></div>
+                </form>
+            </div>
+        </section>
+
+        {% if active_challenge %}
+            <section class="dashboard-card patient-form-card" aria-labelledby="recovery-otp-title">
+                <div class="dashboard-card-header"><div><p class="dashboard-card-kicker">{% if is_arabic %}واتساب فقط{% else %}WhatsApp Only{% endif %}</p><h2 id="recovery-otp-title">{% if is_arabic %}أدخل رمز التحقق{% else %}Enter Verification Code{% endif %}</h2></div></div>
+                <div class="patient-card-body">
+                    <form class="patient-form" method="post" action="{{ portal_link_recovery_url }}" novalidate>
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="verify">
+                        {{ verify_form.challenge_id }}
+                        {% if verify_form.non_field_errors %}<div class="form-errors" role="alert">{{ verify_form.non_field_errors }}</div>{% endif %}
+                        <div class="form-field">{{ verify_form.otp.label_tag }}{{ verify_form.otp }}{{ verify_form.otp.errors }}</div>
+                        <div class="patient-form-actions"><button class="patient-primary-action" type="submit">{% if is_arabic %}تحقق واعرض المواعيد{% else %}Verify and Show Appointments{% endif %}</button></div>
+                    </form>
+                    <form class="patient-inline-form" method="post" action="{{ portal_link_recovery_url }}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="resend">
+                        <input type="hidden" name="challenge_id" value="{{ active_challenge.public_id }}">
+                        <button class="patient-secondary-action" type="submit">{% if is_arabic %}إعادة إرسال الرمز{% else %}Resend Code{% endif %}</button>
+                    </form>
+                </div>
+            </section>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block patient_portal_scripts %}<script src="{% static 'js/booking.js' %}" defer></script>{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "patients/portal_base.html" %}
+
+{% block patient_portal_content %}
+<div class="dashboard-content patient-page-content" data-patient-page="consultation-delete-confirmation">
+    <header class="patient-page-heading">
+        <div><p class="dashboard-eyebrow">{% if is_arabic %}الاستشارات{% else %}Consultations{% endif %}</p><h1>{% if is_arabic %}حذف الاستشارة{% else %}Delete Consultation{% endif %}</h1></div>
+    </header>
+    <section class="dashboard-card patient-form-card">
+        <div class="dashboard-card-header"><div><h2>{% if is_arabic %}تأكيد الحذف النهائي{% else %}Confirm Permanent Deletion{% endif %}</h2></div></div>
+        <div class="patient-card-body">
+            <p>{% if is_arabic %}سيتم حذف هذه الاستشارة ومرفقاتها نهائيًا. لا يمكن التراجع عن هذا الإجراء.{% else %}This consultation and its attachments will be permanently deleted. This action cannot be undone.{% endif %}</p>
+            <form class="patient-inline-form" method="post" action="{{ consultation_delete_url }}">
+                {% csrf_token %}
+                <button class="patient-primary-action" type="submit">{% if is_arabic %}حذف الاستشارة{% else %}Delete Consultation{% endif %}</button>
+                <a class="patient-secondary-action" href="{{ consultation_detail_url }}">{% if is_arabic %}رجوع{% else %}Go Back{% endif %}</a>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}

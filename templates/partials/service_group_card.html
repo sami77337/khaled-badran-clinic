@@ -1,0 +1,8 @@
+<article class="service-card">
+    <h3>{{ service_group.title }}</h3>
+    <ul>
+        {% for bullet in service_group.bullet_items %}
+            <li>{{ bullet }}</li>
+        {% endfor %}
+    </ul>
+</article>

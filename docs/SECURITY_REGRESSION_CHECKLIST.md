@@ -116,12 +116,15 @@ Run this checklist before any staging launch, production launch, or feature batc
 - Patient pages do not link staff appointment operation URLs.
 - Patient templates do not expose audit/status-history/private-note strings.
 
-## Routes Not Yet Implemented
+## Route Implementation Boundaries
 
-- No upload routes yet, including under `/portal/`.
+- No public or patient medical-media upload route exists.
+- Staff-only protected private medical-media upload routes are implemented.
 - No WhatsApp webhook routes yet.
 - No online payment routes yet.
-- No medical record routes yet.
+- No public or unscoped medical-record route exists.
+- Authenticated patients have read-only access only to their own staff-approved
+  medical-record content.
 - No medical AI, diagnosis automation, triage automation, or treatment automation routes.
 
 ## Public Page Privacy

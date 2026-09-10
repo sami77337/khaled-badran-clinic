@@ -1,0 +1,126 @@
+<section class="scheduling-management" aria-labelledby="services-title">
+    <header class="scheduling-management-header">
+        <div>
+            <p>{% if is_arabic %}إدارة خدمات الحجز{% else %}Booking services{% endif %}</p>
+            <h2 id="services-title">{% if is_arabic %}الخدمات{% else %}Services{% endif %}</h2>
+        </div>
+        <p>
+            {% if is_arabic %}
+                تؤثر مدة الخدمة في الأوقات المتاحة للحجز. يمكنك إضافة خدمة أو إيقافها دون حذف المواعيد السابقة.
+            {% else %}
+                Service duration affects bookable times. Add or deactivate a service without deleting historical appointments.
+            {% endif %}
+        </p>
+    </header>
+
+    {% if not scheduling_doctor %}
+        <div class="scheduling-unavailable" role="status">
+            <span aria-hidden="true">—</span>
+            <div>
+                <h2>{% if is_arabic %}الإدارة غير متاحة حالياً{% else %}Management is currently unavailable{% endif %}</h2>
+                <p>{% if is_arabic %}لا يوجد طبيب نشط لإدارة الخدمات المتوافقة.{% else %}There is no active doctor for managing compatible services.{% endif %}</p>
+            </div>
+        </div>
+    {% else %}
+        {% if scheduling_service_confirmation %}
+            <section class="scheduling-conflict-warning" id="service-warning" role="alert" aria-labelledby="service-warning-title">
+                <header>
+                    <p>{% if is_arabic %}تأكيد مطلوب{% else %}Confirmation required{% endif %}</p>
+                    <h3 id="service-warning-title">
+                        {% if is_arabic %}توجد مواعيد قادمة تستخدم هذه الخدمة{% else %}Future appointments use this service{% endif %}
+                    </h3>
+                    <p>
+                        {% if is_arabic %}
+                            سيؤدي إيقاف الخدمة إلى إخفائها من خيارات الحجز الجديدة فقط. لن يتم إلغاء المواعيد التالية أو تغييرها.
+                        {% else %}
+                            Deactivating the service removes it from new booking choices only. The appointments below will not be cancelled or changed.
+                        {% endif %}
+                    </p>
+                </header>
+                <div class="scheduling-conflict-list" role="list">
+                    {% for conflict in scheduling_service_conflicts %}
+                        <div class="scheduling-conflict-item" role="listitem">
+                            <span><small>{% if is_arabic %}الوقت{% else %}Time{% endif %}</small><strong dir="ltr">{{ conflict.time }}</strong></span>
+                            <span><small>{% if is_arabic %}المريض{% else %}Patient{% endif %}</small>{{ conflict.patient_name }}</span>
+                            <span><small>{% if is_arabic %}الخدمة{% else %}Service{% endif %}</small>{{ conflict.service }}</span>
+                            <span><small>{% if is_arabic %}الحالة{% else %}Status{% endif %}</small>{{ conflict.status }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+                <form method="post" action="{{ scheduling_service_confirmation.action_url }}" class="scheduling-confirm-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="confirm_service_deactivation" value="yes">
+                    <button class="scheduling-button is-danger" type="submit">
+                        {% if is_arabic %}إيقاف الخدمة مع إبقاء المواعيد{% else %}Deactivate service and keep appointments{% endif %}
+                    </button>
+                    <a class="scheduling-cancel-link" href="{{ scheduling_service_confirmation.cancel_url }}">{% if is_arabic %}رجوع{% else %}Go back{% endif %}</a>
+                </form>
+            </section>
+        {% endif %}
+
+        <form method="post" action="{{ scheduling_service_create_url }}" class="scheduling-management-card scheduling-service-create-form" id="add-service">
+            {% csrf_token %}
+            <div class="scheduling-service-form-heading">
+                <div>
+                    <h3>{% if is_arabic %}إضافة خدمة{% else %}Add Service{% endif %}</h3>
+                    <p>{% if is_arabic %}ستظهر الخدمة النشطة في الحجز العام مباشرة.{% else %}The active service will appear in Public Booking immediately.{% endif %}</p>
+                </div>
+            </div>
+            {{ scheduling_service_create_form.non_field_errors }}
+            <div class="scheduling-service-create-fields">
+                {% for field in scheduling_service_create_form.visible_fields %}
+                    <div class="scheduling-field">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {{ field.errors }}
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="scheduling-form-actions">
+                <button class="scheduling-button" type="submit">{% if is_arabic %}إضافة الخدمة{% else %}Add Service{% endif %}</button>
+            </div>
+        </form>
+
+        <div class="scheduling-service-management-list">
+            {% for item in scheduling_service_items %}
+                <article class="scheduling-management-card scheduling-service-card{% if not item.visit_type.is_active %} is-inactive{% endif %}" id="service-{{ item.visit_type.pk }}">
+                    <header class="scheduling-service-summary">
+                        <div>
+                            <span class="scheduling-state-label">
+                                {% if item.visit_type.is_active %}
+                                    {% if is_arabic %}نشطة للحجز{% else %}Active for booking{% endif %}
+                                {% else %}
+                                    {% if is_arabic %}متوقفة{% else %}Inactive{% endif %}
+                                {% endif %}
+                            </span>
+                            <h3>{% if is_arabic %}{{ item.visit_type.name_ar|default:item.visit_type.name_en }}{% else %}{{ item.visit_type.name_en|default:item.visit_type.name_ar }}{% endif %}</h3>
+                        </div>
+                    </header>
+                    <form method="post" action="{{ item.update_url }}" class="scheduling-service-duration-form">
+                        {% csrf_token %}
+                        {{ item.form.non_field_errors }}
+                        <div class="scheduling-field">
+                            <label for="{{ item.form.duration_minutes.id_for_label }}">{{ item.form.duration_minutes.label }}</label>
+                            {{ item.form.duration_minutes }}
+                            {{ item.form.duration_minutes.errors }}
+                        </div>
+                        <button class="scheduling-button" type="submit">{% if is_arabic %}حفظ المدة{% else %}Save duration{% endif %}</button>
+                    </form>
+                    {% if item.visit_type.is_active %}
+                        <form method="post" action="{{ item.deactivate_url }}" class="scheduling-service-state-form">
+                            {% csrf_token %}
+                            <button class="scheduling-button is-danger" type="submit">{% if is_arabic %}إيقاف الخدمة{% else %}Deactivate Service{% endif %}</button>
+                        </form>
+                    {% else %}
+                        <form method="post" action="{{ item.reactivate_url }}" class="scheduling-service-state-form">
+                            {% csrf_token %}
+                            <button class="scheduling-button" type="submit">{% if is_arabic %}إعادة تفعيل الخدمة{% else %}Reactivate Service{% endif %}</button>
+                        </form>
+                    {% endif %}
+                </article>
+            {% empty %}
+                <div class="scheduling-management-empty" role="status">{% if is_arabic %}لا توجد خدمات بعد. أضف أول خدمة للحجز.{% else %}No services yet. Add the first booking service.{% endif %}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</section>

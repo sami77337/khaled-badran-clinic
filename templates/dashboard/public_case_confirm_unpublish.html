@@ -1,0 +1,31 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block dashboard_styles %}
+    <link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content patient-record-content record-form-page">
+    <header class="record-page-header record-form-header">
+        <a class="record-back-link" href="{{ cancel_url }}">
+            <span aria-hidden="true">←</span>
+            <span>{% if is_arabic %}العودة إلى الحالات العامة{% else %}Back to Public Cases{% endif %}</span>
+        </a>
+        <p class="record-eyebrow">{{ public_case.title }}</p>
+        <h1>{% if is_arabic %}إلغاء النشر{% else %}Unpublish Public Case{% endif %}</h1>
+    </header>
+
+    <section class="record-form-panel" aria-labelledby="unpublish-warning-title">
+        <h2 class="dashboard-sr-only" id="unpublish-warning-title">{% if is_arabic %}تأكيد إلغاء النشر{% else %}Confirm unpublish{% endif %}</h2>
+        <p class="record-folder-delete-warning">{% if is_arabic %}سيتم إخفاء الحالة من الموقع العام، وستبقى الوسائط الدعائية محفوظة في مدير الحالات العامة.{% else %}The case will be hidden from the public website. Its marketing media will remain in the Public Cases manager.{% endif %}</p>
+        <form class="record-form" method="post" action="">
+            {% csrf_token %}
+            <div class="record-form-actions">
+                <button type="submit">{% if is_arabic %}إلغاء النشر{% else %}Unpublish{% endif %}</button>
+                <a href="{{ cancel_url }}">{% if is_arabic %}إلغاء{% else %}Cancel{% endif %}</a>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}

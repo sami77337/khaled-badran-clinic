@@ -1,0 +1,31 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block dashboard_styles %}
+    <link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content patient-record-content record-form-page">
+    <header class="record-page-header record-form-header">
+        <a class="record-back-link" href="{{ cancel_url }}">
+            <span aria-hidden="true">&larr;</span>
+            <span>{% if is_arabic %}&#1575;&#1604;&#1593;&#1608;&#1583;&#1577; &#1573;&#1604;&#1609; &#1587;&#1580;&#1604; &#1575;&#1604;&#1605;&#1585;&#1610;&#1590;{% else %}Back to Patient Record{% endif %}</span>
+        </a>
+        <p class="record-eyebrow">{{ media_type_label }}</p>
+        <h1>{% if is_arabic %}&#1606;&#1602;&#1604; &#1575;&#1604;&#1608;&#1587;&#1575;&#1574;&#1591; &#1573;&#1604;&#1609; &#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578;{% else %}Move Media to Trash{% endif %}</h1>
+    </header>
+
+    <section class="record-form-panel" aria-labelledby="trash-warning-title">
+        <h2 class="dashboard-sr-only" id="trash-warning-title">{% if is_arabic %}&#1578;&#1571;&#1603;&#1610;&#1583; &#1575;&#1604;&#1606;&#1602;&#1604; &#1573;&#1604;&#1609; &#1575;&#1604;&#1587;&#1604;&#1577;{% else %}Confirm move to Trash{% endif %}</h2>
+        <p class="record-folder-delete-warning">{% if is_arabic %}&#1587;&#1578;&#1582;&#1578;&#1601;&#1610; &#1575;&#1604;&#1608;&#1587;&#1575;&#1574;&#1591; &#1601;&#1608;&#1585;&#1575;&#1611; &#1605;&#1606; &#1575;&#1604;&#1605;&#1585;&#1610;&#1590; &#1608;&#1575;&#1604;&#1605;&#1608;&#1602;&#1593; &#1575;&#1604;&#1593;&#1575;&#1605;&#1548; &#1608;&#1587;&#1610;&#1578;&#1605; &#1575;&#1604;&#1575;&#1581;&#1578;&#1601;&#1575;&#1592; &#1576;&#1575;&#1604;&#1605;&#1604;&#1601; &#1604;&#1605;&#1583;&#1577; 30 &#1610;&#1608;&#1605;&#1575;&#1611; &#1602;&#1576;&#1604; &#1581;&#1584;&#1601;&#1607; &#1606;&#1607;&#1575;&#1574;&#1610;&#1575;&#1611;.{% else %}The media will immediately disappear from patient and public views. Its file will be retained for 30 days before permanent deletion.{% endif %}</p>
+        <form class="record-form" method="post" action="">
+            {% csrf_token %}
+            <div class="record-form-actions">
+                <button type="submit">{% if is_arabic %}&#1606;&#1602;&#1604; &#1573;&#1604;&#1609; &#1587;&#1604;&#1577; &#1575;&#1604;&#1605;&#1581;&#1584;&#1608;&#1601;&#1575;&#1578;{% else %}Move to Trash{% endif %}</button>
+                <a href="{{ cancel_url }}">{% if is_arabic %}&#1573;&#1604;&#1594;&#1575;&#1569;{% else %}Cancel{% endif %}</a>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}

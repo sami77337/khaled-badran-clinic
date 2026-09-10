@@ -1,30 +1,31 @@
-{% extends "base.html" %}
+{% extends "dashboard/base.html" %}
+{% load static %}
 
-{% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">لوحة داخلية للطاقم</p>
+{% block dashboard_styles %}
+    <link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content patient-record-content record-form-page">
+    <header class="record-page-header record-form-header">
+        <a class="record-back-link" href="{{ cancel_url }}">
+            <span aria-hidden="true">←</span>
+            <span>{% if is_arabic %}العودة إلى سجل المريض{% else %}Back to Patient Record{% endif %}</span>
+        </a>
+        <p class="record-eyebrow">{% if is_arabic %}المريض: {{ patient.full_name }}{% else %}Patient: {{ patient.full_name }}{% endif %}</p>
         <h1>{{ form_title }}</h1>
-        <p>المريض: {{ patient.full_name }}. الملاحظات لا تظهر للمريض إلا عند اختيار ظاهر للمريض.</p>
-    </div>
-</section>
+    </header>
 
-<section class="section">
-    <div class="container staff-layout">
-        {% include "dashboard/_dashboard_nav.html" %}
-
-        <form class="booking-form" method="post" action="">
+    <section class="record-form-panel" aria-labelledby="note-form-title">
+        <h2 class="dashboard-sr-only" id="note-form-title">{{ form_title }}</h2>
+        <form class="record-form" method="post" action="">
             {% csrf_token %}
             {% include "dashboard/_form_fields.html" %}
-            <div class="hero-actions">
-                <button class="btn btn-primary" type="submit">حفظ الملاحظة</button>
-                <a class="btn btn-secondary" href="{{ cancel_url }}">إلغاء</a>
+            <div class="record-form-actions">
+                <button type="submit">{% if is_arabic %}حفظ الملاحظة{% else %}Save Note{% endif %}</button>
+                <a href="{{ cancel_url }}">{% if is_arabic %}إلغاء{% else %}Cancel{% endif %}</a>
             </div>
         </form>
-
-        <p class="trust-note">
-            بوابة المريض للقراءة فقط، ولا تسمح للمرضى بتعديل السجل أو رفع ملفات.
-        </p>
-    </div>
-</section>
+    </section>
+</div>
 {% endblock %}

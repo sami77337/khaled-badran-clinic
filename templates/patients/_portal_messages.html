@@ -1,0 +1,7 @@
+{% if messages %}
+    <div class="patient-portal-messages" aria-live="polite">
+        {% for message in messages %}
+            <p>{{ message }}</p>
+        {% endfor %}
+    </div>
+{% endif %}

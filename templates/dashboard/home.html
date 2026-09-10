@@ -1,0 +1,84 @@
+{% extends "dashboard/base.html" %}
+
+{% block dashboard_content %}
+<div class="dashboard-content">
+    <section class="dashboard-welcome" aria-labelledby="dashboard-welcome-title">
+        <div class="dashboard-welcome-copy">
+            <p class="dashboard-eyebrow">{% if is_arabic %}نظرة عامة{% else %}Dashboard Overview{% endif %}</p>
+            <h1 id="dashboard-welcome-title">
+                {% if is_arabic %}مرحباً مجدداً، د. {{ dashboard_doctor_first_name }}{% else %}Welcome back, Dr. {{ dashboard_doctor_first_name }}{% endif %}
+            </h1>
+            <p>{% if is_arabic %}إليك ما يحدث في العيادة اليوم.{% else %}Here is what's happening at the clinic today.{% endif %}</p>
+        </div>
+        <div class="dashboard-avatar" aria-label="{% if is_arabic %}حساب د. {{ dashboard_doctor_first_name }}{% else %}Dr. {{ dashboard_doctor_first_name }} account{% endif %}">
+            <span aria-hidden="true">{{ dashboard_doctor_initials }}</span>
+        </div>
+    </section>
+
+    <section class="dashboard-metrics" aria-label="{% if is_arabic %}إحصاءات العيادة{% else %}Clinic statistics{% endif %}">
+        {% for metric in metric_cards %}
+            <article class="dashboard-stat-card" data-metric="{{ metric.key }}">
+                <p class="dashboard-stat-label">{{ metric.label }}</p>
+                <p class="dashboard-stat-value">{{ metric.value }}</p>
+                {% if metric.sublabel %}<p class="dashboard-stat-context">{{ metric.sublabel }}</p>{% endif %}
+            </article>
+        {% endfor %}
+    </section>
+
+    <div class="dashboard-overview-grid">
+        <section class="dashboard-card dashboard-schedule-card" aria-labelledby="today-schedule-title">
+            <div class="dashboard-card-header">
+                <div>
+                    <p class="dashboard-card-kicker">{% if is_arabic %}اليوم{% else %}Today{% endif %}</p>
+                    <h2 id="today-schedule-title">{% if is_arabic %}جدول اليوم{% else %}Today's Schedule{% endif %}</h2>
+                </div>
+                <a class="dashboard-view-all" href="{{ staff_appointments_url }}">
+                    <span>{% if is_arabic %}عرض الكل{% else %}View All{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                </a>
+            </div>
+
+            {% if schedule_items %}
+                <ol class="dashboard-schedule-list">
+                    {% for item in schedule_items %}
+                        <li class="dashboard-schedule-row">
+                            <time class="dashboard-schedule-time" datetime="{{ item.appointment.starts_at|date:'c' }}" dir="ltr">
+                                {{ item.appointment.starts_at|time:"H:i" }}
+                            </time>
+                            <div class="dashboard-schedule-patient">
+                                <h3>{{ item.appointment.patient.full_name }}</h3>
+                                <p>{{ item.visit_type_label }}</p>
+                            </div>
+                            <span class="dashboard-status-pill status-{{ item.status_class }}">{{ item.status_label }}</span>
+                        </li>
+                    {% endfor %}
+                </ol>
+            {% else %}
+                <div class="dashboard-empty-state">
+                    <span class="dashboard-empty-mark" aria-hidden="true">—</span>
+                    <p>{% if is_arabic %}لا توجد مواعيد لليوم.{% else %}No appointments scheduled for today.{% endif %}</p>
+                </div>
+            {% endif %}
+        </section>
+
+        <aside class="dashboard-card dashboard-quick-actions" aria-labelledby="quick-actions-title">
+            <div class="dashboard-card-header dashboard-quick-actions-header">
+                <div>
+                    <p class="dashboard-card-kicker">{% if is_arabic %}اختصارات{% else %}Shortcuts{% endif %}</p>
+                    <h2 id="quick-actions-title">{% if is_arabic %}إجراءات سريعة{% else %}Quick Actions{% endif %}</h2>
+                </div>
+            </div>
+            <div class="dashboard-action-list">
+                <a class="dashboard-action-link is-primary" href="{{ dashboard_patients_url }}">
+                    <span>{% if is_arabic %}عرض المرضى{% else %}View Patients{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                </a>
+                <a class="dashboard-action-link" href="{{ staff_appointments_url }}">
+                    <span>{% if is_arabic %}عرض المواعيد{% else %}View Appointments{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                </a>
+            </div>
+        </aside>
+    </div>
+</div>
+{% endblock %}

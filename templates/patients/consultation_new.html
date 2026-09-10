@@ -1,0 +1,23 @@
+{% extends "patients/portal_base.html" %}
+
+{% block patient_portal_content %}
+<div class="dashboard-content patient-page-content" data-patient-page="consultation-new">
+    <header class="patient-page-heading">
+        <div><p class="dashboard-eyebrow">{% if is_arabic %}استشارة الطبيب{% else %}Consultations{% endif %}</p><h1>{% if is_arabic %}استشارة جديدة{% else %}New Consultation{% endif %}</h1></div>
+        <a class="patient-secondary-action" href="{{ portal_consultations_url }}">{% if is_arabic %}كل الاستشارات{% else %}All Consultations{% endif %}</a>
+    </header>
+    {% include "patients/_portal_messages.html" %}
+    <section class="dashboard-card patient-form-card" aria-labelledby="consultation-form-title">
+        <div class="dashboard-card-header"><div><p class="dashboard-card-kicker">{% if is_arabic %}طلب جديد{% else %}New Request{% endif %}</p><h2 id="consultation-form-title">{% if is_arabic %}تفاصيل الاستشارة{% else %}Consultation Details{% endif %}</h2></div></div>
+        <div class="patient-card-body">
+            <form class="patient-form" method="post" enctype="multipart/form-data" action="{{ portal_consultation_new_url }}" novalidate>
+                {% csrf_token %}
+                {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+                <div class="form-field">{{ form.question.label_tag }}{{ form.question }}{{ form.question.errors }}</div>
+                <div class="form-field">{{ form.attachments.label_tag }}{{ form.attachments }}{{ form.attachments.errors }}<p class="muted">{% if is_arabic %}حتى 5 ملفات: JPG أو PNG أو WebP أو PDF بحجم 10 ميجابايت لكل ملف، أو MP4 قصير بحجم 50 ميجابايت.{% else %}Up to 5 files: JPG, PNG, WebP, or PDF up to 10 MiB each; short MP4 up to 50 MiB.{% endif %}</p></div>
+                <div class="patient-form-actions"><button class="patient-primary-action" type="submit">{% if is_arabic %}إرسال الاستشارة{% else %}Submit Consultation{% endif %}</button><a class="patient-secondary-action" href="{{ portal_consultations_url }}">{% if is_arabic %}إلغاء{% else %}Cancel{% endif %}</a></div>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}

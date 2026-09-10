@@ -10,8 +10,8 @@
             <h2>{% if is_arabic %}تصنيف واضح للخدمات{% else %}Clear service categories{% endif %}</h2>
         </div>
         <div class="card-grid">
-            {% for service in service_groups %}
-                {% include "partials/service_card.html" with service=service %}
+            {% for service_group in service_groups %}
+                {% include "partials/service_group_card.html" with service_group=service_group %}
             {% endfor %}
         </div>
     </div>
@@ -21,12 +21,12 @@
     <div class="container">
         <div class="section-heading">
             <p class="eyebrow">{% if is_arabic %}أنواع الزيارات{% else %}Visit Types{% endif %}</p>
-            <h2>{% if is_arabic %}خيارات أولية للحجز لاحقاً{% else %}Initial options for later booking{% endif %}</h2>
-            <p>{% if is_arabic %}هذه الأنواع لا تنشئ حجزاً حالياً، وتستخدم كتحضير لدفعة الحجز القادمة.{% else %}These options do not create bookings now; they prepare the next booking batch.{% endif %}</p>
+            <h2>{% if is_arabic %}اختر نوع الزيارة المناسب{% else %}Choose the appropriate visit type{% endif %}</h2>
+            <p>{% if is_arabic %}اختر نوع الزيارة ثم انتقل إلى المواعيد المتاحة. لا يلزم تسجيل الدخول للحجز.{% else %}Choose a visit type, then continue to the available appointment times. Sign-in is not required to book.{% endif %}</p>
         </div>
         <div class="service-list-grid">
-            {% for service in visit_types %}
-                {% include "partials/service_card.html" with service=service %}
+            {% for visit_type in visit_types %}
+                {% include "partials/service_card.html" with visit_type=visit_type %}
             {% endfor %}
         </div>
     </div>

@@ -1,0 +1,38 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block dashboard_styles %}
+    <link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content patient-record-content record-form-page">
+    <header class="record-page-header record-form-header">
+        <a class="record-back-link" href="{{ cancel_url }}">
+            <span aria-hidden="true">←</span>
+            <span>{% if is_arabic %}العودة إلى سجل المريض{% else %}Back to Patient Record{% endif %}</span>
+        </a>
+        <p class="record-eyebrow">{% if is_arabic %}المريض: {{ patient.full_name }}{% else %}Patient: {{ patient.full_name }}{% endif %}</p>
+        <h1>{{ form_title }}</h1>
+    </header>
+
+    <section class="record-form-panel record-folder-delete-confirmation" aria-labelledby="folder-delete-title">
+        <h2 id="folder-delete-title">{{ folder.name }}</h2>
+        <p class="record-folder-delete-warning">
+            {% if is_arabic %}
+                حذف المجلد لن يحذف الملفات. ستنتقل الملفات إلى "بدون مجلد".
+            {% else %}
+                Deleting this folder will not delete media. Its files will become Unfiled.
+            {% endif %}
+        </p>
+        <p>{% if is_arabic %}عدد الملفات: {{ folder_media_count }}{% else %}Media files: {{ folder_media_count }}{% endif %}</p>
+        <form class="record-form" method="post" action="{{ delete_url }}">
+            {% csrf_token %}
+            <div class="record-form-actions">
+                <button type="submit">{% if is_arabic %}تأكيد حذف المجلد{% else %}Confirm Folder Deletion{% endif %}</button>
+                <a href="{{ cancel_url }}">{% if is_arabic %}إلغاء{% else %}Cancel{% endif %}</a>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}

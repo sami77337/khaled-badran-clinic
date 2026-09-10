@@ -1,65 +1,99 @@
-{% extends "base.html" %}
+{% extends "auth/base.html" %}
 
 {% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">{% if is_arabic %}حساب اختياري{% else %}Optional Account{% endif %}</p>
-        <h1>{% if is_arabic %}إنشاء حساب بوابة المريض{% else %}Create a Patient Portal Account{% endif %}</h1>
-        <p>{{ labels.not_emergency }}</p>
-    </div>
-</section>
+<section class="auth-page auth-register-page" aria-labelledby="auth-title">
+    <div class="auth-card auth-register-card" data-auth-register>
+        <div class="auth-identity" aria-label="{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}">
+            <span class="auth-monogram" aria-hidden="true">KB</span>
+            <span class="auth-clinic-name">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</span>
+        </div>
 
-<section class="section">
-    <div class="container booking-layout">
-        <form class="booking-form" method="post" action="{{ portal_register_url }}">
+        <div class="auth-heading">
+            <h1 id="auth-title">{% if is_arabic %}إنشاء حساب{% else %}Create your account{% endif %}</h1>
+        </div>
+
+        <form class="auth-form auth-register-form" method="post" action="{{ portal_register_url }}" data-patient-register-form>
             {% csrf_token %}
             {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
-            {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
-            <div class="form-field">
-                {{ form.full_name.label_tag }}
-                {{ form.full_name }}
-                {{ form.full_name.errors }}
-            </div>
-            <div class="form-field">
-                {{ form.phone.label_tag }}
-                {{ form.phone }}
-                {{ form.phone.errors }}
-            </div>
-            <div class="form-field">
-                {{ form.email.label_tag }}
-                {{ form.email }}
-                {{ form.email.errors }}
-            </div>
-            <div class="form-field">
-                {{ form.password1.label_tag }}
-                {{ form.password1 }}
-                {{ form.password1.errors }}
-            </div>
-            <div class="form-field">
-                {{ form.password2.label_tag }}
-                {{ form.password2 }}
-                {{ form.password2.errors }}
-            </div>
-            <div class="hero-actions">
-                <button class="btn btn-primary" type="submit">{% if is_arabic %}إنشاء الحساب{% else %}Create account{% endif %}</button>
-                <a class="btn btn-secondary" href="{{ portal_login_url }}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">
-                    {% if is_arabic %}لدي حساب{% else %}I have an account{% endif %}
-                </a>
-                <a class="btn btn-secondary" href="{{ portal_account_recovery_url }}">
-                    {% if is_arabic %}استعادة الحساب{% else %}Account recovery{% endif %}
-                </a>
-            </div>
-        </form>
-        <p class="trust-note">
-            {% if is_arabic %}
-                {% if False %}
-                بعد إنشاء الحساب، اربط موعدك باستخدام رمز التأكيد ورقم الهاتف المستخدم في الحجز. السجلات الطبية ورفع الملفات غير متاحة حاليا.
-                {% endif %}
-                بعد إنشاء الحساب، اربط موعدك باستخدام رمز التأكيد ورقم الهاتف المستخدم في الحجز. تظهر السجلات المعتمدة فقط، ولا يتوفر رفع الملفات من بوابة المريض.
-            {% else %}
-                After creating an account, link your appointment using the confirmation token and booking phone number. Only approved records are visible, and patient uploads are not available.
+
+            {% if form.non_field_errors %}
+                <div class="auth-form-errors" role="alert">{{ form.non_field_errors }}</div>
             {% endif %}
-        </p>
+
+            <div class="auth-field{% if form.full_name.errors %} has-error{% endif %}">
+                <label for="{{ form.full_name.id_for_label }}">{{ form.full_name.label }}</label>
+                {{ form.full_name }}
+                {% if form.full_name.errors %}<div class="auth-field-errors" role="alert">{{ form.full_name.errors }}</div>{% endif %}
+            </div>
+
+            <div class="auth-field{% if form.phone.errors %} has-error{% endif %}">
+                <label for="{{ form.phone.id_for_label }}">{{ form.phone.label }}</label>
+                {% include "booking/partials/international_phone_field.html" with field=form.phone control_key="patient-register" hide_phone_hint=True %}
+                {% if form.phone.errors %}<div class="auth-field-errors" role="alert">{{ form.phone.errors }}</div>{% endif %}
+            </div>
+
+            <div class="auth-field{% if form.email.errors %} has-error{% endif %}">
+                <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                {{ form.email }}
+                {% if form.email.errors %}<div class="auth-field-errors" role="alert">{{ form.email.errors }}</div>{% endif %}
+            </div>
+
+            <div class="auth-field{% if form.password1.errors %} has-error{% endif %}">
+                <label for="{{ form.password1.id_for_label }}">{{ form.password1.label }}</label>
+                <div class="auth-password-control">
+                    {{ form.password1 }}
+                    <button
+                        class="auth-password-toggle"
+                        type="button"
+                        aria-label="{% if is_arabic %}إظهار كلمة المرور{% else %}Show password{% endif %}"
+                        aria-pressed="false"
+                        data-show-label="{% if is_arabic %}إظهار كلمة المرور{% else %}Show password{% endif %}"
+                        data-hide-label="{% if is_arabic %}إخفاء كلمة المرور{% else %}Hide password{% endif %}"
+                        data-password-toggle
+                    >
+                        <svg aria-hidden="true" viewBox="0 0 22 22" fill="none">
+                            <path d="M2.7 11s3.1-5.1 8.3-5.1 8.3 5.1 8.3 5.1-3.1 5.1-8.3 5.1S2.7 11 2.7 11Z" stroke="currentColor" stroke-width="1.45"/>
+                            <circle cx="11" cy="11" r="2.3" stroke="currentColor" stroke-width="1.45"/>
+                        </svg>
+                    </button>
+                </div>
+                {% if form.password1.errors %}<div class="auth-field-errors" role="alert">{{ form.password1.errors }}</div>{% endif %}
+            </div>
+
+            <div class="auth-field{% if form.password2.errors %} has-error{% endif %}">
+                <label for="{{ form.password2.id_for_label }}">{{ form.password2.label }}</label>
+                <div class="auth-password-control">
+                    {{ form.password2 }}
+                    <button
+                        class="auth-password-toggle"
+                        type="button"
+                        aria-label="{% if is_arabic %}إظهار تأكيد كلمة المرور{% else %}Show confirm password{% endif %}"
+                        aria-pressed="false"
+                        data-show-label="{% if is_arabic %}إظهار تأكيد كلمة المرور{% else %}Show confirm password{% endif %}"
+                        data-hide-label="{% if is_arabic %}إخفاء تأكيد كلمة المرور{% else %}Hide confirm password{% endif %}"
+                        data-password-toggle
+                    >
+                        <svg aria-hidden="true" viewBox="0 0 22 22" fill="none">
+                            <path d="M2.7 11s3.1-5.1 8.3-5.1 8.3 5.1 8.3 5.1-3.1 5.1-8.3 5.1S2.7 11 2.7 11Z" stroke="currentColor" stroke-width="1.45"/>
+                            <circle cx="11" cy="11" r="2.3" stroke="currentColor" stroke-width="1.45"/>
+                        </svg>
+                    </button>
+                </div>
+                {% if form.password2.errors %}<div class="auth-field-errors" role="alert">{{ form.password2.errors }}</div>{% endif %}
+            </div>
+
+            <button class="auth-submit" type="submit">
+                <span>{% if is_arabic %}إنشاء الحساب{% else %}Create account{% endif %}</span>
+                <svg class="auth-submit-arrow" aria-hidden="true" viewBox="0 0 20 20" fill="none">
+                    <path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+
+            <p class="auth-register-return">
+                {% if is_arabic %}لديك حساب بالفعل؟{% else %}Already have an account?{% endif %}
+                <a href="{{ portal_login_url }}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">{% if is_arabic %}تسجيل الدخول{% else %}Sign in{% endif %}</a>
+            </p>
+        </form>
     </div>
 </section>
 {% endblock %}

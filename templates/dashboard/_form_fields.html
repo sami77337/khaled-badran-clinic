@@ -1,15 +1,22 @@
-{{ form.non_field_errors }}
+{% if form.non_field_errors %}
+    <div class="record-form-errors" role="alert">{{ form.non_field_errors }}</div>
+{% endif %}
 {% for hidden in form.hidden_fields %}
     {{ hidden }}
-    {{ hidden.errors }}
+    {% if hidden.errors %}<div class="record-field-errors" role="alert">{{ hidden.errors }}</div>{% endif %}
 {% endfor %}
 {% for field in form.visible_fields %}
-    <div class="form-field">
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {{ field.errors }}
-        {% if field.help_text %}
-            <p class="muted">{{ field.help_text }}</p>
+    <div class="record-form-field{% if field.field.widget.input_type == 'checkbox' %} is-checkbox{% endif %}{% if field.errors %} has-errors{% endif %}">
+        {% if field.field.widget.input_type == 'checkbox' %}
+            <div class="record-checkbox-control">
+                {{ field }}
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            </div>
+        {% else %}
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
         {% endif %}
+        {% if field.errors %}<div class="record-field-errors" role="alert">{{ field.errors }}</div>{% endif %}
+        {% if field.help_text %}<p class="record-field-help">{{ field.help_text }}</p>{% endif %}
     </div>
 {% endfor %}

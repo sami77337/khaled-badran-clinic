@@ -1,0 +1,173 @@
+<section class="scheduling-management scheduling-special-hours" id="day-management" aria-labelledby="special-hours-title">
+    <header class="scheduling-management-header">
+        <div>
+            <p>{% if is_arabic %}التاريخ المحدد{% else %}Selected date{% endif %} · <span dir="ltr">{{ scheduling_selected_date|date:"Y-m-d" }}</span></p>
+            <h2 id="special-hours-title">{% if is_arabic %}تخصيص ساعات هذا اليوم{% else %}Customize this day{% endif %}</h2>
+        </div>
+        <p>{% if is_arabic %}المصدر الحالي{% else %}Current source{% endif %}: <strong>{{ scheduling_selected_day.effective_source_label }}</strong></p>
+    </header>
+
+    {% if not scheduling_doctor %}
+        <div class="scheduling-unavailable" role="status">
+            <span aria-hidden="true">—</span>
+            <div>
+                <h2>{% if is_arabic %}الإدارة غير متاحة حالياً{% else %}Management is currently unavailable{% endif %}</h2>
+                <p>{% if is_arabic %}لا يوجد طبيب نشط لتخصيص ساعات هذا اليوم.{% else %}There is no active doctor whose hours can be customized.{% endif %}</p>
+            </div>
+        </div>
+    {% else %}
+        <div class="scheduling-day-mode-actions" aria-label="{% if is_arabic %}خيارات دوام اليوم{% else %}Day schedule options{% endif %}">
+            <button
+                class="scheduling-mode-action"
+                type="button"
+                data-scheduling-customization-toggle
+                aria-controls="scheduling-customization-details"
+                aria-expanded="{% if scheduling_customization_open %}true{% else %}false{% endif %}"
+            >{% if is_arabic %}تخصيص ساعات هذا اليوم{% else %}Customize this day{% endif %}</button>
+            <a class="scheduling-mode-action is-danger" href="{{ scheduling_close_selected_day_url }}">{% if is_arabic %}إغلاق اليوم بالكامل{% else %}Close full day{% endif %}</a>
+        </div>
+
+        <div class="scheduling-customization-details" id="scheduling-customization-details"{% if not scheduling_customization_open %} hidden{% endif %}>
+        {% if scheduling_selected_day.is_closed and scheduling_selected_day.has_special_hours %}
+            <div class="scheduling-special-closed-note" role="status">
+                <strong>{% if is_arabic %}مغلق{% else %}Closed{% endif %}</strong>
+                <span>{% if is_arabic %}هذا اليوم مغلق. الساعات المخصصة محفوظة لكنها غير فعالة أثناء الإغلاق.{% else %}This date is closed. Customized hours are preserved but ignored while the closure is active.{% endif %}</span>
+            </div>
+        {% endif %}
+
+        {% if scheduling_special_conflicts and scheduling_special_confirmation %}
+            <section class="scheduling-conflict-warning" role="alert" aria-labelledby="special-warning-title">
+                <header>
+                    <p>{% if is_arabic %}تأكيد مطلوب{% else %}Confirmation required{% endif %}</p>
+                    <h3 id="special-warning-title">
+                        {% if is_arabic %}
+                            يوجد موعد خارج ساعات الدوام الجديدة
+                        {% else %}
+                            An appointment is outside the new working hours
+                        {% endif %}
+                    </h3>
+                    <p>
+                        {% if is_arabic %}
+                            بعض المواعيد المحجوزة لا تقع ضمن الساعات التي اخترتها لهذا اليوم. لن يتم نقل أو تغيير أي موعد تلقائياً إلا إذا اخترت إجراءً صريحاً.
+                        {% else %}
+                            Some booked appointments do not fit within the hours you selected for this day. No appointment will be moved or changed automatically.
+                        {% endif %}
+                    </p>
+                    <p><strong>{% if is_arabic %}التاريخ{% else %}Date{% endif %}:</strong> <time dir="ltr" datetime="{{ scheduling_special_confirmation.date|date:'Y-m-d' }}">{{ scheduling_special_confirmation.date|date:"Y-m-d" }}</time></p>
+                </header>
+                <div class="scheduling-conflict-list" role="list">
+                    {% for conflict in scheduling_special_conflicts %}
+                        <div class="scheduling-conflict-item" role="listitem">
+                            <span><small>{% if is_arabic %}الوقت{% else %}Time{% endif %}</small><strong dir="ltr">{{ conflict.time }}</strong></span>
+                            <span><small>{% if is_arabic %}المريض{% else %}Patient{% endif %}</small>{{ conflict.patient_name }}</span>
+                            <span><small>{% if is_arabic %}الخدمة{% else %}Service{% endif %}</small>{{ conflict.service }}</span>
+                            <span><small>{% if is_arabic %}الحالة{% else %}Status{% endif %}</small>{{ conflict.status }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+                <form method="post" action="{{ scheduling_special_confirmation.action_url }}" class="scheduling-special-confirm-form">
+                    {% csrf_token %}
+                    {% if scheduling_special_confirmation.form %}
+                        {{ scheduling_special_confirmation.form.non_field_errors }}
+                        {% for field in scheduling_special_confirmation.form.hidden_fields %}{{ field }}{{ field.errors }}{% endfor %}
+                        <div class="scheduling-special-fields">
+                            {% for field in scheduling_special_confirmation.form.visible_fields %}
+                                <div class="scheduling-field">
+                                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                    {{ field }}
+                                    {{ field.errors }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    {% for field in scheduling_special_confirmation.hidden_fields %}
+                        <input type="hidden" name="{{ field.name }}" value="{{ field.value }}">
+                    {% endfor %}
+                    <input type="hidden" name="confirm_special_hours" value="yes">
+                    <div class="scheduling-confirm-form">
+                        <button class="scheduling-button is-danger" type="submit">{{ scheduling_special_confirmation.operation_label }}</button>
+                        <a class="scheduling-cancel-link" href="{{ scheduling_current_url }}">{% if is_arabic %}العودة دون تغيير{% else %}Go back without changing hours{% endif %}</a>
+                    </div>
+                </form>
+            </section>
+        {% else %}
+            <div class="scheduling-special-reference-grid">
+                <section class="scheduling-management-card" aria-labelledby="weekly-default-title">
+                    <h3 id="weekly-default-title">{% if is_arabic %}الجدول الأسبوعي{% else %}Normal weekly hours{% endif %}</h3>
+                    {% if scheduling_selected_day.weekly_periods %}
+                        <ul class="scheduling-period-list">
+                            {% for period in scheduling_selected_day.weekly_periods %}<li dir="ltr"><time>{{ period.start }}</time><span>–</span><time>{{ period.end }}</time></li>{% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="scheduling-empty-copy">{% if is_arabic %}لا توجد ساعات أسبوعية لهذا اليوم.{% else %}No weekly hours for this weekday.{% endif %}</p>
+                    {% endif %}
+                </section>
+                <section class="scheduling-management-card" aria-labelledby="special-effective-title">
+                    <h3 id="special-effective-title">{% if is_arabic %}الساعات المخصصة لهذا اليوم{% else %}Customized hours for this day{% endif %}</h3>
+                    {% if scheduling_selected_day.special_periods %}
+                        <ul class="scheduling-period-list">
+                            {% for period in scheduling_selected_day.special_periods %}<li dir="ltr"><time>{{ period.start }}</time><span>–</span><time>{{ period.end }}</time></li>{% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="scheduling-empty-copy">{% if is_arabic %}لا يوجد تخصيص نشط؛ يُستخدم الدوام الأسبوعي تلقائياً.{% else %}No customization is active; the weekly schedule is used automatically.{% endif %}</p>
+                    {% endif %}
+                </section>
+            </div>
+
+            <form method="post" action="{{ scheduling_special_create_url }}" class="scheduling-management-card scheduling-special-form" id="customize-day-form">
+                {% csrf_token %}
+                {{ scheduling_special_create_form.non_field_errors }}
+                {% for field in scheduling_special_create_form.hidden_fields %}{{ field }}{{ field.errors }}{% endfor %}
+                <div class="scheduling-special-form-heading">
+                    <h3>{% if is_arabic %}إضافة فترة دوام لهذا اليوم{% else %}Add working period for this day{% endif %}</h3>
+                    <p>{% if is_arabic %}أضف فترات منفصلة لتمثيل أوقات التوقف بينهما.{% else %}Use separate periods to represent time off between them.{% endif %}</p>
+                </div>
+                <div class="scheduling-special-fields">
+                    {% for field in scheduling_special_create_form.visible_fields %}
+                        <div class="scheduling-field">
+                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {{ field.errors }}
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="scheduling-form-actions"><button class="scheduling-button" type="submit">{% if is_arabic %}إضافة فترة مخصصة{% else %}Add customized period{% endif %}</button></div>
+            </form>
+
+            <section class="scheduling-period-editor-list" aria-labelledby="active-special-title">
+                <header class="scheduling-special-list-heading">
+                    <div>
+                        <h3 id="active-special-title">{% if is_arabic %}فترات الدوام المخصصة{% else %}Customized working periods{% endif %}</h3>
+                        <p>{% if is_arabic %}إيقاف آخر فترة يعيد هذا اليوم تلقائياً إلى الدوام الأسبوعي.{% else %}Deactivating the final period returns this date to weekly hours automatically.{% endif %}</p>
+                    </div>
+                </header>
+                {% for item in scheduling_special_items %}
+                    <article class="scheduling-management-card scheduling-special-item">
+                        <form method="post" action="{{ item.update_url }}" class="scheduling-special-form">
+                            {% csrf_token %}
+                            {{ item.update_form.non_field_errors }}
+                            {% for field in item.update_form.hidden_fields %}{{ field }}{{ field.errors }}{% endfor %}
+                            <div class="scheduling-special-fields">
+                                {% for field in item.update_form.visible_fields %}
+                                    <div class="scheduling-field">
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                        {{ field }}
+                                        {{ field.errors }}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <div class="scheduling-form-actions"><button class="scheduling-button" type="submit">{% if is_arabic %}حفظ التعديل{% else %}Save changes{% endif %}</button></div>
+                        </form>
+                        <form method="post" action="{{ item.deactivate_url }}" class="scheduling-deactivate-form">
+                            {% csrf_token %}
+                            <button class="scheduling-button is-danger" type="submit">{% if is_arabic %}إيقاف هذه الفترة المخصصة{% else %}Deactivate this customized period{% endif %}</button>
+                        </form>
+                    </article>
+                {% empty %}
+                    <div class="scheduling-management-empty" role="status">{% if is_arabic %}لا توجد فترات مخصصة نشطة لهذا التاريخ.{% else %}There are no active customized periods for this date.{% endif %}</div>
+                {% endfor %}
+            </section>
+        {% endif %}
+        </div>
+    {% endif %}
+</section>

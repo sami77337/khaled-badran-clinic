@@ -1,0 +1,55 @@
+<nav
+    class="dashboard-mobile-bottom-nav"
+    aria-label="{% if is_arabic %}التنقل الرئيسي على الهاتف{% else %}Primary mobile navigation{% endif %}"
+    data-mobile-bottom-navigation="{{ mobile_nav_scope }}"
+>
+    {% if mobile_nav_scope == "patient" %}
+        <a class="dashboard-mobile-nav-item{% if portal_section == 'dashboard' %} is-active{% endif %}" href="{{ portal_dashboard_url }}" data-mobile-nav-item="home">
+            {% include "partials/mobile_dashboard_nav_icon.html" with mobile_nav_icon="home" %}
+            <span>{% if is_arabic %}الرئيسية{% else %}Home{% endif %}</span>
+        </a>
+        <a class="dashboard-mobile-nav-item{% if portal_section == 'appointments' %} is-active{% endif %}" href="{{ portal_appointments_url }}" data-mobile-nav-item="appointments">
+            {% include "partials/mobile_dashboard_nav_icon.html" with mobile_nav_icon="appointments" %}
+            <span>{% if is_arabic %}المواعيد{% else %}Appointments{% endif %}</span>
+        </a>
+        <a class="dashboard-mobile-nav-item" href="{{ portal_book_url }}" data-mobile-nav-item="book">
+            {% include "partials/mobile_dashboard_nav_icon.html" with mobile_nav_icon="book" %}
+            <span>{% if is_arabic %}حجز موعد{% else %}Book{% endif %}</span>
+        </a>
+        <a class="dashboard-mobile-nav-item{% if portal_section == 'consultations' %} is-active{% endif %}" href="{{ portal_consultations_url }}" data-mobile-nav-item="consultations">
+            <span class="dashboard-mobile-nav-icon-wrap">
+                {% include "partials/mobile_dashboard_nav_icon.html" with mobile_nav_icon="consultations" %}
+                {% if consultation_notification_unread_count %}<span class="dashboard-navigation-badge">{{ consultation_notification_unread_badge }}</span>{% endif %}
+            </span>
+            <span>{% if is_arabic %}الاستشارات{% else %}Consultations{% endif %}</span>
+        </a>
+        <button class="dashboard-mobile-nav-item" type="button" aria-controls="patient-portal-sidebar" aria-expanded="false" data-dashboard-menu data-mobile-nav-item="more">
+            {% include "partials/mobile_dashboard_nav_icon.html" with mobile_nav_icon="more" %}
+            <span>{% if is_arabic %}المزيد{% else %}More{% endif %}</span>
+        </button>
+    {% else %}
+        <a class="dashboard-mobile-nav-item{% if active_dashboard_nav == 'overview' %} is-active{% endif %}" href="{{ dashboard_home_url }}" data-mobile-nav-item="home">
+            {% include "partials/mobile_dashboard_nav_icon.html" with mobile_nav_icon="home" %}
+            <span>{% if is_arabic %}الرئيسية{% else %}Home{% endif %}</span>
+        </a>
+        <a class="dashboard-mobile-nav-item{% if active_dashboard_nav == 'appointments' %} is-active{% endif %}" href="{% url 'staff_appointment_list' %}{% if not is_arabic %}?lang=en{% endif %}" data-mobile-nav-item="appointments">
+            {% include "partials/mobile_dashboard_nav_icon.html" with mobile_nav_icon="appointments" %}
+            <span>{% if is_arabic %}المواعيد{% else %}Appointments{% endif %}</span>
+        </a>
+        <a class="dashboard-mobile-nav-item{% if active_dashboard_nav == 'consultations' %} is-active{% endif %}" href="{% url 'dashboard_consultation_list' %}{% if not is_arabic %}?lang=en{% endif %}" data-mobile-nav-item="consultations">
+            <span class="dashboard-mobile-nav-icon-wrap">
+                {% include "partials/mobile_dashboard_nav_icon.html" with mobile_nav_icon="consultations" %}
+                {% if consultation_notification_unread_count %}<span class="dashboard-navigation-badge">{{ consultation_notification_unread_badge }}</span>{% endif %}
+            </span>
+            <span>{% if is_arabic %}الاستشارات{% else %}Consultations{% endif %}</span>
+        </a>
+        <a class="dashboard-mobile-nav-item{% if active_dashboard_nav == 'patients' %} is-active{% endif %}" href="{% url 'dashboard_patient_list' %}{% if not is_arabic %}?lang=en{% endif %}" data-mobile-nav-item="patients">
+            {% include "partials/mobile_dashboard_nav_icon.html" with mobile_nav_icon="patients" %}
+            <span>{% if is_arabic %}المرضى{% else %}Patients{% endif %}</span>
+        </a>
+        <button class="dashboard-mobile-nav-item" type="button" aria-controls="dashboard-sidebar" aria-expanded="false" data-dashboard-menu data-mobile-nav-item="more">
+            {% include "partials/mobile_dashboard_nav_icon.html" with mobile_nav_icon="more" %}
+            <span>{% if is_arabic %}المزيد{% else %}More{% endif %}</span>
+        </button>
+    {% endif %}
+</nav>

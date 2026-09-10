@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from apps.booking import services
 from apps.booking.audit import create_appointment_audit, trim_audit_note
@@ -32,6 +33,11 @@ NO_SHOW_ALLOWED_FROM = {
     Appointment.Status.CONFIRMED,
     Appointment.Status.RESCHEDULED,
 }
+PATIENT_CANCELLATION_ALLOWED_FROM = {
+    Appointment.Status.CONFIRMED,
+    Appointment.Status.RESCHEDULED,
+}
+PATIENT_CANCELLATION_NOTE = "Appointment cancelled by patient through portal."
 
 
 def staff_appointment_queryset():
@@ -127,6 +133,45 @@ def cancel_appointment(appointment_id, *, note, actor=None):
         actor=actor,
         note=note,
         message="Appointment cancelled by staff.",
+    )
+
+
+def patient_can_cancel_appointment(appointment, user, *, now=None, cutoff_minutes=None):
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if appointment.patient.user_id != user.id:
+        return False
+    if appointment.status not in PATIENT_CANCELLATION_ALLOWED_FROM:
+        return False
+    now = now or timezone.now()
+    if appointment.starts_at <= now:
+        return False
+    if cutoff_minutes is None:
+        cutoff_minutes = services.get_booking_settings().patient_cancellation_cutoff_minutes
+    return appointment.starts_at - now >= timedelta(minutes=cutoff_minutes)
+
+
+@transaction.atomic
+def patient_cancel_appointment(*, public_token, user, now=None):
+    appointment = (
+        staff_appointment_queryset()
+        .select_for_update(of=("self",))
+        .filter(public_token=public_token)
+        .first()
+    )
+    now = now or timezone.now()
+    if appointment is None or not patient_can_cancel_appointment(
+        appointment,
+        user,
+        now=now,
+    ):
+        raise ValidationError("Patient cancellation is unavailable for this appointment.")
+    return _save_status_change(
+        appointment,
+        new_status=Appointment.Status.CANCELLED,
+        actor=user,
+        note=PATIENT_CANCELLATION_NOTE,
+        message=PATIENT_CANCELLATION_NOTE,
     )
 
 

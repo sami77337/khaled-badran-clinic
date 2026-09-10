@@ -1,47 +1,163 @@
-{% extends "base.html" %}
+{% extends "auth/base.html" %}
 
 {% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">{% if is_arabic %}دخول آمن{% else %}Secure Sign In{% endif %}</p>
-        <h1>{% if is_arabic %}تسجيل الدخول إلى بوابة المريض{% else %}Sign in to the Patient Portal{% endif %}</h1>
-        <p>{{ labels.not_emergency }}</p>
-    </div>
-</section>
+<section class="auth-page" aria-labelledby="auth-title">
+    <div class="auth-card" data-auth-login data-selected-role="{{ selected_role }}">
+        <div class="auth-identity" aria-label="{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}">
+            <span class="auth-monogram" aria-hidden="true">KB</span>
+            <span class="auth-clinic-name">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</span>
+        </div>
 
-<section class="section">
-    <div class="container booking-layout">
-        <form class="booking-form" method="post" action="{{ portal_login_url }}">
-            {% csrf_token %}
-            {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
-            {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
-            <div class="form-field">
-                {{ form.phone.label_tag }}
-                {{ form.phone }}
-                {{ form.phone.errors }}
-            </div>
-            <div class="form-field">
-                {{ form.password.label_tag }}
-                {{ form.password }}
-                {{ form.password.errors }}
-            </div>
-            <div class="hero-actions">
-                <button class="btn btn-primary" type="submit">{% if is_arabic %}دخول{% else %}Sign in{% endif %}</button>
-                <a class="btn btn-secondary" href="{{ portal_register_url }}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">
-                    {% if is_arabic %}إنشاء حساب{% else %}Create account{% endif %}
-                </a>
-                <a class="btn btn-secondary" href="{{ portal_account_recovery_url }}">
-                    {% if is_arabic %}استعادة الحساب{% else %}Account recovery{% endif %}
-                </a>
-            </div>
-        </form>
-        <p class="trust-note">
-            {% if is_arabic %}
-                الحساب اختياري. يمكنك حجز موعد من الموقع بدون تسجيل دخول. استعادة الحساب تتم بمساعدة العيادة حاليا.
-            {% else %}
-                Accounts are optional. You can book an appointment from the public site without signing in. Account recovery is clinic-assisted for now.
-            {% endif %}
-        </p>
+        <div class="auth-heading">
+            <h1 id="auth-title">{% if is_arabic %}مرحباً بعودتك{% else %}Welcome back{% endif %}</h1>
+        </div>
+
+        <nav class="auth-role-tabs" role="tablist" aria-label="{% if is_arabic %}نوع الحساب{% else %}Account type{% endif %}" data-auth-role-tabs>
+            <a
+                class="auth-role-tab{% if selected_role == 'patient' %} is-selected{% endif %}"
+                id="patient-role-tab"
+                href="{{ patient_role_url }}"
+                role="tab"
+                aria-controls="patient-login-panel"
+                aria-selected="{% if selected_role == 'patient' %}true{% else %}false{% endif %}"
+                tabindex="{% if selected_role == 'patient' %}0{% else %}-1{% endif %}"
+                data-auth-role="patient"
+            >{% if is_arabic %}المريض{% else %}Patient{% endif %}</a>
+            <a
+                class="auth-role-tab{% if selected_role == 'doctor' %} is-selected{% endif %}"
+                id="doctor-role-tab"
+                href="{{ doctor_role_url }}"
+                role="tab"
+                aria-controls="doctor-login-panel"
+                aria-selected="{% if selected_role == 'doctor' %}true{% else %}false{% endif %}"
+                tabindex="{% if selected_role == 'doctor' %}0{% else %}-1{% endif %}"
+                data-auth-role="doctor"
+            >{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</a>
+        </nav>
+
+        <div
+            class="auth-role-panel"
+            id="patient-login-panel"
+            role="tabpanel"
+            aria-labelledby="patient-role-tab"
+            {% if selected_role != 'patient' %}hidden aria-hidden="true"{% else %}aria-hidden="false"{% endif %}
+            data-auth-panel="patient"
+        >
+            <form class="auth-form" method="post" action="{{ login_url }}" data-patient-login-form>
+                {% csrf_token %}
+                <input type="hidden" name="role" value="patient">
+                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+
+                {% if patient_form.non_field_errors %}
+                    <div class="auth-form-errors" role="alert">{{ patient_form.non_field_errors }}</div>
+                {% endif %}
+
+                <div class="auth-field{% if patient_form.phone.errors %} has-error{% endif %}">
+                    <label for="patient-phone">{{ patient_form.phone.label }}</label>
+                    {% include "booking/partials/international_phone_field.html" with field=patient_form.phone control_key="patient-login" hide_phone_hint=True %}
+                    {% if patient_form.phone.errors %}<div class="auth-field-errors" role="alert">{{ patient_form.phone.errors }}</div>{% endif %}
+                </div>
+
+                <div class="auth-field{% if patient_form.password.errors %} has-error{% endif %}">
+                    <label for="patient-password">{{ patient_form.password.label }}</label>
+                    <div class="auth-password-control">
+                        {{ patient_form.password }}
+                        <button
+                            class="auth-password-toggle"
+                            type="button"
+                            aria-label="{% if is_arabic %}إظهار كلمة المرور{% else %}Show password{% endif %}"
+                            aria-pressed="false"
+                            data-show-label="{% if is_arabic %}إظهار كلمة المرور{% else %}Show password{% endif %}"
+                            data-hide-label="{% if is_arabic %}إخفاء كلمة المرور{% else %}Hide password{% endif %}"
+                            data-password-toggle
+                        >
+                            <svg aria-hidden="true" viewBox="0 0 22 22" fill="none">
+                                <path d="M2.7 11s3.1-5.1 8.3-5.1 8.3 5.1 8.3 5.1-3.1 5.1-8.3 5.1S2.7 11 2.7 11Z" stroke="currentColor" stroke-width="1.45"/>
+                                <circle cx="11" cy="11" r="2.3" stroke="currentColor" stroke-width="1.45"/>
+                            </svg>
+                        </button>
+                    </div>
+                    {% if patient_form.password.errors %}<div class="auth-field-errors" role="alert">{{ patient_form.password.errors }}</div>{% endif %}
+                </div>
+
+                <button class="auth-submit" type="submit">
+                    <span>{% if is_arabic %}تسجيل الدخول{% else %}Sign in{% endif %}</span>
+                    <svg class="auth-submit-arrow" aria-hidden="true" viewBox="0 0 20 20" fill="none">
+                        <path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+
+                <div class="auth-patient-actions">
+                    <a href="{{ portal_register_url }}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">{% if is_arabic %}إنشاء حساب{% else %}Create account{% endif %}</a>
+                    <span aria-hidden="true"></span>
+                    <a href="{{ portal_account_recovery_url }}">{% if is_arabic %}استعادة الحساب{% else %}Account recovery{% endif %}</a>
+                </div>
+
+                <p class="auth-mode-note">
+                    {% if is_arabic %}يمكنك حجز موعد بدون تسجيل الدخول.{% else %}You can book an appointment without signing in.{% endif %}
+                    <a href="{{ booking_url }}">{% if is_arabic %}حجز موعد{% else %}Book now{% endif %}</a>
+                </p>
+            </form>
+        </div>
+
+        <div
+            class="auth-role-panel"
+            id="doctor-login-panel"
+            role="tabpanel"
+            aria-labelledby="doctor-role-tab"
+            {% if selected_role != 'doctor' %}hidden aria-hidden="true"{% else %}aria-hidden="false"{% endif %}
+            data-auth-panel="doctor"
+        >
+            <form class="auth-form" method="post" action="{{ login_url }}" data-doctor-login-form>
+                {% csrf_token %}
+                <input type="hidden" name="role" value="doctor">
+                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+
+                {% if doctor_form.non_field_errors %}
+                    <div class="auth-form-errors" role="alert">{{ doctor_form.non_field_errors }}</div>
+                {% endif %}
+
+                <div class="auth-field{% if doctor_form.username.errors %} has-error{% endif %}">
+                    <label for="doctor-username">{{ doctor_form.username.label }}</label>
+                    {{ doctor_form.username }}
+                    <p class="auth-field-hint">{% if is_arabic %}استخدم اسم مستخدم حساب العيادة{% else %}Use your clinic account username{% endif %}</p>
+                    {% if doctor_form.username.errors %}<div class="auth-field-errors" role="alert">{{ doctor_form.username.errors }}</div>{% endif %}
+                </div>
+
+                <div class="auth-field{% if doctor_form.password.errors %} has-error{% endif %}">
+                    <label for="doctor-password">{{ doctor_form.password.label }}</label>
+                    <div class="auth-password-control">
+                        {{ doctor_form.password }}
+                        <button
+                            class="auth-password-toggle"
+                            type="button"
+                            aria-label="{% if is_arabic %}إظهار كلمة المرور{% else %}Show password{% endif %}"
+                            aria-pressed="false"
+                            data-show-label="{% if is_arabic %}إظهار كلمة المرور{% else %}Show password{% endif %}"
+                            data-hide-label="{% if is_arabic %}إخفاء كلمة المرور{% else %}Hide password{% endif %}"
+                            data-password-toggle
+                        >
+                            <svg aria-hidden="true" viewBox="0 0 22 22" fill="none">
+                                <path d="M2.7 11s3.1-5.1 8.3-5.1 8.3 5.1 8.3 5.1-3.1 5.1-8.3 5.1S2.7 11 2.7 11Z" stroke="currentColor" stroke-width="1.45"/>
+                                <circle cx="11" cy="11" r="2.3" stroke="currentColor" stroke-width="1.45"/>
+                            </svg>
+                        </button>
+                    </div>
+                    {% if doctor_form.password.errors %}<div class="auth-field-errors" role="alert">{{ doctor_form.password.errors }}</div>{% endif %}
+                </div>
+
+                <button class="auth-submit" type="submit">
+                    <span>{% if is_arabic %}تسجيل الدخول{% else %}Sign in{% endif %}</span>
+                    <svg class="auth-submit-arrow" aria-hidden="true" viewBox="0 0 20 20" fill="none">
+                        <path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+
+                <p class="auth-mode-note auth-staff-note">
+                    {% if is_arabic %}هذا الدخول مخصص لحسابات فريق العيادة المعتمدة فقط.{% else %}This sign-in is only for approved clinic staff accounts.{% endif %}
+                </p>
+            </form>
+        </div>
     </div>
 </section>
 {% endblock %}

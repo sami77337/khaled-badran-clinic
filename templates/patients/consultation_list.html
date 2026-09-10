@@ -1,0 +1,33 @@
+{% extends "patients/portal_base.html" %}
+
+{% block patient_portal_content %}
+<div class="dashboard-content patient-page-content" data-patient-page="consultations">
+    <header class="patient-page-heading">
+        <div>
+            <p class="dashboard-eyebrow">{% if is_arabic %}بوابة المريض{% else %}Patient Portal{% endif %}</p>
+            <h1>{% if is_arabic %}استشارة الطبيب{% else %}Consultations{% endif %}</h1>
+        </div>
+        <a class="patient-primary-action" href="{{ portal_consultation_new_url }}">{% if is_arabic %}استشارة جديدة{% else %}New Consultation{% endif %}</a>
+    </header>
+    {% include "patients/_portal_messages.html" %}
+    <section class="dashboard-card patient-table-card" aria-labelledby="consultation-list-title">
+        <div class="dashboard-card-header"><div><p class="dashboard-card-kicker">{% if is_arabic %}استشاراتك{% else %}Your Requests{% endif %}</p><h2 id="consultation-list-title">{% if is_arabic %}الاستشارات{% else %}Consultations{% endif %}</h2></div></div>
+        <div class="patient-table-scroll portal-table-scroll" role="region" tabindex="0">
+            <table class="patient-table">
+                <thead><tr><th>{% if is_arabic %}تاريخ الإنشاء{% else %}Created{% endif %}</th><th>{% if is_arabic %}الحالة{% else %}Status{% endif %}</th><th>{% if is_arabic %}التفاصيل{% else %}Details{% endif %}</th></tr></thead>
+                <tbody>
+                    {% for consultation in consultations %}
+                        <tr>
+                            <td><time dir="ltr" datetime="{{ consultation.created_at|date:'c' }}">{{ consultation.created_at|date:"Y-m-d H:i" }}</time></td>
+                            <td><span class="dashboard-status-pill status-{{ consultation.status }}">{{ consultation.portal_status_label }}</span></td>
+                            <td><a class="patient-table-link" href="{% if is_arabic %}{% url 'patient_portal_consultation_detail' public_id=consultation.public_id %}{% else %}{% url 'patient_portal_consultation_detail_en' public_id=consultation.public_id %}{% endif %}">{% if is_arabic %}عرض{% else %}View{% endif %}</a></td>
+                        </tr>
+                    {% empty %}
+                        <tr><td class="patient-table-empty" colspan="3">{% if is_arabic %}لم ترسل أي استشارة بعد.{% else %}You have not submitted a consultation yet.{% endif %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

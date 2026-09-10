@@ -2,24 +2,40 @@
 
 from django.contrib import admin
 from django.urls import include, path
+from django.views.generic.base import RedirectView
 
 from apps.booking import views as booking_views
-from apps.core import views
+from apps.core import review_views, views
 from apps.patients import views as patient_views
+from apps.patients import transient_views
+from apps.patients import review_views as patient_review_views
 
 
 urlpatterns = [
     path("", views.home, {"language": "ar"}, name="home"),
+    path("login/", patient_views.portal_login, {"language": "ar"}, name="login"),
     path("doctor/", views.doctor_profile, {"language": "ar"}, name="doctor"),
     path("services/", views.services, {"language": "ar"}, name="services"),
     path("cases/", views.public_cases, {"language": "ar"}, name="public_cases"),
+    path(
+        "cases/<int:case_id>/",
+        views.public_case_detail,
+        {"language": "ar"},
+        name="public_case_detail",
+    ),
+    path("reviews/", review_views.reviews, {"language": "ar"}, name="reviews"),
     path(
         "cases/media/<uuid:public_id>/",
         views.public_case_media,
         {"language": "ar"},
         name="public_case_media",
     ),
-    path("contact/", views.contact, {"language": "ar"}, name="contact"),
+    path("contact-location/", views.contact, {"language": "ar"}, name="contact"),
+    path(
+        "contact/",
+        RedirectView.as_view(pattern_name="contact", permanent=True, query_string=True),
+        name="contact_legacy",
+    ),
     path("book/", booking_views.book_start, {"language": "ar"}, name="book"),
     path(
         "book/visit-type/",
@@ -55,16 +71,29 @@ urlpatterns = [
         name="whatsapp_policy",
     ),
     path("en/", views.home, {"language": "en"}, name="home_en"),
+    path("en/login/", patient_views.portal_login, {"language": "en"}, name="login_en"),
     path("en/doctor/", views.doctor_profile, {"language": "en"}, name="doctor_en"),
     path("en/services/", views.services, {"language": "en"}, name="services_en"),
     path("en/cases/", views.public_cases, {"language": "en"}, name="public_cases_en"),
+    path(
+        "en/cases/<int:case_id>/",
+        views.public_case_detail,
+        {"language": "en"},
+        name="public_case_detail_en",
+    ),
+    path("en/reviews/", review_views.reviews, {"language": "en"}, name="reviews_en"),
     path(
         "en/cases/media/<uuid:public_id>/",
         views.public_case_media,
         {"language": "en"},
         name="public_case_media_en",
     ),
-    path("en/contact/", views.contact, {"language": "en"}, name="contact_en"),
+    path("en/contact-location/", views.contact, {"language": "en"}, name="contact_en"),
+    path(
+        "en/contact/",
+        RedirectView.as_view(pattern_name="contact_en", permanent=True, query_string=True),
+        name="contact_legacy_en",
+    ),
     path("en/book/", booking_views.book_start, {"language": "en"}, name="book_en"),
     path(
         "en/book/visit-type/",
@@ -91,6 +120,11 @@ urlpatterns = [
         name="booking_success_en",
     ),
     path("staff/appointments/", booking_views.staff_appointment_list, name="staff_appointment_list"),
+    path(
+        "staff/appointments/settings/patient-cancellation-cutoff/",
+        booking_views.staff_patient_cancellation_cutoff_update,
+        name="staff_patient_cancellation_cutoff_update",
+    ),
     path(
         "staff/appointments/<int:appointment_id>/",
         booking_views.staff_appointment_detail,
@@ -146,6 +180,9 @@ urlpatterns = [
     path("portal/logout/", patient_views.portal_logout, {"language": "ar"}, name="patient_portal_logout"),
     path("portal/register/", patient_views.portal_register, {"language": "ar"}, name="patient_portal_register"),
     path("portal/account/", patient_views.portal_account, {"language": "ar"}, name="patient_portal_account"),
+    path("portal/review/", patient_review_views.my_review, {"language": "ar"}, name="patient_portal_review"),
+    path("portal/review/<int:review_id>/edit/", patient_review_views.edit_review, {"language": "ar"}, name="patient_portal_review_edit"),
+    path("portal/review/<int:review_id>/delete/", patient_review_views.delete_review, {"language": "ar"}, name="patient_portal_review_delete"),
     path(
         "portal/password/change/",
         patient_views.portal_password_change,
@@ -163,6 +200,66 @@ urlpatterns = [
         patient_views.portal_link_appointment,
         {"language": "ar"},
         name="patient_portal_link_appointment",
+    ),
+    path(
+        "portal/link-appointment/recovery/",
+        patient_views.portal_link_appointment_recovery,
+        {"language": "ar"},
+        name="patient_portal_link_appointment_recovery",
+    ),
+    path(
+        "portal/book/",
+        patient_views.portal_book_appointment,
+        {"language": "ar"},
+        name="patient_portal_book",
+    ),
+    path(
+        "portal/consultation-notifications/read-all/",
+        patient_views.consultation_notifications_mark_all_read,
+        {"language": "ar"},
+        name="consultation_notifications_mark_all_read",
+    ),
+    path(
+        "portal/consultation-notifications/<uuid:public_id>/open/",
+        patient_views.consultation_notification_open,
+        {"language": "ar"},
+        name="consultation_notification_open",
+    ),
+    path(
+        "portal/consultations/",
+        patient_views.portal_consultation_list,
+        {"language": "ar"},
+        name="patient_portal_consultation_list",
+    ),
+    path(
+        "portal/consultations/new/",
+        patient_views.portal_consultation_new,
+        {"language": "ar"},
+        name="patient_portal_consultation_new",
+    ),
+    path(
+        "portal/consultations/<uuid:public_id>/",
+        patient_views.portal_consultation_detail,
+        {"language": "ar"},
+        name="patient_portal_consultation_detail",
+    ),
+    path(
+        "portal/consultations/<uuid:public_id>/delete/",
+        patient_views.portal_consultation_delete,
+        {"language": "ar"},
+        name="patient_portal_consultation_delete",
+    ),
+    path(
+        "portal/consultations/attachments/<uuid:public_id>/",
+        patient_views.portal_consultation_attachment,
+        {"language": "ar"},
+        name="patient_portal_consultation_attachment",
+    ),
+    path(
+        "portal/consultations/audio-replies/<uuid:public_id>/",
+        patient_views.portal_consultation_audio_reply,
+        {"language": "ar"},
+        name="patient_portal_consultation_audio_reply",
     ),
     path(
         "portal/appointments/",
@@ -188,11 +285,20 @@ urlpatterns = [
         {"language": "ar"},
         name="patient_portal_appointment_detail",
     ),
+    path(
+        "portal/appointments/patient-cancellation/<str:reference>/",
+        patient_views.portal_appointment_cancel,
+        {"language": "ar"},
+        name="patient_portal_appointment_cancel",
+    ),
     path("en/portal/", patient_views.portal_dashboard, {"language": "en"}, name="patient_portal_dashboard_en"),
     path("en/portal/login/", patient_views.portal_login, {"language": "en"}, name="patient_portal_login_en"),
     path("en/portal/logout/", patient_views.portal_logout, {"language": "en"}, name="patient_portal_logout_en"),
     path("en/portal/register/", patient_views.portal_register, {"language": "en"}, name="patient_portal_register_en"),
     path("en/portal/account/", patient_views.portal_account, {"language": "en"}, name="patient_portal_account_en"),
+    path("en/portal/review/", patient_review_views.my_review, {"language": "en"}, name="patient_portal_review_en"),
+    path("en/portal/review/<int:review_id>/edit/", patient_review_views.edit_review, {"language": "en"}, name="patient_portal_review_edit_en"),
+    path("en/portal/review/<int:review_id>/delete/", patient_review_views.delete_review, {"language": "en"}, name="patient_portal_review_delete_en"),
     path(
         "en/portal/password/change/",
         patient_views.portal_password_change,
@@ -210,6 +316,66 @@ urlpatterns = [
         patient_views.portal_link_appointment,
         {"language": "en"},
         name="patient_portal_link_appointment_en",
+    ),
+    path(
+        "en/portal/link-appointment/recovery/",
+        patient_views.portal_link_appointment_recovery,
+        {"language": "en"},
+        name="patient_portal_link_appointment_recovery_en",
+    ),
+    path(
+        "en/portal/book/",
+        patient_views.portal_book_appointment,
+        {"language": "en"},
+        name="patient_portal_book_en",
+    ),
+    path(
+        "en/portal/consultation-notifications/read-all/",
+        patient_views.consultation_notifications_mark_all_read,
+        {"language": "en"},
+        name="consultation_notifications_mark_all_read_en",
+    ),
+    path(
+        "en/portal/consultation-notifications/<uuid:public_id>/open/",
+        patient_views.consultation_notification_open,
+        {"language": "en"},
+        name="consultation_notification_open_en",
+    ),
+    path(
+        "en/portal/consultations/",
+        patient_views.portal_consultation_list,
+        {"language": "en"},
+        name="patient_portal_consultation_list_en",
+    ),
+    path(
+        "en/portal/consultations/new/",
+        patient_views.portal_consultation_new,
+        {"language": "en"},
+        name="patient_portal_consultation_new_en",
+    ),
+    path(
+        "en/portal/consultations/<uuid:public_id>/",
+        patient_views.portal_consultation_detail,
+        {"language": "en"},
+        name="patient_portal_consultation_detail_en",
+    ),
+    path(
+        "en/portal/consultations/<uuid:public_id>/delete/",
+        patient_views.portal_consultation_delete,
+        {"language": "en"},
+        name="patient_portal_consultation_delete_en",
+    ),
+    path(
+        "en/portal/consultations/attachments/<uuid:public_id>/",
+        patient_views.portal_consultation_attachment,
+        {"language": "en"},
+        name="patient_portal_consultation_attachment_en",
+    ),
+    path(
+        "en/portal/consultations/audio-replies/<uuid:public_id>/",
+        patient_views.portal_consultation_audio_reply,
+        {"language": "en"},
+        name="patient_portal_consultation_audio_reply_en",
     ),
     path(
         "en/portal/appointments/",
@@ -235,5 +401,23 @@ urlpatterns = [
         {"language": "en"},
         name="patient_portal_appointment_detail_en",
     ),
+    path(
+        "en/portal/appointments/patient-cancellation/<str:reference>/",
+        patient_views.portal_appointment_cancel,
+        {"language": "en"},
+        name="patient_portal_appointment_cancel_en",
+    ),
     path("admin/", admin.site.urls),
 ]
+
+handler404 = "apps.core.views.public_404"
+
+
+# Explicit localized guest routes; portal routes retain their existing handlers.
+for language, prefix, suffix in (("ar", "", ""), ("en", "en/", "_en")):
+    urlpatterns += [
+        path(prefix + "consult/", transient_views.guest_entry, {"language": language}, name="guest_consultation_entry" + suffix),
+        path(prefix + "consult/<uuid:public_id>/", transient_views.guest_entry, {"language": language}, name="guest_consultation_detail" + suffix),
+        path(prefix + "consult/attachments/<uuid:public_id>/", transient_views.guest_media, {"language": language}, name="guest_consultation_attachment" + suffix),
+        path(prefix + "consult/audio-replies/<uuid:public_id>/", transient_views.guest_media, {"language": language, "audio": True}, name="guest_consultation_audio" + suffix),
+    ]

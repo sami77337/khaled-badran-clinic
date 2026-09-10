@@ -1,66 +1,75 @@
 {% extends "base.html" %}
+{% load static i18n %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{% static 'css/booking.css' %}">
+{% endblock %}
 
 {% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">{% if is_arabic %}تم تأكيد الموعد{% else %}Appointment Confirmed{% endif %}</p>
-        <h1>{% if is_arabic %}تم إنشاء موعدك بنجاح{% else %}Your appointment has been created{% endif %}</h1>
-        <p>{{ labels.not_emergency }}</p>
-    </div>
-</section>
+{% language language %}
+<section class="booking-flow" data-booking-flow>
+    <div class="booking-flow-container">
+        <div class="booking-card" data-booking-card data-booking-success>
+            <div class="booking-success-panel">
+                <div class="booking-success-mark" aria-hidden="true"><span class="booking-icon-check"></span></div>
+                <p class="booking-kicker">{% if is_arabic %}تم تأكيد الموعد{% else %}Appointment confirmed{% endif %}</p>
+                <h1>{% if is_arabic %}تم تأكيد موعدك{% else %}Your Appointment Is Confirmed{% endif %}</h1>
+                <p class="booking-success-intro">
+                    {% if is_arabic %}
+                        تم إنشاء الموعد بنجاح. احتفظ برمز التأكيد الآمن عند التواصل مع العيادة.
+                    {% else %}
+                        The appointment was created successfully. Keep the safe confirmation reference when contacting the clinic.
+                    {% endif %}
+                </p>
 
-<section class="section">
-    <div class="container booking-layout">
-        <div class="success-card">
-            <h2>{% if is_arabic %}تفاصيل الموعد{% else %}Appointment details{% endif %}</h2>
-            <p class="trust-note">
-                {% if is_arabic %}
-                    تم تأكيد موعدك. احتفظ برقم التأكيد الآمن أدناه عند التواصل مع العيادة.
-                {% else %}
-                    Your appointment is confirmed. Keep the safe confirmation reference below when contacting the clinic.
-                {% endif %}
-            </p>
-            <dl class="detail-list">
-                <div>
-                    <dt>{% if is_arabic %}رقم التأكيد{% else %}Confirmation reference{% endif %}</dt>
-                    <dd>{{ appointment.confirmation_reference }}</dd>
+                <div class="booking-reference">
+                    <span>{% if is_arabic %}رمز التأكيد:{% else %}Confirmation reference:{% endif %}</span>
+                    <strong dir="ltr">{{ appointment.confirmation_reference }}</strong>
                 </div>
-                <div>
-                    <dt>{% if is_arabic %}المريض{% else %}Patient{% endif %}</dt>
-                    <dd>{{ appointment.patient.full_name }}</dd>
+
+                <dl class="booking-success-details">
+                    <div>
+                        <dt>{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</dt>
+                        <dd>{% if is_arabic %}{{ appointment.visit_type.name_ar }}{% else %}{{ appointment.visit_type.name_en }}{% endif %}</dd>
+                    </div>
+                    <div>
+                        <dt>{% if is_arabic %}التاريخ والوقت{% else %}Date &amp; time{% endif %}</dt>
+                        <dd>
+                            <time datetime="{{ appointment.starts_at|date:'c' }}">
+                                {% if is_arabic %}{{ appointment.starts_at|date:"l، j F Y" }}{% else %}{{ appointment.starts_at|date:"l, j F Y" }}{% endif %}
+                                <span dir="ltr">{{ appointment.starts_at|time:"H:i" }}</span>
+                            </time>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</dt>
+                        <dd>{% if is_arabic %}{{ appointment.doctor.display_name_ar }}{% else %}{{ appointment.doctor.display_name_en }}{% endif %}</dd>
+                    </div>
+                    <div>
+                        <dt>{% if is_arabic %}موقع العيادة{% else %}Clinic location{% endif %}</dt>
+                        <dd>{% if is_arabic %}{{ clinic.address_ar|linebreaksbr }}{% else %}{{ clinic.address_en|linebreaksbr }}{% endif %}</dd>
+                    </div>
+                </dl>
+
+                <div class="booking-actions">
+                    <a class="booking-primary-action" href="{{ booking_home_url }}">
+                        {% if is_arabic %}حجز موعد آخر{% else %}Book another appointment{% endif %}
+                    </a>
+                    <a class="booking-secondary-action" href="{{ home_url }}">
+                        {% if is_arabic %}العودة للرئيسية{% else %}Return home{% endif %}
+                    </a>
+                    <a class="booking-secondary-action" href="{% if is_arabic %}{% url 'patient_portal_link_appointment' %}{% else %}{% url 'patient_portal_link_appointment_en' %}{% endif %}?token={{ appointment.public_token }}">
+                        {% if is_arabic %}ربط الموعد بالبوابة{% else %}Link in patient portal{% endif %}
+                    </a>
+                    {% if whatsapp_is_configured and whatsapp_url %}
+                        <a class="booking-secondary-action" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">
+                            {% if is_arabic %}واتساب العيادة{% else %}Clinic WhatsApp{% endif %}
+                        </a>
+                    {% endif %}
                 </div>
-                <div>
-                    <dt>{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</dt>
-                    <dd>{% if is_arabic %}{{ appointment.doctor.display_name_ar }}{% else %}{{ appointment.doctor.display_name_en }}{% endif %}</dd>
-                </div>
-                <div>
-                    <dt>{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</dt>
-                    <dd>{% if is_arabic %}{{ appointment.visit_type.name_ar }}{% else %}{{ appointment.visit_type.name_en }}{% endif %}</dd>
-                </div>
-                <div>
-                    <dt>{% if is_arabic %}الوقت{% else %}Time{% endif %}</dt>
-                    <dd>{{ appointment.starts_at|date:"Y-m-d H:i" }}</dd>
-                </div>
-            </dl>
-            <p class="muted">
-                {% if is_arabic %}
-                    هذه الصفحة لا تعرض ملاحظات داخلية أو سجلات طبية أو أي بيانات خاصة. في الحالات الطارئة تواصل مع خدمات الطوارئ المحلية فوراً.
-                {% else %}
-                    This page does not show internal notes, medical records, or private clinical data. For emergencies, contact local emergency services immediately.
-                {% endif %}
-            </p>
-            <div class="hero-actions">
-                <a class="btn btn-primary" href="{{ booking_home_url }}">
-                    {% if is_arabic %}حجز موعد آخر{% else %}Book another appointment{% endif %}
-                </a>
-                <a class="btn btn-secondary" href="{{ home_url }}">
-                    {% if is_arabic %}العودة للرئيسية{% else %}Back to home{% endif %}
-                </a>
-                <a class="btn btn-secondary" href="{% if is_arabic %}{% url 'patient_portal_link_appointment' %}{% else %}{% url 'patient_portal_link_appointment_en' %}{% endif %}?token={{ appointment.public_token }}">
-                    {% if is_arabic %}ربط الموعد بالبوابة{% else %}Link in patient portal{% endif %}
-                </a>
             </div>
         </div>
     </div>
 </section>
+{% endlanguage %}
 {% endblock %}

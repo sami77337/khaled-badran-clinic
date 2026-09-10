@@ -22,6 +22,10 @@ class AppointmentAdmin(admin.ModelAdmin):
         "patient__full_name",
         "patient__phone_raw",
         "patient__phone_e164",
+        "contact_phone_raw",
+        "contact_phone_e164",
+        "whatsapp_phone_raw",
+        "whatsapp_phone_e164",
         "doctor__full_name_en",
         "doctor__full_name_ar",
         "visit_type__name_en",
@@ -36,9 +40,9 @@ class AppointmentAdmin(admin.ModelAdmin):
     def reminder_due_at_display(self, obj):
         return obj.reminder_due_at
 
-    @admin.display(description="Patient phone")
+    @admin.display(description="Appointment contact phone")
     def patient_phone(self, obj):
-        return obj.patient.phone_e164 or obj.patient.phone_raw
+        return obj.effective_contact_phone
 
 
 @admin.register(AppointmentStatusHistory)

@@ -1,0 +1,282 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block dashboard_styles %}
+    <link rel="stylesheet" href="{% static 'css/dashboard-scheduling.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content scheduling-content"{% if scheduling_section == "calendar" %} data-scheduling-default-view{% endif %}>
+    <header class="scheduling-page-header">
+        <div>
+            <p class="scheduling-eyebrow">{% if is_arabic %}عمليات العيادة{% else %}Clinic Operations{% endif %}</p>
+            <h1>{% if is_arabic %}مركز الجدولة{% else %}Scheduling Center{% endif %}</h1>
+            <p>
+                {% if is_arabic %}
+                    عرض للدوام والمواعيد وإدارة اليوم المحدد.
+                {% else %}
+                    Working hours, appointments, and selected-day operations.
+                {% endif %}
+            </p>
+        </div>
+        <p class="scheduling-timezone">
+            <span>{% if is_arabic %}المنطقة الزمنية{% else %}Time zone{% endif %}</span>
+            <b dir="ltr">{{ scheduling_timezone }}</b>
+        </p>
+    </header>
+
+    <nav class="scheduling-section-tabs" tabindex="0" aria-label="{% if is_arabic %}أقسام مركز الجدولة{% else %}Scheduling Center sections{% endif %}">
+        {% for item in scheduling_sections %}
+            <a
+                class="scheduling-section-tab{% if scheduling_section == item.key %} is-active{% endif %}"
+                href="{{ item.url }}"
+                {% if scheduling_section == item.key %}aria-current="page"{% endif %}
+            >{{ item.label }}</a>
+        {% endfor %}
+    </nav>
+
+    {% if messages %}
+        <div class="scheduling-messages" aria-live="polite">
+            {% for message in messages %}<p class="scheduling-message">{{ message }}</p>{% endfor %}
+        </div>
+    {% endif %}
+
+    {% if scheduling_section == "calendar" %}
+    <section class="scheduling-toolbar" id="calendar-toolbar" aria-label="{% if is_arabic %}أدوات عرض التقويم{% else %}Calendar view controls{% endif %}">
+        <nav class="scheduling-view-tabs" aria-label="{% if is_arabic %}طريقة العرض{% else %}Calendar view{% endif %}">
+            {% for tab in scheduling_view_tabs %}
+                <a
+                    class="scheduling-view-tab{% if scheduling_view == tab.key %} is-active{% endif %}"
+                    href="{{ tab.url }}"
+                    {% if scheduling_view == tab.key %}aria-current="page"{% endif %}
+                >{{ tab.label }}</a>
+            {% endfor %}
+        </nav>
+
+        <div class="scheduling-date-navigation" aria-label="{% if is_arabic %}التنقل بين التواريخ{% else %}Date navigation{% endif %}">
+            <a href="{{ scheduling_previous_url }}">{% if is_arabic %}السابق{% else %}Previous{% endif %}</a>
+            <a class="is-today" href="{{ scheduling_today_url }}">{% if is_arabic %}اليوم{% else %}Today{% endif %}</a>
+            <a href="{{ scheduling_next_url }}">{% if is_arabic %}التالي{% else %}Next{% endif %}</a>
+        </div>
+
+    </section>
+
+    {% if not scheduling_doctor %}
+        <section class="scheduling-unavailable" role="status">
+            <span aria-hidden="true">—</span>
+            <div>
+                <h2>{% if is_arabic %}الجدولة غير متاحة حالياً{% else %}Scheduling is currently unavailable{% endif %}</h2>
+                <p>{% if is_arabic %}لا يوجد طبيب نشط لعرض جدول العيادة.{% else %}There is no active doctor whose clinic schedule can be displayed.{% endif %}</p>
+            </div>
+        </section>
+    {% else %}
+        <div class="scheduling-layout">
+            <section class="scheduling-calendar-card" id="calendar" aria-labelledby="scheduling-calendar-title">
+                <header class="scheduling-card-header">
+                    <div>
+                        <p>{% if is_arabic %}الفترة المعروضة{% else %}Visible period{% endif %}</p>
+                        <h2 id="scheduling-calendar-title">{{ scheduling_period_label }}</h2>
+                    </div>
+                    <span class="scheduling-read-only">{% if is_arabic %}الساعات الفعالة{% else %}Effective hours{% endif %}</span>
+                </header>
+
+                {% if scheduling_view == "day" %}
+                    <div class="scheduling-day-view">
+                        <article class="scheduling-operational-day">
+                            <header class="scheduling-day-heading">
+                                <div>
+                                    <p>{{ scheduling_selected_day.weekday_full }}</p>
+                                    <h3>{{ scheduling_selected_day.day_number }} {{ scheduling_selected_day.month_name }}</h3>
+                                </div>
+                                {% if scheduling_selected_day.is_closed %}
+                                    <span class="scheduling-state is-closed">{% if is_arabic %}مغلق{% else %}Closed{% endif %}</span>
+                                {% elif scheduling_selected_day.working_periods %}
+                                    <span class="scheduling-state">{% if is_arabic %}يوم عمل{% else %}Working day{% endif %}</span>
+                                {% else %}
+                                    <span class="scheduling-state is-muted">{% if is_arabic %}لا توجد ساعات دوام{% else %}No working hours{% endif %}</span>
+                                {% endif %}
+                            </header>
+
+                            <div class="scheduling-day-section">
+                                <div class="scheduling-section-heading">
+                                    <h4>{% if is_arabic %}ساعات الدوام الفعالة{% else %}Effective working hours{% endif %}</h4>
+                                    <span class="scheduling-source-badge">{{ scheduling_selected_day.effective_source_label }}</span>
+                                </div>
+                                {% if scheduling_selected_day.working_periods %}
+                                    <ul class="scheduling-period-list">
+                                        {% for period in scheduling_selected_day.working_periods %}
+                                            <li dir="ltr"><time>{{ period.start }}</time><span>–</span><time>{{ period.end }}</time></li>
+                                        {% endfor %}
+                                    </ul>
+                                {% else %}
+                                    <p class="scheduling-empty-copy">
+                                        {% if scheduling_selected_day.effective_source == "weekly" %}
+                                            {% if is_arabic %}لا توجد ساعات دوام متكررة لهذا اليوم.{% else %}No recurring working hours for this day.{% endif %}
+                                        {% else %}
+                                            {% if is_arabic %}لا توجد ساعات دوام فعالة لهذا اليوم.{% else %}No effective working hours for this day.{% endif %}
+                                        {% endif %}
+                                    </p>
+                                {% endif %}
+                            </div>
+
+                            {% if scheduling_selected_day.is_closed %}
+                                <div class="scheduling-closure" role="status">
+                                    <strong>{% if is_arabic %}مغلق{% else %}Closed{% endif %}</strong>
+                                    {% for reason in scheduling_selected_day.closures %}{% if reason %}<span>{{ reason }}</span>{% endif %}{% endfor %}
+                                </div>
+                            {% endif %}
+
+                            <div class="scheduling-day-section">
+                                <div class="scheduling-section-heading">
+                                    <h4>{% if is_arabic %}المواعيد{% else %}Appointments{% endif %}</h4>
+                                    <span>{{ scheduling_selected_day.appointment_count }}</span>
+                                </div>
+                                {% if scheduling_selected_day.appointments %}
+                                    <ol class="scheduling-appointment-list">
+                                        {% for appointment in scheduling_selected_day.appointments %}
+                                            <li>
+                                                <a class="scheduling-appointment" href="{{ appointment.detail_url }}" style="--appointment-duration: {{ appointment.duration_minutes }};">
+                                                    <span class="scheduling-appointment-time" dir="ltr">{{ appointment.start_time }}–{{ appointment.end_time }}</span>
+                                                    <span class="scheduling-appointment-copy">
+                                                        <strong>{{ appointment.patient_name }}</strong>
+                                                        <small>{{ appointment.visit_type_name }} · {{ appointment.duration_minutes }} {% if is_arabic %}دقيقة{% else %}min{% endif %}</small>
+                                                    </span>
+                                                    <span class="scheduling-status status-{{ appointment.status_class }}">{{ appointment.status_label }}</span>
+                                                </a>
+                                            </li>
+                                        {% endfor %}
+                                    </ol>
+                                {% else %}
+                                    <p class="scheduling-empty-copy">{% if is_arabic %}لا توجد مواعيد في هذا اليوم.{% else %}No appointments on this day.{% endif %}</p>
+                                {% endif %}
+                            </div>
+
+                        </article>
+                    </div>
+                {% elif scheduling_view == "week" %}
+                    <div class="scheduling-week-scroll" tabindex="0" aria-label="{% if is_arabic %}تقويم الأسبوع، يمكن تمريره أفقياً{% else %}Weekly calendar, horizontally scrollable{% endif %}">
+                        <div class="scheduling-week-grid" role="list">
+                            {% for day in scheduling_days %}
+                                <article class="scheduling-week-day{% if day.is_today %} is-today{% endif %}{% if day.is_selected %} is-selected{% endif %}" role="listitem">
+                                    <header>
+                                        <a href="{{ day.day_view_url }}">
+                                            <span>{{ day.weekday_full }}</span>
+                                            <strong>{{ day.day_number }}</strong>
+                                            <small>{{ day.month_name }}</small>
+                                        </a>
+                                    </header>
+                                    {% if day.is_closed %}
+                                        <div class="scheduling-week-state is-closed">
+                                            <strong>{% if is_arabic %}مغلق{% else %}Closed{% endif %}</strong>
+                                            {% for reason in day.closures %}{% if reason %}<span>{{ reason }}</span>{% endif %}{% endfor %}
+                                        </div>
+                                    {% elif day.working_periods %}
+                                        <div class="scheduling-week-hours">
+                                            {% if day.has_special_hours %}<p class="scheduling-source-badge">{% if is_arabic %}ساعات مخصصة{% else %}Customized{% endif %}</p>{% endif %}
+                                            <ul class="scheduling-week-periods" aria-label="{% if is_arabic %}ساعات الدوام{% else %}Working hours{% endif %}">
+                                                {% for period in day.working_periods %}<li dir="ltr">{{ period.start }}–{{ period.end }}</li>{% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% else %}
+                                        <p class="scheduling-week-state">{% if is_arabic %}لا توجد ساعات دوام{% else %}No working hours{% endif %}</p>
+                                    {% endif %}
+
+                                    <div class="scheduling-week-appointments">
+                                        {% if day.appointments %}
+                                            {% for appointment in day.appointments %}
+                                                <a class="scheduling-week-appointment" href="{{ appointment.detail_url }}" style="--appointment-duration: {{ appointment.duration_minutes }};">
+                                                    <span dir="ltr">{{ appointment.start_time }}–{{ appointment.end_time }}</span>
+                                                    <strong>{{ appointment.patient_name }}</strong>
+                                                    <small>{{ appointment.visit_type_name }}</small>
+                                                    <em class="status-{{ appointment.status_class }}">{{ appointment.status_label }}</em>
+                                                </a>
+                                            {% endfor %}
+                                        {% else %}
+                                            <p>{% if is_arabic %}لا مواعيد{% else %}No appointments{% endif %}</p>
+                                        {% endif %}
+                                    </div>
+
+                                </article>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="scheduling-month" tabindex="0" role="grid" aria-label="{{ scheduling_period_label }}">
+                        <div class="scheduling-month-weekdays" role="row">
+                            {% for day in scheduling_days|slice:':7' %}<span role="columnheader">{{ day.weekday_full }}</span>{% endfor %}
+                        </div>
+                        <div class="scheduling-month-grid" role="rowgroup">
+                            {% for week in scheduling_month_weeks %}
+                                <div class="scheduling-month-row" role="row">
+                                    {% for day in week %}
+                                        <a
+                                            class="scheduling-month-day{% if not day.is_current_month %} is-outside{% endif %}{% if day.is_today %} is-today{% endif %}{% if day.is_selected %} is-selected{% endif %}"
+                                            href="{{ day.day_view_url }}"
+                                            role="gridcell"
+                                            {% if day.is_selected %}aria-current="date"{% endif %}
+                                            aria-label="{{ day.weekday_full }} {{ day.day_number }} {{ day.month_name }}"
+                                        >
+                                            <span class="scheduling-month-number">{{ day.day_number }}</span>
+                                            <span class="scheduling-month-signals">
+                                                {% if day.is_closed %}
+                                                    <b class="is-closed">{% if is_arabic %}مغلق{% else %}Closed{% endif %}</b>
+                                                {% elif day.has_special_hours %}
+                                                    <b class="is-special">{% if is_arabic %}مخصص{% else %}Customized{% endif %}</b>
+                                                {% elif day.working_periods %}
+                                                    <b>{% if is_arabic %}دوام{% else %}Working{% endif %}</b>
+                                                {% else %}
+                                                    <b class="is-muted">{% if is_arabic %}لا دوام{% else %}Off{% endif %}</b>
+                                                {% endif %}
+                                                {% if day.appointment_count %}
+                                                    <small>{{ day.appointment_count }} {% if is_arabic %}موعد{% else %}appt.{% endif %}</small>
+                                                {% endif %}
+                                            </span>
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            </section>
+
+            <aside class="scheduling-inspector" id="selected-day-inspector" aria-labelledby="scheduling-inspector-title">
+                <header>
+                    <p>{{ scheduling_selected_day.weekday_full }} · <span dir="ltr">{{ scheduling_selected_date|date:"Y-m-d" }}</span></p>
+                    <h2 id="scheduling-inspector-title">{% if is_arabic %}اليوم المحدد{% else %}Selected day{% endif %}</h2>
+                </header>
+                <dl class="scheduling-summary-list is-compact">
+                    <div>
+                        <dt>{% if is_arabic %}الدوام الفعال{% else %}Effective hours{% endif %}</dt>
+                        <dd>
+                            <strong>{{ scheduling_selected_day.effective_source_label }}</strong>
+                            {% for period in scheduling_selected_day.working_periods %}<span dir="ltr">{{ period.start }}–{{ period.end }}</span>{% empty %}—{% endfor %}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>{% if is_arabic %}المواعيد{% else %}Appointments{% endif %}</dt>
+                        <dd>{{ scheduling_selected_day.appointment_count }}</dd>
+                    </div>
+                </dl>
+                <a class="scheduling-appointments-link" href="{{ scheduling_appointments_url }}">
+                    {% if is_arabic %}عرض المواعيد{% else %}View Appointments{% endif %}
+                </a>
+            </aside>
+        </div>
+    {% endif %}
+    {% include "dashboard/scheduling/_special_hours.html" %}
+    {% elif scheduling_section == "weekly" %}
+        {% include "dashboard/scheduling/_weekly.html" %}
+    {% elif scheduling_section == "services" %}
+        {% include "dashboard/scheduling/_services.html" %}
+    {% elif scheduling_section == "rules" %}
+        {% include "dashboard/scheduling/_rules.html" %}
+    {% elif scheduling_section == "closures" %}
+        {% include "dashboard/scheduling/_closures.html" %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block dashboard_scripts %}
+    <script src="{% static 'js/dashboard-scheduling.js' %}" defer></script>
+{% endblock %}

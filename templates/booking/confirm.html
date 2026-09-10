@@ -1,78 +1,103 @@
 {% extends "base.html" %}
+{% load static i18n %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{% static 'css/booking.css' %}">
+    <script src="{% static 'js/booking.js' %}" defer></script>
+{% endblock %}
 
 {% block content %}
-{% include "partials/page_hero.html" %}
+{% language language %}
+<section class="booking-flow" data-booking-flow>
+    <div class="booking-flow-container">
+        <header class="booking-flow-heading">
+            <h1>{% if is_arabic %}احجز موعدك{% else %}Book Your Appointment{% endif %}</h1>
+        </header>
 
-<section class="section">
-    <div class="container booking-layout">
         {% include "booking/partials/progress_steps.html" %}
 
-        <div class="booking-summary">
-            <div>
-                <p class="eyebrow">{% if is_arabic %}الخطوة الثالثة{% else %}Step Three{% endif %}</p>
-                <h2>{% if is_arabic %}تأكيد الموعد{% else %}Confirm appointment{% endif %}</h2>
-                <p>
-                    {% if is_arabic %}
-                        يتم إنشاء الموعد المؤكد فقط بعد إرسال هذا النموذج.
-                    {% else %}
-                        A confirmed appointment is created only after submitting this form.
-                    {% endif %}
-                </p>
+        <div class="booking-card" data-booking-card data-booking-review>
+            <div class="booking-panel">
+                <a class="booking-back-link" href="{{ slots_url }}?visit_type={{ visit_type.id }}&amp;date={{ slot_display|date:'Y-m-d' }}&amp;starts_at={{ starts_at|urlencode }}" data-booking-back>
+                    <span class="booking-icon-arrow booking-icon-arrow-back" aria-hidden="true"></span>
+                    {% if is_arabic %}رجوع{% else %}Back{% endif %}
+                </a>
+
+                <section class="booking-appointment-summary" data-booking-appointment-summary aria-label="{% if is_arabic %}الموعد المختار{% else %}Selected appointment{% endif %}">
+                    <div class="booking-appointment-summary-copy">
+                        <p class="booking-appointment-service">
+                            {% if is_arabic %}{{ visit_type.name_ar }}{% else %}{{ visit_type.name_en }}{% endif %}
+                        </p>
+                        <time class="booking-appointment-time" datetime="{{ slot_display|date:'c' }}">
+                            <span>{% if is_arabic %}{{ slot_display|date:"l، j F Y" }}{% else %}{{ slot_display|date:"l, j F Y" }}{% endif %}</span>
+                            <span class="booking-summary-separator" aria-hidden="true"></span>
+                            <span dir="ltr">{{ slot_display|time:"H:i" }}</span>
+                        </time>
+                    </div>
+                    <a class="booking-summary-edit" href="{{ slots_url }}?visit_type={{ visit_type.id }}&amp;date={{ slot_display|date:'Y-m-d' }}&amp;starts_at={{ starts_at|urlencode }}" data-booking-edit>
+                        {% if is_arabic %}تعديل{% else %}Edit{% endif %}
+                    </a>
+                </section>
+
+                <div class="booking-form-section" data-booking-patient-details>
+                    <header class="booking-form-heading">
+                        <h2>{% if is_arabic %}بيانات المريض{% else %}Patient Details{% endif %}</h2>
+                    </header>
+
+                    <form class="booking-form" method="post" action="{{ confirm_url }}" novalidate data-booking-patient-form>
+                        {% csrf_token %}
+                        {{ form.visit_type }}
+                        {{ form.starts_at }}
+
+                        {% if form.non_field_errors or form.visit_type.errors or form.starts_at.errors %}
+                            <div class="booking-error-summary" role="alert" aria-live="polite">
+                                <p>{% if is_arabic %}تعذر تأكيد الحجز. راجع الرسالة التالية:{% else %}We could not confirm the booking. Review the message below:{% endif %}</p>
+                                {{ form.non_field_errors }}
+                                {{ form.visit_type.errors }}
+                                {{ form.starts_at.errors }}
+                            </div>
+                        {% endif %}
+
+                        <div class="form-field{% if form.full_name.errors %} has-error{% endif %}" data-booking-field="full-name">
+                            <label for="{{ form.full_name.id_for_label }}">{{ form.full_name.label }} <span class="booking-required-marker" aria-hidden="true">*</span></label>
+                            {{ form.full_name }}
+                            {% if form.full_name.errors %}<div class="booking-field-errors" role="alert">{{ form.full_name.errors }}</div>{% endif %}
+                        </div>
+
+                        <div class="form-field{% if form.phone.errors %} has-error{% endif %}" data-booking-field="phone">
+                            <label for="{{ form.phone.id_for_label }}">{{ form.phone.label }} <span class="booking-required-marker" aria-hidden="true">*</span></label>
+                            {% include "booking/partials/international_phone_field.html" with field=form.phone control_key="phone" %}
+                            {% if form.phone.errors %}<div class="booking-field-errors" role="alert">{{ form.phone.errors }}</div>{% endif %}
+                        </div>
+
+                        <div class="form-field form-check{% if form.same_as_phone.errors %} has-error{% endif %}" data-booking-field="same-as-phone">
+                            {{ form.same_as_phone }}
+                            <label for="{{ form.same_as_phone.id_for_label }}">{{ form.same_as_phone.label }}</label>
+                            {% if form.same_as_phone.errors %}<div class="booking-field-errors" role="alert">{{ form.same_as_phone.errors }}</div>{% endif %}
+                        </div>
+
+                        <div class="form-field{% if form.whatsapp_phone.errors %} has-error{% endif %}" data-booking-field="whatsapp-phone" data-booking-whatsapp-field>
+                            <label for="{{ form.whatsapp_phone.id_for_label }}">
+                                {{ form.whatsapp_phone.label }}
+                            </label>
+                            {% include "booking/partials/international_phone_field.html" with field=form.whatsapp_phone control_key="whatsapp" %}
+                            {% if form.whatsapp_phone.errors %}<div class="booking-field-errors" role="alert">{{ form.whatsapp_phone.errors }}</div>{% endif %}
+                        </div>
+
+                        <div class="form-field{% if form.booking_note.errors %} has-error{% endif %}" data-booking-field="booking-note">
+                            <label for="{{ form.booking_note.id_for_label }}">{{ form.booking_note.label }}</label>
+                            {{ form.booking_note }}
+                            {% if form.booking_note.errors %}<div class="booking-field-errors" role="alert">{{ form.booking_note.errors }}</div>{% endif %}
+                        </div>
+
+                        <button class="booking-primary-action booking-confirm-action" type="submit">
+                            {% if is_arabic %}تأكيد الموعد{% else %}Confirm Booking{% endif %}
+                        </button>
+                    </form>
+                </div>
             </div>
-            <dl class="detail-list">
-                <div>
-                    <dt>{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</dt>
-                    <dd>{% if is_arabic %}{{ visit_type.name_ar }}{% else %}{{ visit_type.name_en }}{% endif %}</dd>
-                </div>
-                <div>
-                    <dt>{% if is_arabic %}الوقت{% else %}Time{% endif %}</dt>
-                    <dd>{{ slot_display|date:"Y-m-d H:i" }}</dd>
-                </div>
-            </dl>
         </div>
-
-        <form class="booking-form" method="post" action="{{ confirm_url }}" novalidate>
-            {% csrf_token %}
-            {{ form.visit_type }}
-            {{ form.starts_at }}
-
-            {% if form.non_field_errors %}
-                <div class="form-errors" role="alert">
-                    {{ form.non_field_errors }}
-                </div>
-            {% endif %}
-
-            <div class="form-field">
-                <label for="{{ form.full_name.id_for_label }}">{{ form.full_name.label }}</label>
-                {{ form.full_name }}
-                {{ form.full_name.errors }}
-            </div>
-            <div class="form-field">
-                <label for="{{ form.phone.id_for_label }}">{{ form.phone.label }}</label>
-                {{ form.phone }}
-                {{ form.phone.errors }}
-            </div>
-            <div class="form-field form-check">
-                {{ form.same_as_phone }}
-                <label for="{{ form.same_as_phone.id_for_label }}">{{ form.same_as_phone.label }}</label>
-                {{ form.same_as_phone.errors }}
-            </div>
-            <div class="form-field">
-                <label for="{{ form.whatsapp_phone.id_for_label }}">{{ form.whatsapp_phone.label }}</label>
-                {{ form.whatsapp_phone }}
-                {{ form.whatsapp_phone.errors }}
-            </div>
-            <div class="form-field">
-                <label for="{{ form.booking_note.id_for_label }}">{{ form.booking_note.label }}</label>
-                {{ form.booking_note }}
-                {{ form.booking_note.errors }}
-            </div>
-
-            <p class="trust-note">{{ labels.not_emergency }}</p>
-            <button class="btn btn-primary" type="submit">
-                {% if is_arabic %}تأكيد الموعد{% else %}Confirm appointment{% endif %}
-            </button>
-        </form>
     </div>
 </section>
+{% endlanguage %}
 {% endblock %}

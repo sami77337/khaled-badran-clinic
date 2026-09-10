@@ -1,39 +1,39 @@
-{% extends "base.html" %}
+{% extends "patients/portal_base.html" %}
 
-{% block content %}
-<section class="page-hero">
-    <div class="container page-hero-inner">
-        <p class="eyebrow">{% if is_arabic %}تفاصيل الموعد{% else %}Appointment Details{% endif %}</p>
-        <h1>{% if is_arabic %}موعدك في العيادة{% else %}Your Clinic Appointment{% endif %}</h1>
-        <p>{{ labels.not_emergency }}</p>
-    </div>
-</section>
+{% block patient_portal_content %}
+<div class="dashboard-content patient-page-content" data-patient-page="appointment-detail">
+    <header class="patient-page-heading">
+        <div>
+            <p class="dashboard-eyebrow">{% if is_arabic %}المواعيد{% else %}Appointments{% endif %}</p>
+            <h1>{% if is_arabic %}تفاصيل الموعد{% else %}Appointment Details{% endif %}</h1>
+        </div>
+        <a class="patient-secondary-action" href="{{ portal_appointments_url }}">
+            <span>{% if is_arabic %}كل المواعيد{% else %}All Appointments{% endif %}</span>
+        </a>
+    </header>
 
-<section class="section">
-    <div class="container booking-layout">
-        {% include "patients/_portal_nav.html" %}
+    {% include "patients/_portal_messages.html" %}
 
-        {% if messages %}
-            <div class="staff-messages">
-                {% for message in messages %}
-                    <p class="muted">{{ message }}</p>
-                {% endfor %}
+    <section class="dashboard-card patient-detail-card" aria-labelledby="patient-appointment-information-title">
+        <div class="dashboard-card-header">
+            <div>
+                <p class="dashboard-card-kicker">{% if is_arabic %}موعدك{% else %}Your Appointment{% endif %}</p>
+                <h2 id="patient-appointment-information-title">{% if is_arabic %}بيانات الموعد{% else %}Appointment Information{% endif %}</h2>
             </div>
-        {% endif %}
-        <div class="success-card">
-            <h2>{% if is_arabic %}بيانات الموعد{% else %}Appointment information{% endif %}</h2>
-            <dl class="detail-list">
+        </div>
+        <div class="patient-card-body">
+            <dl class="patient-detail-list">
                 <div>
-                    <dt>{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</dt>
+                    <dt>{% if is_arabic %}نوع الزيارة{% else %}Visit Type{% endif %}</dt>
                     <dd>{% if is_arabic %}{{ appointment.visit_type.name_ar }}{% else %}{{ appointment.visit_type.name_en }}{% endif %}</dd>
                 </div>
                 <div>
-                    <dt>{% if is_arabic %}التاريخ والوقت{% else %}Date and time{% endif %}</dt>
-                    <dd>{{ appointment.starts_at|date:"Y-m-d H:i" }}</dd>
+                    <dt>{% if is_arabic %}التاريخ والوقت{% else %}Date and Time{% endif %}</dt>
+                    <dd><time class="portal-date-value" datetime="{{ appointment.starts_at|date:'c' }}" dir="ltr">{{ appointment.starts_at|date:"Y-m-d H:i" }}</time></dd>
                 </div>
-                <div>
+                <div class="portal-status-row">
                     <dt>{% if is_arabic %}الحالة{% else %}Status{% endif %}</dt>
-                    <dd><span class="status-pill status-{{ appointment.status }}">{{ status_label }}</span></dd>
+                    <dd><span class="dashboard-status-pill status-{{ appointment.status }}">{{ status_label }}</span></dd>
                 </div>
                 <div>
                     <dt>{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</dt>
@@ -49,28 +49,35 @@
                 </div>
                 <div>
                     <dt>{% if is_arabic %}تاريخ الإنشاء{% else %}Created{% endif %}</dt>
-                    <dd>{{ appointment.created_at|date:"Y-m-d H:i" }}</dd>
+                    <dd><time class="portal-date-value" datetime="{{ appointment.created_at|date:'c' }}" dir="ltr">{{ appointment.created_at|date:"Y-m-d H:i" }}</time></dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}رقم التواصل{% else %}Contact number{% endif %}</dt>
+                    <dd dir="ltr">{{ appointment.effective_contact_phone }}</dd>
+                </div>
+                <div>
+                    <dt>{% if is_arabic %}رقم واتساب{% else %}WhatsApp number{% endif %}</dt>
+                    <dd dir="ltr">{{ appointment.effective_whatsapp_phone }}</dd>
                 </div>
             </dl>
-            <div class="hero-actions">
-                <a class="btn btn-primary" href="{{ portal_appointments_url }}">
-                    {% if is_arabic %}كل المواعيد{% else %}All appointments{% endif %}
+            <div class="patient-card-actions">
+                {% if can_cancel_appointment %}
+                <a class="patient-secondary-action" href="{{ appointment_cancel_url }}">
+                    {% if is_arabic %}إلغاء الموعد{% else %}Cancel Appointment{% endif %}
                 </a>
-                <a class="btn btn-secondary" href="{{ portal_dashboard_url }}">
-                    {% if is_arabic %}العودة للبوابة{% else %}Back to portal{% endif %}
+                {% endif %}
+                <a class="patient-primary-action" href="{{ portal_appointments_url }}">
+                    <span>{% if is_arabic %}كل المواعيد{% else %}All Appointments{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
                 </a>
-                <a class="btn btn-secondary" href="{{ portal_account_url }}">
-                    {% if is_arabic %}الحساب{% else %}Account{% endif %}
+                <a class="patient-secondary-action" href="{{ portal_dashboard_url }}">
+                    {% if is_arabic %}الرئيسية{% else %}Dashboard{% endif %}
                 </a>
             </div>
-        </div>
-        <p class="trust-note">
-            {% if is_arabic %}
-                هذه الصفحة لا تعرض ملاحظات الطبيب الداخلية أو سجل الحالة أو سجل التدقيق أو أي سجلات طبية أو مرفقات.
-            {% else %}
-                This page does not show internal doctor notes, status history, audit logs, medical records, or uploads.
+            {% if can_cancel_appointment %}
+            <p class="muted">{% if is_arabic %}يمكن الإلغاء حتى {{ patient_cancellation_cutoff_hours }} ساعة قبل الموعد.{% else %}Cancellation is available until {{ patient_cancellation_cutoff_hours }} hours before the appointment.{% endif %}</p>
             {% endif %}
-        </p>
-    </div>
-</section>
+        </div>
+    </section>
+</div>
 {% endblock %}

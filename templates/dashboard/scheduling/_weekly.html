@@ -1,0 +1,94 @@
+<section class="scheduling-management" aria-labelledby="weekly-hours-title">
+    <header class="scheduling-management-header">
+        <div>
+            <p>{% if is_arabic %}نموذج الدوام المتكرر{% else %}Recurring working template{% endif %}</p>
+            <h2 id="weekly-hours-title">{% if is_arabic %}ساعات العمل الأسبوعية{% else %}Weekly Hours{% endif %}</h2>
+        </div>
+        <p>
+            {% if is_arabic %}
+                عدّل فترات الدوام المتكرر لكل يوم.
+            {% else %}
+                Manage the recurring working periods for each weekday.
+            {% endif %}
+        </p>
+    </header>
+
+    {% if not scheduling_doctor %}
+        <div class="scheduling-unavailable" role="status">
+            <span aria-hidden="true">—</span>
+            <div>
+                <h2>{% if is_arabic %}الإدارة غير متاحة حالياً{% else %}Management is currently unavailable{% endif %}</h2>
+                <p>{% if is_arabic %}لا يوجد طبيب نشط لتعديل ساعات عمله.{% else %}There is no active doctor whose working hours can be managed.{% endif %}</p>
+            </div>
+        </div>
+    {% else %}
+        <div class="scheduling-weekly-list">
+            {% for day in scheduling_weekly_days %}
+                <article class="scheduling-management-card scheduling-weekday-card" id="{{ day.anchor }}">
+                    <header>
+                        <h3>{{ day.label }}</h3>
+                        <span>
+                            {% if day.periods %}
+                                {{ day.periods|length }} {% if is_arabic %}فترة نشطة{% else %}active period{{ day.periods|length|pluralize }}{% endif %}
+                            {% else %}
+                                {% if is_arabic %}لا توجد ساعات أسبوعية{% else %}No weekly hours{% endif %}
+                            {% endif %}
+                        </span>
+                    </header>
+
+                    {% if day.periods %}
+                        <div class="scheduling-period-editor-list scheduling-current-periods">
+                            {% for item in day.periods %}
+                                <div class="scheduling-period-editor">
+                                    <form method="post" action="{{ item.update_url }}" class="scheduling-inline-form">
+                                        {% csrf_token %}
+                                        {{ item.update_form.non_field_errors }}
+                                        <div class="scheduling-field">
+                                            <label for="{{ item.update_form.start_time.id_for_label }}">{{ item.update_form.start_time.label }}</label>
+                                            {{ item.update_form.start_time }}
+                                            {{ item.update_form.start_time.errors }}
+                                        </div>
+                                        <div class="scheduling-field">
+                                            <label for="{{ item.update_form.end_time.id_for_label }}">{{ item.update_form.end_time.label }}</label>
+                                            {{ item.update_form.end_time }}
+                                            {{ item.update_form.end_time.errors }}
+                                        </div>
+                                        <button class="scheduling-button" type="submit">
+                                            {% if is_arabic %}حفظ الفترة{% else %}Save period{% endif %}
+                                        </button>
+                                    </form>
+                                    <form method="post" action="{{ item.deactivate_url }}" class="scheduling-deactivate-form">
+                                        {% csrf_token %}
+                                        <button class="scheduling-button is-danger" type="submit">
+                                            {% if is_arabic %}إيقاف هذه الفترة{% else %}Deactivate this period{% endif %}
+                                        </button>
+                                    </form>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <form method="post" action="{{ day.create_url }}" class="scheduling-add-form">
+                        {% csrf_token %}
+                        {{ day.create_form.non_field_errors }}
+                        {{ day.create_form.weekday }}
+                        {{ day.create_form.weekday.errors }}
+                        <div class="scheduling-field">
+                            <label for="{{ day.create_form.start_time.id_for_label }}">{{ day.create_form.start_time.label }}</label>
+                            {{ day.create_form.start_time }}
+                            {{ day.create_form.start_time.errors }}
+                        </div>
+                        <div class="scheduling-field">
+                            <label for="{{ day.create_form.end_time.id_for_label }}">{{ day.create_form.end_time.label }}</label>
+                            {{ day.create_form.end_time }}
+                            {{ day.create_form.end_time.errors }}
+                        </div>
+                        <button class="scheduling-button" type="submit">
+                            {% if is_arabic %}إضافة فترة{% else %}Add period{% endif %}
+                        </button>
+                    </form>
+                </article>
+            {% endfor %}
+        </div>
+    {% endif %}
+</section>

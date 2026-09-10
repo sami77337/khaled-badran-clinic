@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/public-closeout.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero reviews-page-hero">
+    <div class="container page-hero-inner">
+        <p class="eyebrow">{% if is_arabic %}آراء معتمدة{% else %}Approved Feedback{% endif %}</p>
+        <h1>{{ page.headline }}</h1>
+        <p>{{ page.subtitle }}</p>
+    </div>
+</section>
+
+<section class="section home-reviews reviews-page-section" aria-labelledby="reviews-page-title">
+    <div class="container home-reviews-panel">
+        <div class="home-reviews-heading">
+            <div>
+                <p class="eyebrow">{% if is_arabic %}آراء معتمدة{% else %}Approved Feedback{% endif %}</p>
+                <h2 id="reviews-page-title">{% if is_arabic %}تجارب وآراء المراجعين{% else %}Reviewer experiences and feedback{% endif %}</h2>
+            </div>
+            {% if review_summary %}
+                <div class="home-review-summary review-source-summary" aria-labelledby="review-summary-label">
+                    <span id="review-summary-label">{% if is_arabic %}متوسط التقييم{% else %}Average Rating{% endif %}</span>
+                    <span class="review-stars" aria-hidden="true">★★★★★</span>
+                    <div class="review-summary-value">
+                        <strong dir="ltr">{{ review_summary.average_rating }}</strong>
+                        <span>{% if is_arabic %}من 5{% else %}out of 5{% endif %}</span>
+                    </div>
+                    <span>{% if is_arabic %}من {{ review_summary.review_count }} تقييمًا منشورًا{% else %}Across {{ review_summary.review_count }} published reviews{% endif %}</span>
+                </div>
+            {% endif %}
+        </div>
+
+        <nav class="reviews-filter" aria-label="{% if is_arabic %}تصفية الآراء حسب اللغة{% else %}Filter reviews by language{% endif %}">
+            <a class="btn btn-outline-light{% if selected_review_filter == 'all' %} is-active{% endif %}" href="?filter=all">{% if is_arabic %}الكل{% else %}All{% endif %}</a>
+            <a class="btn btn-outline-light{% if selected_review_filter == 'ar' %} is-active{% endif %}" href="?filter=ar">العربية</a>
+            <a class="btn btn-outline-light{% if selected_review_filter == 'en' %} is-active{% endif %}" href="?filter=en">English</a>
+        </nav>
+
+        {% if reviews %}
+            <div class="reviews-page-grid">
+                {% for review in reviews %}
+                    <article class="home-review-card review-card-full{% if not review.body.strip %} review-card-rating-only{% endif %}">
+                        <div class="review-stars" aria-label="{{ review.rating }} / 5"><span aria-hidden="true">{{ review.star_text }}</span></div>
+                        {% if review.body.strip %}<blockquote>{{ review.body }}</blockquote>{% endif %}
+                        <div class="review-card-footer">
+                            <p>{% if is_arabic %}{{ review.public_name_ar }}{% else %}{{ review.public_name_en }}{% endif %}</p>
+                            <span>{% if review.source == 'patient_portal' and is_arabic %}تقييم مريض{% elif review.source == 'other' and is_arabic %}مصدر آخر معتمد{% else %}{{ review.get_source_display }}{% endif %}</span>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="home-reviews-empty" role="status">
+                {% if is_arabic %}لا توجد آراء معتمدة ضمن هذا التصنيف حالياً.{% else %}No approved reviews are available in this filter yet.{% endif %}
+            </p>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

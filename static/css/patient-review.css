@@ -1,0 +1,53 @@
+/* Review-only additions using the existing Patient Portal controls and tokens. */
+[data-patient-page="my-review"] .patient-review-form select {
+    width: 100%;
+    min-width: 0;
+    min-height: 3rem;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 0.75rem;
+    background: var(--dashboard-white);
+    color: var(--dashboard-ink);
+    padding: 0.65rem 0.75rem;
+    font: inherit;
+}
+
+[data-patient-page="my-review"] .patient-review-form select:focus-visible {
+    border-color: var(--dashboard-burgundy);
+    outline: 3px solid rgba(74, 15, 20, 0.12);
+}
+
+.patient-review-guidance {
+    margin-block-end: 1rem;
+}
+
+.patient-review-form .helptext {
+    margin: 0;
+}
+
+.patient-review-preview {
+    min-width: 0;
+    margin-block: 1rem;
+    overflow-wrap: anywhere;
+}
+
+.patient-review-preview h3 {
+    margin: 0;
+}
+
+.patient-review-delete {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.patient-review-delete summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.patient-review-delete summary::-webkit-details-marker {
+    display: none;
+}
+
+.patient-review-delete[open] {
+    flex-basis: 100%;
+}

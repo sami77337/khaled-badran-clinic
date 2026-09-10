@@ -1,0 +1,24 @@
+{% extends "patients/portal_base.html" %}
+
+{% block patient_portal_content %}
+<div class="dashboard-content patient-page-content" data-patient-page="appointment-cancel-confirmation">
+    <header class="patient-page-heading">
+        <div><p class="dashboard-eyebrow">{% if is_arabic %}المواعيد{% else %}Appointments{% endif %}</p><h1>{% if is_arabic %}إلغاء الموعد{% else %}Cancel Appointment{% endif %}</h1></div>
+    </header>
+    <section class="dashboard-card patient-form-card">
+        <div class="dashboard-card-header"><div><h2>{% if is_arabic %}تأكيد إلغاء الموعد{% else %}Confirm Appointment Cancellation{% endif %}</h2></div></div>
+        <div class="patient-card-body">
+            <dl class="patient-detail-list">
+                <div><dt>{% if is_arabic %}نوع الزيارة{% else %}Visit Type{% endif %}</dt><dd>{% if is_arabic %}{{ appointment.visit_type.name_ar }}{% else %}{{ appointment.visit_type.name_en }}{% endif %}</dd></div>
+                <div><dt>{% if is_arabic %}التاريخ والوقت{% else %}Date and Time{% endif %}</dt><dd><time dir="ltr" datetime="{{ appointment.starts_at|date:'c' }}">{{ appointment.starts_at|date:"Y-m-d H:i" }}</time></dd></div>
+            </dl>
+            <p>{% if is_arabic %}تسمح العيادة بإلغاء المريض قبل الموعد بـ {{ patient_cancellation_cutoff_hours }} ساعة على الأقل. لن يتم حذف سجل الموعد.{% else %}Patient cancellation is allowed at least {{ patient_cancellation_cutoff_hours }} hours before the appointment. The appointment record will not be deleted.{% endif %}</p>
+            <form class="patient-inline-form" method="post" action="{{ appointment_cancel_url }}">
+                {% csrf_token %}
+                <button class="patient-primary-action" type="submit">{% if is_arabic %}إلغاء الموعد{% else %}Cancel Appointment{% endif %}</button>
+                <a class="patient-secondary-action" href="{{ appointment_detail_url }}">{% if is_arabic %}رجوع{% else %}Go Back{% endif %}</a>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}

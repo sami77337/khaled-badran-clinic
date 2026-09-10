@@ -1,0 +1,15 @@
+<svg class="dashboard-mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    {% if mobile_nav_icon == "home" %}
+        <path d="M3 11.5 12 4l9 7.5"></path><path d="M5.5 10v10h13V10"></path>
+    {% elif mobile_nav_icon == "appointments" %}
+        <rect x="3.5" y="5.5" width="17" height="15" rx="2"></rect><path d="M7 3v5M17 3v5M3.5 10h17"></path>
+    {% elif mobile_nav_icon == "book" %}
+        <circle cx="12" cy="12" r="9"></circle><path d="M12 8v8M8 12h8"></path>
+    {% elif mobile_nav_icon == "consultations" %}
+        <path d="M4 5.5h16v11H9l-5 4z"></path><path d="M8 10h8M8 13h5"></path>
+    {% elif mobile_nav_icon == "patients" %}
+        <circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-4 3-6 7-6s6.2 2 7 6"></path>
+    {% else %}
+        <circle cx="5" cy="12" r="1.25"></circle><circle cx="12" cy="12" r="1.25"></circle><circle cx="19" cy="12" r="1.25"></circle>
+    {% endif %}
+</svg>
