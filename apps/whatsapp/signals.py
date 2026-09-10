@@ -8,7 +8,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from apps.booking.models import Appointment, AppointmentStatusHistory
-from apps.whatsapp.meta import send_booking_confirmation
+from apps.whatsapp.booking_notifications import send_booking_confirmation
 
 
 logger = logging.getLogger(__name__)
