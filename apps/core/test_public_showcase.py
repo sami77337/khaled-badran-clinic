@@ -96,7 +96,7 @@ class PublicReviewShowcaseTests(TestCase):
         self.assertNotContains(en_response, self.ar_review.body)
         self.assertNotContains(en_response, "This draft must stay private.")
 
-    def test_google_source_summary_is_owner_configured_not_derived_from_curated_rows(self):
+    def test_public_summary_ignores_old_manual_google_settings(self):
         SystemSetting.objects.create(
             key=GOOGLE_REVIEW_AVERAGE_KEY,
             value="4.5",
@@ -107,9 +107,14 @@ class PublicReviewShowcaseTests(TestCase):
             value="61",
             value_type=SystemSetting.ValueType.INTEGER,
         )
-        response = self.client.get(reverse("reviews"))
-        self.assertContains(response, "4.5")
-        self.assertContains(response, "61")
+        for route in ("home", "home_en", "reviews", "reviews_en"):
+            with self.subTest(route=route):
+                response = self.client.get(reverse(route))
+                self.assertContains(response, '<strong dir="ltr">5.00</strong>', html=True)
+                self.assertNotContains(response, "Google average rating")
+                self.assertNotContains(response, "متوسط تقييم Google")
+                if route.startswith("reviews"):
+                    self.assertEqual(response.context["review_summary"]["review_count"], 2)
 
     def test_doctor_mobile_correction_has_separate_mobile_booking_placement(self):
         response = self.client.get(reverse("doctor"))

@@ -42,6 +42,11 @@ class FinalCloseoutLayoutTests(TestCase):
                 ConsultationNotification.objects.create(recipient=recipient, consultation=consultation, kind=kind)
         for language in ("ar", "en"):
             PublicReview.objects.create(
+                reviewer_name="تقييم بلا نص" if language == "ar" else "Rating-only reviewer",
+                body="", rating=4, language=language, source=PublicReview.Source.GOOGLE,
+                is_approved_for_publication=True, is_active=True,
+            )
+            PublicReview.objects.create(
                 reviewer_name=("س" if language == "ar" else "W") * 160,
                 body="https://example.test/" + "x" * 400 + " " + "س" * 400,
                 rating=5, language=language, source=PublicReview.Source.OTHER,

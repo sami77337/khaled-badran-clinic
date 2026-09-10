@@ -56,8 +56,8 @@ class Command(BaseCommand):
                     rating = int(row.get("rating"))
                 except (TypeError, ValueError) as exc:
                     raise CommandError(f"Review row {index} has an invalid rating.") from exc
-                if not reviewer_name or not body:
-                    raise CommandError(f"Review row {index} requires reviewer_name and body.")
+                if not reviewer_name:
+                    raise CommandError(f"Review row {index} requires reviewer_name.")
                 if language not in {PublicReview.Language.ARABIC, PublicReview.Language.ENGLISH}:
                     raise CommandError(f"Review row {index} has an unsupported language.")
                 if source not in {PublicReview.Source.GOOGLE, PublicReview.Source.OTHER}:
@@ -91,7 +91,9 @@ class Command(BaseCommand):
                     **lookup,
                     defaults=defaults,
                 )
-                review.full_clean()
+                # External sources may contain rating-only reviews. Keep the model's
+                # required body field (and patient form validation) unchanged.
+                review.full_clean(exclude=["body"] if not body else None)
                 review.save()
                 if was_created:
                     created += 1

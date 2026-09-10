@@ -136,19 +136,19 @@
                 <h2 id="home-reviews-title">{% if is_arabic %}آراء المرضى{% else %}Patient Reviews{% endif %}</h2>
             </div>
             {% if review_summary %}
-                <div class="home-review-summary" data-review-summary aria-label="{% if is_arabic %}متوسط تقييم Google{% else %}Google average rating{% endif %}">
+                <div class="home-review-summary" data-review-summary aria-label="{% if is_arabic %}متوسط التقييم{% else %}Average Rating{% endif %}">
                     <span class="review-summary-star" aria-hidden="true">★</span>
-                    <strong>{{ review_summary.average_rating }}</strong>
-                    <span>{% if is_arabic %}من 5 · {{ review_summary.review_count }} تقييم{% else %}/ 5 · {{ review_summary.review_count }} reviews{% endif %}</span>
+                    <strong dir="ltr">{{ review_summary.average_rating }}</strong>
+                    <span>{% if is_arabic %}من 5 · {{ review_summary.review_count }} تقييمًا منشورًا{% else %}/ 5 · {{ review_summary.review_count }} published reviews{% endif %}</span>
                 </div>
             {% endif %}
         </div>
         {% if public_reviews %}
             <div class="home-review-grid" data-review-carousel data-review-list aria-live="off">
                 {% for review in public_reviews %}
-                    <article class="home-review-card" data-review-card>
+                    <article class="home-review-card{% if not review.body.strip %} review-card-rating-only{% endif %}" data-review-card>
                         <div class="review-stars" aria-label="{{ review.rating }} / 5"><span aria-hidden="true">{{ review.star_text }}</span></div>
-                        <blockquote>{{ review.body }}</blockquote>
+                        {% if review.body.strip %}<blockquote>{{ review.body }}</blockquote>{% endif %}
                         <div class="review-card-footer">
                             <p>{% if is_arabic %}{{ review.public_name_ar }}{% else %}{{ review.public_name_en }}{% endif %}</p>
                             <span>{% if review.source == 'patient_portal' and is_arabic %}تقييم مريض{% elif review.source == 'other' and is_arabic %}مصدر آخر معتمد{% else %}{{ review.get_source_display }}{% endif %}</span>

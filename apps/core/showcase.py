@@ -1,11 +1,12 @@
 from collections import OrderedDict
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, ROUND_HALF_UP
 
+from django.db.models import Count, Sum
 from django.urls import reverse
 
 from apps.records.models import PublicCaseMedia
 
-from .models import PublicReview, SystemSetting
+from .models import PublicReview
 
 
 GOOGLE_REVIEW_AVERAGE_KEY = "google_review_average_rating"
@@ -32,11 +33,15 @@ CASE_NOTE_LABELS = {
 }
 
 
-def approved_reviews(*, language=None, limit=None):
-    queryset = PublicReview.objects.filter(
+def _published_reviews():
+    return PublicReview.objects.filter(
         is_approved_for_publication=True,
         is_active=True,
-    ).exclude(body="")
+    )
+
+
+def approved_reviews(*, language=None, limit=None):
+    queryset = _published_reviews()
     if language in {PublicReview.Language.ARABIC, PublicReview.Language.ENGLISH}:
         queryset = queryset.filter(language=language)
     queryset = queryset.order_by("-is_featured", "display_order", "-reviewed_at", "id")
@@ -46,27 +51,15 @@ def approved_reviews(*, language=None, limit=None):
 
 
 def review_source_summary():
-    rows = {
-        item.key: item.value.strip()
-        for item in SystemSetting.objects.filter(
-            key__in=[GOOGLE_REVIEW_AVERAGE_KEY, GOOGLE_REVIEW_COUNT_KEY]
-        )
-    }
-    average_raw = rows.get(GOOGLE_REVIEW_AVERAGE_KEY, "")
-    count_raw = rows.get(GOOGLE_REVIEW_COUNT_KEY, "")
-    if not average_raw or not count_raw:
+    """Website-wide published ratings, independent of source, language or card limit."""
+    totals = _published_reviews().aggregate(points=Sum("rating"), count=Count("pk"))
+    count = totals["count"]
+    if not count:
         return None
-    try:
-        average = Decimal(average_raw)
-        count = int(count_raw)
-    except (InvalidOperation, TypeError, ValueError):
-        return None
-    if average < 0 or average > 5 or count < 0:
-        return None
+    average = Decimal(totals["points"]) / Decimal(count)
     return {
-        "average_rating": format(average.quantize(Decimal("0.1")), "f"),
+        "average_rating": format(average.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), "f"),
         "review_count": count,
-        "source": "Google",
     }
 
 

@@ -39,8 +39,41 @@
     margin-top: 1.5rem;
 }
 
+.home-review-summary {
+    max-inline-size: 100%;
+    flex-wrap: wrap;
+}
+
 .review-source-summary {
+    display: grid;
+    justify-items: center;
+    gap: 0.25rem;
+    border-radius: var(--radius-card);
+    padding: 0.85rem 1.25rem;
+    text-align: center;
+}
+
+.review-source-summary .review-stars {
+    margin: 0;
+}
+
+.review-summary-value {
+    display: flex;
     align-items: center;
+    gap: 0.6rem;
+}
+
+.review-source-summary strong {
+    font-size: 2.4rem;
+    line-height: 1.2;
+}
+
+.review-card-rating-only {
+    align-self: start;
+}
+
+.review-card-rating-only .review-card-footer {
+    margin-top: 0;
 }
 
 .review-summary-star {

@@ -214,7 +214,8 @@ async function main() {
             }
             for (const surface of ["home", "reviews", "record"]) {
                 await navigate(`${surface}-${language}`);
-                for (const width of widths) {
+                const reviewWidths = surface === "record" ? widths : [...widths, 1366, 1536, 1920];
+                for (const width of reviewWidths) {
                     for (const height of [320, 844]) {
                         await resize(width, height);
                         const result = await evaluate(`(() => {
@@ -232,6 +233,36 @@ async function main() {
                                     failures.push({ text: el.textContent.slice(0, 24), bounds: bounds.toJSON(), own: own.toJSON(), rects: rects.map(r => r.toJSON()) });
                                 }
                             }
+                            if (${surface !== "record"}) {
+                                const summary = document.querySelector('.home-review-summary');
+                                const bounds = summary.getBoundingClientRect();
+                                const value = summary.querySelector('strong');
+                                if (value.textContent !== '4.50' || value.dir !== 'ltr') failures.push('incorrect dynamic summary');
+                                if (!summary.textContent.includes('4 ${language === "ar" ? "تقييمًا منشورًا" : "published reviews"}')) failures.push('incorrect published count');
+                                if (bounds.left < 0 || bounds.right > innerWidth || bounds.height > 200) failures.push('summary not compact or outside viewport');
+                                for (const el of summary.querySelectorAll('span, strong')) {
+                                    const range = document.createRange(); range.selectNodeContents(el);
+                                    if ([...range.getClientRects()].some(r => r.left < bounds.left - 1 || r.right > bounds.right + 1 || r.top < bounds.top - 1 || r.bottom > bounds.bottom + 1)) failures.push('summary text clipping');
+                                }
+                                if (${surface === "reviews"}) {
+                                    if (!summary.textContent.includes('${language === "ar" ? "متوسط التقييم" : "Average Rating"}')) failures.push('missing localized summary label');
+                                    if (summary.querySelector('.review-stars').textContent !== '★★★★★') failures.push('missing summary stars');
+                                    if (parseFloat(getComputedStyle(value).fontSize) <= parseFloat(getComputedStyle(summary).fontSize)) failures.push('rating number lacks emphasis');
+                                }
+                                const cards = [...document.querySelectorAll('.home-review-card:not([hidden])')];
+                                if (!cards.some(card => card.matches('.review-card-rating-only'))) failures.push('missing rating-only fixture');
+                                for (const card of cards) {
+                                    if (card.querySelector('img, picture, svg, video')) failures.push('review image rendered');
+                                    if (!card.matches('.review-card-rating-only')) continue;
+                                    if (card.querySelector('blockquote')) failures.push('empty blockquote');
+                                    const stars = card.querySelector('.review-stars');
+                                    const footer = card.querySelector('.review-card-footer');
+                                    if (!stars.textContent.trim() || !footer.querySelector('p').textContent.trim() || footer.querySelector('span').textContent !== 'Google') failures.push('rating-only metadata missing');
+                                    const gap = footer.getBoundingClientRect().top - stars.getBoundingClientRect().bottom;
+                                    const bottomGap = card.getBoundingClientRect().bottom - footer.getBoundingClientRect().bottom;
+                                    if (gap > 16 || bottomGap > parseFloat(getComputedStyle(card).paddingBottom) + 2) failures.push('rating-only blank spacing');
+                                }
+                            }
                             return { count: nodes.length, failures, width: document.documentElement.clientWidth,
                                 scrollWidth: document.documentElement.scrollWidth, direction: document.documentElement.dir };
                         })()`);
@@ -241,6 +272,12 @@ async function main() {
                         assert.equal(result.failures.length, 0, `${label}: clipped text ${JSON.stringify(result.failures)}`);
                         assert(result.scrollWidth <= result.width, `${label}: horizontal overflow ${JSON.stringify(result)}`);
                         if (surface === "record") folders++; else reviews++;
+                        if (process.env.KBC_REVIEW_QA_DIR && surface === "reviews" && height === 844 && [390, 768, 1366, 1920].includes(width)) {
+                            await evaluate("document.querySelector('.home-reviews-heading').scrollIntoView({block: 'start', behavior: 'instant'})");
+                            const shot = await send('Page.captureScreenshot', { format: 'png' });
+                            fs.mkdirSync(process.env.KBC_REVIEW_QA_DIR, { recursive: true });
+                            fs.writeFileSync(path.join(process.env.KBC_REVIEW_QA_DIR, `reviews-${language}-${width}.png`), Buffer.from(shot.data, 'base64'));
+                        }
                     }
                 }
             }
@@ -324,7 +361,7 @@ async function main() {
                 `${label}: panel usability ${JSON.stringify(result)}`);
             assert(result.firstReachable && result.lastReachable, `${label}: entries inaccessible ${JSON.stringify(result)}`);
         }
-        console.log(`PASS: ${illustratedMaps} approved illustrated map cases (Home/Contact, AR/EN, 14 exact viewports); ${closeout} additional closeout cases (maps, case details, medical text, attachment names, folder deletion, link actions); ${reviews} Home/Reviews long-content cases; ${folders} medical-folder text geometry cases; ${notifications} notification viewport cases; ${rotations} open-panel rotations (AR/EN).`);
+        console.log(`PASS: ${illustratedMaps} approved illustrated map cases (Home/Contact, AR/EN, 14 exact viewports); ${closeout} additional closeout cases (maps, case details, medical text, attachment names, folder deletion, link actions); ${reviews} Home/Reviews cases (dynamic summary, rating-only cards, no review images, long content; mobile/tablet/laptop/desktop); ${folders} medical-folder text geometry cases; ${notifications} notification viewport cases; ${rotations} open-panel rotations (AR/EN).`);
     } finally {
         if (send && ws?.readyState === WebSocket.OPEN) { send("Browser.close").catch(() => {}); await delay(300); }
         server.close();
