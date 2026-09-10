@@ -5,11 +5,11 @@ from django.db.models import DateTimeField, ExpressionWrapper, F
 from django.utils import timezone
 
 from apps.booking.models import Appointment
+from apps.whatsapp.booking_notifications import send_appointment_reminder
 from apps.whatsapp.meta import (
     WhatsAppConfigurationError,
     WhatsAppDeliveryError,
     provider_enabled,
-    send_appointment_reminder,
 )
 
 
