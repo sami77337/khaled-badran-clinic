@@ -100,11 +100,16 @@ Template body and button copy are stored in Meta and must match this specificati
 5. **Arabic location — requested location information.**
    Body: `موقع عيادة الدكتور خالد بدران.`
    URL button at index 0: `افتح الموقع على الخريطة`.
-   URL pattern: exact website origin followed by `/{{1}}`; runtime parameter is
-   the existing Arabic contact/location route. That page contains the approved map.
+   Configure a **static URL** with the approved Google Maps destination:
+   `https://www.google.com/maps/search/?api=1&query=31.970276%2C35.8934391`.
+   This matches `APPROVED_CLINIC_LOCATION["map_url"]` in `apps/core/views.py`.
+   There are no URL variables or runtime button parameters; the send payload
+   has an empty components list. Replace any earlier website-origin `/{{1}}`
+   location template configuration with this static URL before using this version.
    This additional template preserves the 23-character approved label using a
    template URL button's 25-character allowance. Interactive URL button labels
-   are limited to 20 characters. English uses the interactive `Open Map` CTA.
+   are limited to 20 characters. English uses the interactive `Open Map` CTA
+   pointing directly to the same approved Google Maps URL.
 
 Patient-facing custom copy must not contain `آمن`, `آمنة`, `الأمان`, `secure`,
 `security`, or `secure link`. Keep the actual authentication and privacy controls.
@@ -125,8 +130,10 @@ types and oversized numeric timestamps return 400 without processing message tex
 Ordinary inbound text opens the Arabic-first five-row Interactive List:
 `kbc_book`, `kbc_consult`, `kbc_portal`, `kbc_location`, `kbc_staff`.
 The consultation submenu has `kbc_consult_registered` and `kbc_consult_guest`.
-Routing uses these IDs, never visible labels, and destinations come from
-`apps.whatsapp.actions.entry_actions()`. Booking remains login-free. The account
+Routing uses these IDs, never visible labels. Website destinations come from
+`apps.whatsapp.actions.entry_actions()`; the WhatsApp location action opens the
+approved Google Maps destination directly using the template/CTA above.
+Booking remains login-free. The account
 CTA uses the existing dashboard/login redirect; consultation CTAs use the existing
 registered or guest entry. URLs are button destinations, not visible body text.
 

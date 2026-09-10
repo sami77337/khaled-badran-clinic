@@ -8,6 +8,8 @@ from django.core.cache import cache
 from django.test import Client, SimpleTestCase, override_settings
 from django.urls import resolve, reverse
 
+from apps.core.views import APPROVED_CLINIC_LOCATION
+
 from . import menu
 from .notifications import REPLY_MESSAGES
 from .test_meta import META_SETTINGS, SYNTHETIC_PHONE
@@ -225,11 +227,10 @@ class MetaWebhookTests(SimpleTestCase):
                 self.assertEqual(response.content, b"Invalid request")
         self.send.assert_not_called()
 
-    def test_all_ctas_use_existing_routes_and_never_visible_urls(self):
+    def test_website_ctas_use_existing_routes_and_never_visible_urls(self):
         routes = {
             "kbc_book": "book",
             "kbc_portal": "patient_portal_dashboard",
-            "kbc_location": "contact",
             "kbc_consult_registered": "patient_portal_consultation_new",
             "kbc_consult_guest": "guest_consultation_entry",
         }
@@ -250,18 +251,6 @@ class MetaWebhookTests(SimpleTestCase):
                         )
                         content = self.send.call_args.args[1]
                         path = reverse(route + ("_en" if language == "en" else ""))
-                        if selection == "kbc_location" and language == "ar":
-                            template = content["template"]
-                            self.assertEqual(template["name"], "synthetic_location")
-                            self.assertEqual(
-                                template["components"][0]["parameters"][0]["text"],
-                                path.lstrip("/"),
-                            )
-                            self.assertEqual(
-                                menu.DESTINATIONS[selection][1],
-                                "افتح الموقع على الخريطة",
-                            )
-                            continue
                         interactive = content["interactive"]
                         button = interactive["action"]["parameters"]
                         self.assertLessEqual(len(button["display_text"]), 20)
@@ -271,6 +260,40 @@ class MetaWebhookTests(SimpleTestCase):
                         self.assertTrue(resolve(path))
                         self.assertNotIn("https://", interactive["body"]["text"])
                         self.assertNotIn("untrusted-visible-label", json.dumps(content))
+
+    def test_arabic_location_uses_static_map_template_without_route_parameter(self):
+        self.assertEqual(
+            self.post([self.message(selection="kbc_location")]).status_code, 200
+        )
+        content = self.send.call_args.args[1]
+        self.assertEqual(content["type"], "template")
+        self.assertEqual(content["template"]["name"], "synthetic_location")
+        self.assertEqual(content["template"]["language"], {"code": "ar"})
+        self.assertEqual(content["template"]["components"], [])
+        self.assertEqual(
+            menu.DESTINATIONS["kbc_location"][1], "افتح الموقع على الخريطة"
+        )
+        self.assertNotIn("contact-location", json.dumps(content))
+        self.assertNotIn("untrusted-visible-label", json.dumps(content))
+
+    @override_settings(WHATSAPP_DEFAULT_LANGUAGE="en")
+    def test_english_location_opens_approved_google_maps_url_directly(self):
+        self.assertEqual(
+            self.post([self.message(selection="kbc_location")]).status_code, 200
+        )
+        content = self.send.call_args.args[1]
+        interactive = content["interactive"]
+        self.assertEqual(interactive["type"], "cta_url")
+        button = interactive["action"]["parameters"]
+        self.assertEqual(button["display_text"], "Open Map")
+        self.assertEqual(button["url"], APPROVED_CLINIC_LOCATION["map_url"])
+        self.assertEqual(
+            button["url"],
+            "https://www.google.com/maps/search/?api=1&query=31.970276%2C35.8934391",
+        )
+        self.assertNotIn("https://", interactive["body"]["text"])
+        self.assertNotIn("contact-location", json.dumps(content))
+        self.assertNotIn("untrusted-visible-label", json.dumps(content))
 
     def test_consultation_submenu_has_registered_and_guest_reply_buttons(self):
         self.assertEqual(

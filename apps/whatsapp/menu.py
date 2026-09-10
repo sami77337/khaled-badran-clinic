@@ -1,4 +1,6 @@
-"""Approved AR/EN copy and stable menu IDs. Website actions own the routes."""
+"""Approved AR/EN menu copy, website routes and direct clinic map destination."""
+
+from apps.core.views import APPROVED_CLINIC_LOCATION
 
 from .actions import entry_actions
 from .configuration import website_origin
@@ -76,16 +78,18 @@ def consultation_menu(language):
 
 def destination_message(selection, language):
     key, arabic, english = DESTINATIONS[selection]
-    action = next(action for action in entry_actions(language) if action.key == key)
     label = english if language == "en" else arabic
-    if selection == "kbc_location" and language == "ar":
-        # The exact owner-approved Arabic label has 23 characters. Use a
-        # template URL button (up to 25), not a 20-character interactive CTA.
-        from .meta import _url_button, template_content
+    if selection == "kbc_location":
+        if language == "ar":
+            # Preserve the 23-character label with a template URL button.
+            # Its approved Google Maps URL is static: no runtime URL parameter.
+            from .meta import template_content
 
-        return template_content(
-            "LOCATION", language, [_url_button(action.url.lstrip("/"))]
-        )
+            return template_content("LOCATION", language, [])
+        url = APPROVED_CLINIC_LOCATION["map_url"]
+    else:
+        action = next(action for action in entry_actions(language) if action.key == key)
+        url = website_origin() + action.url
     return {
         "type": "interactive",
         "interactive": {
@@ -95,7 +99,7 @@ def destination_message(selection, language):
                 "name": "cta_url",
                 "parameters": {
                     "display_text": label,
-                    "url": website_origin() + action.url,
+                    "url": url,
                 },
             },
         },
