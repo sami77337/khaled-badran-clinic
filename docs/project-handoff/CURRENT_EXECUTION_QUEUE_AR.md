@@ -1,119 +1,71 @@
 # Current Execution Queue
 
-## P0 — Current Figma runtime blocker
+هذه الوثيقة تعكس الحالة الحالية بعد إغلاق Commercial Delivery v1. لا تعتمد على Queue تاريخية أقدم عند التعارض مع GitHub Live أو قرار المالك.
 
-Fix:
-`ReferenceError: Cannot access 'user' before initialization`
+## P0 — Commercial Delivery v1 — CLOSED
 
-File:
-`src/app/portal/PortalMainLayout.tsx`
+الحالة: **COMPLETE / MERGED**
 
-Acceptance:
-- `/portal` renders normally
-- current authenticated patient comes from one real session/auth source
-- no hardcoded Ahmad/Sami/first demo patient
-- refresh preserves current user
-- logout clears session
-- second account changes identity
-- Arabic/English keeps same patient identity
-- `/portal/appointments` works
-- `/portal/medical-records` works
-- no TDZ/hook/redirect-loop/runtime console errors
+- PR #44 merged إلى `main`.
+- Merge commit: `8d34c198c15442e4092c02513cb3f42596b4db92`.
+- Final Figma-to-Django implementation مغلق ضمن النطاق المعتمد.
+- Arabic RTL + English LTR verified.
+- phone / tablet / laptop / desktop responsive QA complete.
+- public booking / patient portal / staff dashboard / records / private media / public cases / reviews / consultation flows verified ضمن Commercial Delivery scope.
+- Dependency audit PASS.
+- Django checks PASS.
+- Full app suite على آخر Commercial head: 852 PASS.
 
-## P1 — Finish Figma QA
+## P1 — Doctor handoff package — COMPLETE
 
-Audit all approved routes/screens in Arabic + English:
-- Home
-- Doctor
-- Services
-- Cases
-- Reviews
-- Booking
-- Portal login/register
-- Portal dashboard
-- Appointments
-- Medical records
-- Contact & Location
-- Staff dashboard
-- Scheduling
-- Content management
-- Review management
-- Case management
+الحزمة الحالية:
 
-Test phone + tablet/iPad + laptop + desktop, plus loading/empty/error states.
+`docs/project-handoff/DOCTOR_HANDOFF_PACKAGE_AR.md`
 
-## P2 — Confirm approved design requirements
+تتضمن:
+- ما تم تسليمه.
+- طريقة التشغيل اليومية.
+- Reviews / Dynamic Average contract.
+- privacy/security boundaries.
+- final QA evidence.
+- الفصل الواضح بين Commercial Delivery وProduction Readiness.
 
-- Jordan `+962` default country selector on all phone fields
-- dynamic overall rating
-- full reviewer names
-- review hide/restore/archive controls
-- doctor-editable normal public content
-- achievement management
-- configurable weekly schedule/exceptions
-- interactive calendar
-- `KB` dashboard badge in both languages
-- real clickable clinic map
-- mobile language switch outside drawer
-- gold/wood active mobile menu route
-- mobile Home hides rotating image, Services cards, FAQ
-- desktop Authorized Cases above Services
+## P2 — Target-environment review data load — PENDING ENVIRONMENT
 
-## P3 — Figma freeze
+الـ57 Google reviews المعتمدة من المالك موجودة في Dataset خارجي خارج Git.
 
-After QA passes, stop adding unapproved visual changes. Only bugs or explicit owner requirements.
+تم التحقق من تحميلها محليًا، لكن عند تحديد قاعدة بيانات بيئة التسليم/Production يجب تشغيل:
 
-## P4 — GitHub live audit
+```bash
+python manage.py import_public_reviews <owner-approved-json> --approve
+```
 
-Verify current main and open PRs. Keep major Dependabot upgrades separate from product work.
+هذه Data Load operation وليست Feature أو Code blocker.
 
-## P5 — Figma-to-Django implementation audit
+## P3 — Production readiness — SEPARATE TRACK
 
-Compare every final approved Figma route with current Django.
-Do not rebuild already implemented backend.
+لا يعاد فتح Commercial Delivery بسبب هذه البنود إلا إذا ظهر blocker حقيقي يمنع التسليم المطلوب.
 
-Produce a gap matrix:
-- implemented
-- partial
-- missing
-- design-only
-- backend-only
-- blocker
+حسب الحاجة قبل Production Launch الكامل:
 
-## P6 — Implement missing product/visual gaps
-
-Use focused Codex batches with real tests and privacy regression coverage.
-
-## P7 — Commercial handoff QA
-
-Verify:
-- public website
-- booking
-- staff dashboard
-- patient portal
-- medical records/private media
-- approved public cases
-- Arabic/English
-- responsive behavior
-- accessibility basics
-- security/privacy regression
-- clean synthetic/demo state
-
-## P8 — Doctor handoff package
-
-Prepare commercial-ready evidence/documentation. Do not call it Production-ready.
-
-## P9 — Separate production-readiness track
-
-Still requires as applicable:
 - legal/privacy approval
-- persistent protected media storage
+- persistent protected media/storage decision
+- managed database backup/restore evidence
 - monitoring provider
 - alert routing
 - privacy-safe error reporting
-- managed PostgreSQL restore evidence
-- RPO/RTO/retention approval
-- load/concurrency testing
-- intermittent staging health latency decision
 - production domain/DNS/TLS
-- final go/no-go
+- load/concurrency validation
+- WhatsApp provider/API decision إذا أراد المالك integration حيًا
+- final production go/no-go
+
+## قاعدة المتابعة
+
+أي عمل جديد بعد هذا الإغلاق يجب أن يكون واحدًا فقط من:
+
+1. Deployment/data-load operation.
+2. Production-readiness task.
+3. Defect حقيقي على النسخة المسلّمة.
+4. Owner-approved new scope.
+
+لا Scope Creep، ولا إعادة بناء Backend مكتمل، ولا إعادة فتح التصميم بدون سبب معتمد.
