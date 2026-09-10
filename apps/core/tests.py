@@ -26,6 +26,7 @@ from apps.booking.models import Appointment
 from apps.clinic.models import ClinicProfile, Doctor, VisitType
 from apps.core import views as core_views
 from apps.core.checks import production_readiness_checks
+from apps.core.test_utils import close_test_response
 from apps.patients.models import Patient
 from apps.records.models import (
     ClinicalNote,
@@ -1294,7 +1295,7 @@ class PublicCaseMediaRouteTests(PublicCasesTestDataMixin, TestCase):
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
         self.assertNotIn(media.file.name, route)
         self.assertNotIn(str(Path(media.file.storage.location)), route)
-        response.close()
+        close_test_response(response)
 
     def test_public_endpoint_requires_case_and_media_consent_active_and_valid_role(self):
         scenarios = (

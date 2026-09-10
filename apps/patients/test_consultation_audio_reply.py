@@ -9,6 +9,7 @@ from django.db import DatabaseError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from apps.core.test_utils import close_test_response
 from apps.patients.models import (
     CONSULTATION_AUDIO_MAX_BYTES,
     Consultation,
@@ -243,7 +244,7 @@ class ConsultationAudioReplyTests(TestCase):
         self.assertIn("no-store", patient_response["Cache-Control"])
         self.assertEqual(patient_response["X-Content-Type-Options"], "nosniff")
         self.assertIn("inline", patient_response["Content-Disposition"])
-        patient_response.close()
+        close_test_response(patient_response)
 
         detail = self.client.get(
             reverse(
@@ -264,7 +265,7 @@ class ConsultationAudioReplyTests(TestCase):
         staff_response = self.client.get(staff_url)
         self.assertEqual(staff_response.status_code, 200)
         self.assertEqual(staff_response["Content-Type"], "audio/webm")
-        staff_response.close()
+        close_test_response(staff_response)
 
     def test_recorder_ui_has_local_preview_timer_limits_and_no_upload_transport(self):
         consultation = self.create_consultation()

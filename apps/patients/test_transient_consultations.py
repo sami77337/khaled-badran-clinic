@@ -13,6 +13,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.core.test_utils import close_test_response
 from apps.patients.consultation_services import update_consultation_reply
 from apps.patients.models import (
     Consultation, Patient, TransientConsultation, TransientConsultationAttachment,
@@ -258,7 +259,7 @@ class GuestConsultationTests(TestCase):
             self.assertIn("no-store", response["Cache-Control"])
             self.assertEqual(response["X-Content-Type-Options"], "nosniff")
             self.assertNotIn(attachment.original_filename, response["Content-Disposition"])
-            response.close()
+            close_test_response(response)
             self.assertEqual(Client().get(self.url("attachment", attachment)).status_code, 404)
             with self.assertRaises(ValueError):
                 _ = attachment.file.url
@@ -277,7 +278,7 @@ class GuestConsultationTests(TestCase):
             self.assertEqual(Client().get(self.url(kind, media)).status_code, 404)
             response = self.client.get(self.url(kind, media))
             self.assertEqual(response.status_code, 200)
-            response.close()
+            close_test_response(response)
 
     def test_invalid_attachment_extension_mime_empty_size_and_count(self):
         self.verify()
@@ -422,7 +423,7 @@ class GuestConsultationTests(TestCase):
         response = client.get(reverse("dashboard_guest_consultation_attachment", kwargs={"public_id": attachment.public_id}))
         self.assertEqual(response.status_code, 200)
         self.assertIn("no-store", response["Cache-Control"])
-        response.close()
+        close_test_response(response)
         client.force_login(self.patient_user)
         self.assertEqual(client.get(reverse("patient_portal_consultation_attachment", kwargs={"public_id": attachment.public_id})).status_code, 404)
 

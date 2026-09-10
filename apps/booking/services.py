@@ -362,6 +362,7 @@ def create_public_appointment(
     booking_note="",
     whatsapp_phone_raw="",
     authenticated_user=None,
+    language="ar",
 ):
     settings = get_booking_settings()
     doctor = get_active_doctor()
@@ -437,6 +438,9 @@ def create_public_appointment(
         new_status=appointment.status,
         new_starts_at=appointment.starts_at,
     )
+    from apps.whatsapp.booking import schedule_booking_confirmation
+
+    schedule_booking_confirmation(appointment.pk, "en" if language == "en" else "ar")
     return appointment
 
 

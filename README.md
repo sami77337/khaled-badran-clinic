@@ -40,6 +40,7 @@ Only Dr. Khaled Hassan Badran is in scope for the initial version. No second doc
 - `docs/NEXT_BATCH.md` — current recommended implementation batch.
 
 - `docs/ENVIRONMENT.md` - environment variables and local/production settings behavior.
+- `docs/WHATSAPP_META_SETUP.md` - optional Meta Cloud API configuration, approved message templates, webhook routing, reminder scheduling, and synthetic validation.
 - `docs/PRODUCTION_READINESS.md` - current deployment-readiness status and known gaps.
 - `docs/DEPLOYMENT_CHECKLIST.md` - future deployment checklist; no deployment has been performed.
 - `docs/SECURITY_HARDENING.md` - Batch 6 security posture and remaining security work.

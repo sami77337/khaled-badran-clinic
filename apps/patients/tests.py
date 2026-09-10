@@ -21,6 +21,7 @@ from django.utils import timezone
 from apps.booking.models import Appointment, AppointmentStatusHistory
 from apps.clinic.models import Doctor, VisitType
 from apps.core.models import AuditLog
+from apps.core.test_utils import close_test_response
 from apps.patients.forms import (
     GENERIC_LINK_ERROR,
     GENERIC_LOGIN_ERROR,
@@ -2085,7 +2086,7 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         self.assertNotIn(str(settings.PRIVATE_MEDIA_ROOT), content_disposition)
         self.assertNotIn(media.file.name, content_disposition)
         self.assertEqual(b"".join(response.streaming_content), b"download-bytes")
-        response.close()
+        close_test_response(response)
 
     def test_linked_patient_cannot_access_disallowed_or_trashed_media(self):
         trashed_media = self.create_media(title="Trashed patient media blocked from view")
@@ -2129,7 +2130,7 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         self.assertNotIn(media.file.name, combined_headers)
         with self.assertRaises(ValueError):
             media.file.url
-        response.close()
+        close_test_response(response)
 
     def test_existing_staff_private_media_route_still_requires_staff(self):
         media = self.create_media()

@@ -33,8 +33,25 @@ ACCOUNT_PHONE_CHANGE_OTP_SENDER = ""
 ACCOUNT_PHONE_CHANGE_OTP_TTL_SECONDS = 10 * 60
 ACCOUNT_PHONE_CHANGE_OTP_RESEND_COOLDOWN_SECONDS = 60
 
-# Owner-configured callables only; no WhatsApp provider is selected.
-GUEST_CONSULTATION_OTP_SENDER = os.getenv("GUEST_CONSULTATION_OTP_SENDER", "")
+# Meta is opt-in; incomplete configuration never makes an outbound request.
+WHATSAPP_META_ENABLED = env_bool("WHATSAPP_META_ENABLED", False)
+WHATSAPP_META_ACCESS_TOKEN = os.getenv("WHATSAPP_META_ACCESS_TOKEN", "")
+WHATSAPP_META_PHONE_NUMBER_ID = os.getenv("WHATSAPP_META_PHONE_NUMBER_ID", "")
+WHATSAPP_META_WABA_ID = os.getenv("WHATSAPP_META_WABA_ID", "")
+WHATSAPP_META_APP_SECRET = os.getenv("WHATSAPP_META_APP_SECRET", "")
+WHATSAPP_META_VERIFY_TOKEN = os.getenv("WHATSAPP_META_VERIFY_TOKEN", "")
+WHATSAPP_META_GRAPH_VERSION = os.getenv("WHATSAPP_META_GRAPH_VERSION", "")
+WHATSAPP_META_OTP_TEMPLATE = os.getenv("WHATSAPP_META_OTP_TEMPLATE", "")
+WHATSAPP_META_CONSULTATION_REPLY_TEMPLATE = os.getenv("WHATSAPP_META_CONSULTATION_REPLY_TEMPLATE", "")
+WHATSAPP_META_BOOKING_CONFIRMATION_TEMPLATE = os.getenv("WHATSAPP_META_BOOKING_CONFIRMATION_TEMPLATE", "")
+WHATSAPP_META_APPOINTMENT_REMINDER_TEMPLATE = os.getenv("WHATSAPP_META_APPOINTMENT_REMINDER_TEMPLATE", "")
+WHATSAPP_META_LOCATION_TEMPLATE = os.getenv("WHATSAPP_META_LOCATION_TEMPLATE", "")
+WHATSAPP_META_TEMPLATE_LANGUAGE_AR = os.getenv("WHATSAPP_META_TEMPLATE_LANGUAGE_AR", "ar")
+WHATSAPP_META_TEMPLATE_LANGUAGE_EN = os.getenv("WHATSAPP_META_TEMPLATE_LANGUAGE_EN", "en_US")
+WHATSAPP_HANDOFF_TTL_SECONDS = env_int("WHATSAPP_HANDOFF_TTL_SECONDS", 86400, minimum=60, maximum=604800)
+GUEST_CONSULTATION_OTP_SENDER = os.getenv(
+    "GUEST_CONSULTATION_OTP_SENDER", "apps.whatsapp.meta.send_guest_otp" if WHATSAPP_META_ENABLED else "",
+)
 GUEST_CONSULTATION_OTP_TTL_SECONDS = 10 * 60
 GUEST_CONSULTATION_GRANT_TTL_SECONDS = 24 * 60 * 60
 GUEST_CONSULTATION_OTP_MAX_ATTEMPTS = 5
@@ -45,7 +62,10 @@ GUEST_CONSULTATION_VERIFY_IP_PER_HOUR = 30
 GUEST_CONSULTATION_VERIFY_PHONE_PER_HOUR = 20
 GUEST_CONSULTATION_SUBMIT_IP_PER_HOUR = 10
 GUEST_CONSULTATION_SUBMIT_PHONE_PER_HOUR = 5
-WHATSAPP_CONSULTATION_NOTIFICATION_SENDER = os.getenv("WHATSAPP_CONSULTATION_NOTIFICATION_SENDER", "")
+WHATSAPP_CONSULTATION_NOTIFICATION_SENDER = os.getenv(
+    "WHATSAPP_CONSULTATION_NOTIFICATION_SENDER",
+    "apps.whatsapp.meta.send_consultation_notification" if WHATSAPP_META_ENABLED else "",
+)
 WHATSAPP_WEBSITE_ORIGIN = os.getenv("WHATSAPP_WEBSITE_ORIGIN", "")
 WHATSAPP_DEFAULT_LANGUAGE = os.getenv("WHATSAPP_DEFAULT_LANGUAGE", "ar")
 
@@ -183,6 +203,7 @@ LOG_LEVEL = os.getenv("DJANGO_LOG_LEVEL", "INFO").upper()
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "filters": {"whatsapp_privacy": {"()": "apps.whatsapp.logging.WebhookPrivacyFilter"}},
     "formatters": {
         "console": {
             "format": "{levelname} {asctime} {name} {message}",
@@ -193,6 +214,7 @@ LOGGING = {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "console",
+            "filters": ["whatsapp_privacy"],
         },
     },
     "root": {
@@ -200,6 +222,11 @@ LOGGING = {
         "level": LOG_LEVEL,
     },
     "loggers": {
+        "django.server": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
         "django": {
             "handlers": ["console"],
             "level": LOG_LEVEL,

@@ -19,6 +19,7 @@ from django.utils import timezone
 from apps.booking.models import Appointment
 from apps.clinic.models import Doctor, VisitType
 from apps.core.models import AuditLog
+from apps.core.test_utils import close_test_response
 from apps.patients.models import Patient
 from apps.records.models import (
     IMAGE_MAX_BYTES,
@@ -800,7 +801,7 @@ class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
                     )
                 )
                 self.assertEqual(response.status_code, 200)
-                response.close()
+                close_test_response(response)
 
             with self.subTest(route=route_name, patient="other"):
                 response = self.client.get(

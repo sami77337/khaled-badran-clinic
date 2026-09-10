@@ -68,30 +68,33 @@ limit. New/replaced audio cleanup retains the existing transaction behavior.
 
 ## Provider-agnostic interfaces
 
-No provider adapter, credentials, provider-specific menu payload, webhook, or
-package is selected or installed by this feature.
+The optional Meta Cloud API adapter now implements these existing contracts.
+See [Meta setup](WHATSAPP_META_SETUP.md) for environment configuration, approved
+templates, the authenticated webhook and deployment requirements.
 
 `apps.whatsapp.actions.entry_actions(language)` returns immutable website action
 definitions with `key`, `label`, `url`, and optional `group`. These include
 booking, both consultation paths, existing appointments, appointment link and
-recovery, clinic location, doctor, and services. A future adapter can map these
-to buttons or lists.
+recovery, patient account, clinic location, doctor, and services. The Meta
+adapter maps the approved subset to menus and CTA buttons.
 
 Optional environment settings:
 
 ```text
-GUEST_CONSULTATION_OTP_SENDER=your_package.send_guest_otp
-WHATSAPP_CONSULTATION_NOTIFICATION_SENDER=your_package.send_consultation_notice
+GUEST_CONSULTATION_OTP_SENDER=apps.whatsapp.meta.send_guest_otp
+WHATSAPP_CONSULTATION_NOTIFICATION_SENDER=apps.whatsapp.meta.send_consultation_notification
 WHATSAPP_WEBSITE_ORIGIN=https://your-clinic-website.example
 WHATSAPP_DEFAULT_LANGUAGE=ar
 ```
 
 These are dotted Python callable paths; settings overrides may also supply
-callables directly. Neither sender is configured by default.
+callables directly. Meta is disabled by default. Enabling it selects these paths
+when the corresponding environment variable is absent; an explicitly blank
+sender is unavailable and fails the enabled-provider configuration check.
 
 ```python
 send_guest_otp(phone_e164, code, language)
-send_consultation_notice(phone_e164, neutral_message, secure_url, language)
+send_consultation_notification(phone_e164, message, website_url, language)
 ```
 
 `False` or an exception means delivery failure. OTP delivery failure does not

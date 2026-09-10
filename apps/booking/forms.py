@@ -201,6 +201,7 @@ class PublicBookingForm(forms.Form):
             starts_at=self.cleaned_data["starts_at"],
             booking_note=self.cleaned_data.get("booking_note", ""),
             authenticated_user=self.authenticated_user,
+            language=self.language,
         )
 
 

@@ -251,11 +251,10 @@ No patient email workflow is implemented in Batch 6.
 - Uploads are not implemented yet.
 - Future patient uploads must use private storage with authenticated access checks, not public `MEDIA_URL` links.
 
-## WhatsApp Placeholders
+## WhatsApp Meta Cloud API
 
-The following variables are placeholders only. No WhatsApp sending or webhooks are implemented:
-
-- `WHATSAPP_ACCESS_TOKEN`
-- `WHATSAPP_PHONE_NUMBER_ID`
-- `WHATSAPP_VERIFY_TOKEN`
-- `WHATSAPP_APP_SECRET`
+The optional Meta adapter uses environment-only `WHATSAPP_META_*` settings.
+It is disabled by default and fails closed when required configuration is absent.
+The old generic WhatsApp placeholders are not read by this adapter.
+See [WHATSAPP_META_SETUP.md](WHATSAPP_META_SETUP.md) and `.env.example` for the
+webhook, templates, sender contracts and reminder scheduler setup.
