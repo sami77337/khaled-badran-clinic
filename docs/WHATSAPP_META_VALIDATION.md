@@ -65,6 +65,47 @@ results are in `.cache/whatsapp-postgres-redis.log` and
 `.cache/whatsapp-compatibility-regressions.log`. These contain synthetic test
 diagnostics only. Temporary test containers were removed after validation.
 
+## Resumed branch reconciliation
+
+The local implementation at `28d3c4a` and the remote PR implementation at
+`32b1601` were developed from the same base. They are reconciled with a merge
+that preserves both commit histories. The final runtime uses the tested
+`meta`, `menu`, `webhook` and `booking` modules and retains the PostgreSQL
+compatibility fixes described above. Superseded adapter, signal and URL modules
+are removed so booking confirmations and callbacks have one execution path.
+
+The remote existing-number coexistence requirement is preserved and linked from
+the canonical setup guide. The earlier `WHATSAPP_META_CLOUD_API.md` entry point
+now directs operators to that guide instead of retaining conflicting template
+names and callable paths.
+
+`start` and `ابدأ` join the existing menu commands. A regression test covers ten
+AR/EN command combinations, verifies staff-handoff suppression before resuming,
+preserves the selected language, and deduplicates a repeated resume event.
+
+A supplementary CI job was prepared to run the focused WhatsApp suite against
+isolated PostgreSQL 16 and Redis 7 services. Publishing that workflow change was
+rejected because the signed-in GitHub OAuth credential lacks `workflow` scope.
+The existing CI configuration remains in use. The proposed job is preserved in
+the local `.cache/whatsapp-postgres-redis-ci.patch` and
+`local/whatsapp-postgres-redis-ci` branch for a separately authorized workflow
+update. Provider HTTP remains mocked; proposed CI credentials are synthetic.
+
+Validation of the reconciled tree on 2026-09-10:
+
+- Full suite on isolated PostgreSQL 16 and Redis 7: **900 tests in 402.127
+  seconds, zero failures, one optional external-review-dataset skip**. Browser
+  layout and recorder lifecycle checks also passed. Evidence is retained in
+  `.cache/whatsapp-resume-merged-full-suite.log`.
+- Focused SQLite/LocMem suite: 55 tests, zero failures, two expected database/cache
+  concurrency skips. Both concurrency tests ran in the full PostgreSQL/Redis suite.
+- Django checks, migration drift, dependency consistency and Git whitespace
+  checks passed. WhatsApp lint and formatting of the two changed Python files
+  passed; no dependency or migration changes were introduced.
+- Added-line credential-pattern scan found no private-key material or GitHub,
+  Meta or AWS access tokens. The proposed CI patch contains only explicitly
+  synthetic test-service credentials.
+
 ## External activation
 
 All provider HTTP calls in validation were mocked with synthetic fixtures. Local

@@ -329,6 +329,62 @@ class MetaWebhookTests(SimpleTestCase):
         )
         self.assertEqual(self.send.call_args.args[1], menu.main_menu("ar"))
 
+    def test_start_commands_resume_handoff_without_changing_selected_language(self):
+        for language in ("ar", "en"):
+            for command in ("menu", "القائمة", "start", "ابدأ", "  START  "):
+                with self.subTest(language=language, command=command):
+                    cache.clear()
+                    self.assertEqual(
+                        self.post(
+                            [
+                                self.message(
+                                    text="English" if language == "en" else "العربية"
+                                )
+                            ]
+                        ).status_code,
+                        200,
+                    )
+                    self.assertEqual(
+                        self.post(
+                            [
+                                self.message(
+                                    message_id="synthetic-handoff",
+                                    selection="kbc_staff",
+                                )
+                            ]
+                        ).status_code,
+                        200,
+                    )
+                    self.send.reset_mock()
+                    self.assertEqual(
+                        self.post(
+                            [
+                                self.message(
+                                    message_id="synthetic-private",
+                                    text="private-payload-sentinel",
+                                )
+                            ]
+                        ).status_code,
+                        200,
+                    )
+                    self.send.assert_not_called()
+                    message = self.message(message_id="synthetic-start", text=command)
+                    self.assertEqual(self.post([message]).status_code, 200)
+                    self.send.assert_called_once_with(
+                        SYNTHETIC_PHONE, menu.main_menu(language)
+                    )
+                    self.assertEqual(self.post([message]).status_code, 200)
+                    self.send.assert_called_once()
+                    identity = (
+                        META_SETTINGS["WHATSAPP_META_PHONE_NUMBER_ID"]
+                        + ":"
+                        + SYNTHETIC_PHONE.lstrip("+")
+                    )
+                    self.assertIsNone(cache.get(state_key("handoff", identity)))
+                    self.assertEqual(
+                        cache.get(state_key("language", identity)), language
+                    )
+
     def test_handoff_acknowledgement_failure_is_retryable_without_followup_loop(self):
         self.send.return_value = False
         message = self.message(selection="kbc_staff")

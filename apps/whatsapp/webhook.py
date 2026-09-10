@@ -118,7 +118,14 @@ def _messages(payload):
                     # Only these literal control words leave the parser; all
                     # other patient-written text is discarded, never echoed.
                     candidate = text["body"].strip().casefold()
-                    if candidate in {"menu", "القائمة", "english", "العربية"}:
+                    if candidate in {
+                        "menu",
+                        "start",
+                        "القائمة",
+                        "ابدأ",
+                        "english",
+                        "العربية",
+                    }:
                         command = candidate
                 messages.append((sender, message_id, selection, command))
                 if len(messages) > 50:

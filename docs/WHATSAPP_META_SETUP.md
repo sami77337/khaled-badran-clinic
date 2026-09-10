@@ -10,6 +10,13 @@ register a phone number, subscribe an app, or make test calls to Meta automatica
 
 ## Operator configuration
 
+The clinic number is already in active WhatsApp use. Follow the
+[existing-number onboarding requirement](WHATSAPP_EXISTING_NUMBER_COEXISTENCE.md)
+before account setup. Preserve the existing WhatsApp Business app and chat history;
+verify the account's supported coexistence path before changing the real number.
+If that path is unavailable, the owner must choose the alternative onboarding
+route before any number migration or deregistration.
+
 Create/configure the clinic's Meta business portfolio, WABA, app and registered
 business phone number. Assign the required messaging permissions to an operator
 managed system-user access token. Subscribe the app to the WABA's `messages`
@@ -125,8 +132,9 @@ registered or guest entry. URLs are button destinations, not visible body text.
 
 `English` and `العربية` explicitly select a language; only the language code is
 cached for 24 hours. Staff handoff sends the approved acknowledgement and suppresses
-further bot responses for the configured TTL. A literal `menu`, `القائمة`,
-`English` or `العربية` explicitly resumes automation. The adapter does not provide
+further bot responses for the configured TTL. A literal `menu`, `start`, `القائمة`,
+`ابدأ`, `English` or `العربية` explicitly resumes automation. Menu/start commands
+preserve the selected language. The adapter does not provide
 a staff inbox: operators must connect the business number to their supported
 staff conversation tool and verify staff can receive/reply before launch.
 

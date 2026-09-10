@@ -56,8 +56,24 @@ python manage.py import_public_reviews <owner-approved-json> --approve
 - privacy-safe error reporting
 - production domain/DNS/TLS
 - load/concurrency validation
-- WhatsApp provider/API decision إذا أراد المالك integration حيًا
+- WhatsApp live Meta activation and existing-number coexistence verification
 - final production go/no-go
+
+## Current implementation — Meta WhatsApp Cloud API
+
+- Owner-approved scope: [issue #45](https://github.com/sami77337/khaled-badran-clinic/issues/45).
+- Implementation review: [PR #46](https://github.com/sami77337/khaled-badran-clinic/pull/46)
+  on `feat/production-whatsapp-cloud-api`.
+- The adapter, signed webhook, AR/EN routing, guest OTP, neutral reply/booking
+  notifications and scheduled reminders are implemented with synthetic tests.
+- [Validation evidence](../WHATSAPP_META_VALIDATION.md) records the database/cache
+  checks; [operator setup](../WHATSAPP_META_SETUP.md) is the current configuration
+  and template reference.
+- Live activation still requires operator configuration, approved Meta templates,
+  existing-number coexistence verification, webhook subscription, scheduler setup
+  and a controlled acceptance check. Issue #45 remains open for that work.
+- Preserve the active clinic number, WhatsApp Business app access and chat history
+  under the [onboarding requirement](../WHATSAPP_EXISTING_NUMBER_COEXISTENCE.md).
 
 ## قاعدة المتابعة
 
