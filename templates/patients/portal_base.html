@@ -9,10 +9,11 @@
     <meta name="robots" content="noindex,nofollow">
     <meta name="theme-color" content="#4A0F14">
     <link rel="canonical" href="{{ canonical_url }}">
-    <link rel="icon" href="{% static 'img/icons/site-icon.svg' %}" type="image/svg+xml">
+    {% include "partials/site_icon.html" %}
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
     <link rel="stylesheet" href="{% static 'css/patient-portal.css' %}">
     <link rel="stylesheet" href="{% static 'css/portal-chrome.css' %}">
+    <link rel="stylesheet" href="{% static 'css/brand-closeout.css' %}">
     {% block patient_portal_styles %}{% endblock %}
     <link rel="stylesheet" href="{% static 'css/file-upload.css' %}">
 </head>
@@ -23,7 +24,7 @@
 
     <header class="dashboard-mobile-header patient-portal-mobile-header" data-patient-mobile-header data-portal-compact-header>
         <a class="dashboard-mobile-brand" href="{{ portal_dashboard_url }}">
-            <span class="dashboard-mobile-monogram" aria-hidden="true">KB</span>
+            <span class="dashboard-mobile-monogram" aria-hidden="true">{% include "partials/brand_mark.html" with fallback="KB" %}</span>
             <span>{% if is_arabic %}بوابة المريض{% else %}Patient Portal{% endif %}</span>
         </a>
         {% include "partials/consultation_notifications.html" with notification_surface="patient-mobile" notification_placement="notification-placement-dashboard-mobile" %}
@@ -49,7 +50,7 @@
         <div class="dashboard-sidebar-top">
             <div class="dashboard-sidebar-heading">
                 <a class="dashboard-brand" href="{{ portal_dashboard_url }}">
-                    <span class="dashboard-brand-mark" aria-hidden="true">KB</span>
+                    <span class="dashboard-brand-mark" aria-hidden="true">{% include "partials/brand_mark.html" with fallback="KB" %}</span>
                     <span class="dashboard-brand-copy">
                         <strong>{% if is_arabic %}بوابة المريض{% else %}Patient Portal{% endif %}</strong>
                         <small>{% if is_arabic %}حساب المريض{% else %}Patient Access{% endif %}</small>
