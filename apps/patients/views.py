@@ -34,7 +34,6 @@ from apps.patients.forms import (
     AppointmentLinkRecoveryVerifyForm,
     ConsultationCreateForm,
     PatientLoginForm,
-    PatientRegistrationForm,
     StaffLoginForm,
     auth_error_message,
 )
@@ -454,71 +453,6 @@ def portal_login(request, language="ar"):
     )
 
 
-@sensitive_post_parameters("password1", "password2")
-@never_cache
-def portal_register(request, language="ar"):
-    language = _language(language)
-    next_url = _safe_next_url(request)
-    if request.user.is_authenticated:
-        return redirect(next_url or _portal_url("patient_portal_dashboard", language))
-
-    if request.method == "POST":
-        form = PatientRegistrationForm(request.POST, language=language)
-        normalized_phone = rate_limits.normalized_phone_or_empty(request.POST.get("phone"))
-        attempt_limit = rate_limits.check_registration_attempt_rate_limit(
-            request,
-            normalized_phone=normalized_phone,
-        )
-        form_valid = form.is_valid()
-        if not attempt_limit.allowed:
-            form.add_error(None, auth_error_message("rate_limit", language))
-        elif form_valid:
-            user = form.save()
-            if user is not None:
-                auth_login(request, user)
-                messages.success(
-                    request,
-                    "تم إنشاء حساب بوابة المريض."
-                    if language == "ar"
-                    else "Your patient portal account has been created.",
-                )
-                return redirect(next_url or _portal_url("patient_portal_dashboard", language))
-    else:
-        form = PatientRegistrationForm(language=language)
-
-    register_url = _portal_url("patient_portal_register", language)
-    alternate_language = "en" if language == "ar" else "ar"
-    auth_language_url = _portal_url("patient_portal_register", alternate_language)
-    if next_url:
-        auth_language_url = f"{auth_language_url}?{urlencode({'next': next_url})}"
-
-    context = _portal_context(request, language, form=form, next_url=next_url)
-    clinic_name = context["clinic"]["name_ar" if language == "ar" else "name_en"]
-    context.update(
-        {
-            "page_key": "register",
-            "page_title": (
-                f"إنشاء حساب | {clinic_name}"
-                if language == "ar"
-                else f"Create your account | {clinic_name}"
-            ),
-            "meta_description": (
-                "إنشاء حساب المريض في العيادة."
-                if language == "ar"
-                else "Create your clinic patient account."
-            ),
-            "canonical_url": request.build_absolute_uri(register_url),
-            "auth_language_url": auth_language_url,
-            "phone_countries": INTERNATIONAL_PHONE_COUNTRIES,
-        }
-    )
-
-    return render(
-        request,
-        "patients/portal_register.html",
-        context,
-    )
-
 
 @never_cache
 def portal_logout(request, language="ar"):
@@ -726,41 +660,6 @@ def portal_password_change(request, language="ar"):
             phone_countries=INTERNATIONAL_PHONE_COUNTRIES,
             portal_section="password",
         ),
-    )
-
-
-@require_GET
-@never_cache
-def portal_account_recovery(request, language="ar"):
-    language = _language(language)
-    recovery_url = _portal_url("patient_portal_account_recovery", language)
-    alternate_language = "en" if language == "ar" else "ar"
-    context = _portal_context(request, language, portal_section="account_recovery")
-    clinic_name = context["clinic"]["name_ar" if language == "ar" else "name_en"]
-    context.update(
-        {
-            "page_key": "account-recovery",
-            "page_title": (
-                f"استعادة الحساب | {clinic_name}"
-                if language == "ar"
-                else f"Account recovery | {clinic_name}"
-            ),
-            "meta_description": (
-                "تواصل مع العيادة للتحقق من هويتك واستعادة الوصول إلى حسابك."
-                if language == "ar"
-                else "Contact the clinic to verify your identity and restore account access."
-            ),
-            "canonical_url": request.build_absolute_uri(recovery_url),
-            "auth_language_url": _portal_url(
-                "patient_portal_account_recovery",
-                alternate_language,
-            ),
-        }
-    )
-    return render(
-        request,
-        "patients/account_recovery.html",
-        context,
     )
 
 

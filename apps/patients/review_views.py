@@ -27,9 +27,7 @@ def _own_reviews(user):
 
 
 def _review_context(request, language, review, *, form=None, editing=False):
-    status = "hidden" if review and not review.is_active else (
-        "published" if review and review.is_approved_for_publication else "pending"
-    )
+    status = "published" if review and review.is_active and review.is_approved_for_publication else "hidden"
     title = "تقييمي" if language == "ar" else "My Review"
     return _authenticated_portal_context(
         request, language, page_title=title, portal_section="review",
@@ -56,21 +54,25 @@ def my_review(request, language="ar"):
         language=language,
         instance=PublicReview(
             submitted_by=request.user, source=PublicReview.Source.PATIENT_PORTAL,
-            language=language, is_approved_for_publication=False, is_active=True, is_featured=False,
+            language=language, is_approved_for_publication=True, is_active=True, is_featured=False,
             reviewed_at=timezone.localdate(),
         ),
     )
     if request.method == "POST" and form.is_valid():
         try:
             with transaction.atomic():
-                form.save()
+                review = form.save(commit=False)
+                review.is_approved_for_publication = True
+                review.is_active = True
+                review.is_featured = False
+                review.save()
         except IntegrityError:
             # Concurrent submissions are bounded by the scoped database constraint.
             if not _own_reviews(request.user).exists():
                 raise
             messages.info(request, "لديك تقييم بالفعل. يمكنك تعديله." if language == "ar" else "You already have a review. You can edit it.")
         else:
-            messages.success(request, "تم إرسال تقييمك للموافقة." if language == "ar" else "Your review was submitted for approval.")
+            messages.success(request, "تم نشر تقييمك مباشرة." if language == "ar" else "Your review is now published.")
         return redirect(_portal_url("patient_portal_review", language))
     return render(request, "patients/my_review.html", _review_context(request, language, None, form=form))
 
@@ -87,14 +89,14 @@ def edit_review(request, review_id, language="ar"):
         form = PatientReviewForm(request.POST if request.method == "POST" else None, instance=review, language=language)
         if request.method == "POST" and form.is_valid():
             updated = form.save(commit=False)
-            updated.is_approved_for_publication = False
+            updated.is_approved_for_publication = True
             updated.is_featured = False
             updated.is_active = True
             updated.save(update_fields=[
                 "reviewer_name", "rating", "body", "is_approved_for_publication",
                 "is_featured", "is_active", "updated_at",
             ])
-            messages.success(request, "تم حفظ التعديلات. ينتظر تقييمك الموافقة من جديد." if language == "ar" else "Changes saved. Your review is awaiting approval again.")
+            messages.success(request, "تم حفظ التعديلات ونشر التقييم مباشرة." if language == "ar" else "Changes saved and published immediately.")
             return redirect(_portal_url("patient_portal_review", language))
     return render(request, "patients/my_review.html", _review_context(request, language, review, form=form, editing=True))
 

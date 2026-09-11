@@ -4,7 +4,6 @@ from django import forms
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
 
 from apps.booking.phone import normalize_phone
 from apps.patients.models import (
@@ -311,9 +310,6 @@ class PatientRegistrationForm(forms.Form):
                 ),
             )
 
-        if self.normalized_phone and get_user_model().objects.filter(username=self.normalized_phone).exists():
-            raise ValidationError(auth_error_message("registration_generic", self.language))
-
         if password1:
             user_model = get_user_model()
             candidate = user_model(
@@ -332,25 +328,6 @@ class PatientRegistrationForm(forms.Form):
 
         return cleaned_data
 
-    def save(self):
-        if not self.is_valid():
-            raise ValueError("Cannot save an invalid registration form.")
-
-        try:
-            with transaction.atomic():
-                return get_user_model().objects.create_user(
-                    username=self.normalized_phone,
-                    email=self.cleaned_data.get("email") or "",
-                    password=self.cleaned_data["password1"],
-                    first_name=self.cleaned_data["full_name"][:150],
-                    is_staff=False,
-                    is_superuser=False,
-                )
-        except IntegrityError:
-            if get_user_model().objects.filter(username=self.normalized_phone).exists():
-                self.add_error(None, auth_error_message("registration_generic", self.language))
-                return None
-            raise
 
 
 class AppointmentLinkForm(forms.Form):

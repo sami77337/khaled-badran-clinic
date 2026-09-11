@@ -1,0 +1,21 @@
+.kb-brand-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.public-brand-logo {
+    display: block;
+    width: 48px;
+    height: 42px;
+    flex: 0 0 48px;
+}
+
+@media (max-width: 640px) {
+    .public-brand-logo {
+        width: 42px;
+        height: 36px;
+        flex-basis: 42px;
+    }
+}

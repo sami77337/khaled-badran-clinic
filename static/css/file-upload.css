@@ -1,0 +1,47 @@
+/* Keep the native picker and filename display; share the existing form language. */
+input[type="file"]:not([hidden]) {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+input[type="file"]:not([hidden])::file-selector-button {
+    min-height: 44px;
+    max-width: 55%;
+    margin-block: 0;
+    margin-inline: 0 0.65rem;
+    border: 0;
+    border-radius: 0.52rem;
+    background: var(--dashboard-soft-burgundy, var(--color-soft, var(--darkened-bg)));
+    color: var(--dashboard-burgundy, var(--color-burgundy, var(--body-fg)));
+    padding: 0.35rem 0.7rem;
+    font: inherit;
+    font-weight: 700;
+    white-space: normal;
+    cursor: pointer;
+}
+
+/* The public shell's existing focus treatment; portal forms keep their own. */
+.guest-form input[type="file"]:focus-visible {
+    outline: 2px solid var(--color-red);
+    outline-offset: 3px;
+}
+
+/* Django admin's upload forms use its existing neutral field tokens. */
+.aligned input[type="file"]:not([hidden]) {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--body-bg);
+    color: var(--body-fg);
+    padding: 0.5rem;
+    font: inherit;
+}
+
+.aligned input[type="file"]:focus-visible {
+    outline: 2px solid var(--link-fg);
+    outline-offset: 3px;
+}

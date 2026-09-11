@@ -1,3 +1,5 @@
+{% load static branding %}
+{% approved_logo_path as kb_logo %}
 <div class="site-utility" aria-label="{% if is_arabic %}معلومات العيادة{% else %}Clinic information{% endif %}">
     <div class="container utility-inner">
         <span class="utility-location">
@@ -28,6 +30,7 @@
         </button>
 
         <a class="brand" href="{{ home_url }}" aria-label="{% if is_arabic %}العودة إلى الصفحة الرئيسية{% else %}Back to home{% endif %}">
+            {% if kb_logo %}<span class="public-brand-logo"><img class="kb-brand-image" src="{% static kb_logo %}" alt="" aria-hidden="true"></span>{% endif %}
             <span class="brand-copy">
                 <span class="brand-name">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</span>
                 <span class="brand-subtitle">

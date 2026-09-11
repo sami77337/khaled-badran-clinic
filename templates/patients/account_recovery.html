@@ -2,9 +2,9 @@
 
 {% block content %}
 <section class="auth-page auth-recovery-page" aria-labelledby="auth-title">
-    <div class="auth-card auth-recovery-card">
+    <div class="auth-card auth-recovery-card" data-auth-recovery>
         <div class="auth-identity" aria-label="{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}">
-            <span class="auth-monogram" aria-hidden="true">KB</span>
+            <span class="auth-monogram" aria-hidden="true">{% include "partials/brand_mark.html" with fallback="KB" %}</span>
             <span class="auth-clinic-name">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</span>
         </div>
 
@@ -12,30 +12,111 @@
             <h1 id="auth-title">{% if is_arabic %}استعادة الحساب{% else %}Account recovery{% endif %}</h1>
         </div>
 
-        <div class="auth-recovery-content">
-            <p class="auth-recovery-explanation">
-                {% if is_arabic %}
-                    لاستعادة حسابك، تواصل مع العيادة للتحقق من هويتك ومساعدتك في الوصول إلى حسابك.
-                {% else %}
-                    To recover your account, contact the clinic so your identity can be verified and access can be restored safely.
-                {% endif %}
-            </p>
+        {% if messages %}
+            <div class="auth-form-errors" role="status">
+                {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+            </div>
+        {% endif %}
 
-            <p class="auth-recovery-privacy">
-                {% if is_arabic %}
-                    لن تؤكد هذه الصفحة ما إذا كان رقم هاتف أو بريد إلكتروني مسجلًا لدينا.
-                {% else %}
-                    This page does not confirm whether a phone number or email address is registered.
-                {% endif %}
-            </p>
+        <div class="auth-recovery-content">
+            {% if recovery_stage == "verify" %}
+                <p class="auth-recovery-explanation">
+                    {% if is_arabic %}
+                        إذا كان الرقم {{ masked_phone }} مرتبطًا بحساب، فقد أرسلنا إليه رمز تحقق عبر واتساب.
+                    {% else %}
+                        If {{ masked_phone }} is linked to an account, a WhatsApp verification code was sent to it.
+                    {% endif %}
+                </p>
+                <form class="auth-form" method="post" novalidate>
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="verify">
+                    {% if form.non_field_errors %}<div class="auth-form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+                    <div class="auth-field{% if form.otp.errors %} has-error{% endif %}">
+                        {{ form.otp.label_tag }}
+                        {{ form.otp }}
+                        {% if form.otp.errors %}<div class="auth-field-errors" role="alert">{{ form.otp.errors }}</div>{% endif %}
+                    </div>
+                    <button class="auth-submit" type="submit">
+                        <span>{% if is_arabic %}تحقق{% else %}Verify{% endif %}</span>
+                    </button>
+                </form>
+                <form method="post" class="auth-recovery-actions">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="resend">
+                    <button class="auth-recovery-secondary" type="submit">
+                        {% if is_arabic %}إرسال رمز جديد{% else %}Send a new code{% endif %}
+                    </button>
+                </form>
+
+            {% elif recovery_stage == "reset" %}
+                <p class="auth-recovery-explanation">
+                    {% if is_arabic %}تم التحقق من رقم الهاتف. اختر كلمة مرور جديدة.{% else %}Phone verification succeeded. Choose a new password.{% endif %}
+                </p>
+                <form class="auth-form" method="post" novalidate>
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="reset">
+                    {% if form.non_field_errors %}<div class="auth-form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+                    {% for field in form %}
+                        <div class="auth-field{% if field.errors %} has-error{% endif %}">
+                            {{ field.label_tag }}
+                            <div class="auth-password-control">
+                                {{ field }}
+                                <button
+                                    class="auth-password-toggle"
+                                    type="button"
+                                    aria-label="{% if is_arabic %}إظهار كلمة المرور{% else %}Show password{% endif %}"
+                                    data-show-label="{% if is_arabic %}إظهار كلمة المرور{% else %}Show password{% endif %}"
+                                    data-hide-label="{% if is_arabic %}إخفاء كلمة المرور{% else %}Hide password{% endif %}"
+                                    data-password-toggle
+                                    aria-controls="{{ field.id_for_label }}"
+                                    aria-pressed="false"
+                                >
+                                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+                                        <path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" stroke-width="1.6"/>
+                                        <circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="1.6"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            {% if field.help_text %}<p class="auth-field-hint">{{ field.help_text|safe }}</p>{% endif %}
+                            {% if field.errors %}<div class="auth-field-errors" role="alert">{{ field.errors }}</div>{% endif %}
+                        </div>
+                    {% endfor %}
+                    <button class="auth-submit" type="submit">
+                        <span>{% if is_arabic %}حفظ كلمة المرور{% else %}Save new password{% endif %}</span>
+                    </button>
+                </form>
+
+            {% else %}
+                <p class="auth-recovery-explanation">
+                    {% if is_arabic %}
+                        أدخل رقم الهاتف المرتبط بحساب المريض. سنستخدم رمز تحقق لمرة واحدة عبر واتساب قبل السماح بتغيير كلمة المرور.
+                    {% else %}
+                        Enter the phone number linked to the patient account. A one-time WhatsApp code is required before the password can be changed.
+                    {% endif %}
+                </p>
+                <form class="auth-form" method="post" novalidate>
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="start">
+                    {% if form.non_field_errors %}<div class="auth-form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+                    <div class="auth-field{% if form.phone.errors %} has-error{% endif %}">
+                        {{ form.phone.label_tag }}
+                        {{ form.phone }}
+                        {% if form.phone.errors %}<div class="auth-field-errors" role="alert">{{ form.phone.errors }}</div>{% endif %}
+                    </div>
+                    <button class="auth-submit" type="submit">
+                        <span>{% if is_arabic %}إرسال رمز التحقق{% else %}Send verification code{% endif %}</span>
+                    </button>
+                </form>
+                <p class="auth-recovery-privacy">
+                    {% if is_arabic %}
+                        لأسباب تتعلق بالخصوصية، لن تؤكد الصفحة ما إذا كان الرقم مسجلًا لدينا.
+                    {% else %}
+                        For privacy, the page does not confirm whether the phone number is registered.
+                    {% endif %}
+                </p>
+            {% endif %}
 
             <div class="auth-recovery-actions">
-                <a class="auth-submit" href="{{ contact_url }}">
-                    <span>{% if is_arabic %}التواصل مع العيادة{% else %}Contact the clinic{% endif %}</span>
-                    <svg class="auth-submit-arrow" aria-hidden="true" viewBox="0 0 20 20" fill="none">
-                        <path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </a>
                 <a class="auth-recovery-secondary" href="{{ portal_login_url }}">
                     {% if is_arabic %}العودة لتسجيل الدخول{% else %}Back to sign in{% endif %}
                 </a>

@@ -4323,15 +4323,16 @@ def dashboard_public_case_edit(request, case_id):
     language = _dashboard_language(request)
     public_case = get_object_or_404(PublicCase, pk=case_id)
     if request.method == "POST":
-        form = StaffPublicCaseUpdateForm(
-            request.POST,
-            instance=public_case,
-            language=language,
-        )
-        if form.is_valid():
-            with transaction.atomic():
-                locked_case = PublicCase.objects.select_for_update().get(pk=public_case.pk)
-                form.instance = locked_case
+        with transaction.atomic():
+            public_case = get_object_or_404(
+                PublicCase.objects.select_for_update(), pk=case_id
+            )
+            form = StaffPublicCaseUpdateForm(
+                request.POST,
+                instance=public_case,
+                language=language,
+            )
+            if form.is_valid():
                 public_case = form.save()
                 automatically_unpublished = False
                 if public_case.is_published and (
@@ -4348,11 +4349,11 @@ def dashboard_public_case_edit(request, case_id):
                     event="public_case_metadata_updated",
                     metadata={"automatically_unpublished": automatically_unpublished},
                 )
-            messages.success(
-                request,
-                "تم تحديث الحالة العامة." if language == "ar" else "Public case updated.",
-            )
-            return redirect(_dashboard_public_case_url(language))
+                messages.success(
+                    request,
+                    "تم تحديث الحالة العامة." if language == "ar" else "Public case updated.",
+                )
+                return redirect(_dashboard_public_case_url(language))
         status = 400
     else:
         form = StaffPublicCaseUpdateForm(

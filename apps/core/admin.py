@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.db import router, transaction
 
-from .models import AuditLog, PublicReview, SystemSetting
+from .models import AuditLog, DoctorPageContent, PublicReview, SystemSetting
 from .review_forms import ReviewModerationForm
 
 
@@ -26,6 +26,34 @@ class AuditLogAdmin(admin.ModelAdmin):
         "message",
     )
     readonly_fields = ("created_at",)
+
+
+@admin.register(DoctorPageContent)
+class DoctorPageContentAdmin(admin.ModelAdmin):
+    list_display = ("doctor", "updated_at")
+    readonly_fields = ("created_at", "updated_at")
+    fieldsets = (
+        ("Doctor", {"fields": ("doctor",)}),
+        ("Hero / professional bio — Arabic", {"fields": ("hero_summary_ar", "credential_label_ar", "professional_bio_ar")}),
+        ("Hero / professional bio — English", {"fields": ("hero_summary_en", "credential_label_en", "professional_bio_en")}),
+        (
+            "Professional path — Arabic",
+            {"fields": ("experience_ar", "education_ar", "boards_ar", "memberships_ar", "awards_ar")},
+        ),
+        (
+            "Professional path — English",
+            {"fields": ("experience_en", "education_en", "boards_en", "memberships_en", "awards_en")},
+        ),
+        (
+            "Clinical profile — Arabic",
+            {"fields": ("languages_ar", "specialties_ar", "conditions_ar")},
+        ),
+        (
+            "Clinical profile — English",
+            {"fields": ("languages_en", "specialties_en", "conditions_en")},
+        ),
+        ("Audit", {"fields": ("created_at", "updated_at")}),
+    )
 
 
 @admin.register(PublicReview)

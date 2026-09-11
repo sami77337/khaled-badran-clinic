@@ -100,7 +100,7 @@ class PatientReviewTests(TestCase):
                 self.assertEqual(review.source_reference, "")
                 self.assertEqual(review.display_order, 0)
                 self.assertTrue(review.is_active)
-                self.assertFalse(review.is_approved_for_publication)
+                self.assertTrue(review.is_approved_for_publication)
                 self.assertFalse(review.is_featured)
                 review.delete()
 
@@ -138,7 +138,7 @@ class PatientReviewTests(TestCase):
             with translation.override(opposite):
                 self.assertNotContains(response, escape(translation.gettext("This field is required.")))
 
-    def test_edit_requires_approval_again_and_preserves_owner_and_source(self):
+    def test_edit_publishes_immediately_and_preserves_owner_and_source(self):
         review = self.create_review(is_approved_for_publication=True, is_featured=True, is_active=False)
         response = self.client.post(self.url("edit", review=review), {
             "reviewer_name": "Updated display", "rating": 2, "body": "Updated patient review.",
@@ -150,7 +150,7 @@ class PatientReviewTests(TestCase):
         self.assertEqual(review.rating, 2)
         self.assertEqual(review.submitted_by, self.owner)
         self.assertEqual(review.source, PublicReview.Source.PATIENT_PORTAL)
-        self.assertFalse(review.is_approved_for_publication)
+        self.assertTrue(review.is_approved_for_publication)
         self.assertFalse(review.is_featured)
         self.assertTrue(review.is_active)
 
@@ -198,7 +198,7 @@ class PatientReviewTests(TestCase):
             url = self.url(language=language)
             account = reverse("patient_portal_account" + ("_en" if language == "en" else ""))
             self.assertContains(self.client.get(account), f'href="{url}"')
-            for approved, active, status in ((False, True, "pending"), (True, True, "published"), (True, False, "hidden")):
+            for approved, active, status in ((False, True, "hidden"), (True, True, "published"), (True, False, "hidden")):
                 PublicReview.objects.filter(pk=review.pk).update(is_approved_for_publication=approved, is_active=active)
                 response = self.client.get(url)
                 self.assertContains(response, f'data-review-status="{status}"')

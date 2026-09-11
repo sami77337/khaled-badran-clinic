@@ -21,7 +21,7 @@
         </div>
         <div class="patient-card-body">
             {% if form %}
-                <p class="patient-record-meta patient-review-guidance">{% if is_arabic %}يظهر تقييمك للعامة بعد موافقة العيادة فقط. تعديل التقييم يُخفيه حتى الموافقة عليه من جديد.{% else %}Your review becomes public only after clinic approval. Editing hides it until it is approved again.{% endif %}</p>
+                <p class="patient-record-meta patient-review-guidance">{% if is_arabic %}عند الحفظ سيظهر تقييمك للعامة مباشرة. لا تكتب رقم هاتف أو معلومات طبية أو أي بيانات خاصة داخل التقييم.{% else %}Your review becomes public immediately when saved. Do not include phone numbers, medical information, or other private details in the review.{% endif %}</p>
                 <form class="patient-form patient-review-form" method="post" action="{% if editing %}{{ review_edit_url }}{% else %}{{ review_url }}{% endif %}" novalidate>
                     {% csrf_token %}
                     {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
@@ -33,14 +33,13 @@
                         </div>
                     {% endfor %}
                     <div class="patient-form-actions">
-                        <button class="patient-primary-action" type="submit">{% if editing %}{% if is_arabic %}حفظ وإرسال للموافقة{% else %}Save and Submit for Approval{% endif %}{% else %}{% if is_arabic %}إرسال للموافقة{% else %}Submit for Approval{% endif %}{% endif %}</button>
+                        <button class="patient-primary-action" type="submit">{% if editing %}{% if is_arabic %}حفظ ونشر التعديل{% else %}Save and Publish Changes{% endif %}{% else %}{% if is_arabic %}نشر التقييم{% else %}Publish Review{% endif %}{% endif %}</button>
                         {% if editing %}<a class="patient-secondary-action" href="{{ review_url }}">{% if is_arabic %}إلغاء{% else %}Cancel{% endif %}</a>{% endif %}
                     </div>
                 </form>
             {% else %}
                 <p class="patient-record-meta" data-review-status="{{ review_status }}" role="status">
                     {% if review_status == 'published' %}{% if is_arabic %}منشور{% else %}Published{% endif %}
-                    {% elif review_status == 'pending' %}{% if is_arabic %}بانتظار الموافقة{% else %}Pending approval{% endif %}
                     {% else %}{% if is_arabic %}غير معروض للعامة{% else %}Not displayed publicly{% endif %}{% endif %}
                 </p>
                 <article class="patient-review-preview" aria-label="{% if is_arabic %}معاينة تقييمك{% else %}Your review preview{% endif %}">

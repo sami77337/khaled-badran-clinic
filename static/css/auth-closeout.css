@@ -1,0 +1,24 @@
+.auth-password-control {
+    /* Password values are explicitly LTR. Keep the eye control in the same
+       inline coordinate system so RTL pages cannot place it over the text. */
+    direction: ltr;
+}
+
+.auth-password-control > input {
+    padding-right: 3.15rem;
+    padding-left: 0.88rem;
+}
+
+.auth-password-toggle {
+    right: 0.32rem;
+    left: auto;
+    inset-inline-start: auto;
+    inset-inline-end: 0.32rem;
+}
+
+@media (max-width: 389px) {
+    .auth-password-toggle {
+        width: 2.7rem;
+        min-height: 2.7rem;
+    }
+}

@@ -9,10 +9,12 @@
     <meta name="robots" content="noindex,nofollow">
     <meta name="theme-color" content="#4A0F14">
     <link rel="canonical" href="{{ canonical_url }}">
-    <link rel="icon" href="{% static 'img/icons/site-icon.svg' %}" type="image/svg+xml">
+    {% include "partials/site_icon.html" %}
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
     <link rel="stylesheet" href="{% static 'css/portal-chrome.css' %}">
+    <link rel="stylesheet" href="{% static 'css/brand-closeout.css' %}">
     {% block dashboard_styles %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'css/file-upload.css' %}">
 </head>
 <body class="dashboard-shell {% if is_arabic %}is-rtl{% else %}is-ltr{% endif %}">
     <a class="dashboard-skip-link" href="#dashboard-main">
@@ -21,7 +23,7 @@
 
     <header class="dashboard-mobile-header">
         <a class="dashboard-mobile-brand" href="{{ dashboard_home_url }}">
-            <span class="dashboard-mobile-monogram" aria-hidden="true">{{ dashboard_doctor_initials }}</span>
+            <span class="dashboard-mobile-monogram" aria-hidden="true">{% include "partials/brand_mark.html" with fallback=dashboard_doctor_initials %}</span>
             <span>{% if is_arabic %}بوابة العيادة{% else %}Clinic Portal{% endif %}</span>
         </a>
         {% include "partials/consultation_notifications.html" with notification_surface="dashboard-mobile" notification_placement="notification-placement-dashboard-mobile" %}
@@ -46,7 +48,7 @@
         <div class="dashboard-sidebar-top">
             <div class="dashboard-sidebar-heading">
                 <a class="dashboard-brand" href="{{ dashboard_home_url }}">
-                    <span class="dashboard-brand-mark" aria-hidden="true">{{ dashboard_doctor_initials }}</span>
+                    <span class="dashboard-brand-mark" aria-hidden="true">{% include "partials/brand_mark.html" with fallback=dashboard_doctor_initials %}</span>
                     <span class="dashboard-brand-copy">
                         <strong>{% if is_arabic %}بوابة العيادة{% else %}Clinic Portal{% endif %}</strong>
                         <small>{% if is_arabic %}وصول الموظفين{% else %}Staff Access{% endif %}</small>
@@ -73,6 +75,12 @@
                         {% endif %}
                     </a>
                 {% endfor %}
+                {% if perms.core.view_doctorpagecontent or perms.core.change_doctorpagecontent %}
+                    <a class="dashboard-nav-link" href="{% url 'admin:core_doctorpagecontent_changelist' %}">
+                        <span class="dashboard-nav-indicator" aria-hidden="true"></span>
+                        <span>{% if is_arabic %}الملف التعريفي للطبيب{% else %}Doctor Profile{% endif %}</span>
+                    </a>
+                {% endif %}
             </nav>
         </div>
 

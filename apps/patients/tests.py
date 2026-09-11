@@ -25,11 +25,10 @@ from apps.core.test_utils import close_test_response
 from apps.patients.forms import (
     GENERIC_LINK_ERROR,
     GENERIC_LOGIN_ERROR,
-    GENERIC_REGISTRATION_ERROR,
     PatientRegistrationForm,
     auth_error_message,
 )
-from apps.patients import rate_limits
+from apps.patients import account_views, rate_limits
 from apps.records.models import ClinicalNote, RecordMedia, VisitRecord
 from .models import Patient
 
@@ -121,6 +120,11 @@ class PatientModelTests(TestCase):
 
 
 class PatientPortalTestMixin:
+    def complete_registration_otp(self, response):
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn("_auth_user_id", self.client.session)
+        return self.client.post(response.url, {"action": "verify", "otp": "123456"})
+
     def create_user(self, username="+962791234567", password=TEST_PASSWORD, **kwargs):
         defaults = {
             "email": "portal@example.test",
@@ -212,7 +216,13 @@ class PatientPortalTestMixin:
                 self.assertNotIn(marker, rendered_errors)
 
 
+@override_settings(PATIENT_ACCOUNT_OTP_SENDER=lambda *args: True)
+@patch("apps.patients.account_otp.generate_otp_code", lambda: "123456")
 class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+
     def test_canonical_login_routes_render_with_natural_language_direction(self):
         arabic = self.client.get(reverse("login"))
         english = self.client.get(reverse("login_en"))
@@ -877,6 +887,8 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
             },
         )
 
+        self.assertFalse(get_user_model().objects.exists())
+        response = self.complete_registration_otp(response)
         self.assertRedirects(response, reverse("patient_portal_dashboard"), fetch_redirect_response=False)
         user = get_user_model().objects.get(username="+962791234567")
         self.assertEqual(get_user_model().objects.count(), 1)
@@ -899,6 +911,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
                 "next": safe_destination,
             },
         )
+        safe_response = self.complete_registration_otp(safe_response)
         self.assertRedirects(safe_response, safe_destination, fetch_redirect_response=False)
 
         self.client.logout()
@@ -913,6 +926,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
                 "next": "https://attacker.example/private",
             },
         )
+        external_response = self.complete_registration_otp(external_response)
         self.assertRedirects(
             external_response,
             reverse("patient_portal_dashboard"),
@@ -949,6 +963,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         )
         for route_name, language, remote_addr in cases:
             with self.subTest(language=language):
+                cache.clear()
                 response = self.client.post(
                     reverse(route_name),
                     {
@@ -961,7 +976,8 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
                     REMOTE_ADDR=remote_addr,
                 )
 
-                expected_message = auth_error_message("registration_generic", language)
+                response = self.complete_registration_otp(response)
+                expected_message = account_views._invalid(language)
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(
                     list(response.context["form"].non_field_errors()),
@@ -976,25 +992,18 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
         self.assertEqual(get_user_model().objects.count(), 1)
 
     def test_registration_create_race_uses_the_same_controlled_generic_error(self):
-        form = PatientRegistrationForm(
-            {
-                "full_name": "Race-safe Patient",
-                "phone": "+962791234581",
-                "email": "race@example.test",
-                "password1": TEST_PASSWORD,
-                "password2": TEST_PASSWORD,
-            },
-            language="en",
-        )
-        self.assertTrue(form.is_valid(), form.errors.as_json())
-
+        response = self.client.post(reverse("patient_portal_register_en"), {
+            "full_name": "Synthetic race patient", "phone": "+962791234581", "email": "race@example.test",
+            "password1": TEST_PASSWORD, "password2": TEST_PASSWORD,
+        })
         existing = self.create_user(username="+962791234581")
         existing_password_hash = existing.password
-        created_user = form.save()
-
-        self.assertIsNone(created_user)
-        self.assertEqual(list(form.non_field_errors()), [GENERIC_REGISTRATION_ERROR])
-        self.assert_form_errors_hide_database_details(form)
+        # Simulate losing the uniqueness race after the availability query.
+        with patch("apps.patients.account_otp._phone_taken", return_value=False):
+            response = self.complete_registration_otp(response)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context["form"].non_field_errors()), [account_views._invalid("en")])
+        self.assert_form_errors_hide_database_details(response.context["form"])
         self.assertEqual(get_user_model().objects.count(), 1)
         existing.refresh_from_db()
         self.assertEqual(existing.password, existing_password_hash)
@@ -1028,13 +1037,14 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
                     REMOTE_ADDR=f"10.21.0.{index + 1}",
                 )
 
+                response = self.complete_registration_otp(response)
                 self.assertEqual(response.status_code, 200)
                 form = response.context["form"]
                 self.assertNotIn("full_name", form.errors)
                 self.assertNotIn("email", form.errors)
                 self.assertEqual(
                     list(form.non_field_errors()),
-                    [GENERIC_REGISTRATION_ERROR],
+                    [account_views._invalid("en")],
                 )
                 self.assert_form_errors_hide_database_details(form)
                 self.assertNotIn("_auth_user_id", self.client.session)
@@ -1165,7 +1175,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
             ".extra(",
         )
 
-        for relative_path in ("apps/patients/forms.py", "apps/patients/views.py"):
+        for relative_path in ("apps/patients/forms.py", "apps/patients/views.py", "apps/patients/account_views.py", "apps/patients/account_otp.py"):
             source = (settings.BASE_DIR / relative_path).read_text(encoding="utf-8")
             for fragment in forbidden_fragments:
                 with self.subTest(path=relative_path, forbidden=fragment):
@@ -1396,118 +1406,27 @@ class PatientPortalAccountTests(PatientPortalTestMixin, TestCase):
         self.assertContains(response, f'href="{reverse("patient_portal_account_recovery_en")}"')
 
     def test_account_recovery_routes_use_the_approved_auth_shell_in_both_languages(self):
-        route_cases = [
-            (
-                "patient_portal_account_recovery",
-                "ar",
-                "rtl",
-                "استعادة الحساب",
-                "التواصل مع العيادة",
-                "العودة لتسجيل الدخول",
-                "contact",
-                "login",
-                "patient_portal_account_recovery_en",
-            ),
-            (
-                "patient_portal_account_recovery_en",
-                "en",
-                "ltr",
-                "Account recovery",
-                "Contact the clinic",
-                "Back to sign in",
-                "contact_en",
-                "login_en",
-                "patient_portal_account_recovery",
-            ),
-        ]
+        for language, direction in (("ar", "rtl"), ("en", "ltr")):
+            suffix = "_en" if language == "en" else ""
+            response = self.client.get(reverse("patient_portal_account_recovery" + suffix))
+            self.assertTemplateUsed(response, "auth/base.html")
+            self.assertContains(response, f'<html lang="{language}" dir="{direction}">')
+            self.assertContains(response, 'class="auth-card auth-recovery-card"')
+            self.assertContains(response, 'name="phone"')
+            self.assertContains(response, 'name="csrfmiddlewaretoken"')
+            self.assertContains(response, f'href="{reverse("login" + suffix)}"')
+            self.assertContains(response, "استعادة الحساب" if language == "ar" else "Account recovery")
+            self.assertIn("no-store", response["Cache-Control"])
+            self.assertNotContains(response, '<footer class="site-footer">')
 
-        for (
-            route_name,
-            language,
-            direction,
-            heading,
-            contact_label,
-            login_label,
-            contact_route,
-            login_route,
-            language_route,
-        ) in route_cases:
-            with self.subTest(route=route_name):
-                response = self.client.get(reverse(route_name))
-
-                self.assertEqual(response.status_code, 200)
-                self.assertTemplateUsed(response, "auth/base.html")
-                self.assertTemplateNotUsed(response, "base.html")
-                self.assertContains(response, f'<html lang="{language}" dir="{direction}">')
-                self.assertContains(response, 'class="auth-shell page-account-recovery')
-                self.assertContains(response, 'class="auth-card auth-recovery-card"')
-                self.assertContains(response, f'<h1 id="auth-title">{heading}</h1>')
-                self.assertContains(
-                    response,
-                    f'<a class="auth-submit" href="{reverse(contact_route)}">',
-                )
-                self.assertContains(response, contact_label)
-                self.assertContains(
-                    response,
-                    f'<a class="auth-recovery-secondary" href="{reverse(login_route)}">',
-                )
-                self.assertContains(response, login_label)
-                self.assertContains(
-                    response,
-                    f'href="{reverse(language_route)}" hreflang=',
-                )
-                self.assertIn("no-store", response["Cache-Control"])
-                self.assertNotContains(response, '<footer class="site-footer">')
-                self.assertNotContains(response, "data-mobile-booking-cta")
-                self.assertNotContains(response, 'class="page-hero"')
-                self.assertNotContains(response, 'class="container booking-layout"')
-                self.assertNotContains(response, 'class="success-card"')
-                self.assertNotContains(response, "trust-note")
-
-    def test_account_recovery_is_concise_and_does_not_collect_sensitive_data(self):
-        arabic = self.client.get(reverse("patient_portal_account_recovery"))
-        english = self.client.get(reverse("patient_portal_account_recovery_en"))
-
-        self.assertContains(
-            arabic,
-            "لاستعادة حسابك، تواصل مع العيادة للتحقق من هويتك ومساعدتك في الوصول إلى حسابك.",
-        )
-        self.assertContains(
-            arabic,
-            "لن تؤكد هذه الصفحة ما إذا كان رقم هاتف أو بريد إلكتروني مسجلًا لدينا.",
-        )
-        self.assertContains(
-            english,
-            "To recover your account, contact the clinic so your identity can be verified and access can be restored safely.",
-        )
-        self.assertContains(
-            english,
-            "This page does not confirm whether a phone number or email address is registered.",
-        )
-
-        for response in (arabic, english):
-            self.assertNotContains(response, "<form")
-            self.assertNotContains(response, "<input")
+    def test_account_recovery_collects_only_phone_before_verification(self):
+        for route in ("patient_portal_account_recovery", "patient_portal_account_recovery_en"):
+            response = self.client.get(reverse(route))
+            self.assertEqual(set(response.context["form"].fields), {"phone"})
             self.assertNotContains(response, 'type="password"')
-            self.assertNotContains(response, "csrfmiddlewaretoken")
-            self.assertNotContains(response, "reset token")
-            self.assertNotContains(response, "magic link")
-            self.assertNotIn("form", response.context)
-
-        for removed_copy in (
-            "لا توجد استعادة كلمة مرور عبر البريد الإلكتروني أو واتساب",
-            "لا ترسل تشخيصا أو صورا أو تقارير طبية",
-            "لا ترسل بريدا، لا ترسل واتساب، ولا تنشئ تذاكر دعم",
-        ):
-            self.assertNotContains(arabic, removed_copy)
-
-        for removed_copy in (
-            "Email password reset and WhatsApp reset are not available",
-            "Do not send diagnoses, photos, reports, or sensitive medical details",
-            "send email, send WhatsApp messages, or create support tickets",
-            "Book Without an Account",
-        ):
-            self.assertNotContains(english, removed_copy)
+            self.assertNotContains(response, 'name="email"')
+            self.assertNotContains(response, 'name="user_id"')
+            self.assertContains(response, 'name="csrfmiddlewaretoken"')
 
     def test_account_recovery_ignores_identifiers_without_account_lookups(self):
         supplied_values = {
@@ -1529,18 +1448,11 @@ class PatientPortalAccountTests(PatientPortalTestMixin, TestCase):
         for value in supplied_values.values():
             self.assertNotContains(response, value)
 
-    def test_account_recovery_rejects_post_in_both_languages(self):
-        for route_name in (
-            "patient_portal_account_recovery",
-            "patient_portal_account_recovery_en",
-        ):
-            with self.subTest(route=route_name):
-                response = self.client.post(
-                    reverse(route_name),
-                    {"phone": "0791234567", "email": "patient@example.com"},
-                )
-
-                self.assertEqual(response.status_code, 405)
+    def test_account_recovery_posts_start_generic_otp_flow_in_both_languages(self):
+        for route in ("patient_portal_account_recovery", "patient_portal_account_recovery_en"):
+            response = self.client.post(reverse(route), {"phone": "+12025550109"})
+            self.assertRedirects(response, reverse(route) + "?verify=1")
+            self.assertNotIn("_auth_user_id", self.client.session)
 
 
 class PatientPortalLinkingTests(PatientPortalTestMixin, TestCase):
