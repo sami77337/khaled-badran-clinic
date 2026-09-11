@@ -11,14 +11,15 @@
     "lang": "ar",
     "icons": [
         {
-            "src": "/static/img/brand/kb-approved.png",
+            "src": "/static/img/brand/KB_APPROVED_PWA_192.png",
+            "sizes": "192x192",
             "type": "image/png",
             "purpose": "any"
         },
         {
-            "src": "/static/img/icons/site-icon.svg",
-            "sizes": "any",
-            "type": "image/svg+xml",
+            "src": "/static/img/brand/KB_APPROVED_PWA_512.png",
+            "sizes": "512x512",
+            "type": "image/png",
             "purpose": "any"
         }
     ]

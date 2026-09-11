@@ -1,8 +1,11 @@
 {% load static branding %}
-{% approved_logo_path as kb_logo %}
-{% if kb_logo %}
-<link rel="icon" href="{% static kb_logo %}" type="image/png">
-<link rel="apple-touch-icon" href="{% static kb_logo %}">
+{% approved_favicon_path as kb_favicon %}
+{% approved_apple_touch_icon_path as kb_apple_touch_icon %}
+{% if kb_favicon %}
+<link rel="icon" href="{% static kb_favicon %}" type="image/png">
 {% else %}
 <link rel="icon" href="{% static 'img/icons/site-icon.svg' %}" type="image/svg+xml">
+{% endif %}
+{% if kb_apple_touch_icon %}
+<link rel="apple-touch-icon" href="{% static kb_apple_touch_icon %}" sizes="180x180">
 {% endif %}
