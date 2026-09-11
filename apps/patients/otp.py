@@ -31,6 +31,19 @@ def _send_whatsapp_otp(*, setting_name, phone_e164, code, language):
         raise WhatsAppOtpServiceUnavailable("WhatsApp verification service is unavailable.") from None
 
 
+def send_patient_account_otp(phone_e164, code, language):
+    """Use the configured patient-account sender, falling back to the shared OTP template."""
+    setting_name = "PATIENT_ACCOUNT_OTP_SENDER"
+    if not getattr(settings, setting_name, ""):
+        setting_name = "GUEST_CONSULTATION_OTP_SENDER"
+    return _send_whatsapp_otp(
+        setting_name=setting_name,
+        phone_e164=phone_e164,
+        code=code,
+        language=language,
+    )
+
+
 def send_account_phone_change_otp(phone_e164, code, language):
     return _send_whatsapp_otp(
         setting_name="ACCOUNT_PHONE_CHANGE_OTP_SENDER",
