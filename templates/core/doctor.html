@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static doctor_content %}
+{% doctor_public_content doctor.object language as editable_doctor %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'css/public-closeout.css' %}">
@@ -16,7 +17,7 @@
             <h1 id="doctor-page-title">{% if is_arabic %}{{ doctor.display_name_ar }}{% else %}{{ doctor.display_name_en }}{% endif %}</h1>
             <p class="doctor-page-specialty">{% if is_arabic %}{{ doctor.specialty_ar }}{% else %}{{ doctor.specialty_en }}{% endif %}</p>
             <p class="credential-chip">{% if is_arabic %}{{ doctor.credential_label_ar }}{% else %}{{ doctor.credential_label_en }}{% endif %}</p>
-            <p class="doctor-page-bio">{% if is_arabic %}{{ doctor.hero_summary_ar }}{% else %}{{ doctor.hero_summary_en }}{% endif %}</p>
+            <p class="doctor-page-bio">{{ editable_doctor.hero_summary }}</p>
             <div class="doctor-hero-actions">
                 <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
                 <a class="btn btn-secondary" href="{{ contact_url }}">{{ labels.contact }}</a>
@@ -30,7 +31,7 @@
         <article class="professional-profile-card">
             <p class="eyebrow">{% if is_arabic %}نبذة مهنية{% else %}Professional Profile{% endif %}</p>
             <h2 id="professional-profile-title">{% if is_arabic %}خبرة متخصصة ورعاية واضحة{% else %}Specialist experience, clearly presented{% endif %}</h2>
-            <p>{% if is_arabic %}{{ doctor.bio_ar }}{% else %}{{ doctor.bio_en }}{% endif %}</p>
+            <p>{{ editable_doctor.bio }}</p>
         </article>
 
         <aside class="doctor-contact-card doctor-contact-card-desktop" aria-labelledby="doctor-contact-title">
@@ -54,31 +55,31 @@
         <div class="doctor-details-grid">
             <article class="doctor-detail-card">
                 <h3>{% if is_arabic %}الخبرة المهنية{% else %}Professional Experience{% endif %}</h3>
-                <ul>{% for item in doctor_profile.experience %}<li>{{ item }}</li>{% endfor %}</ul>
+                <ul>{% for item in editable_doctor.experience %}<li>{{ item }}</li>{% endfor %}</ul>
             </article>
             <article class="doctor-detail-card doctor-detail-card-wide">
                 <h3>{% if is_arabic %}التعليم والتدريب{% else %}Education & Training{% endif %}</h3>
-                <ul>{% for item in doctor_profile.education %}<li>{{ item }}</li>{% endfor %}</ul>
+                <ul>{% for item in editable_doctor.education %}<li>{{ item }}</li>{% endfor %}</ul>
             </article>
             <article class="doctor-detail-card">
                 <h3>{% if is_arabic %}البورد والشهادات{% else %}Boards / Certifications{% endif %}</h3>
-                <ul>{% for item in doctor_profile.boards %}<li>{{ item }}</li>{% endfor %}</ul>
+                <ul>{% for item in editable_doctor.boards %}<li>{{ item }}</li>{% endfor %}</ul>
             </article>
             <article class="doctor-detail-card">
                 <h3>{% if is_arabic %}العضويات المهنية{% else %}Professional Memberships{% endif %}</h3>
                 <div class="credential-list">
-                    {% for item in doctor_profile.memberships %}
+                    {% for item in editable_doctor.memberships %}
                         <span>{% if item.label %}{{ item.label }} — {% endif %}<bdi dir="ltr">{{ item.acronym }}</bdi></span>
                     {% endfor %}
                 </div>
             </article>
             <article class="doctor-detail-card doctor-awards-card">
                 <h3>{% if is_arabic %}الجوائز{% else %}Awards{% endif %}</h3>
-                <ul>{% for item in doctor_profile.awards %}<li>{{ item }}</li>{% endfor %}</ul>
+                <ul>{% for item in editable_doctor.awards %}<li>{{ item }}</li>{% endfor %}</ul>
             </article>
             <article class="doctor-detail-card doctor-languages-card">
                 <h3>{% if is_arabic %}اللغات{% else %}Languages{% endif %}</h3>
-                <div class="language-list">{% for item in doctor_profile.languages %}<span>{{ item }}</span>{% endfor %}</div>
+                <div class="language-list">{% for item in editable_doctor.languages %}<span>{{ item }}</span>{% endfor %}</div>
             </article>
         </div>
     </div>
@@ -107,14 +108,14 @@
 
         <article class="doctor-specialties" aria-labelledby="doctor-specialties-title">
             <h3 id="doctor-specialties-title">{% if is_arabic %}التخصصات{% else %}Specialties{% endif %}</h3>
-            <div class="specialty-chip-list">{% for item in doctor_profile.specialties %}<span>{{ item }}</span>{% endfor %}</div>
+            <div class="specialty-chip-list">{% for item in editable_doctor.specialties %}<span>{{ item }}</span>{% endfor %}</div>
         </article>
 
         <div class="conditions-heading">
             <h3>{% if is_arabic %}الحالات التي يعالجها الدكتور{% else %}Conditions Treated{% endif %}</h3>
         </div>
         <div class="doctor-condition-grid">
-            {% for condition in doctor_profile.conditions %}
+            {% for condition in editable_doctor.conditions %}
                 <article class="doctor-condition-group">
                     <h4>{{ condition }}</h4>
                 </article>
