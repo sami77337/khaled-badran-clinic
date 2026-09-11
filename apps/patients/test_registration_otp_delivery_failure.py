@@ -39,7 +39,11 @@ class RegistrationOtpDeliveryFailureTests(TestCase):
         ):
             response = self.client.post(reverse("patient_portal_register_en"), self._data())
 
-        self.assertRedirects(response, reverse("patient_portal_register_en"))
+        self.assertRedirects(
+            response,
+            reverse("patient_portal_register_en"),
+            fetch_redirect_response=False,
+        )
         follow = self.client.get(response.url)
         self.assertContains(
             follow,
