@@ -4,7 +4,7 @@
 <section class="auth-page auth-register-page" aria-labelledby="auth-title">
     <div class="auth-card auth-recovery-card">
         <div class="auth-identity" aria-label="{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}">
-            <span class="auth-monogram" aria-hidden="true">KB</span>
+            <span class="auth-monogram" aria-hidden="true">{% include "partials/brand_mark.html" with fallback="KB" %}</span>
             <span class="auth-clinic-name">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</span>
         </div>
 
@@ -21,9 +21,9 @@
         <div class="auth-recovery-content">
             <p class="auth-recovery-explanation">
                 {% if is_arabic %}
-                    أرسلنا رمزًا من 6 أرقام عبر واتساب إلى الرقم {{ masked_phone }}. أدخل الرمز لإكمال إنشاء الحساب.
+                    إذا أمكن متابعة الطلب، سيصلك رمز من 6 أرقام عبر واتساب إلى {{ masked_phone }}. أدخل الرمز لإكمال إنشاء الحساب.
                 {% else %}
-                    We sent a 6-digit WhatsApp code to {{ masked_phone }}. Enter it to finish creating the account.
+                    If the request can proceed, a 6-digit WhatsApp code will arrive at {{ masked_phone }}. Enter it to finish creating the account.
                 {% endif %}
             </p>
 

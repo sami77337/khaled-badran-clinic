@@ -6,6 +6,7 @@ from django.views.generic.base import RedirectView
 
 from apps.booking import views as booking_views
 from apps.core import review_views, views
+from apps.patients import account_views
 from apps.patients import views as patient_views
 from apps.patients import transient_views
 from apps.patients import review_views as patient_review_views
@@ -180,7 +181,7 @@ urlpatterns = [
     path("portal/", patient_views.portal_dashboard, {"language": "ar"}, name="patient_portal_dashboard"),
     path("portal/login/", patient_views.portal_login, {"language": "ar"}, name="patient_portal_login"),
     path("portal/logout/", patient_views.portal_logout, {"language": "ar"}, name="patient_portal_logout"),
-    path("portal/register/", patient_views.portal_register, {"language": "ar"}, name="patient_portal_register"),
+    path("portal/register/", account_views.portal_register, {"language": "ar"}, name="patient_portal_register"),
     path("portal/account/", patient_views.portal_account, {"language": "ar"}, name="patient_portal_account"),
     path("portal/review/", patient_review_views.my_review, {"language": "ar"}, name="patient_portal_review"),
     path("portal/review/<int:review_id>/edit/", patient_review_views.edit_review, {"language": "ar"}, name="patient_portal_review_edit"),
@@ -193,7 +194,7 @@ urlpatterns = [
     ),
     path(
         "portal/account-recovery/",
-        patient_views.portal_account_recovery,
+        account_views.portal_account_recovery,
         {"language": "ar"},
         name="patient_portal_account_recovery",
     ),
@@ -296,7 +297,7 @@ urlpatterns = [
     path("en/portal/", patient_views.portal_dashboard, {"language": "en"}, name="patient_portal_dashboard_en"),
     path("en/portal/login/", patient_views.portal_login, {"language": "en"}, name="patient_portal_login_en"),
     path("en/portal/logout/", patient_views.portal_logout, {"language": "en"}, name="patient_portal_logout_en"),
-    path("en/portal/register/", patient_views.portal_register, {"language": "en"}, name="patient_portal_register_en"),
+    path("en/portal/register/", account_views.portal_register, {"language": "en"}, name="patient_portal_register_en"),
     path("en/portal/account/", patient_views.portal_account, {"language": "en"}, name="patient_portal_account_en"),
     path("en/portal/review/", patient_review_views.my_review, {"language": "en"}, name="patient_portal_review_en"),
     path("en/portal/review/<int:review_id>/edit/", patient_review_views.edit_review, {"language": "en"}, name="patient_portal_review_edit_en"),
@@ -309,7 +310,7 @@ urlpatterns = [
     ),
     path(
         "en/portal/account-recovery/",
-        patient_views.portal_account_recovery,
+        account_views.portal_account_recovery,
         {"language": "en"},
         name="patient_portal_account_recovery_en",
     ),

@@ -1,0 +1,1 @@
+{% load static branding %}{% approved_logo_path as kb_logo %}{% if kb_logo %}<img class="kb-brand-image" src="{% static kb_logo %}" alt="" aria-hidden="true">{% else %}{{ fallback|default:"" }}{% endif %}

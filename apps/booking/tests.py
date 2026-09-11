@@ -3372,7 +3372,8 @@ class StaffQueryBehaviorTests(BookingTestDataMixin, TestCase):
             response = self.client.get(reverse("staff_appointment_list"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertLessEqual(len(queries), 15)
+        # The permission-controlled doctor editor link adds two fixed lookups.
+        self.assertLessEqual(len(queries), 17)
 
     def test_staff_detail_uses_select_related_for_related_objects(self):
         appointment = Appointment.objects.first()

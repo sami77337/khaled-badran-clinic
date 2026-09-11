@@ -34,8 +34,8 @@ class DoctorPageContentAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at", "updated_at")
     fieldsets = (
         ("Doctor", {"fields": ("doctor",)}),
-        ("Hero / professional bio — Arabic", {"fields": ("hero_summary_ar", "professional_bio_ar")}),
-        ("Hero / professional bio — English", {"fields": ("hero_summary_en", "professional_bio_en")}),
+        ("Hero / professional bio — Arabic", {"fields": ("hero_summary_ar", "credential_label_ar", "professional_bio_ar")}),
+        ("Hero / professional bio — English", {"fields": ("hero_summary_en", "credential_label_en", "professional_bio_en")}),
         (
             "Professional path — Arabic",
             {"fields": ("experience_ar", "education_ar", "boards_ar", "memberships_ar", "awards_ar")},

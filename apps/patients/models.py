@@ -21,6 +21,25 @@ CONSULTATION_VIDEO_MAX_BYTES = 50 * 1024 * 1024
 CONSULTATION_MAX_ATTACHMENTS = 5
 CONSULTATION_AUDIO_MAX_BYTES = 15 * 1024 * 1024
 
+
+class AccountOtpChallenge(models.Model):
+    """Short-lived, session-bound registration or password recovery state."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    purpose = models.CharField(max_length=12, choices=[("registration", "Registration"), ("recovery", "Recovery")])
+    session_digest = models.CharField(max_length=64)
+    phone_e164 = models.CharField(max_length=20)
+    language = models.CharField(max_length=2)
+    otp_digest = models.CharField(max_length=128, blank=True)
+    pending_registration = models.JSONField(default=dict, blank=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE)
+    credential_digest = models.CharField(max_length=64, blank=True)
+    expires_at = models.DateTimeField(db_index=True)
+    last_sent_at = models.DateTimeField(null=True, blank=True)
+    attempt_count = models.PositiveSmallIntegerField(default=0)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    grant_expires_at = models.DateTimeField(null=True, blank=True)
+
 CONSULTATION_AUDIO_POLICIES = {
     "audio/webm": {".webm"},
     "audio/ogg": {".ogg"},

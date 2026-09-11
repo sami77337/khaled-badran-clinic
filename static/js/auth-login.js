@@ -1,7 +1,7 @@
 (() => {
     "use strict";
 
-    const root = document.querySelector("[data-auth-login], [data-auth-register]");
+    const root = document.querySelector("[data-auth-login], [data-auth-register]") || document.querySelector("[data-auth-recovery]");
     if (!root) {
         return;
     }

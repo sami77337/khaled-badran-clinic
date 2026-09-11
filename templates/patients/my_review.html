@@ -40,7 +40,6 @@
             {% else %}
                 <p class="patient-record-meta" data-review-status="{{ review_status }}" role="status">
                     {% if review_status == 'published' %}{% if is_arabic %}منشور{% else %}Published{% endif %}
-                    {% elif review_status == 'pending' %}{% if is_arabic %}بانتظار النشر{% else %}Pending publication{% endif %}
                     {% else %}{% if is_arabic %}غير معروض للعامة{% else %}Not displayed publicly{% endif %}{% endif %}
                 </p>
                 <article class="patient-review-preview" aria-label="{% if is_arabic %}معاينة تقييمك{% else %}Your review preview{% endif %}">

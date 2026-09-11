@@ -77,14 +77,14 @@ class PublishedReviewSummaryTests(TestCase):
         review.delete()
         self.assertEqual(review_source_summary(), {"average_rating": "5.00", "review_count": 1})
 
-    def test_patient_submission_approval_edit_and_delete_change_aggregate(self):
+    def test_patient_submission_edit_and_delete_immediately_change_aggregate(self):
         owner = get_user_model().objects.create_user(username="synthetic-summary-patient")
         moderator = get_user_model().objects.create_superuser(username="synthetic-summary-moderator")
         self.client.force_login(owner)
         response = self.client.post(reverse("patient_portal_review_en"), {"rating": 4, "body": "My feedback."})
         self.assertEqual(response.status_code, 302)
         review = PublicReview.objects.get(submitted_by=owner)
-        self.assertIsNone(review_source_summary())
+        self.assertEqual(review_source_summary(), {"average_rating": "4.00", "review_count": 1})
 
         self.client.force_login(moderator)
         moderation_url = reverse("admin:core_publicreview_change", args=[review.pk])
@@ -102,11 +102,8 @@ class PublishedReviewSummaryTests(TestCase):
         })
         self.assertEqual(response.status_code, 302)
         review.refresh_from_db()
-        self.assertFalse(review.is_approved_for_publication)
+        self.assertTrue(review.is_approved_for_publication)
         self.assertFalse(review.is_featured)
-        self.assertIsNone(review_source_summary())
-        review.is_approved_for_publication = True
-        review.save()
         self.assertEqual(review_source_summary(), {"average_rating": "5.00", "review_count": 1})
         response = self.client.post(reverse("patient_portal_review_delete_en", args=[review.pk]))
         self.assertEqual(response.status_code, 302)

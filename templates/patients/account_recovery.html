@@ -2,9 +2,9 @@
 
 {% block content %}
 <section class="auth-page auth-recovery-page" aria-labelledby="auth-title">
-    <div class="auth-card auth-recovery-card">
+    <div class="auth-card auth-recovery-card" data-auth-recovery>
         <div class="auth-identity" aria-label="{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}">
-            <span class="auth-monogram" aria-hidden="true">KB</span>
+            <span class="auth-monogram" aria-hidden="true">{% include "partials/brand_mark.html" with fallback="KB" %}</span>
             <span class="auth-clinic-name">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</span>
         </div>
 
@@ -68,6 +68,8 @@
                                     data-show-label="{% if is_arabic %}إظهار كلمة المرور{% else %}Show password{% endif %}"
                                     data-hide-label="{% if is_arabic %}إخفاء كلمة المرور{% else %}Hide password{% endif %}"
                                     data-password-toggle
+                                    aria-controls="{{ field.id_for_label }}"
+                                    aria-pressed="false"
                                 >
                                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
                                         <path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" stroke-width="1.6"/>

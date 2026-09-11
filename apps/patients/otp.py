@@ -17,11 +17,11 @@ def _send_whatsapp_otp(*, setting_name, phone_e164, code, language):
     sender = getattr(settings, setting_name, "")
     if not sender:
         raise WhatsAppOtpServiceUnavailable("WhatsApp verification service is unavailable.")
-    if isinstance(sender, str):
-        sender = import_string(sender)
-    if not callable(sender):
-        raise WhatsAppOtpServiceUnavailable("WhatsApp verification service is unavailable.")
     try:
+        if isinstance(sender, str):
+            sender = import_string(sender)
+        if not callable(sender):
+            raise WhatsAppOtpServiceUnavailable("WhatsApp verification service is unavailable.")
         result = sender(phone_e164, code, language)
         if result is False:
             raise WhatsAppOtpServiceUnavailable("WhatsApp verification service is unavailable.")

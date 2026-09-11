@@ -36,7 +36,10 @@ def doctor_public_content(doctor, language="ar"):
         **DOCTOR_PUBLIC_PROFILE[language],
         "conditions": DOCTOR_CONDITIONS[language],
         "hero_summary": DOCTOR_DEFAULT[f"hero_summary_{language}"],
-        "bio": DOCTOR_DEFAULT[f"bio_{language}"],
+        "bio": (
+            getattr(doctor, f"bio_{language}", "") or DOCTOR_DEFAULT[f"bio_{language}"]
+        ),
+        "credential_label": DOCTOR_DEFAULT[f"credential_label_{language}"],
     }
     if doctor is None:
         return fallback
@@ -48,6 +51,7 @@ def doctor_public_content(doctor, language="ar"):
     scalar_map = {
         "hero_summary": getattr(content, f"hero_summary_{language}"),
         "bio": getattr(content, f"professional_bio_{language}"),
+        "credential_label": getattr(content, f"credential_label_{language}"),
     }
     list_fields = (
         "experience",

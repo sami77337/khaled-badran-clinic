@@ -80,7 +80,7 @@ class ReviewModerationTests(TestCase):
         response = self.client.post(self.url, data)
         self.assertContains(response, "This review changed after you opened it.")
         self.review.refresh_from_db()
-        self.assertFalse(self.review.is_approved_for_publication)
+        self.assertTrue(self.review.is_approved_for_publication)
         self.assertEqual(self.review.body, "New patient-authored text.")
         self.assertEqual(self.client.post(self.url, self.moderation_data()).status_code, 302)
         self.review.refresh_from_db()
@@ -92,7 +92,7 @@ class ReviewModerationTests(TestCase):
         response = self.client.post(self.list_url, data)
         self.assertContains(response, "This review changed after you opened it.")
         self.review.refresh_from_db()
-        self.assertFalse(self.review.is_approved_for_publication)
+        self.assertTrue(self.review.is_approved_for_publication)
         self.assertEqual(self.review.body, "New patient-authored text.")
 
     def test_current_list_approval_succeeds(self):
@@ -121,3 +121,21 @@ class ReviewModerationTests(TestCase):
         self.assertContains(response, "This review changed after you opened it.")
         other.refresh_from_db()
         self.assertFalse(other.is_approved_for_publication)
+
+    def test_staff_can_hide_deactivate_and_delete_immediately_published_patient_review(self):
+        self.patient_edit()
+        self.review.refresh_from_db()
+        self.assertTrue(self.review.is_approved_for_publication)
+        self.assertContains(self.client.get(reverse("reviews_en")), self.review.body)
+        for field in ("is_approved_for_publication", "is_active"):
+            data = self.moderation_data()
+            data.pop(field)
+            self.assertEqual(self.client.post(self.url, data).status_code, 302)
+            self.review.refresh_from_db()
+            self.assertFalse(getattr(self.review, field))
+            self.assertNotContains(self.client.get(reverse("reviews_en")), self.review.body)
+            # Owner-approved behavior: a subsequent valid patient edit is public.
+            self.patient_edit()
+        delete_url = reverse("admin:core_publicreview_delete", args=[self.review.pk])
+        self.assertEqual(self.client.post(delete_url, {"post": "yes"}).status_code, 302)
+        self.assertFalse(PublicReview.objects.filter(pk=self.review.pk).exists())

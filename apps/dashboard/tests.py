@@ -750,7 +750,8 @@ class DashboardPatientListTests(DashboardRecordWorkflowMixin, TestCase):
             self.create_media(patient=patient)
 
         expanded_request = RequestFactory().get(reverse("dashboard_patient_list"))
-        expanded_request.user = self.staff
+        # A real new request has a fresh user and an empty permission cache.
+        expanded_request.user = get_user_model().objects.get(pk=self.staff.pk)
         with CaptureQueriesContext(connection) as expanded_capture:
             expanded_response = dashboard_views.dashboard_patient_list(expanded_request)
         self.assertEqual(expanded_response.status_code, 200)
@@ -2031,6 +2032,50 @@ class DashboardStandalonePublicCaseTests(DashboardRecordWorkflowMixin, TestCase)
         self.assertContains(assets_response, "موافقة النشر مؤكدة لهذا الملف")
         self.assertContains(assets_english, "Publication consent confirmed for this asset")
 
+    def test_before_after_video_upload_publish_unpublish_preserves_consent_and_private_media(self):
+        response = self.client.post(reverse("dashboard_public_case_create"), {
+            "case_title": "Synthetic closeout case",
+            "before_images": self.synthetic_image_file(name="synthetic-before.jpg"),
+            "after_images": self.synthetic_image_file(name="synthetic-after.jpg"),
+            "videos": self.synthetic_video_file(name="synthetic-case.mp4"),
+        })
+        self.assertEqual(response.status_code, 302)
+        case = PublicCase.objects.get(title="Synthetic closeout case")
+        self.assertCountEqual(case.media_items.values_list("role", flat=True), ["before", "after", "video"])
+        self.assertFalse(case.consent_confirmed)
+        self.assertFalse(case.media_items.filter(consent_confirmed=True).exists())
+        publish = reverse("dashboard_public_case_publish", kwargs={"case_id": case.pk})
+        self.client.post(publish)
+        case.refresh_from_db()
+        self.assertFalse(case.is_published)
+        response = self.client.post(reverse("dashboard_public_case_edit", kwargs={"case_id": case.pk}), {
+            "title": "Edited synthetic case", "note": "Synthetic summary", "consent_confirmed": "on",
+        })
+        self.assertEqual(response.status_code, 302)
+        case.refresh_from_db()
+        self.assertEqual(case.title, "Edited synthetic case")
+        self.assertEqual(case.note, "Synthetic summary")
+        self.assertTrue(case.consent_confirmed)
+        self.client.post(publish)
+        case.refresh_from_db()
+        self.assertFalse(case.is_published)
+        for asset in case.media_items.all():
+            response = self.client.post(reverse("dashboard_public_case_asset_role", kwargs={
+                "case_id": case.pk, "public_id": asset.public_id,
+            }), {"role": asset.role, "consent_confirmed": "on", "is_active": "on"})
+            self.assertEqual(response.status_code, 302)
+        self.client.post(publish)
+        case.refresh_from_db()
+        self.assertTrue(case.is_published)
+        detail = reverse("public_case_detail_en", kwargs={"case_id": case.pk})
+        self.assertContains(self.client.get(detail), "Edited synthetic case")
+        self.client.post(reverse("dashboard_public_case_unpublish", kwargs={"case_id": case.pk}))
+        case.refresh_from_db()
+        self.assertFalse(case.is_published)
+        self.assertEqual(self.client.get(detail).status_code, 404)
+        self.medical_media.refresh_from_db()
+        self.assertEqual(self.medical_media.visibility, RecordMedia.Visibility.VISIBLE_TO_PATIENT)
+
     def test_staff_preview_and_download_are_protected_and_opaque(self):
         case = self.create_case()
         media = self.create_public_case_media(
@@ -2138,6 +2183,29 @@ class DashboardStandalonePublicCaseTests(DashboardRecordWorkflowMixin, TestCase)
         case.refresh_from_db()
         self.assertFalse(media.consent_confirmed)
         self.assertFalse(case.is_published)
+
+    def test_case_metadata_edit_saves_text_and_revoking_consent_unpublishes(self):
+        case = self.create_case(is_published=True)
+        self.create_public_case_media(public_case=case)
+        response = self.client.post(
+            reverse("dashboard_public_case_edit", kwargs={"case_id": case.pk}),
+            {
+                "title": "Updated synthetic case",
+                "note": "Updated synthetic summary",
+                "detail_note": "Updated synthetic detail",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        case.refresh_from_db()
+        self.assertEqual(case.title, "Updated synthetic case")
+        self.assertEqual(case.note, "Updated synthetic summary")
+        self.assertEqual(case.detail_note, "Updated synthetic detail")
+        self.assertFalse(case.consent_confirmed)
+        self.assertFalse(case.is_published)
+        self.assertEqual(
+            self.client.get(reverse("public_case_detail", args=[case.pk])).status_code,
+            404,
+        )
 
     def test_medical_trash_does_not_affect_public_case_or_marketing_media(self):
         case = self.create_case(is_published=True)
@@ -3073,7 +3141,8 @@ class DashboardPatientRecordPresentationTests(DashboardRecordWorkflowMixin, Test
         expanded_request = RequestFactory().get(
             reverse("dashboard_patient_record_detail", kwargs={"patient_id": self.patient.id})
         )
-        expanded_request.user = self.staff
+        # Compare the same request-level permission overhead at both row counts.
+        expanded_request.user = get_user_model().objects.get(pk=self.staff.pk)
         with CaptureQueriesContext(connection) as expanded_capture:
             expanded_response = dashboard_views.dashboard_patient_record_detail(
                 expanded_request,
@@ -3250,8 +3319,9 @@ class DashboardOverviewTests(DashboardOverviewTestMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
         # Dashboard chrome adds one constant query for the unread count and
-        # latest ten notification items. Appointment rows must add none.
-        self.assertEqual(len(captured_queries), 7)
+        # latest ten notification items, plus two fixed permission lookups for
+        # the doctor editor link. Appointment rows must add none.
+        self.assertEqual(len(captured_queries), 9)
 
     def test_today_schedule_empty_state_is_bilingual_and_has_no_fake_rows(self):
         arabic = self.dashboard(language="ar")

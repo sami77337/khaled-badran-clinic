@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% load static doctor_content %}
-{% doctor_public_content doctor.object language as editable_doctor %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'css/public-closeout.css' %}">
 {% endblock %}
 
 {% block content %}
+{% doctor_public_content doctor.object language as editable_doctor %}
 <section class="doctor-page-hero" aria-labelledby="doctor-page-title">
     <div class="container doctor-page-hero-grid">
         <div class="doctor-page-portrait">
@@ -16,7 +16,7 @@
             <p class="eyebrow">{% if is_arabic %}الملف التعريفي{% else %}Doctor Profile{% endif %}</p>
             <h1 id="doctor-page-title">{% if is_arabic %}{{ doctor.display_name_ar }}{% else %}{{ doctor.display_name_en }}{% endif %}</h1>
             <p class="doctor-page-specialty">{% if is_arabic %}{{ doctor.specialty_ar }}{% else %}{{ doctor.specialty_en }}{% endif %}</p>
-            <p class="credential-chip">{% if is_arabic %}{{ doctor.credential_label_ar }}{% else %}{{ doctor.credential_label_en }}{% endif %}</p>
+            <p class="credential-chip">{{ editable_doctor.credential_label }}</p>
             <p class="doctor-page-bio">{{ editable_doctor.hero_summary }}</p>
             <div class="doctor-hero-actions">
                 <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>

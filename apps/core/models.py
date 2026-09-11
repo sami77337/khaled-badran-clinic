@@ -96,6 +96,8 @@ class DoctorPageContent(models.Model):
     )
     hero_summary_ar = models.TextField(blank=True)
     hero_summary_en = models.TextField(blank=True)
+    credential_label_ar = models.TextField(blank=True)
+    credential_label_en = models.TextField(blank=True)
     professional_bio_ar = models.TextField(blank=True)
     professional_bio_en = models.TextField(blank=True)
     experience_ar = models.TextField(blank=True, help_text="One item per line.")

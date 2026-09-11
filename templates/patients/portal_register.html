@@ -4,7 +4,7 @@
 <section class="auth-page auth-register-page" aria-labelledby="auth-title">
     <div class="auth-card auth-register-card" data-auth-register>
         <div class="auth-identity" aria-label="{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}">
-            <span class="auth-monogram" aria-hidden="true">KB</span>
+            <span class="auth-monogram" aria-hidden="true">{% include "partials/brand_mark.html" with fallback="KB" %}</span>
             <span class="auth-clinic-name">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</span>
         </div>
 

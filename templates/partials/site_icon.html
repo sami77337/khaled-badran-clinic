@@ -1,0 +1,1 @@
+{% load static branding %}{% approved_logo_path as kb_logo %}{% if kb_logo %}<link rel="icon" href="{% static kb_logo %}" type="image/png">{% else %}<link rel="icon" href="{% static 'img/icons/site-icon.svg' %}" type="image/svg+xml">{% endif %}

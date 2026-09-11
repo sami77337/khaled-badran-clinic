@@ -46,7 +46,7 @@
     </script>
     {% endif %}
     <link rel="manifest" href="{% static 'site.webmanifest' %}">
-    <link rel="icon" href="{% static 'img/icons/site-icon.svg' %}" type="image/svg+xml">
+    {% include "partials/site_icon.html" %}
     <link rel="stylesheet" href="{% static 'css/site.css' %}">
     <link rel="stylesheet" href="{% static 'css/brand-closeout.css' %}">
     {% if use_public_shell %}<link rel="stylesheet" href="{% static 'css/public.css' %}">{% endif %}

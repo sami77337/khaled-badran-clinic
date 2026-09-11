@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from unittest.mock import patch
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 
@@ -45,6 +46,8 @@ class RegistrationSecurityContractTests(TestCase):
                     404,
                 )
 
+    @override_settings(PATIENT_ACCOUNT_OTP_SENDER=lambda *args: True)
+    @patch("apps.patients.account_otp.generate_otp_code", lambda: "123456")
     def test_anonymous_patient_registration_cannot_set_staff_or_superuser_flags(self):
         response = self.client.post(
             reverse("patient_portal_register_en"),
@@ -61,6 +64,9 @@ class RegistrationSecurityContractTests(TestCase):
             },
         )
 
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(get_user_model().objects.filter(username="+962790399991").exists())
+        response = self.client.post(response.url, {"action": "verify", "otp": "123456", "is_staff": "on", "is_superuser": "on"})
         self.assertEqual(response.status_code, 302)
         user = get_user_model().objects.get(username="+962790399991")
         self.assertFalse(user.is_staff)

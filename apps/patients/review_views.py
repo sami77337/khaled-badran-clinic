@@ -27,9 +27,7 @@ def _own_reviews(user):
 
 
 def _review_context(request, language, review, *, form=None, editing=False):
-    status = "hidden" if review and not review.is_active else (
-        "published" if review and review.is_approved_for_publication else "pending"
-    )
+    status = "published" if review and review.is_active and review.is_approved_for_publication else "hidden"
     title = "تقييمي" if language == "ar" else "My Review"
     return _authenticated_portal_context(
         request, language, page_title=title, portal_section="review",
