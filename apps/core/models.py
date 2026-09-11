@@ -81,6 +81,56 @@ class AuditLog(models.Model):
         return f"{self.get_action_display()} - {target}"
 
 
+class DoctorPageContent(models.Model):
+    """Owner-editable copy for the public doctor page.
+
+    List-like sections are stored one item per line so the doctor can edit them
+    in Django admin without touching JSON or code. Blank fields intentionally
+    fall back to the approved source copy in ``apps.core.views``.
+    """
+
+    doctor = models.OneToOneField(
+        "clinic.Doctor",
+        on_delete=models.CASCADE,
+        related_name="page_content",
+    )
+    hero_summary_ar = models.TextField(blank=True)
+    hero_summary_en = models.TextField(blank=True)
+    professional_bio_ar = models.TextField(blank=True)
+    professional_bio_en = models.TextField(blank=True)
+    experience_ar = models.TextField(blank=True, help_text="One item per line.")
+    experience_en = models.TextField(blank=True, help_text="One item per line.")
+    education_ar = models.TextField(blank=True, help_text="One item per line.")
+    education_en = models.TextField(blank=True, help_text="One item per line.")
+    boards_ar = models.TextField(blank=True, help_text="One item per line.")
+    boards_en = models.TextField(blank=True, help_text="One item per line.")
+    memberships_ar = models.TextField(
+        blank=True,
+        help_text="One item per line. Use: Label | ACRONYM",
+    )
+    memberships_en = models.TextField(
+        blank=True,
+        help_text="One item per line. Use: Label | ACRONYM",
+    )
+    awards_ar = models.TextField(blank=True, help_text="One item per line.")
+    awards_en = models.TextField(blank=True, help_text="One item per line.")
+    languages_ar = models.TextField(blank=True, help_text="One item per line.")
+    languages_en = models.TextField(blank=True, help_text="One item per line.")
+    specialties_ar = models.TextField(blank=True, help_text="One item per line.")
+    specialties_en = models.TextField(blank=True, help_text="One item per line.")
+    conditions_ar = models.TextField(blank=True, help_text="One item per line.")
+    conditions_en = models.TextField(blank=True, help_text="One item per line.")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Doctor public page content"
+        verbose_name_plural = "Doctor public page content"
+
+    def __str__(self):
+        return f"Public page content — {self.doctor}"
+
+
 class PublicReview(models.Model):
     class Language(models.TextChoices):
         ARABIC = "ar", "Arabic"
