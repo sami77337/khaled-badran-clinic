@@ -1,0 +1,27 @@
+.public-shell .brand::before {
+    content: "";
+    display: block;
+    width: 48px;
+    height: 42px;
+    flex: 0 0 48px;
+    border-radius: 0.65rem;
+    background: url("../img/icons/site-icon.svg") center / contain no-repeat;
+}
+
+.auth-monogram,
+.dashboard-brand-mark,
+.dashboard-mobile-monogram {
+    overflow: hidden;
+    border-color: rgba(139, 90, 43, 0.2) !important;
+    background: #FDFBF8 url("../img/icons/site-icon.svg") center / contain no-repeat !important;
+    color: transparent !important;
+    text-indent: -9999px;
+}
+
+@media (max-width: 640px) {
+    .public-shell .brand::before {
+        width: 42px;
+        height: 36px;
+        flex-basis: 42px;
+    }
+}
