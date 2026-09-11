@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
 const { launchBrowser } = require("../../core/js_tests/browser_launcher");
-const [browser, fixture, root] = process.argv.slice(2);
+const [browser, fixture, root, adminStaticRoot] = process.argv.slice(2);
 const pages = JSON.parse(fs.readFileSync(fixture, "utf8"));
 const profile = path.join(path.dirname(fixture), "browser-profile");
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -16,6 +16,11 @@ async function main() {
         if (pages[pathname.slice(1)]) {
             res.setHeader("Content-Type", "text/html; charset=utf-8");
             res.end(pages[pathname.slice(1)]);
+        } else if (adminStaticRoot && /^\/static\/admin\/(css|js|img)\/[\w./-]+$/.test(pathname) && !pathname.includes("..")) {
+            const file = path.join(adminStaticRoot, pathname.slice('/static/'.length));
+            if (!fs.existsSync(file)) { res.writeHead(404); res.end(); return; }
+            res.setHeader("Content-Type", pathname.endsWith('.css') ? 'text/css' : pathname.endsWith('.svg') ? 'image/svg+xml' : 'text/javascript');
+            res.end(fs.readFileSync(file));
         } else if (pathname === '/static/img/location/clinic-location-illustrated-map.png') {
             res.setHeader("Content-Type", "image/png");
             res.end(fs.readFileSync(path.join(root, pathname.slice(1))));
@@ -33,8 +38,10 @@ async function main() {
         ws = launcher.ws;
         let id = 0;
         const pending = new Map();
+        const fileChoosers = [];
         ws.addEventListener("message", ({ data }) => {
             const response = JSON.parse(data);
+            if (response.method === 'Page.fileChooserOpened') fileChoosers.push(response.params);
             if (!response.id) return;
             const task = pending.get(response.id);
             pending.delete(response.id);
@@ -63,6 +70,121 @@ async function main() {
         };
         await send("Page.enable");
         await send("Emulation.setFocusEmulationEnabled", { enabled: true });
+        if (pages['upload-patient-ar']) {
+            await checkUploads();
+            return;
+        }
+
+        async function checkUploads() {
+            let cases = 0, pickers = 0;
+            const screenshotDir = process.env.KBC_UPLOAD_QA_DIR;
+            if (screenshotDir) fs.mkdirSync(screenshotDir, { recursive: true });
+            const nativeFile = path.join(path.dirname(fixture), 'synthetic.txt');
+            fs.writeFileSync(nativeFile, 'Synthetic picker fixture');
+            await send('Page.setInterceptFileChooserDialog', { enabled: true });
+            for (const page of Object.keys(pages)) {
+                await resize(390, 844);
+                await navigate(page);
+                const fields = await evaluate(`(() => {
+                    return [...document.querySelectorAll('input[type="file"]')].map(input => ({
+                        id: input.id, hidden: input.hidden, multiple: input.multiple,
+                        attributes: [...input.attributes].map(a => [a.name, a.value]),
+                        display: getComputedStyle(input).display,
+                    }));
+                })()`);
+                assert(fields.length, `${page}: missing upload fixture`);
+                for (const field of fields) {
+                    if (field.hidden) {
+                        assert.equal(field.display, 'none', `${page}: audio input must stay hidden`);
+                        continue;
+                    }
+                    const selector = `#${field.id}`;
+                    // Trusted keyboard activation still opens the native picker with page JS disabled.
+                    await evaluate(`document.querySelector(${JSON.stringify(selector)}).focus()`);
+                    const previous = fileChoosers.length;
+                    await send('Emulation.setScriptExecutionDisabled', { value: true });
+                    try {
+                        await send('Input.dispatchKeyEvent', { type: 'keyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+                        await send('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+                        for (let i = 0; i < 50 && fileChoosers.length === previous; i++) await delay(20);
+                        assert.equal(fileChoosers.length, previous + 1, `${page}/${field.id}: native keyboard picker`);
+                        const picker = fileChoosers.at(-1);
+                        assert.equal(picker.mode, field.multiple ? 'selectMultiple' : 'selectSingle');
+                        await send('DOM.setFileInputFiles', { backendNodeId: picker.backendNodeId, files: [nativeFile] });
+                    } finally {
+                        await send('Emulation.setScriptExecutionDisabled', { value: false });
+                    }
+                    assert.equal(await evaluate(`document.querySelector(${JSON.stringify(selector)}).files[0].name`), 'synthetic.txt');
+                    pickers++;
+                    const states = [
+                        ['empty', []], ['short', ['synthetic.pdf']],
+                        ['long', ['synthetic-' + 'long-filename-'.repeat(16) + '.pdf']],
+                        ['arabic', ['مرفق-تجريبي-باللغة-العربية.pdf']],
+                    ];
+                    if (field.multiple) states.push(['multiple', ['synthetic-one.pdf', 'مرفق-تجريبي.pdf', 'synthetic-three.pdf']]);
+                    for (const width of [360, 390, 768, 1366, 1920]) {
+                        await resize(width, width < 768 ? 844 : 1024, width < 768);
+                        for (const [state, filenames] of states) {
+                            const result = await evaluate(`(async () => {
+                                const input = document.querySelector(${JSON.stringify(selector)});
+                                const names = ${JSON.stringify(filenames)};
+                                const transfer = new DataTransfer();
+                                names.forEach(name => transfer.items.add(new File(['synthetic'], name, {type: 'application/pdf'})));
+                                input.files = transfer.files;
+                                input.dispatchEvent(new Event('change', {bubbles: true}));
+                                input.focus();
+                                input.scrollIntoView({block: 'center', behavior: 'instant'});
+                                await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                                const style = getComputedStyle(input);
+                                const button = getComputedStyle(input, '::file-selector-button');
+                                const box = input.getBoundingClientRect();
+                                const parent = input.parentElement.getBoundingClientRect();
+                                const label = input.labels[0];
+                                const labelBox = label?.getBoundingClientRect();
+                                const overlaps = labelBox && Math.min(box.right, labelBox.right) - Math.max(box.left, labelBox.left) > 1 &&
+                                    Math.min(box.bottom, labelBox.bottom) - Math.max(box.top, labelBox.top) > 1;
+                                const encoded = new FormData(input.form).getAll(input.name).filter(v => v instanceof File && v.name).map(v => v.name);
+                                return {
+                                    attributes: [...input.attributes].map(a => [a.name, a.value]),
+                                    selected: [...input.files].map(f => f.name), encoded,
+                                    labelled: Boolean(label?.textContent.trim() || input.getAttribute('aria-label')),
+                                    focused: document.activeElement === input && input.matches(':focus-visible'),
+                                    outline: parseFloat(style.outlineWidth), outlineStyle: style.outlineStyle,
+                                    direction: style.direction, expectedDirection: document.documentElement.dir,
+                                    height: box.height, width: box.width,
+                                    bounded: box.left >= -1 && box.right <= innerWidth + 1 && box.left >= parent.left - 1 && box.right <= parent.right + 1,
+                                    overflow: document.documentElement.scrollWidth > innerWidth + 1,
+                                    overlaps, minButtonHeight: parseFloat(button.minHeight),
+                                    buttonBackground: button.backgroundColor,
+                                    fontMatches: button.fontFamily === style.fontFamily,
+                                    logicalGap: parseFloat(button.marginInlineEnd),
+                                    truncates: style.textOverflow === 'ellipsis' && ['hidden', 'clip'].includes(style.overflowX),
+                                    overflowStyle: style.overflowX, textOverflow: style.textOverflow,
+                                    reachable: input.contains(document.elementFromPoint((box.left + box.right) / 2, (box.top + box.bottom) / 2)),
+                                    clip: {x: Math.max(0, box.left - 8), y: Math.max(0, box.top + scrollY - 38), width: box.width + 16, height: box.height + 100, scale: 1},
+                                };
+                            })()`);
+                            const label = `${page}/${field.id}/${width}/${state}`;
+                            assert.deepEqual(result.attributes, field.attributes, `${label}: native attributes changed`);
+                            assert.deepEqual(result.selected, filenames, `${label}: file selection`);
+                            assert.deepEqual(result.encoded, filenames, `${label}: multipart form data`);
+                            assert(result.labelled && result.focused && result.outline >= 2 && result.outlineStyle !== 'none', `${label}: focus/label ${JSON.stringify(result)}`);
+                            assert.equal(result.direction, result.expectedDirection, `${label}: direction`);
+                            assert(result.height >= 44 && result.minButtonHeight >= 44 && result.bounded && !result.overflow && !result.overlaps && result.reachable,
+                                `${label}: bounds/touch ${JSON.stringify(result)}`);
+                            assert(result.truncates && result.logicalGap >= 8 && result.fontMatches && result.buttonBackground !== 'rgba(0, 0, 0, 0)',
+                                `${label}: native filename/button ${JSON.stringify(result)}`);
+                            if (screenshotDir && field === fields.find(f => !f.hidden) && [390, 768, 1366].includes(width)) {
+                                const shot = await send('Page.captureScreenshot', {format: 'png', clip: result.clip, captureBeyondViewport: true});
+                                fs.writeFileSync(path.join(screenshotDir, `${page}-${width}-${state}.png`), Buffer.from(shot.data, 'base64'));
+                            }
+                            cases++;
+                        }
+                    }
+                }
+            }
+            console.log(`PASS: ${cases} native upload layout/selection cases; ${pickers} native keyboard pickers with JavaScript disabled; AR/EN, 360/390/768/1366/1920px; unchanged attributes, labels, focus and multipart filenames; hidden audio inputs preserved.`);
+        }
         const mapViewports = [[320, 568], [360, 640], [390, 844], [412, 915], [640, 960],
             [768, 1024], [1024, 768], [1280, 720], [1280, 800], [1366, 768], [1440, 900],
             [1536, 864], [1600, 900], [1920, 1080]];

@@ -7,7 +7,6 @@
 .guest-card { background: #fff; border: 1px solid #d8e1dd; border-radius: 1.2rem; padding: clamp(1rem, 4vw, 2rem); margin-block: 1.2rem; min-width: 0; }
 .guest-form p { display: grid; gap: .5rem; margin-block: 1rem; }
 .guest-form input:not([type=hidden]), .guest-form textarea { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; padding: .8rem; border: 1px solid #8caaa0; border-radius: .6rem; font: inherit; background: #fff; color: #173b35; }
-.guest-form input[type=file] { font-size: .85rem; }
 .guest-form textarea { resize: vertical; }
 .guest-consultation .btn { min-height: 44px; white-space: normal; max-width: 100%; text-align: center; }
 .guest-form .helptext { font-size: .9rem; }

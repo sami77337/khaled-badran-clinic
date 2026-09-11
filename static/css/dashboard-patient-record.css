@@ -912,19 +912,6 @@
     padding: 0.48rem;
 }
 
-.record-form input[type="file"]::file-selector-button {
-    min-height: 2.1rem;
-    margin-inline-end: 0.65rem;
-    border: 0;
-    border-radius: 0.52rem;
-    background: var(--dashboard-soft-burgundy);
-    color: var(--dashboard-burgundy);
-    padding: 0.35rem 0.7rem;
-    font: inherit;
-    font-weight: 700;
-    cursor: pointer;
-}
-
 .record-upload-preview {
     display: grid;
     justify-items: start;
