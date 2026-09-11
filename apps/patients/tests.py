@@ -670,6 +670,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
                 "phone": "0791234567",
                 "password": submitted_password,
             },
+            follow=True,
         )
 
         self.assertEqual(response.status_code, 200)
@@ -765,6 +766,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
                 "username": "patient-not-staff",
                 "password": TEST_PASSWORD,
             },
+            follow=True,
         )
 
         self.assertEqual(response.status_code, 200)
@@ -781,6 +783,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
                 "username": "missing-clinic-user",
                 "password": submitted_password,
             },
+            follow=True,
         )
 
         self.assertEqual(response.status_code, 200)
@@ -1109,15 +1112,12 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
                         "password": TEST_PASSWORD,
                     },
                     REMOTE_ADDR=f"10.23.0.{index + 1}",
+                    follow=True,
                 )
 
                 self.assertEqual(response.status_code, 200)
-                form = response.context["patient_form"]
-                self.assertEqual(
-                    list(form.errors["phone"]),
-                    ["Enter a valid phone number."],
-                )
-                self.assert_form_errors_hide_database_details(form)
+                self.assertEqual(list(response.context["login_errors"]), [auth_error_message("phone_invalid", "en")])
+                self.assertNotContains(response, payload)
                 self.assertNotIn("_auth_user_id", self.client.session)
                 self.assertEqual(get_user_model().objects.count(), 1)
 
@@ -1150,12 +1150,12 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
                         "username": payload,
                         "password": TEST_PASSWORD,
                     },
+                    follow=True,
                 )
 
                 self.assertEqual(response.status_code, 200)
-                form = response.context["doctor_form"]
-                self.assertEqual(list(form.non_field_errors()), [GENERIC_LOGIN_ERROR])
-                self.assert_form_errors_hide_database_details(form)
+                self.assertEqual(list(response.context["login_errors"]), [GENERIC_LOGIN_ERROR])
+                self.assertNotContains(response, payload)
                 self.assertNotIn("_auth_user_id", self.client.session)
                 self.assertEqual(get_user_model().objects.count(), 2)
 
@@ -1203,6 +1203,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
                 "phone": "0791234567",
                 "password": "wrong-password",
             },
+            follow=True,
         )
 
         self.assertEqual(response.status_code, 200)
@@ -1597,7 +1598,7 @@ class PatientPortalRateLimitTests(PatientPortalTestMixin, TestCase):
         ):
             with self.subTest(language=language):
                 self.client.post(reverse(route_name), post_data, REMOTE_ADDR=remote_addr)
-                response = self.client.post(reverse(route_name), post_data, REMOTE_ADDR=remote_addr)
+                response = self.client.post(reverse(route_name), post_data, REMOTE_ADDR=remote_addr, follow=True)
 
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, auth_error_message("rate_limit", language))
