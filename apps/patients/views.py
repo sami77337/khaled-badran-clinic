@@ -400,6 +400,10 @@ def portal_login(request, language="ar"):
             if doctor_form.is_valid():
                 auth_login(request, doctor_form.user)
                 return redirect(next_url or _doctor_dashboard_url(language))
+            if doctor_form.has_error("username", "required"):
+                failure_code = "username_required"
+            elif doctor_form.has_error("password", "required"):
+                failure_code = "password_required"
         else:
             patient_form = PatientLoginForm(request.POST, request=request, language=language)
             normalized_phone = rate_limits.normalized_phone_or_empty(request.POST.get("phone"))
@@ -413,6 +417,12 @@ def portal_login(request, language="ar"):
             elif form_valid:
                 auth_login(request, patient_form.user)
                 return redirect(next_url or _portal_url("patient_portal_dashboard", language))
+            elif patient_form.has_error("phone", "required"):
+                failure_code = "phone_required"
+            elif patient_form.has_error("phone"):
+                failure_code = "phone_invalid"
+            elif patient_form.has_error("password", "required"):
+                failure_code = "password_required"
 
         # Carry only fixed presentation state across the redirect, never form data.
         request.session[_LOGIN_FAILURE_SESSION_KEY] = {

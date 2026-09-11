@@ -1116,7 +1116,7 @@ class PatientPortalAuthenticationTests(PatientPortalTestMixin, TestCase):
                 )
 
                 self.assertEqual(response.status_code, 200)
-                self.assertEqual(list(response.context["login_errors"]), [GENERIC_LOGIN_ERROR])
+                self.assertEqual(list(response.context["login_errors"]), [auth_error_message("phone_invalid", "en")])
                 self.assertNotContains(response, payload)
                 self.assertNotIn("_auth_user_id", self.client.session)
                 self.assertEqual(get_user_model().objects.count(), 1)
