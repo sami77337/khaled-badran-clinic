@@ -11,6 +11,11 @@
     "lang": "ar",
     "icons": [
         {
+            "src": "/static/img/brand/kb-approved.png",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
             "src": "/static/img/icons/site-icon.svg",
             "sizes": "any",
             "type": "image/svg+xml",
