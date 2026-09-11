@@ -48,8 +48,8 @@
                 <input type="hidden" name="role" value="patient">
                 {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
 
-                {% if patient_form.non_field_errors %}
-                    <div class="auth-form-errors" role="alert">{{ patient_form.non_field_errors }}</div>
+                {% if selected_role == "patient" and login_errors %}
+                    <div class="auth-form-errors" role="alert">{{ login_errors }}</div>
                 {% endif %}
 
                 <div class="auth-field{% if patient_form.phone.errors %} has-error{% endif %}">
@@ -113,8 +113,8 @@
                 <input type="hidden" name="role" value="doctor">
                 {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
 
-                {% if doctor_form.non_field_errors %}
-                    <div class="auth-form-errors" role="alert">{{ doctor_form.non_field_errors }}</div>
+                {% if selected_role == "doctor" and login_errors %}
+                    <div class="auth-form-errors" role="alert">{{ login_errors }}</div>
                 {% endif %}
 
                 <div class="auth-field{% if doctor_form.username.errors %} has-error{% endif %}">

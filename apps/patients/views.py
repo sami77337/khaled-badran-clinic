@@ -76,6 +76,7 @@ _PORTAL_MEDIA_TYPE_LABELS = {
 }
 
 _LINK_RECOVERY_SESSION_KEY = "patient_portal_verified_link_recovery"
+_LOGIN_FAILURE_SESSION_KEY = "portal_login_failure"
 _APPOINTMENT_CANCELLATION_SIGNING_SALT = "patients.appointment-cancellation"
 
 
@@ -380,6 +381,7 @@ def portal_dashboard(request, language="ar"):
 def portal_login(request, language="ar"):
     language = _language(language)
     next_url = _safe_next_url(request)
+    login_failure = request.session.pop(_LOGIN_FAILURE_SESSION_KEY, None)
     if request.user.is_authenticated:
         if request.user.is_staff:
             return redirect(next_url or _doctor_dashboard_url(language))
@@ -392,6 +394,7 @@ def portal_login(request, language="ar"):
     doctor_form = StaffLoginForm(request=request, language=language)
 
     if request.method == "POST":
+        failure_code = "login_generic"
         if selected_role == "doctor":
             doctor_form = StaffLoginForm(request.POST, request=request, language=language)
             if doctor_form.is_valid():
@@ -406,14 +409,27 @@ def portal_login(request, language="ar"):
             )
             form_valid = patient_form.is_valid()
             if not attempt_limit.allowed:
-                patient_form.add_error(None, auth_error_message("rate_limit", language))
+                failure_code = "rate_limit"
             elif form_valid:
                 auth_login(request, patient_form.user)
                 return redirect(next_url or _portal_url("patient_portal_dashboard", language))
 
+        # Carry only fixed presentation state across the redirect, never form data.
+        request.session[_LOGIN_FAILURE_SESSION_KEY] = {
+            "role": selected_role,
+            "code": failure_code,
+        }
+        return redirect(_login_url_with_query(language, role=selected_role, next_url=next_url))
+
     login_url = _login_url(language)
     alternate_language = "en" if language == "ar" else "ar"
     active_form = doctor_form if selected_role == "doctor" else patient_form
+    login_errors = None
+    if login_failure and login_failure.get("role") == selected_role:
+        login_errors = active_form.error_class(
+            [auth_error_message(login_failure["code"], language)],
+            error_class="nonfield",
+        )
     context = _portal_context(request, language)
     clinic_name = context["clinic"]["name_ar" if language == "ar" else "name_en"]
     context.update(
@@ -431,6 +447,7 @@ def portal_login(request, language="ar"):
             "login_url": login_url,
             "portal_login_url": login_url,
             "selected_role": selected_role,
+            "login_errors": login_errors,
             "patient_form": patient_form,
             "doctor_form": doctor_form,
             "form": active_form,
