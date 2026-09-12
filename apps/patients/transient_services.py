@@ -19,6 +19,7 @@ from apps.patients.models import (
 )
 from apps.patients.otp import generate_otp_code, _send_whatsapp_otp, WhatsAppOtpServiceUnavailable
 from apps.patients.rate_limits import _rate_limit, _setting_int
+from apps.notifications.services import schedule_staff_event
 
 logger = logging.getLogger(__name__)
 SESSION_KEY = "guest_consultation_browser_secret"
@@ -163,6 +164,7 @@ def create_guest_consultation(request, *, question, display_name, uploaded_files
                         stored.append((attachment.file.storage, attachment.file.name))
             grant.consultation = consultation
             grant.save(update_fields=["consultation"])
+            schedule_staff_event("new-consultation")
         return consultation
     except Exception:
         for storage, name in stored:

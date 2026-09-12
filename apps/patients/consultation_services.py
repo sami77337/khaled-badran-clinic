@@ -17,6 +17,7 @@ from apps.patients.models import (
     validate_consultation_upload,
 )
 from apps.patients.profile_resolution import resolve_authenticated_patient
+from apps.notifications.services import schedule_staff_event
 
 
 class ConsultationDeleteError(ValueError):
@@ -95,6 +96,7 @@ def create_consultation(*, user, question, uploaded_files):
                     for recipient_id in recipient_ids
                 ]
             )
+            schedule_staff_event("new-consultation")
     except Exception:
         for storage, name in stored_files:
             try:

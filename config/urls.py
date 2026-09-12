@@ -11,9 +11,12 @@ from apps.patients import views as patient_views
 from apps.patients import transient_views
 from apps.patients import review_views as patient_review_views
 from apps.whatsapp.webhook import webhook as whatsapp_webhook
+from apps.notifications.views import service_worker
 
 
 urlpatterns = [
+    path("sw.js", service_worker, name="service_worker"),
+    path("dashboard/phone-notifications/", include("apps.notifications.urls")),
     path("integrations/whatsapp/webhook/", whatsapp_webhook, name="whatsapp_webhook"),
     path("", views.home, {"language": "ar"}, name="home"),
     path("login/", patient_views.portal_login, {"language": "ar"}, name="login"),
