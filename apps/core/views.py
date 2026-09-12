@@ -630,12 +630,15 @@ def _visit_types(language):
     ]
 
 
-def _public_case_media_queryset():
+def _public_case_media_queryset(*, include_video_covers=False):
+    roles = PublicCaseMedia.publishable_roles()
+    if include_video_covers:
+        roles = (*roles, PublicCaseMedia.Role.VIDEO_COVER)
     return (
         PublicCaseMedia.objects.filter(
             consent_confirmed=True,
             is_active=True,
-            role__in=PublicCaseMedia.publishable_roles(),
+            role__in=roles,
             public_case__consent_confirmed=True,
             public_case__is_published=True,
         )
@@ -868,7 +871,7 @@ def public_case_detail(request, case_id, language=DEFAULT_LANGUAGE):
 @never_cache
 def public_case_media(request, public_id, language=DEFAULT_LANGUAGE):
     try:
-        media = _public_case_media_queryset().get(public_id=public_id)
+        media = _public_case_media_queryset(include_video_covers=True).get(public_id=public_id)
     except PublicCaseMedia.DoesNotExist as exc:
         raise Http404("Media unavailable.") from exc
 
