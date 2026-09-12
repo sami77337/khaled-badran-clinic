@@ -666,6 +666,26 @@
     object-fit: contain;
 }
 
+.public-case-detail-galleries .public-case-image-grid figure {
+    min-block-size: 0;
+    aspect-ratio: 4 / 3;
+    max-block-size: min(50vh, 26rem);
+    max-block-size: min(50svh, 26rem);
+    padding: clamp(0.35rem, 1vw, 0.55rem);
+}
+
+.public-case-detail-galleries .public-case-image-grid a {
+    block-size: 100%;
+    min-block-size: 0;
+}
+
+.public-case-detail-galleries .public-case-image-grid img {
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    object-position: center;
+}
+
 .case-card .case-media {
     width: auto;
     min-width: 0;

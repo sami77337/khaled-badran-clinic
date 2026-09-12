@@ -31,6 +31,7 @@
             </section>
         {% endif %}
 
+        {% if public_case.before_items and public_case.after_items %}<div class="public-case-comparison has-before-after">{% endif %}
         {% if public_case.before_items %}
             <section class="public-case-category" aria-labelledby="case-before-title">
                 <h2 id="case-before-title">{% if is_arabic %}&#1602;&#1576;&#1604;{% else %}Before{% endif %}</h2>
@@ -52,6 +53,8 @@
                 </div>
             </section>
         {% endif %}
+
+        {% if public_case.before_items and public_case.after_items %}</div>{% endif %}
 
         {% if public_case.primary_items %}
             <section class="public-case-category" aria-labelledby="case-primary-title">
