@@ -11,7 +11,7 @@ from django.views.decorators.debug import sensitive_post_parameters, sensitive_v
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import StaffPushSubscription
-from .services import vapid_credentials
+from .services import vapid_credentials, vapid_public_key
 from .validation import validate_endpoint, validate_subscription
 
 
@@ -42,8 +42,8 @@ def json_body(request):
 @staff_api
 @require_GET
 def configuration(request):
-    available = vapid_credentials() is not None
-    return JsonResponse({"available": available, "publicKey": settings.WEB_PUSH_VAPID_PUBLIC_KEY if available else ""})
+    public_key = vapid_public_key()
+    return JsonResponse({"available": bool(public_key), "publicKey": public_key})
 
 
 @staff_api
