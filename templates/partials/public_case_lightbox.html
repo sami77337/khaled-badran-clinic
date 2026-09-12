@@ -1,0 +1,19 @@
+<dialog class="public-case-lightbox" data-case-lightbox aria-labelledby="public-case-lightbox-title">
+    <div class="public-case-lightbox-panel">
+        <header class="public-case-lightbox-header">
+            <h2 id="public-case-lightbox-title" data-lightbox-title></h2>
+            <button class="public-case-lightbox-close" type="button" data-lightbox-close aria-label="{% if is_arabic %}إغلاق معرض الحالة{% else %}Close case gallery{% endif %}">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </header>
+        <div class="public-case-lightbox-meta" aria-live="polite" aria-atomic="true">
+            <span data-lightbox-label></span>
+            <span data-lightbox-counter></span>
+        </div>
+        <div class="public-case-lightbox-media" data-lightbox-media></div>
+        <div class="public-case-lightbox-nav">
+            <button type="button" data-lightbox-prev>{% if is_arabic %}السابق{% else %}Previous{% endif %}</button>
+            <button type="button" data-lightbox-next>{% if is_arabic %}التالي{% else %}Next{% endif %}</button>
+        </div>
+    </div>
+</dialog>
