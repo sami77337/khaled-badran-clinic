@@ -441,6 +441,10 @@ Database and concurrency hardening:
 
 ## Production Hardening Checklist
 
+For opt-in staff phone notifications, see [Staff Web Push](docs/STAFF_WEB_PUSH.md)
+for the exact Render environment variables, Android/iOS setup, privacy contract,
+and validation steps. Delivery is disabled until configured.
+
 - HTTPS and HSTS configured at the edge and in Django production settings.
 - Secure cookies enabled: `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, and appropriate SameSite settings.
 - CSRF trusted origins configured for production domains.

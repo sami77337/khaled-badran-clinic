@@ -5,3 +5,4 @@ python-dotenv>=1.0,<2.0
 psycopg[binary]>=3.2,<4.0
 redis>=5.0,<6.0
 whitenoise>=6.8,<7.0
+pywebpush==2.5.0

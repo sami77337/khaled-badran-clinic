@@ -34,6 +34,12 @@ PATIENT_ACCOUNT_OTP_SENDER = os.getenv("PATIENT_ACCOUNT_OTP_SENDER", "")
 ACCOUNT_PHONE_CHANGE_OTP_TTL_SECONDS = 10 * 60
 ACCOUNT_PHONE_CHANGE_OTP_RESEND_COOLDOWN_SECONDS = 60
 
+# Direct staff Web Push. Private VAPID material is read only from the environment.
+WEB_PUSH_ENABLED = env_bool("WEB_PUSH_ENABLED", False)
+WEB_PUSH_VAPID_PUBLIC_KEY = os.getenv("WEB_PUSH_VAPID_PUBLIC_KEY", "")
+WEB_PUSH_VAPID_PRIVATE_KEY = os.getenv("WEB_PUSH_VAPID_PRIVATE_KEY", "")
+WEB_PUSH_VAPID_SUBJECT = os.getenv("WEB_PUSH_VAPID_SUBJECT", "")
+
 # Meta is opt-in; incomplete configuration never makes an outbound request.
 WHATSAPP_META_ENABLED = env_bool("WHATSAPP_META_ENABLED", False)
 WHATSAPP_META_ACCESS_TOKEN = os.getenv("WHATSAPP_META_ACCESS_TOKEN", "")
@@ -107,6 +113,7 @@ INSTALLED_APPS = [
     "apps.records.apps.RecordsConfig",
     "apps.whatsapp.apps.WhatsappConfig",
     "apps.dashboard.apps.DashboardConfig",
+    "apps.notifications.apps.NotificationsConfig",
     "apps.legal.apps.LegalConfig",
 ]
 
@@ -204,7 +211,10 @@ LOG_LEVEL = os.getenv("DJANGO_LOG_LEVEL", "INFO").upper()
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "filters": {"whatsapp_privacy": {"()": "apps.whatsapp.logging.WebhookPrivacyFilter"}},
+    "filters": {
+        "whatsapp_privacy": {"()": "apps.whatsapp.logging.WebhookPrivacyFilter"},
+        "push_privacy": {"()": "apps.notifications.logging.PushPrivacyFilter"},
+    },
     "formatters": {
         "console": {
             "format": "{levelname} {asctime} {name} {message}",
@@ -215,7 +225,7 @@ LOGGING = {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "console",
-            "filters": ["whatsapp_privacy"],
+            "filters": ["whatsapp_privacy", "push_privacy"],
         },
     },
     "root": {

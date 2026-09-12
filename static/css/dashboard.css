@@ -675,6 +675,24 @@ body.dashboard-shell.is-ltr {
     background: var(--dashboard-burgundy-deep);
 }
 
+.dashboard-phone-notifications {
+    display: flex;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.15rem;
+}
+
+.dashboard-phone-copy { flex: 1 1 22rem; min-width: 0; }
+.dashboard-phone-copy h2 { margin: 0; font-size: 1.05rem; }
+.dashboard-phone-copy p { margin: 0.45rem 0 0; color: var(--dashboard-muted); font-size: 0.88rem; }
+.dashboard-phone-copy .dashboard-phone-status { color: var(--dashboard-ink); }
+.dashboard-phone-actions { display: grid; gap: 0.6rem; flex: 0 1 18rem; max-width: 100%; }
+.dashboard-phone-actions button { font-family: inherit; text-align: start; cursor: pointer; }
+.dashboard-phone-actions button:disabled { opacity: 0.65; cursor: default; }
+.dashboard-phone-actions [hidden] { display: none; }
+
 .dashboard-shell a:focus-visible,
 .dashboard-shell button:focus-visible,
 .dashboard-main:focus-visible {

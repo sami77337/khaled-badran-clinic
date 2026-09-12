@@ -441,6 +441,9 @@ def create_public_appointment(
     from apps.whatsapp.booking import schedule_booking_confirmation
 
     schedule_booking_confirmation(appointment.pk, "en" if language == "en" else "ar")
+    from apps.notifications.services import schedule_staff_event
+
+    schedule_staff_event("new-booking")
     return appointment
 
 

@@ -1,4 +1,5 @@
 {% extends "dashboard/base.html" %}
+{% load static %}
 
 {% block dashboard_content %}
 <div class="dashboard-content">
@@ -14,6 +15,8 @@
             <span aria-hidden="true">{{ dashboard_doctor_initials }}</span>
         </div>
     </section>
+
+    {% include "dashboard/_phone_notifications.html" %}
 
     <section class="dashboard-metrics" aria-label="{% if is_arabic %}إحصاءات العيادة{% else %}Clinic statistics{% endif %}">
         {% for metric in metric_cards %}
@@ -81,4 +84,8 @@
         </aside>
     </div>
 </div>
+{% endblock %}
+
+{% block dashboard_scripts %}
+<script src="{% static 'js/phone-notifications.js' %}" defer></script>
 {% endblock %}

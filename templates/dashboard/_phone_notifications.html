@@ -1,0 +1,27 @@
+<section class="dashboard-card dashboard-phone-notifications" aria-labelledby="phone-notifications-title"
+    data-phone-notifications
+    data-language="{{ language }}"
+    data-config-url="{% url 'staff_push_config' %}"
+    data-subscribe-url="{% url 'staff_push_subscribe' %}"
+    data-unsubscribe-url="{% url 'staff_push_unsubscribe' %}"
+    data-status-url="{% url 'staff_push_status' %}"
+    data-worker-url="{% url 'service_worker' %}"
+    data-enabled="{% if is_arabic %}إشعارات الهاتف مفعّلة على هذا الجهاز.{% else %}Phone notifications are enabled on this device.{% endif %}"
+    data-disabled="{% if is_arabic %}إشعارات الهاتف غير مفعّلة على هذا الجهاز.{% else %}Phone notifications are off on this device.{% endif %}"
+    data-unavailable="{% if is_arabic %}إشعارات الهاتف غير متاحة حاليًا. يمكنك مراجعة لوحة التحكم.{% else %}Phone notifications are currently unavailable. You can check the dashboard.{% endif %}"
+    data-unsupported="{% if is_arabic %}استخدم متصفحًا يدعم الإشعارات. على iPhone أو iPad، أضف الموقع إلى الشاشة الرئيسية وافتحه منها أولًا.{% else %}Use a browser that supports notifications. On iPhone or iPad, add this site to your Home Screen and open it from there first.{% endif %}"
+    data-denied="{% if is_arabic %}لم يُسمح بالإشعارات. يمكنك تعديل الإذن من إعدادات المتصفح أو الجهاز ثم المحاولة مجددًا.{% else %}Notifications were not allowed. Change permission in your browser or device settings, then try again.{% endif %}"
+    data-error="{% if is_arabic %}تعذر تحديث إشعارات الهاتف. أعد تحميل الصفحة وحاول مجددًا.{% else %}Phone notifications could not be updated. Reload the page and try again.{% endif %}"
+>
+    <div class="dashboard-phone-copy">
+        <h2 id="phone-notifications-title">{% if is_arabic %}إشعارات الهاتف{% else %}Phone notifications{% endif %}</h2>
+        <p>{% if is_arabic %}تنبيهات للاستشارات والمواعيد الجديدة فقط، دون بيانات المرضى. على iPhone وiPad، أضف الموقع إلى الشاشة الرئيسية وافتحه منها لتفعيل الإشعارات.{% else %}Alerts for new consultations and appointments only, without patient details. On iPhone and iPad, add this site to your Home Screen and open it from there to enable notifications.{% endif %}</p>
+        <p class="dashboard-phone-status" role="status" aria-live="polite" data-phone-status>{% if is_arabic %}جارٍ التحقق من توفر الإشعارات…{% else %}Checking notification availability…{% endif %}</p>
+        <noscript>{% if is_arabic %}فعّل JavaScript للتحكم بإشعارات الهاتف.{% else %}Enable JavaScript to manage phone notifications.{% endif %}</noscript>
+    </div>
+    <div class="dashboard-phone-actions">
+        {% csrf_token %}
+        <button class="dashboard-action-link is-primary" type="button" data-phone-enable disabled>{% if is_arabic %}تفعيل إشعارات الهاتف{% else %}Enable phone notifications{% endif %}</button>
+        <button class="dashboard-action-link" type="button" data-phone-disable hidden>{% if is_arabic %}إيقاف إشعارات الهاتف{% else %}Disable phone notifications{% endif %}</button>
+    </div>
+</section>
