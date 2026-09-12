@@ -68,7 +68,7 @@ def _public_media_queryset():
         PublicCaseMedia.objects.filter(
             consent_confirmed=True,
             is_active=True,
-            role__in=PublicCaseMedia.publishable_roles(),
+            role__in=(*PublicCaseMedia.publishable_roles(), PublicCaseMedia.Role.VIDEO_COVER),
             public_case__consent_confirmed=True,
             public_case__is_published=True,
         )
@@ -105,11 +105,17 @@ def _label_carousel_category(items, role, language):
 def grouped_public_cases(language="ar", limit=None, case_id=None):
     language = "en" if language == "en" else "ar"
     groups = OrderedDict()
+    video_covers = {}
     queryset = _public_media_queryset()
     if case_id is not None:
         queryset = queryset.filter(public_case_id=case_id)
     for media in queryset:
         if not media.file_exists:
+            continue
+        if media.role == PublicCaseMedia.Role.VIDEO_COVER:
+            if media.media_type == PublicCaseMedia.MediaType.IMAGE:
+                # Newest eligible cover wins; supporting media never creates a group.
+                video_covers.setdefault(media.public_case_id, _media_url(media, language))
             continue
         public_case = media.public_case
         group_key = f"case:{public_case.pk}"
@@ -159,6 +165,8 @@ def grouped_public_cases(language="ar", limit=None, case_id=None):
 
     result = []
     for group in groups.values():
+        for video in group["video_items"]:
+            video["poster_url"] = video_covers.get(group["case_id"], "")
         group["before"] = group["before_items"][0] if group["before_items"] else None
         group["after"] = group["after_items"][0] if group["after_items"] else None
         primary_images = group["primary_items"]

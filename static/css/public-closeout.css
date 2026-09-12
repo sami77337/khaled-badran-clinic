@@ -683,18 +683,13 @@
     min-inline-size: 0;
 }
 
-.case-card .case-media img {
-    width: 100%;
-    height: auto;
-    aspect-ratio: 4 / 3;
-    object-fit: cover;
-}
-
+.case-card .case-media img,
 .case-card .case-media video {
     display: block;
     inline-size: auto;
     max-inline-size: 100%;
     block-size: auto;
+    aspect-ratio: auto;
     max-block-size: min(50vh, 26rem);
     max-block-size: min(50svh, 26rem);
     margin-inline: auto;

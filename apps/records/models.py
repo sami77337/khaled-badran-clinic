@@ -399,14 +399,26 @@ class PublicCaseMedia(models.Model):
 
     @property
     def is_publicly_available(self):
-        return (
+        if not (
             self.public_case.consent_confirmed
             and self.public_case.is_published
             and self.consent_confirmed
             and self.is_active
-            and self.role in self.publishable_roles()
             and self.file_exists
-        )
+        ):
+            return False
+        if self.role == self.Role.VIDEO_COVER:
+            if self.media_type != self.MediaType.IMAGE:
+                return False
+            # A cover supports a public video; it cannot authorize publication.
+            videos = self.public_case.media_items.filter(
+                role__in=self.publishable_roles(),
+                media_type=self.MediaType.SHORT_VIDEO,
+                consent_confirmed=True,
+                is_active=True,
+            ).exclude(file="")
+            return any(video.file_exists for video in videos)
+        return self.role in self.publishable_roles()
 
     def populate_file_metadata(self):
         _populate_file_metadata(self)
