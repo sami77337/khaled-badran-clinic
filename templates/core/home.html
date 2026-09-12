@@ -83,27 +83,61 @@
         {% if public_case_teasers %}
             <div class="case-card-row" data-card-carousel>
                 {% for case in public_case_teasers %}
-                    {% with cases_url=case.detail_url %}
-                    <article class="case-card">
-                        {% if case.teaser %}
-                            <div class="case-media">
-                                {% if case.teaser.media_type == 'short_video' %}
-                                    <video src="{{ case.teaser.url }}"{% if case.teaser.poster_url %} poster="{{ case.teaser.poster_url }}"{% endif %} muted playsinline controls preload="metadata" data-public-case-video></video>
-                                {% else %}
-                                    <a class="case-media-link" href="{{ cases_url }}" aria-label="{% if is_arabic %}عرض معرض الحالات{% else %}View case gallery{% endif %}">
-                                        <img src="{{ case.teaser.url }}" alt="{% if is_arabic %}صورة الحالة{% else %}Case image{% endif %}" loading="lazy">
-                                    </a>
+                    <article class="case-card public-case-album-card" data-case-album tabindex="0" aria-labelledby="home-case-title-{{ case.case_id }}">
+                        <div class="public-case-carousel" data-case-carousel>
+                            <div class="public-case-carousel-stage" data-case-stage>
+                                {% for slide in case.carousel_items %}
+                                    <figure
+                                        class="public-case-carousel-slide{% if slide.kind == 'note' %} public-case-carousel-note-slide{% endif %}"
+                                        data-case-slide
+                                        data-slide-kind="{{ slide.kind }}"
+                                        data-slide-label="{{ slide.label }}"
+                                        {% if slide.kind == 'media' %}
+                                            data-media-public-id="{{ slide.public_id }}"
+                                            data-media-type="{{ slide.media_type }}"
+                                            data-media-role="{{ slide.role }}"
+                                            data-media-url="{{ slide.url }}"
+                                        {% endif %}
+                                        aria-hidden="{% if forloop.first %}false{% else %}true{% endif %}"
+                                        {% if not forloop.first %}hidden{% endif %}
+                                    >
+                                        {% if slide.kind == 'note' %}
+                                            <div class="public-case-note-slide-card">
+                                                <h3>{{ slide.label }}</h3>
+                                                <p class="public-case-note-slide-text" data-case-note-text>{{ slide.text }}</p>
+                                            </div>
+                                        {% elif slide.media_type == 'short_video' %}
+                                            <video data-src="{{ slide.url }}"{% if slide.poster_url %} poster="{{ slide.poster_url }}"{% endif %} muted playsinline controls controlsList="nodownload" preload="none" data-public-case-video data-case-slide-media aria-label="{{ slide.label }}"></video>
+                                        {% else %}
+                                            <img src="{{ slide.url }}" alt="{{ slide.label }}" loading="lazy" data-case-slide-media>
+                                        {% endif %}
+                                        <button class="public-case-expand" type="button" data-case-expand aria-label="{% if is_arabic %}فتح معرض الحالة المكبر{% else %}Open enlarged case gallery{% endif %}">
+                                            <span aria-hidden="true">&#x26F6;</span>
+                                        </button>
+                                    </figure>
+                                {% endfor %}
+                                {% if case.carousel_items|length > 1 %}
+                                    <div class="public-case-carousel-nav" data-case-controls>
+                                        <button class="public-case-carousel-control" type="button" data-case-prev aria-label="{% if is_arabic %}الوسيط السابق{% else %}Previous case media{% endif %}">
+                                            <span aria-hidden="true">&#8249;</span>
+                                        </button>
+                                        <button class="public-case-carousel-control" type="button" data-case-next aria-label="{% if is_arabic %}الوسيط التالي{% else %}Next case media{% endif %}">
+                                            <span aria-hidden="true">&#8250;</span>
+                                        </button>
+                                    </div>
                                 {% endif %}
                             </div>
-                        {% endif %}
-                        <div class="case-card-copy">
-                            <a class="home-case-detail-link" href="{{ case.detail_url }}">{% if is_arabic %}&#1593;&#1585;&#1590; &#1575;&#1604;&#1581;&#1575;&#1604;&#1577;{% else %}View Case{% endif %}</a>
+                            <div class="public-case-slide-meta" aria-live="polite" aria-atomic="true">
+                                <span data-case-current-label>{{ case.carousel_items.0.label }}</span>
+                                <span class="public-case-slide-counter" data-case-counter>{% if is_arabic %}1 من {{ case.carousel_items|length }}{% else %}1 of {{ case.carousel_items|length }}{% endif %}</span>
+                            </div>
+                        </div>
+                        <div class="case-card-copy public-case-album-copy">
                             <p class="eyebrow">{% if is_arabic %}حالة مصرح بعرضها{% else %}Authorized case{% endif %}</p>
-                            <h3><a class="case-card-title-link" href="{{ cases_url }}">{{ case.display_title }}</a></h3>
-                            {% if case.description %}<p>{{ case.description|truncatechars:180 }}</p>{% endif %}
+                            <h2 id="home-case-title-{{ case.case_id }}">{{ case.display_title }}</h2>
+                            {% if case.description %}<p class="public-case-album-note">{{ case.description|truncatechars:180 }}</p>{% endif %}
                         </div>
                     </article>
-                    {% endwith %}
                 {% endfor %}
             </div>
             {% if public_case_teasers|length > 1 %}
@@ -113,6 +147,7 @@
                     {% endfor %}
                 </div>
             {% endif %}
+            {% include "partials/public_case_lightbox.html" %}
         {% else %}
             <div class="empty-showcase" role="status">
                 <span class="privacy-mark" aria-hidden="true">✓</span>
