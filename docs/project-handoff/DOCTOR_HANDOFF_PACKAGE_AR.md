@@ -1,27 +1,34 @@
 # حزمة تسليم الطبيب — Commercial Delivery v1
 
-هذه الوثيقة هي حزمة التسليم التجارية للطبيب/العيادة بعد إغلاق Commercial Delivery v1.
+هذه الوثيقة هي حزمة التسليم التجارية للطبيب/العيادة بعد إغلاق Commercial Delivery v1 وإقفال تصحيحات الـcloseout المعتمدة.
 
-> هذه الحزمة **Commercial-ready** وليست تصريحًا بأن النظام Production-ready. مسار Production Readiness منفصل.
+> هذه الحزمة **Commercial-ready** وليست تصريحًا بأن جميع بنود Production Readiness الخارجية مكتملة. مسار Production Readiness منفصل.
 
 ## حالة التسليم
 
 - Repository: `sami77337/khaled-badran-clinic`
-- Commercial Delivery PR: `#44`
-- PR status: merged
-- Merge commit: `8d34c198c15442e4092c02513cb3f42596b4db92`
+- Commercial Delivery الأساسي: PR #44 — merged.
+- Post-closeout defect/brand corrections: PR #50 + PR #52 + PR #51 — merged.
+- Application delivery head بعد آخر تصحيح: `81255edefca92adf83eb15d5d407aff07a9cc03c`.
+- Production deploy: `dep-dai9eq0ae00c73domseg` — LIVE.
 - العربية هي اللغة الافتراضية، مع دعم English / LTR.
-- تم إغلاق Final Figma-to-Django visual implementation وResponsive QA ضمن النطاق المعتمد.
+- Final Figma-to-Django visual implementation وResponsive QA مغلقان ضمن النطاق المعتمد.
 
 ## ما تم تسليمه
 
-### الموقع العام
+### الموقع العام والهوية
 
 - Home / Doctor / Services / Reviews / Cases / Contact & Location.
 - Responsive على phone / tablet / laptop / desktop.
 - Arabic RTL + English LTR.
 - خريطة العيادة المصورة المعتمدة مع بقاء رابط الاتجاهات الحقيقي عبر `clinic.map_url`.
 - لا توجد صور Google reviewer/profile داخل التعليقات.
+- تم تثبيت ملفات الهوية النهائية المعتمدة byte-for-byte عبر PR #52:
+  - web/in-page logo.
+  - favicon.
+  - Apple touch icon.
+  - PWA 192×192 و512×512.
+- asset-integrity SHA256 contract مغطى بالاختبارات ولا يتم توليد/قص/تلوين الملفات داخل المشروع.
 
 ### الحجز
 
@@ -42,27 +49,18 @@
 
 ### بيانات Google Reviews المعتمدة
 
-المالك وفّر Dataset خارجيًا يحتوي على:
+بيانات المالك المعتمدة محمّلة حاليًا في Production:
 
-- 57 تقييمًا فريدًا.
-- 40 تقييمًا بنص.
-- 17 rating-only.
-- 53 تقييمًا من 5 نجوم.
-- 4 تقييمات من 4 نجوم.
-- مجموع النقاط: 281.
-- المتوسط عند تحميل هذه البيانات وحدها: `4.93 / 5`.
+- 57 تقييمًا.
+- المتوسط المنشور: `4.93 / 5`.
 
-ملف البيانات والصور المصدرية **خارج Git** عمدًا.
-
-أمر التحميل المعتمد للبيئة المستهدفة:
+Dataset المصدرية تبقى خارج Git عمدًا. لا حاجة لإعادة تشغيل import كجزء من closeout. إذا احتاجت بيئة أخرى إلى التحميل مستقبلًا، يستخدم الأمر المعتمد مع ملف المالك فقط:
 
 ```bash
 python manage.py import_public_reviews <owner-approved-json> --approve
 ```
 
-الاستيراد Idempotent؛ تكرار تشغيله لا ينشئ نسخًا جديدة من نفس التقييمات.
-
-> تم التحقق من تحميل الـ57 تقييمًا على Local SQLite. ما يزال تحميلها على قاعدة بيانات بيئة التسليم/Production خطوة تشغيلية منفصلة عند تحديد البيئة المستهدفة.
+الاستيراد Idempotent؛ تكرار تشغيله على نفس البيانات لا يفترض أن ينشئ duplicates.
 
 ### Patient Portal والسجل الطبي
 
@@ -77,12 +75,18 @@ python manage.py import_public_reviews <owner-approved-json> --approve
 - patient identity والبيانات السريرية الخاصة لا تُعرض في الصفحة العامة.
 - الوصول للوسائط العامة يتم عبر controlled media routes، وليس روابط private storage مباشرة.
 
-### Consultations
+### Consultations وOTP behavior
 
 - Registered consultation flow يبقى خاصًا ومملوكًا للمريض.
 - Guest/transient consultation flow موجود داخل الموقع مع authorization مبني على OTP/session وليس UUID وحده.
 - رد الطبيب يمكن أن يكون Text أو Voice داخل المسار الآمن للموقع.
-- WhatsApp live provider/API لم يتم اختياره أو تركيبه ضمن Commercial Delivery v1؛ هذا مسار منفصل.
+- PR #51 أصلح حالة فشل مزود OTP: لا ينتقل المستخدم إلى verification stage وهمي إذا لم يتم إرسال الرمز، وتظهر رسالة AR/EN محايدة بدون كشف provider details أو PII.
+- Meta WhatsApp Cloud API plumbing موجود كمسار Production منفصل، لكن live Meta onboarding/configuration لم يُغلق بعد وهو متابع في issue #45.
+- Live Meta activation ليست blocker لـCommercial Delivery v1 حسب Scope Lock؛ WhatsApp v1 التجاري يبقى quick-link boundary ما لم يُعامل العمل كProduction scope منفصل.
+
+### Login behavior
+
+- PR #50 أغلق إعادة إرسال Failed Login POST عند refresh باستخدام Post/Redirect/Get مع الحفاظ على الرسائل الآمنة، اللغة، `next` الآمن، rate limits وCSRF/auth boundaries.
 
 ## قواعد التشغيل اليومية للطبيب/العيادة
 
@@ -91,7 +95,8 @@ python manage.py import_public_reviews <owner-approved-json> --approve
 3. لا ترسل private medical media كرابط عام مباشر.
 4. راجع Patient Reviews قبل الموافقة على نشرها.
 5. أي تعديل من المريض على Review منشور يعيده تلقائيًا إلى Pending ويحتاج مراجعة جديدة.
-6. أبقِ WhatsApp كقناة إشعار/توجيه فقط إلى أن يتم اعتماد Provider integration منفصل.
+6. أبقِ WhatsApp ضمن الحدود التشغيلية المعتمدة إلى أن يكتمل Production Meta activation بشكل منفصل.
+7. لا تحفظ كلمات المرور أو tokens أو patient data في docs/screenshots/chat handoff artifacts.
 
 ## Security / Privacy boundaries المحفوظة
 
@@ -103,43 +108,54 @@ python manage.py import_public_reviews <owner-approved-json> --approve
 - لا يوجد public patient PII.
 - لا توجد direct private medical media URLs.
 - لا يوجد Medical AI / diagnosis / treatment automation.
+- OTP/provider failure messaging لا يكشف account existence أو provider exception details.
 
 ## Evidence النهائي
 
-على آخر Commercial Delivery head قبل الدمج:
+أحدث evidence بعد تصحيحات الـcloseout:
 
-- `python -B manage.py check` — PASS.
-- `python -B manage.py makemigrations --check --dry-run` — PASS.
-- focused Reviews/import/patient/moderation — 43 PASS.
-- Home/Reviews responsive checks — 248 PASS عبر AR/EN و320–1920 px.
-- Review admin responsive checks — 120 PASS.
-- imported-database browser verification — 8 PASS.
-- `python -B manage.py test apps --verbosity 1` — 852 PASS.
 - GitHub Dependency audit — PASS.
 - GitHub Django checks — PASS.
-- PR #44 — merged successfully.
+- `python manage.py makemigrations --check --dry-run` — PASS.
+- `python manage.py check` — PASS.
+- `python manage.py deployment_smoke` — `13 pass / 7 local-development warnings / 0 failure / 0 strict blocker` في CI.
+- Full Django suite على merge candidate: `962 PASS`, `5 skipped`.
+- responsive/layout regression suites ضمن full CI — PASS.
+- approved brand asset hash verification — PASS للملفات الخمسة المعتمدة.
+- Production deploy `dep-dai9eq0ae00c73domseg` — LIVE على application head `81255edefca92adf83eb15d5d407aff07a9cc03c`.
+- فحص Render بعد deploy لم يُظهر production HTTP 5xx في العينة اللاحقة للنشر.
+
+تحذيرات `check --deploy` وdeployment smoke التي تظهر تحت `config.settings.dev` تخص بيئة CI/local development ولا تُستخدم وحدها كحكم على إعداد Production.
+
+## Credential handoff
+
+قبل تسليم بيانات الدخول النهائية للطبيب:
+
+- دوّر كلمة مرور حساب الطبيب بشكل خاص.
+- سلّمها بقناة خاصة خارج Git/docs/screenshots.
+- لا تُدرج password أو token أو OTP أو secret في هذه الحزمة.
+
+هذه خطوة credential hygiene نهائية، وليست Feature جديدة ولا إعادة فتح لـCommercial Delivery.
 
 ## ما لا يزال خارج Commercial Delivery v1
 
-هذه البنود لا تمنع التسليم التجاري الحالي، لكنها مطلوبة حسب الحاجة قبل Production Launch الكامل:
+هذه البنود لا تمنع التسليم التجاري الحالي، لكنها تبقى ضمن Production Readiness أو Operations حسب الحاجة:
 
-- اختيار وربط WhatsApp provider/API إن قرر المالك ذلك.
-- تحميل Google Review dataset على قاعدة بيانات البيئة المستهدفة.
+- إكمال Meta WhatsApp Cloud API live onboarding/configuration والقوالب والاشتراك بالـwebhook وexisting-number coexistence verification — issue #45.
 - legal/privacy production approval.
-- managed production database/backup/restore evidence.
+- managed database backup/restore evidence.
 - monitoring provider + alert routing.
 - privacy-safe error reporting.
-- production domain/DNS/TLS.
 - load/concurrency validation.
 - final production go/no-go.
 
 ## تعريف الإغلاق
 
-Commercial Delivery v1 يعتبر مكتملًا من جهة الكود والواجهات والـQA والـPR. أي عمل لاحق يجب أن يُصنّف بوضوح كأحد الآتي:
+Commercial Delivery v1 يعتبر مكتملًا من جهة الكود والواجهات والـQA، مع دمج ونشر تصحيحات الـcloseout الأخيرة. أي عمل لاحق يجب أن يُصنّف بوضوح كأحد الآتي:
 
 - Production readiness.
-- Deployment/data-load operation.
-- Owner-approved defect correction.
+- Deployment/data operation.
+- Defect correction.
 - Owner-approved new scope.
 
 ولا يجوز إعادة فتح Features مكتملة أو توسيع النطاق بدون قرار واضح من المالك.
