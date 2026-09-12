@@ -221,6 +221,14 @@ def _invalid(language):
     )
 
 
+def _unavailable(language):
+    return (
+        "خدمة التحقق غير متاحة مؤقتًا. حاول مرة أخرى لاحقًا."
+        if language == "ar"
+        else "Verification service is temporarily unavailable. Please try again later."
+    )
+
+
 def _resend_response(request, purpose, language, url):
     result = otp.resend(request, purpose)
     if result == "cooldown":
@@ -231,6 +239,8 @@ def _resend_response(request, purpose, language, url):
         )
     elif result == "limited":
         text = auth_error_message("rate_limit", language)
+    elif result == "unavailable":
+        text = _unavailable(language)
     else:
         text = _notice(language)
     messages.info(request, text)
@@ -306,7 +316,7 @@ def portal_register(request, language="ar"):
             form.add_error(None, auth_error_message("rate_limit", language))
         elif valid:
             if otp.allow_request(request, scope="send", phone=phone, limit=6):
-                otp.start(
+                challenge = otp.start(
                     request,
                     "registration",
                     phone,
@@ -318,6 +328,9 @@ def portal_register(request, language="ar"):
                         "next_url": views._safe_next_url(request),
                     },
                 )
+                if not challenge.otp_digest:
+                    messages.error(request, _unavailable(language))
+                    return redirect(url)
                 return redirect(url + "?verify=1")
             form.add_error(None, auth_error_message("rate_limit", language))
     return render(

@@ -12,6 +12,12 @@
             <h1 id="auth-title">{% if is_arabic %}إنشاء حساب{% else %}Create your account{% endif %}</h1>
         </div>
 
+        {% if messages %}
+            <div class="auth-form-errors" role="alert">
+                {% for message in messages %}<div>{{ message }}</div>{% endfor %}
+            </div>
+        {% endif %}
+
         <form class="auth-form auth-register-form" method="post" action="{{ portal_register_url }}" data-patient-register-form>
             {% csrf_token %}
             {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}

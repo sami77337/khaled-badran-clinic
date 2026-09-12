@@ -127,6 +127,7 @@ def _send(challenge):
     code = generate_otp_code()
     challenge.otp_digest = make_password(code)
     challenge.last_sent_at = timezone.now()
+    sent = True
     try:
         if not cache.add(
             f"account-otp-cooldown:{_digest(challenge.phone_e164)}",
@@ -140,7 +141,9 @@ def _send(challenge):
         send_patient_account_otp(challenge.phone_e164, code, challenge.language)
     except Exception:
         challenge.otp_digest = ""  # Even a generated code cannot verify a failed send.
+        sent = False
     challenge.save()
+    return sent
 
 
 @sensitive_variables()
@@ -187,9 +190,9 @@ def resend(request, purpose):
             request, scope="send", phone=challenge.phone_e164, limit=6
         ):
             return "limited"
-        _send(challenge)
+        sent = _send(challenge)
         # Neither expiry nor the total verification attempt budget is reset.
-        return "sent"
+        return "sent" if sent else "unavailable"
 
 
 @sensitive_variables()
