@@ -90,11 +90,11 @@ class PublishedReviewSummaryTests(TestCase):
         moderation_url = reverse("admin:core_publicreview_change", args=[review.pk])
         form = self.client.get(moderation_url).context["adminform"].form
         response = self.client.post(moderation_url, {
-            "review_version": form["review_version"].value(), "is_approved_for_publication": "on",
-            "is_active": "on", "is_featured": "on", "display_order": 0, "_save": "Save",
+            "review_version": form["review_version"].value(), "is_approved_for_publication": "hide",
+            "_save": "Save",
         })
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(review_source_summary(), {"average_rating": "4.00", "review_count": 1})
+        self.assertIsNone(review_source_summary())
 
         self.client.force_login(owner)
         response = self.client.post(reverse("patient_portal_review_edit_en", args=[review.pk]), {

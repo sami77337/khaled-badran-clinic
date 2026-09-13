@@ -1,23 +1,33 @@
 from django import forms
 from django.core import signing
+from django.utils.translation import get_language
 
 from .models import PublicReview
 
 
 class ReviewModerationForm(forms.ModelForm):
-    """Bind approval to the exact revision displayed to the moderator."""
+    """Bind Hide/Show to the exact revision displayed to the moderator."""
 
     review_version = forms.CharField(widget=forms.HiddenInput)
+    is_approved_for_publication = forms.TypedChoiceField(
+        choices=(("show", "Show"), ("hide", "Hide")),
+        coerce=lambda value: value == "show",
+    )
     version_salt = "core.review-moderation"
 
     class Meta:
         model = PublicReview
-        fields = (
-            "is_approved_for_publication", "is_active", "is_featured", "display_order",
-        )
+        fields = ("is_approved_for_publication",)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        arabic = (get_language() or "").startswith("ar")
+        visibility = self.fields["is_approved_for_publication"]
+        visibility.label = "الظهور للعامة" if arabic else "Public visibility"
+        visibility.choices = (("show", "إظهار" if arabic else "Show"), ("hide", "إخفاء" if arabic else "Hide"))
+        self.initial["is_approved_for_publication"] = (
+            "show" if self.instance.is_approved_for_publication and self.instance.is_active else "hide"
+        )
         if self.instance.pk:
             self.initial["review_version"] = signing.Signer(salt=self.version_salt).sign_object(
                 self._revision(self.instance),

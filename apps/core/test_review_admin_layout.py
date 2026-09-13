@@ -52,8 +52,8 @@ class ReviewAdminDesktopLayoutTests(TestCase):
             review.body += " Updated synthetic revision."
             review.save()
             stale = self.client.post(routes["detail"], {
-                "review_version": form["review_version"].value(), "is_approved_for_publication": "on",
-                "is_active": "on", "display_order": 0, "_save": "Save",
+                "review_version": form["review_version"].value(), "is_approved_for_publication": "show",
+                "_save": "Save",
             })
             self.assertContains(stale, "This review changed after you opened it.")
             pages[f"stale-{language}"] = stale.content.decode()

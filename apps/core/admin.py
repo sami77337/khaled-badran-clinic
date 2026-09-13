@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.db import router, transaction
+from django.utils.translation import get_language
 
 from .models import AuditLog, DoctorPageContent, PublicReview, SystemSetting
 from .review_forms import ReviewModerationForm
@@ -63,35 +64,22 @@ class PublicReviewAdmin(admin.ModelAdmin):
     class Media:
         css = {"all": ("css/admin-review.css",)}
 
-    moderation_fields = (
-        "is_approved_for_publication", "is_active", "is_featured", "display_order",
-    )
+    moderation_fields = ("is_approved_for_publication", "is_active")
     list_display = (
         "reviewer_name",
         "rating",
         "language",
         "source",
         "is_approved_for_publication",
-        "is_active",
-        "is_featured",
-        "display_order",
         "reviewed_at",
     )
     list_filter = (
         "language",
         "source",
         "rating",
-        "is_approved_for_publication",
-        "is_active",
-        "is_featured",
     )
     search_fields = ("reviewer_name", "body", "source_reference")
-    list_editable = (
-        "is_approved_for_publication",
-        "is_active",
-        "is_featured",
-        "display_order",
-    )
+    list_editable = ("is_approved_for_publication",)
     readonly_fields = (
         "reviewer_name", "body", "rating", "language", "source", "source_reference",
         "submitted_by", "reviewed_at", "created_at", "updated_at",
@@ -99,6 +87,15 @@ class PublicReviewAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if "delete_selected" in actions:
+            action, name, _ = actions["delete_selected"]
+            actions["delete_selected"] = (
+                action, name, "حذف" if (get_language() or "").startswith("ar") else "Delete",
+            )
+        return actions
 
     def get_changelist_form(self, request, **kwargs):
         kwargs.setdefault("form", self.form)
@@ -113,4 +110,7 @@ class PublicReviewAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         # A stale moderation form must never overwrite patient-authored content.
         if change:
+            # One visibility action also restores legacy inactive reviews. Hide
+            # clears approval; Show sets it. Neither touches content or ordering.
+            obj.is_active = True
             obj.save(update_fields=[*self.moderation_fields, "updated_at"])
