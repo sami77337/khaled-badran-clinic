@@ -441,6 +441,11 @@ Database and concurrency hardening:
 
 ## Production Hardening Checklist
 
+For protected upload storage on Render, see [Production media durability](docs/PRODUCTION_MEDIA_DURABILITY.md).
+The runtime start gate is `sh scripts/start_production.sh`; it verifies the
+attached `/var/data` mount and probes both protected media stores before Gunicorn
+starts. Run it only on the service instance, where the persistent disk is mounted.
+
 For opt-in staff phone notifications, see [Staff Web Push](docs/STAFF_WEB_PUSH.md)
 for the exact Render environment variables, Android/iOS setup, privacy contract,
 and validation steps. Delivery is disabled until configured.
