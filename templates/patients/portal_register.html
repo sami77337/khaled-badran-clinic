@@ -12,6 +12,10 @@
             <h1 id="auth-title">{% if is_arabic %}إنشاء حساب{% else %}Create your account{% endif %}</h1>
         </div>
 
+        {% if patient_otp_temporary_mode %}
+            <p role="status">{% if is_arabic %}التسجيل متاح مؤقتًا دون رمز تحقق. سيبقى رقم هاتفك غير متحقق منه.{% else %}Registration is temporarily available without a verification code. Your phone will remain unverified.{% endif %}</p>
+        {% endif %}
+
         {% if messages %}
             <div class="auth-form-errors" role="alert">
                 {% for message in messages %}<div>{{ message }}</div>{% endfor %}

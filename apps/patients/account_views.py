@@ -1,4 +1,4 @@
-"""Explicit AR/EN account views; the same OTP requirement applies in every environment."""
+"""Explicit AR/EN account views with an opt-in temporary outage policy."""
 
 from urllib.parse import urlencode
 
@@ -8,13 +8,14 @@ from django.contrib.auth import login as auth_login
 from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 from django.shortcuts import redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 
 from apps.booking.phone import normalize_phone
-from . import account_otp as otp, rate_limits
+from . import account_otp as otp, rate_limits, temporary_otp
 from .forms import (
     PatientRegistrationForm,
     auth_error_message,
@@ -261,6 +262,8 @@ def portal_register(request, language="ar"):
             or views._portal_url("patient_portal_dashboard", language)
         )
     action = request.POST.get("action", "start") if request.method == "POST" else ""
+    if temporary_otp.enabled() and (request.GET.get("verify") == "1" or action in {"verify", "resend"}):
+        return redirect(url)
     if request.GET.get("verify") == "1" or action in {"verify", "resend"}:
         challenge = otp.challenge_for(request, "registration")
         if not otp.available(challenge):
@@ -316,17 +319,31 @@ def portal_register(request, language="ar"):
             form.add_error(None, auth_error_message("rate_limit", language))
         elif valid:
             if otp.allow_request(request, scope="send", phone=phone, limit=6):
+                registration = {
+                    "full_name": form.cleaned_data["full_name"],
+                    "email": form.cleaned_data.get("email") or "",
+                    "password_hash": make_password(form.cleaned_data["password1"]),
+                    "next_url": views._safe_next_url(request),
+                }
+                if temporary_otp.enabled():
+                    try:
+                        user = temporary_otp.create_unverified_account(
+                            phone=form.normalized_phone, registration=registration,
+                        )
+                    except (ValidationError, IntegrityError):
+                        form.add_error(None, temporary_otp.unavailable_message(language))
+                    else:
+                        request.session.pop(otp.REGISTRATION_SESSION_KEY, None)
+                        auth_login(request, user)
+                        return redirect(registration["next_url"] or views._portal_url("patient_portal_dashboard", language))
+                    return render(request, "patients/portal_register.html",
+                                  _registration_context(request, language, form=form))
                 challenge = otp.start(
                     request,
                     "registration",
                     phone,
                     language,
-                    registration={
-                        "full_name": form.cleaned_data["full_name"],
-                        "email": form.cleaned_data.get("email") or "",
-                        "password_hash": make_password(form.cleaned_data["password1"]),
-                        "next_url": views._safe_next_url(request),
-                    },
+                    registration=registration,
                 )
                 if not challenge.otp_digest:
                     messages.error(request, _unavailable(language))
@@ -347,6 +364,8 @@ def portal_register(request, language="ar"):
 def portal_account_recovery(request, language="ar"):
     from . import views
 
+    if temporary_otp.enabled():
+        return temporary_otp.unavailable_response(request, language)
     url = views._portal_url("patient_portal_account_recovery", language)
     action = request.POST.get("action", "start") if request.method == "POST" else ""
     challenge = otp.challenge_for(request, "recovery")

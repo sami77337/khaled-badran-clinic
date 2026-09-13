@@ -89,9 +89,12 @@
 
                 <div class="auth-patient-actions">
                     <a href="{{ portal_register_url }}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">{% if is_arabic %}إنشاء حساب{% else %}Create account{% endif %}</a>
+                    {% if not patient_otp_temporary_mode %}
                     <span aria-hidden="true"></span>
                     <a href="{{ portal_account_recovery_url }}">{% if is_arabic %}استعادة الحساب{% else %}Account recovery{% endif %}</a>
+                    {% endif %}
                 </div>
+                {% if patient_otp_temporary_mode %}<p class="auth-mode-note">{{ otp_unavailable_message }}</p>{% endif %}
 
                 <p class="auth-mode-note">
                     {% if is_arabic %}يمكنك حجز موعد بدون تسجيل الدخول.{% else %}You can book an appointment without signing in.{% endif %}

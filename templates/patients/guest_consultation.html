@@ -6,19 +6,21 @@
     <header>
         <p class="guest-eyebrow">{% if is_arabic %}عيادة الدكتور خالد بدران{% else %}Dr. Khaled Badran Clinic{% endif %}</p>
         <h1>{% if is_arabic %}استشارة كزائر{% else %}Guest Consultation{% endif %}</h1>
-        <p>{% if is_arabic %}أرسل استشارتك واقرأ الرد الكامل هنا بأمان. نستخدم واتساب للتحقق والتنبيهات وروابط الوصول الآمن.{% else %}Submit your consultation and read the full reply securely here. WhatsApp is used for verification, notifications, and secure access links.{% endif %}</p>
+        {% if patient_otp_temporary_mode and state != "detail" %}
+        <p>{% if is_arabic %}يمكنك إرسال استشارة دون رمز تحقق مؤقتًا. سيبقى رقم الهاتف غير متحقق منه. عرض الاستشارة والرد عبر هذا المسار غير متاح حاليًا.{% else %}You can temporarily submit a consultation without a verification code. Your phone remains unverified. Viewing the consultation and reply through this submission path is currently unavailable.{% endif %}</p>
+        {% else %}<p>{% if is_arabic %}أرسل استشارتك واقرأ الرد الكامل هنا بأمان. نستخدم واتساب للتحقق والتنبيهات وروابط الوصول الآمن.{% else %}Submit your consultation and read the full reply securely here. WhatsApp is used for verification, notifications, and secure access links.{% endif %}</p>{% endif %}
     </header>
     {% if error_message %}<div class="guest-alert" role="alert">{{ error_message }}</div>{% endif %}
     {% if state == "phone" or state == "reverify" %}
     <section class="guest-card">
-        <h2>{% if is_reverification %}{% if is_arabic %}تحقق لعرض الاستشارة{% else %}Verify to view your consultation{% endif %}{% else %}{% if is_arabic %}تحقق من رقمك{% else %}Verify your number{% endif %}{% endif %}</h2>
+        <h2>{% if patient_otp_temporary_mode %}{% if is_arabic %}رقم الهاتف{% else %}Phone number{% endif %}{% elif is_reverification %}{% if is_arabic %}تحقق لعرض الاستشارة{% else %}Verify to view your consultation{% endif %}{% else %}{% if is_arabic %}تحقق من رقمك{% else %}Verify your number{% endif %}{% endif %}</h2>
         {% if is_reverification %}<p>{% if is_arabic %}سنرسل رمزًا إلى الرقم المرتبط بهذه الاستشارة:{% else %}We will send a code to the number associated with this consultation:{% endif %} <bdi dir="ltr">{{ masked_destination }}</bdi></p>{% endif %}
         <form method="post" class="guest-form">
             {% csrf_token %}<input type="hidden" name="action" value="send">
             {% if not is_reverification %}{{ phone_form.as_p }}{% endif %}
-            <button class="btn btn-primary" type="submit">{% if is_arabic %}إرسال رمز عبر واتساب{% else %}Send WhatsApp code{% endif %}</button>
+            <button class="btn btn-primary" type="submit">{% if patient_otp_temporary_mode %}{% if is_arabic %}متابعة{% else %}Continue{% endif %}{% else %}{% if is_arabic %}إرسال رمز عبر واتساب{% else %}Send WhatsApp code{% endif %}{% endif %}</button>
         </form>
-        {% if not is_reverification %}<p class="guest-note">{% if is_arabic %}لا تحتاج إلى حساب مريض. يمكنك إرسال الاستشارة مباشرة بعد التحقق.{% else %}No patient account is required. You can submit directly after verification.{% endif %}</p><a href="{{ registered_consultation_url }}">{% if is_arabic %}لدي حساب مريض — الانتقال إلى البوابة{% else %}I have a patient account — open the Portal{% endif %}</a>{% endif %}
+        {% if not is_reverification %}{% if not patient_otp_temporary_mode %}<p class="guest-note">{% if is_arabic %}لا تحتاج إلى حساب مريض. يمكنك إرسال الاستشارة مباشرة بعد التحقق.{% else %}No patient account is required. You can submit directly after verification.{% endif %}</p>{% endif %}<a href="{{ registered_consultation_url }}">{% if is_arabic %}لدي حساب مريض — الانتقال إلى البوابة{% else %}I have a patient account — open the Portal{% endif %}</a>{% endif %}
     </section>
     {% elif state == "otp" %}
     <section class="guest-card">
@@ -36,13 +38,18 @@
     {% elif state == "form" %}
     <section class="guest-card">
         <h2>{% if is_arabic %}تفاصيل الاستشارة{% else %}Consultation details{% endif %}</h2>
-        <p>{% if is_arabic %}تم التحقق من{% else %}Verified{% endif %} <bdi dir="ltr">{{ masked_destination }}</bdi></p>
+        <p>{% if patient_otp_temporary_mode %}{% if is_arabic %}رقم الهاتف غير متحقق منه{% else %}Phone unverified{% endif %}{% else %}{% if is_arabic %}تم التحقق من{% else %}Verified{% endif %}{% endif %} <bdi dir="ltr">{{ masked_destination }}</bdi></p>
         <form method="post" enctype="multipart/form-data" class="guest-form" novalidate>
             {% csrf_token %}<input type="hidden" name="action" value="submit">{{ form.as_p }}
             <p class="guest-note">{% if is_arabic %}حتى 5 ملفات: JPG أو PNG أو WebP أو PDF بحجم 10 ميجابايت لكل ملف، أو فيديو MP4 قصير بحجم 50 ميجابايت.{% else %}Up to 5 files: JPG, PNG, WebP, or PDF up to 10 MiB each; short MP4 video up to 50 MiB.{% endif %}</p>
             <button class="btn btn-primary" type="submit">{% if is_arabic %}إرسال الاستشارة{% else %}Submit consultation{% endif %}</button>
         </form>
         <form method="post" class="guest-actions">{% csrf_token %}<button class="btn btn-secondary" name="action" value="change_phone">{% if is_arabic %}تغيير الرقم{% else %}Change number{% endif %}</button></form>
+    </section>
+    {% elif state == "receipt" %}
+    <section class="guest-card">
+        <p class="guest-success" role="status">{% if is_arabic %}تم استلام طلب الاستشارة بنجاح.{% else %}Your consultation request was received successfully.{% endif %}</p>
+        <a href="{{ entry_url }}">{% if is_arabic %}استشارة جديدة{% else %}New consultation{% endif %}</a>
     </section>
     {% elif state == "detail" %}
         {% if submitted %}<p class="guest-success" role="status">{% if is_arabic %}تم إرسال استشارتك بنجاح.{% else %}Your consultation was submitted successfully.{% endif %}</p>{% endif %}

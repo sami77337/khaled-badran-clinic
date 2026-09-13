@@ -1,6 +1,6 @@
 """Session-bound account OTP state, with database-atomic verification and reset.
 
-No account exists until registration verification. Only password/OTP hashes are
+OTP registration creates no account until verification. Only password/OTP hashes are
 stored. Expiry never slides on failed verification or resend. The database is
 authoritative; the shared cache is used only for fail-closed rate limiting.
 """
@@ -114,6 +114,19 @@ def _eligible_user(phone):
     )
 
 
+def create_registration_user(phone, data):
+    """Shared account construction; callers enforce their verification policy."""
+    return get_user_model().objects.create(
+        username=phone,
+        password=data["password_hash"],
+        first_name=data["full_name"][:150],
+        email=data["email"],
+        is_active=True,
+        is_staff=False,
+        is_superuser=False,
+    )
+
+
 def _phone_taken(phone):
     # Unlinked booking records are not accounts and never grant portal access.
     return (
@@ -217,15 +230,7 @@ def verify(request, purpose, code):
                 return None
             try:
                 with transaction.atomic():
-                    user = get_user_model().objects.create(
-                        username=challenge.phone_e164,
-                        password=data["password_hash"],
-                        first_name=data["full_name"][:150],
-                        email=data["email"],
-                        is_active=True,
-                        is_staff=False,
-                        is_superuser=False,
-                    )
+                    user = create_registration_user(challenge.phone_e164, data)
             except IntegrityError:
                 challenge.delete()
                 return None

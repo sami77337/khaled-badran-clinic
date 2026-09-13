@@ -427,7 +427,7 @@ class ConsultationNotification(models.Model):
 
 
 class TransientConsultation(models.Model):
-    """A phone-verified consultation; deliberately unrelated to Patient."""
+    """A guest consultation; deliberately unrelated to Patient."""
 
     Status = Consultation.Status
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
@@ -449,6 +449,14 @@ class TransientConsultation(models.Model):
 
     def __str__(self):
         return f"Guest consultation {self.public_id}"
+
+    @property
+    def phone_verified_at_submission(self):
+        # Historical evidence, not a current access grant. Later re-verification
+        # must never relabel an unverified submission as verified at creation.
+        return self.access_challenges.filter(
+            phone_e164=self.phone_e164, verified_at__lte=self.created_at,
+        ).exists()
 
 
 class TransientConsultationAttachment(ConsultationAttachmentPolicy, models.Model):

@@ -30,7 +30,7 @@
                     </div>
                     <div>
                         <dt>{% if is_arabic %}رقم الدخول{% else %}Username / phone{% endif %}</dt>
-                        <dd><bdi class="portal-ltr-value" dir="ltr">{{ masked_username }}</bdi></dd>
+                        <dd><bdi class="portal-ltr-value" dir="ltr">{{ masked_username }}</bdi>{% if account_phone_unverified %} — {% if is_arabic %}رقم الهاتف غير متحقق منه{% else %}Phone unverified{% endif %}{% endif %}</dd>
                     </div>
                     <div>
                         <dt>{% if is_arabic %}البريد الإلكتروني{% else %}Email{% endif %}</dt>
@@ -64,10 +64,12 @@
                     <span>{% if is_arabic %}ربط موعد{% else %}Link Appointment{% endif %}</span>
                     <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
                 </a>
+                {% if patient_otp_temporary_mode %}<p>{{ otp_unavailable_message }}</p>{% else %}
                 <a class="dashboard-action-link" href="{{ portal_account_recovery_url }}">
                     <span>{% if is_arabic %}استعادة الحساب{% else %}Account Recovery{% endif %}</span>
                     <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
                 </a>
+                {% endif %}
             </div>
         </section>
     </div>

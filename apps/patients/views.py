@@ -24,7 +24,7 @@ from apps.booking import services as booking_services
 from apps.booking.countries import INTERNATIONAL_PHONE_COUNTRIES
 from apps.booking.models import Appointment
 from apps.core.views import _base_context
-from apps.patients import consultation_services, link_recovery, phone_change
+from apps.patients import consultation_services, link_recovery, phone_change, temporary_otp
 from apps.patients import rate_limits, services
 from apps.patients.forms import (
     AccountPhoneChangeStartForm,
@@ -217,6 +217,9 @@ def _portal_context(request, language, **extra):
     context.update(
         {
             "page_key": "patient_portal",
+            "patient_otp_temporary_mode": temporary_otp.enabled(),
+            "otp_unavailable_message": temporary_otp.unavailable_message(language),
+            "account_phone_unverified": request.user.is_authenticated and request.user.groups.filter(name=temporary_otp.UNVERIFIED_GROUP).exists(),
             "portal_dashboard_url": _portal_url("patient_portal_dashboard", language),
             "portal_login_url": _login_url(language),
             "portal_logout_url": _portal_url("patient_portal_logout", language),
@@ -521,6 +524,8 @@ def portal_account(request, language="ar"):
 def portal_password_change(request, language="ar"):
     language = _language(language)
     action = request.POST.get("action", "password") if request.method == "POST" else ""
+    if temporary_otp.enabled() and action in {"phone_start", "phone_verify", "phone_resend"}:
+        return temporary_otp.unavailable_response(request, language)
     form = _password_change_form(request.user, language=language)
     phone_form = AccountPhoneChangeStartForm(user=request.user, language=language)
     verify_form = AccountPhoneChangeVerifyForm(language=language)
@@ -765,6 +770,8 @@ def _link_recovery_generic_message(language):
 @never_cache
 @use_page_language
 def portal_link_appointment_recovery(request, language="ar"):
+    if temporary_otp.enabled():
+        return temporary_otp.unavailable_response(request, language)
     language = _language(language)
     action = request.POST.get("action", "") if request.method == "POST" else ""
     start_form = AppointmentLinkRecoveryStartForm(language=language)

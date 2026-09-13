@@ -10,6 +10,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from apps.core.views import _base_context
 from apps.patients import transient_services as access
+from apps.patients import temporary_otp
 from apps.patients.localization import use_page_language
 from apps.patients.models import TransientConsultation, TransientConsultationAttachment, TransientConsultationAudioReply
 from apps.patients.otp import WhatsAppOtpServiceUnavailable
@@ -45,6 +46,7 @@ def _context(request, language, target=None, **extra):
         registered_consultation_url=localized_url("patient_portal_consultation_new", language),
         entry_url=localized_url("guest_consultation_entry", language),
         suppress_whatsapp_quick_link=True,
+        patient_otp_temporary_mode=temporary_otp.enabled(),
     )
     context.update(extra)
     return context
@@ -69,6 +71,13 @@ def guest_entry(request, language="ar", public_id=None):
     grant = access.active_grant(request, target)
     if target and grant:
         return _detail(request, target, language)
+    if temporary_otp.enabled():
+        if target:
+            # Even the masked destination must not be exposed without a grant.
+            raise Http404
+        return _temporary_entry(request, language)
+    request.session.pop(access.TEMPORARY_PHONE_KEY, None)
+    request.session.pop("guest_consultation_temporary_receipt", None)
 
     challenge = access.pending_challenge(request, target)
     state = "form" if grant else "otp" if challenge else "reverify" if target else "phone"
@@ -139,6 +148,56 @@ def guest_entry(request, language="ar", public_id=None):
                        is_reverification=bool(target),
                        error_message=COPY[error][language == "en"] if error else "")
     return render(request, "patients/guest_consultation.html", context, status=status)
+
+
+def _temporary_entry(request, language):
+    phone = request.session.get(access.TEMPORARY_PHONE_KEY, "")
+    state = "form" if phone else "phone"
+    status, error = 200, ""
+    phone_form = GuestPhoneForm(language=language)
+    form = GuestConsultationForm(language=language)
+    if request.method == "GET" and request.session.pop("guest_consultation_temporary_receipt", False):
+        state = "receipt"
+    elif request.method == "POST":
+        action = request.POST.get("action")
+        if action == "send":
+            phone_form = GuestPhoneForm(request.POST, language=language)
+            valid = phone_form.is_valid()
+            candidate = phone_form.cleaned_data.get("phone", "")
+            if not access.check_limit(request, "send", candidate):
+                error, status = COPY["limited"][language == "en"], 429
+            elif valid:
+                request.session[access.TEMPORARY_PHONE_KEY] = candidate
+                return redirect(_url(language))
+        elif action == "submit" and phone:
+            form = GuestConsultationForm(request.POST, request.FILES, language=language)
+            if not access.check_limit(request, "submit", phone):
+                error, status = COPY["limited"][language == "en"], 429
+            elif form.is_valid():
+                try:
+                    access.create_unverified_guest_consultation(
+                        request, question=form.cleaned_data["question"],
+                        display_name=form.cleaned_data["display_name"],
+                        uploaded_files=form.cleaned_data["attachments"], language=language,
+                    )
+                except access.GuestAccessDenied:
+                    return redirect(_url(language))
+                except (ValidationError, OSError):
+                    error = COPY["upload"][language == "en"]
+                else:
+                    # A boolean receipt contains no identifier and authorizes nothing.
+                    request.session["guest_consultation_temporary_receipt"] = True
+                    return redirect(_url(language))
+        elif action == "change_phone":
+            request.session.pop(access.TEMPORARY_PHONE_KEY, None)
+            return redirect(_url(language))
+        else:
+            error, status = temporary_otp.unavailable_message(language), 403
+    return render(request, "patients/guest_consultation.html", _context(
+        request, language, state=state, form=form, phone_form=phone_form,
+        masked_destination=access.masked_phone(phone) if phone else "",
+        error_message=error,
+    ), status=status)
 
 
 def _detail(request, consultation, language):
