@@ -20,9 +20,11 @@ from apps.patients.models import (
 from apps.patients.otp import generate_otp_code, _send_whatsapp_otp, WhatsAppOtpServiceUnavailable
 from apps.patients.rate_limits import _rate_limit, _setting_int
 from apps.notifications.services import schedule_staff_event
+from apps.patients import temporary_otp
 
 logger = logging.getLogger(__name__)
 SESSION_KEY = "guest_consultation_browser_secret"
+TEMPORARY_PHONE_KEY = "guest_consultation_unverified_phone"
 
 
 class GuestAccessDenied(ValueError):
@@ -137,6 +139,25 @@ def verify_challenge(request, *, challenge, code):
 
 
 def create_guest_consultation(request, *, question, display_name, uploaded_files, language):
+    return _create_guest_consultation(request, question=question, display_name=display_name,
+                                      uploaded_files=uploaded_files, language=language)
+
+
+def create_unverified_guest_consultation(request, *, question, display_name, uploaded_files, language):
+    """Submission only: no challenge, verification timestamp or access grant."""
+    if not temporary_otp.enabled() or not request.session.get(TEMPORARY_PHONE_KEY):
+        raise GuestAccessDenied("Temporary submission unavailable.")
+    phone = normalize_phone(request.session[TEMPORARY_PHONE_KEY])
+    consultation = _create_guest_consultation(
+        request, question=question, display_name=display_name, uploaded_files=uploaded_files,
+        language=language, unverified_phone=phone,
+    )
+    request.session.pop(TEMPORARY_PHONE_KEY, None)
+    return consultation
+
+
+def _create_guest_consultation(request, *, question, display_name, uploaded_files, language,
+                               unverified_phone=None):
     files = list(uploaded_files or [])
     if len(files) > CONSULTATION_MAX_ATTACHMENTS:
         raise ValidationError("Too many attachments.")
@@ -144,13 +165,16 @@ def create_guest_consultation(request, *, question, display_name, uploaded_files
     stored = []
     try:
         with transaction.atomic():
-            grant = challenges(request).select_for_update().filter(
-                verified_at__isnull=False, grant_expires_at__gt=timezone.now(),
-            ).order_by("-created_at").first()
-            if grant is None:
-                raise GuestAccessDenied("Verified entry grant required.")
+            grant = None
+            if unverified_phone is None:
+                grant = challenges(request).select_for_update().filter(
+                    verified_at__isnull=False, grant_expires_at__gt=timezone.now(),
+                ).order_by("-created_at").first()
+                if grant is None:
+                    raise GuestAccessDenied("Verified entry grant required.")
             consultation = TransientConsultation(
-                phone_e164=grant.phone_e164, display_name=display_name.strip(),
+                phone_e164=unverified_phone if unverified_phone is not None else grant.phone_e164,
+                display_name=display_name.strip(),
                 question=question.strip(), language=language,
             )
             consultation.full_clean()
@@ -162,8 +186,9 @@ def create_guest_consultation(request, *, question, display_name, uploaded_files
                 finally:
                     if attachment.file and getattr(attachment.file, "_committed", False):
                         stored.append((attachment.file.storage, attachment.file.name))
-            grant.consultation = consultation
-            grant.save(update_fields=["consultation"])
+            if grant is not None:
+                grant.consultation = consultation
+                grant.save(update_fields=["consultation"])
             schedule_staff_event("new-consultation")
         return consultation
     except Exception:

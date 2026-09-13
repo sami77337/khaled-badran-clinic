@@ -46,9 +46,11 @@
                 </div>
             </form>
             <p class="muted">
+                {% if patient_otp_temporary_mode %}{{ otp_unavailable_message }}{% else %}
                 <a class="patient-secondary-action" href="{{ portal_link_recovery_url }}">
                     {% if is_arabic %}نسيت كود الموعد؟{% else %}Forgot appointment code?{% endif %}
                 </a>
+                {% endif %}
             </p>
         </div>
     </section>

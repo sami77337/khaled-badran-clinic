@@ -18,7 +18,7 @@
             <dl class="appointment-details-list">
                 {% if is_guest %}
                 <div><dt>{% if is_arabic %}الاسم المعروض{% else %}Display name{% endif %}</dt><dd>{{ consultation.display_name|default:"—" }}</dd></div>
-                <div><dt>{% if is_arabic %}رقم واتساب المتحقق{% else %}Verified WhatsApp number{% endif %}</dt><dd dir="ltr">{{ consultation.phone_e164 }}</dd></div>
+                <div><dt>{% if consultation.phone_verified_at_submission %}{% if is_arabic %}رقم واتساب المتحقق{% else %}Verified WhatsApp number{% endif %}{% else %}{% if is_arabic %}رقم الهاتف غير متحقق منه{% else %}Phone unverified{% endif %}{% endif %}</dt><dd dir="ltr">{{ consultation.phone_e164 }}</dd></div>
                 {% else %}
                 <div><dt>{% if is_arabic %}المريض{% else %}Patient{% endif %}</dt><dd>{{ consultation.patient.full_name }}</dd></div>
                 <div><dt>{% if is_arabic %}هاتف الحساب{% else %}Account phone{% endif %}</dt><dd dir="ltr">{{ consultation.patient.phone }}</dd></div>

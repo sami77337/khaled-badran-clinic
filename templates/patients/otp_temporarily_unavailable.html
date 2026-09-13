@@ -1,0 +1,10 @@
+{% extends "auth/base.html" %}
+{% block content %}
+<section class="auth-page">
+    <div class="auth-card">
+        <h1>{% if is_arabic %}الخدمة غير متاحة مؤقتًا{% else %}Service temporarily unavailable{% endif %}</h1>
+        <p role="status">{{ otp_unavailable_message }}</p>
+        <a href="{{ portal_login_url }}">{% if is_arabic %}تسجيل الدخول{% else %}Sign in{% endif %}</a>
+    </div>
+</section>
+{% endblock %}
