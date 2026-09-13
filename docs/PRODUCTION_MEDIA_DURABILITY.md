@@ -22,6 +22,12 @@ additional reviewed options, pass those same options after the script name.
 The script uses the existing `PORT`, with `10000` as fallback, and replaces its
 shell process with Gunicorn so shutdown signals reach the server.
 
+The script explicitly exports `DJANGO_SETTINGS_MODULE=config.settings.prod`
+before running either the storage check or Gunicorn. Both child processes use
+production settings even if the inherited variable is absent, blank or points
+to development settings. Production environment prerequisites still apply;
+the script does not fall back to `manage.py`'s development default.
+
 The check runs on the actual service instance before Gunicorn starts. It is
 intentionally absent from Django startup/system checks: Render's build and
 pre-deploy commands do not have access to the disk. Run it from the service's
@@ -41,13 +47,13 @@ Read-only inspection, without opening or listing patient files or querying the
 database:
 
 ```sh
-python manage.py check_media_storage --json
+python manage.py check_media_storage --settings=config.settings.prod --json
 ```
 
 Check actual write/read access as well:
 
 ```sh
-python manage.py check_media_storage --write-probe --json
+python manage.py check_media_storage --settings=config.settings.prod --write-probe --json
 ```
 
 Each invocation exits nonzero on failure. Output contains fixed check names and
@@ -165,11 +171,13 @@ python manage.py test apps.records \
   apps.patients.test_consultation_audio_reply --noinput --verbosity 1
 ```
 
-The 16 durability/start-gate tests cover command exit status, safe reporting,
+The 18 durability/start-gate tests cover command exit status, safe reporting,
 probe cleanup, resolved path containment, root separation, public-directory
 exclusion and actual shell execution with stubbed Python/Gunicorn executables.
 The startup tests verify that a failed probe prevents launch and that a passing
 probe preserves the configured port and additional worker/timeout arguments.
+They also inspect both child processes' environments to verify production
+settings selection with unset, blank and inherited development values.
 
 Positive mount fixtures mock OS mount detection. A real ordinary unmounted
 folder is also tested without mocking and must fail. The symlink regression

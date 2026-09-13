@@ -179,7 +179,7 @@ class MediaDurabilityTests(SimpleTestCase):
 
 
 class ProductionStartGateTests(SimpleTestCase):
-    def run_script(self, probe_exit):
+    def run_script(self, probe_exit, *, settings_module="config.settings.dev"):
         shell = shutil.which("sh")
         if not shell and Path("C:/Program Files/Git/bin/bash.exe").is_file():
             shell = "C:/Program Files/Git/bin/bash.exe"
@@ -187,8 +187,17 @@ class ProductionStartGateTests(SimpleTestCase):
             self.skipTest("A POSIX shell is needed to exercise the production start script.")
         with TemporaryDirectory() as directory:
             for name, body in (
-                ("python", 'printf "probe:%s\\n" "$*"\nexit "$KBC_TEST_PROBE_EXIT"\n'),
-                ("gunicorn", 'printf "server:%s\\n" "$*"\n'),
+                (
+                    "python",
+                    'printf "probe:%s\\n" "$*"\n'
+                    'printf "probe-settings:%s\\n" "$DJANGO_SETTINGS_MODULE"\n'
+                    'exit "$KBC_TEST_PROBE_EXIT"\n',
+                ),
+                (
+                    "gunicorn",
+                    'printf "server:%s\\n" "$*"\n'
+                    'printf "server-settings:%s\\n" "$DJANGO_SETTINGS_MODULE"\n',
+                ),
             ):
                 stub = Path(directory) / name
                 stub.write_text("#!/bin/sh\n" + body, encoding="utf-8", newline="\n")
@@ -199,6 +208,10 @@ class ProductionStartGateTests(SimpleTestCase):
                 "KBC_TEST_PROBE_EXIT": str(probe_exit),
                 "PORT": "12345",
             }
+            if settings_module is None:
+                environment.pop("DJANGO_SETTINGS_MODULE", None)
+            else:
+                environment["DJANGO_SETTINGS_MODULE"] = settings_module
             return subprocess.run(
                 [shell, "scripts/start_production.sh", "--workers", "3", "--timeout", "60"],
                 cwd=settings.BASE_DIR, env=environment, capture_output=True, text=True, timeout=15,
@@ -215,3 +228,17 @@ class ProductionStartGateTests(SimpleTestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("server:config.wsgi:application --bind 0.0.0.0:12345", result.stdout)
         self.assertIn("--access-logfile - --error-logfile - --workers 3 --timeout 60", result.stdout)
+
+    def test_unset_settings_module_selects_production_for_probe_and_server(self):
+        result = self.run_script(0, settings_module=None)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("probe-settings:config.settings.prod", result.stdout.splitlines())
+        self.assertIn("server-settings:config.settings.prod", result.stdout.splitlines())
+
+    def test_inherited_settings_module_cannot_select_development_or_blank(self):
+        for settings_module in ("config.settings.dev", ""):
+            with self.subTest(settings_module=settings_module):
+                result = self.run_script(0, settings_module=settings_module)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("probe-settings:config.settings.prod", result.stdout.splitlines())
+                self.assertIn("server-settings:config.settings.prod", result.stdout.splitlines())
