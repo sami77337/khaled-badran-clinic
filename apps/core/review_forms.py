@@ -1,5 +1,6 @@
 from django import forms
 from django.core import signing
+from django.utils.translation import get_language
 
 from .models import PublicReview
 
@@ -18,6 +19,11 @@ class ReviewModerationForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.instance.source == PublicReview.Source.PATIENT_PORTAL:
+            # ModelAdmin generates a new Meta.fields containing review_version.
+            # Remove only model controls; keep the signed revision field intact.
+            for name in ("is_approved_for_publication", "is_active", "is_featured", "display_order"):
+                self.fields.pop(name, None)
         if self.instance.pk:
             self.initial["review_version"] = signing.Signer(salt=self.version_salt).sign_object(
                 self._revision(self.instance),
@@ -47,4 +53,21 @@ class ReviewModerationForm(forms.ModelForm):
             raise forms.ValidationError(
                 "This review changed after you opened it. Reload and read the latest review before moderating it."
             )
+        if current.source == PublicReview.Source.PATIENT_PORTAL:
+            action = self.data.get("moderation_action")
+            if action not in {"hide", "show"}:
+                raise forms.ValidationError(
+                    "اختر إخفاء أو إظهار." if (get_language() or "").startswith("ar")
+                    else "Choose Hide or Show."
+                )
+            cleaned_data["moderation_action"] = action
         return cleaned_data
+
+
+class ReviewListModerationForm(ReviewModerationForm):
+    """Keep imported inline edits; patient reviews use their detail actions."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.source == PublicReview.Source.PATIENT_PORTAL:
+            self.fields.pop("review_version", None)
