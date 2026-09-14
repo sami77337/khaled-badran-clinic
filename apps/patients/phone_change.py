@@ -4,13 +4,16 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password, make_password
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.booking.models import Appointment
 from apps.booking.phone import normalize_phone
 from apps.patients.models import AccountPhoneChangeChallenge, Patient
-from apps.patients.otp import generate_otp_code, send_account_phone_change_otp
+from apps.patients.otp import WhatsAppOtpServiceUnavailable, generate_otp_code, send_account_phone_change_otp
+from apps.patients import temporary_otp
+from apps.patients.profile_resolution import assert_profile_phone_available
 
 
 OTP_LIFETIME_SECONDS = 10 * 60
@@ -34,11 +37,10 @@ class PhoneChangeVerificationResult:
 
 
 def _assert_phone_available(user, phone_e164):
-    user_model = get_user_model()
-    if user_model.objects.filter(username=phone_e164).exclude(pk=user.pk).exists():
-        raise PhoneChangeConflictError("Phone cannot be used.")
-    if Patient.objects.filter(phone_e164=phone_e164).exclude(user=user).exists():
-        raise PhoneChangeConflictError("Phone cannot be used.")
+    try:
+        assert_profile_phone_available(phone_e164, user=user)
+    except ValidationError:
+        raise PhoneChangeConflictError("Phone cannot be used.") from None
 
 
 def _assert_phone_changed(user, phone_e164):
@@ -51,6 +53,26 @@ def _normalized_or_blank(value):
         return normalize_phone(value)
     except Exception:
         return ""
+
+
+def _assert_verifiable_phone(user, phone_e164):
+    """Validate ownership without creating or relinking any medical profile."""
+    if not user.is_active or user.is_staff or user.is_superuser:
+        raise PhoneChangeConflictError("Phone cannot be used.")
+    patient = Patient.objects.select_for_update().filter(user=user).first()
+    if temporary_otp.is_unverified(user):
+        current_phone = _normalized_or_blank(user.username)
+        if (
+            patient is None or not current_phone
+            or _normalized_or_blank(patient.phone) != current_phone
+            or (patient.phone_raw and _normalized_or_blank(patient.phone_raw) != current_phone)
+        ):
+            raise PhoneChangeConflictError("Phone cannot be used.")
+        _assert_phone_available(user, current_phone)
+    else:
+        _assert_phone_changed(user, phone_e164)
+    _assert_phone_available(user, phone_e164)
+    return patient
 
 
 def _apply_patient_phone_change(*, patient, challenge, old_account_phone, now):
@@ -154,9 +176,13 @@ def start_account_phone_change(
     language,
     propagate_to_upcoming_appointments=True,
 ):
+    if temporary_otp.enabled():
+        raise WhatsAppOtpServiceUnavailable()
     locked_user = get_user_model().objects.select_for_update().get(pk=user.pk)
+    if _normalized_or_blank(phone_raw) != phone_e164:
+        raise PhoneChangeConflictError("Phone cannot be used.")
     _assert_phone_changed(locked_user, phone_e164)
-    _assert_phone_available(locked_user, phone_e164)
+    _assert_verifiable_phone(locked_user, phone_e164)
     return _create_and_send_challenge(
         user=locked_user,
         phone_raw=phone_raw,
@@ -167,7 +193,28 @@ def start_account_phone_change(
 
 
 @transaction.atomic
+def start_current_phone_verification(*, user, language):
+    if temporary_otp.enabled():
+        raise WhatsAppOtpServiceUnavailable()
+    locked_user = get_user_model().objects.select_for_update().get(pk=user.pk)
+    if not temporary_otp.is_unverified(locked_user):
+        raise PhoneChangeConflictError("Verification request is unavailable.")
+    phone = _normalized_or_blank(locked_user.username)
+    _assert_verifiable_phone(locked_user, phone)
+    return _create_and_send_challenge(
+        user=locked_user,
+        phone_raw=phone,
+        phone_e164=phone,
+        language=language,
+        propagate_to_upcoming_appointments=False,
+    )
+
+
+@transaction.atomic
 def resend_account_phone_change(*, user, challenge_id, language):
+    if temporary_otp.enabled():
+        raise WhatsAppOtpServiceUnavailable()
+    locked_user = get_user_model().objects.select_for_update().get(pk=user.pk)
     challenge = AccountPhoneChangeChallenge.objects.select_for_update().filter(
         public_id=challenge_id,
         user=user,
@@ -182,9 +229,7 @@ def resend_account_phone_change(*, user, challenge_id, language):
     )
     if challenge.last_sent_at + timedelta(seconds=cooldown) > timezone.now():
         raise PhoneChangeChallengeError("Verification code resend is cooling down.")
-    locked_user = get_user_model().objects.select_for_update().get(pk=user.pk)
-    _assert_phone_changed(locked_user, challenge.phone_e164)
-    _assert_phone_available(locked_user, challenge.phone_e164)
+    _assert_verifiable_phone(locked_user, challenge.phone_e164)
     return _create_and_send_challenge(
         user=locked_user,
         phone_raw=challenge.phone_raw,
@@ -196,6 +241,9 @@ def resend_account_phone_change(*, user, challenge_id, language):
 
 @transaction.atomic
 def verify_account_phone_change(*, user, challenge_id, code):
+    if temporary_otp.enabled():
+        return PhoneChangeVerificationResult(False, reason="unavailable")
+    locked_user = get_user_model().objects.select_for_update().get(pk=user.pk)
     now = timezone.now()
     challenge = AccountPhoneChangeChallenge.objects.select_for_update().filter(
         public_id=challenge_id,
@@ -219,27 +267,26 @@ def verify_account_phone_change(*, user, challenge_id, code):
             reason="attempts" if challenge.consumed_at else "invalid",
         )
 
-    locked_user = get_user_model().objects.select_for_update().get(pk=user.pk)
     old_account_phone = _normalized_or_blank(locked_user.username) or locked_user.username
     try:
-        _assert_phone_changed(locked_user, challenge.phone_e164)
-        _assert_phone_available(locked_user, challenge.phone_e164)
+        patient = _assert_verifiable_phone(locked_user, challenge.phone_e164)
         with transaction.atomic():
-            locked_user.username = challenge.phone_e164
-            locked_user.save(update_fields=["username"])
+            if old_account_phone != challenge.phone_e164:
+                locked_user.username = challenge.phone_e164
+                locked_user.save(update_fields=["username"])
+                if patient is not None:
+                    _apply_patient_phone_change(
+                        patient=patient,
+                        challenge=challenge,
+                        old_account_phone=old_account_phone,
+                        now=now,
+                    )
+            # Only this successful real-OTP path clears the persistent marker.
+            locked_user.groups.remove(*locked_user.groups.filter(name=temporary_otp.UNVERIFIED_GROUP))
     except (PhoneChangeConflictError, IntegrityError):
         challenge.consumed_at = now
         challenge.save(update_fields=["consumed_at", "updated_at"])
         return PhoneChangeVerificationResult(False, reason="conflict")
-
-    patient = Patient.objects.select_for_update().filter(user=locked_user).first()
-    if patient is not None:
-        _apply_patient_phone_change(
-            patient=patient,
-            challenge=challenge,
-            old_account_phone=old_account_phone,
-            now=now,
-        )
 
     challenge.consumed_at = now
     challenge.save(update_fields=["consumed_at", "updated_at"])

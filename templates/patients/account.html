@@ -65,6 +65,12 @@
                     <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
                 </a>
                 {% if patient_otp_temporary_mode %}<p>{{ otp_unavailable_message }}</p>{% else %}
+                {% if account_phone_unverified %}
+                <a class="dashboard-action-link" href="{{ portal_password_change_url }}#patient-current-phone-title">
+                    <span>{% if is_arabic %}تأكيد رقم الهاتف{% else %}Verify phone number{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                </a>
+                {% endif %}
                 <a class="dashboard-action-link" href="{{ portal_account_recovery_url }}">
                     <span>{% if is_arabic %}استعادة الحساب{% else %}Account Recovery{% endif %}</span>
                     <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
