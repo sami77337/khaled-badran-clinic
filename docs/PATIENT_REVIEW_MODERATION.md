@@ -1,5 +1,10 @@
 # Patient review moderation
 
+Patient reviews can also be managed directly in the clinic dashboard at
+`/dashboard/reviews/`. See [Dashboard patient reviews](DASHBOARD_PATIENT_REVIEWS.md)
+for that workflow, permissions and validation. The Django admin behavior
+documented below remains available.
+
 Base: `335620f289ae174080116c2e9507621a438fa7db` (GitHub `main`, verified by
 fetch and `git ls-remote`). Branch: `codex/patient-review-moderation`.
 

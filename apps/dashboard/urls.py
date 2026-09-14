@@ -1,9 +1,12 @@
 from django.urls import path
 
-from . import views
+from . import review_views, views
 
 
 urlpatterns = [
+    path("reviews/", review_views.patient_review_list, name="dashboard_patient_reviews"),
+    path("reviews/<int:review_id>/visibility/", review_views.patient_review_visibility, name="dashboard_patient_review_visibility"),
+    path("reviews/<int:review_id>/delete/", review_views.patient_review_delete, name="dashboard_patient_review_delete"),
     path("consultations/guests/<uuid:public_id>/", views.dashboard_consultation_detail, {"guest": True}, name="dashboard_guest_consultation_detail"),
     path("consultations/guests/attachments/<uuid:public_id>/", views.dashboard_consultation_attachment, {"guest": True}, name="dashboard_guest_consultation_attachment"),
     path("consultations/guests/audio-replies/<uuid:public_id>/", views.dashboard_consultation_audio_reply, {"guest": True}, name="dashboard_guest_consultation_audio_reply"),

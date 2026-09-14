@@ -76,6 +76,12 @@
                         {% endif %}
                     </a>
                 {% endfor %}
+                {% if perms.core.view_publicreview or perms.core.change_publicreview or perms.core.delete_publicreview %}
+                    <a class="dashboard-nav-link{% if active_dashboard_nav == 'reviews' %} is-active{% endif %}" href="{% url 'dashboard_patient_reviews' %}{% if not is_arabic %}?lang=en{% endif %}"{% if active_dashboard_nav == 'reviews' %} aria-current="page"{% endif %}>
+                        <span class="dashboard-nav-indicator" aria-hidden="true"></span>
+                        <span>{% if is_arabic %}تقييمات المرضى{% else %}Patient Reviews{% endif %}</span>
+                    </a>
+                {% endif %}
                 {% if perms.core.view_doctorpagecontent or perms.core.change_doctorpagecontent %}
                     <a class="dashboard-nav-link" href="{% url 'admin:core_doctorpagecontent_changelist' %}">
                         <span class="dashboard-nav-indicator" aria-hidden="true"></span>

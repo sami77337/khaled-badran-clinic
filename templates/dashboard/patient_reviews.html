@@ -1,0 +1,49 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block dashboard_styles %}<link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content patient-record-content">
+    <header class="record-page-header">
+        <h1>{% if is_arabic %}تقييمات المرضى{% else %}Patient Reviews{% endif %}</h1>
+    </header>
+    {% if messages %}<div class="record-messages" role="status" aria-live="polite">{% for message in messages %}<p>{{ message }}</p>{% endfor %}</div>{% endif %}
+    <section class="record-section" aria-labelledby="patient-reviews-title">
+        <div class="record-section-heading">
+            <h2 id="patient-reviews-title">{% if is_arabic %}التقييمات{% else %}Reviews{% endif %}</h2>
+            <span class="record-count">{{ page.paginator.count }}</span>
+        </div>
+        {% if review_items %}
+            <div class="record-list">
+                {% for item in review_items %}
+                    <article class="record-entry">
+                        {% include "dashboard/partials/patient_review_content.html" with review=item.review %}
+                        <p class="record-status status-{% if item.visible %}visible_to_patient{% else %}private_only{% endif %}">
+                            {% if item.visible %}{% if is_arabic %}ظاهر{% else %}Visible{% endif %}{% else %}{% if is_arabic %}مخفي{% else %}Hidden{% endif %}{% endif %}
+                        </p>
+                        <div class="record-media-actions">
+                            {% if perms.core.change_publicreview %}
+                                <form method="post" action="{{ item.visibility_url }}">
+                                    {% csrf_token %}{{ item.form.review_version }}
+                                    <button type="submit" name="moderation_action" value="{{ item.action }}">
+                                        {% if item.visible %}{% if is_arabic %}إخفاء{% else %}Hide{% endif %}{% else %}{% if is_arabic %}إظهار{% else %}Show{% endif %}{% endif %}
+                                    </button>
+                                </form>
+                            {% endif %}
+                            {% if perms.core.delete_publicreview %}<a class="record-case-danger-link" href="{{ item.delete_url }}">{% if is_arabic %}حذف{% else %}Delete{% endif %}</a>{% endif %}
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}<p class="record-empty-state">{% if is_arabic %}لا توجد تقييمات مرضى بعد.{% else %}No patient reviews yet.{% endif %}</p>{% endif %}
+    </section>
+    {% if page.has_other_pages %}
+        <nav class="record-action-bar" aria-label="{% if is_arabic %}صفحات التقييمات{% else %}Review pages{% endif %}">
+            {% if previous_url %}<a class="record-action record-action-secondary" href="{{ previous_url }}">{% if is_arabic %}السابق{% else %}Previous{% endif %}</a>{% endif %}
+            <span>{{ page.number }} / {{ page.paginator.num_pages }}</span>
+            {% if next_url %}<a class="record-action record-action-secondary" href="{{ next_url }}">{% if is_arabic %}التالي{% else %}Next{% endif %}</a>{% endif %}
+        </nav>
+    {% endif %}
+</div>
+{% endblock %}

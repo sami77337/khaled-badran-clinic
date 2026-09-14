@@ -1,0 +1,14 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block dashboard_styles %}<link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content patient-record-content record-form-page">
+    <header class="record-page-header"><h1>{% if is_arabic %}لم يتغير التقييم{% else %}Review Unchanged{% endif %}</h1></header>
+    <section class="record-form-panel">
+        <p class="record-form-errors" role="alert">{% if is_arabic %}تعذّر تنفيذ الإجراء. أعد تحميل التقييم واقرأ أحدث نسخة قبل المتابعة.{% else %}The action could not be completed. Reload the review and read the latest version before continuing.{% endif %}</p>
+        <div class="record-form-actions"><a href="{{ review_list_url }}">{% if is_arabic %}العودة إلى التقييمات{% else %}Back to Reviews{% endif %}</a></div>
+    </section>
+</div>
+{% endblock %}
