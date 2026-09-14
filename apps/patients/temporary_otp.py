@@ -5,12 +5,14 @@ it after rollback: switching off the mode does not verify existing accounts.
 """
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.shortcuts import render
 
 from apps.booking.phone import normalize_phone
+from .profile_resolution import assert_profile_phone_available, resolve_authenticated_patient
 
 
 UNVERIFIED_GROUP = "patient_phone_unverified_temporary"
@@ -43,27 +45,55 @@ def unavailable_response(request, language):
 
 @transaction.atomic
 def create_unverified_account(*, phone, registration):
-    """Create only an isolated auth identity from already validated form data."""
-    from .account_otp import _phone_taken, create_registration_user
-    from .models import Patient
+    """Atomically create a new auth identity, medical profile and unverified marker."""
+    from .account_otp import create_registration_user
 
     if not enabled():
         raise ValidationError("Temporary registration is unavailable.")
     phone = normalize_phone(phone)
-    if _phone_taken(phone) or Patient.objects.filter(phone_e164=phone).exists():
-        raise ValidationError("Registration unavailable.")
-    # Older staff-created records may have only a raw phone. They must not be
-    # silently overlooked just because the canonical field is blank.
-    for raw in Patient.objects.filter(phone_e164="").values_list("phone_raw", flat=True).iterator():
-        try:
-            matched = normalize_phone(raw) == phone
-        except ValidationError:
-            continue
-        if matched:
-            raise ValidationError("Registration unavailable.")
+    assert_profile_phone_available(phone)
     group, _ = Group.objects.get_or_create(name=UNVERIFIED_GROUP)
     if group.permissions.exists():
         raise ValidationError("Registration unavailable.")
     user = create_registration_user(phone, registration)
+    resolve_authenticated_patient(user, full_name=registration["full_name"])
     user.groups.add(group)
     return user
+
+
+def is_unverified(user):
+    return user.groups.filter(name=UNVERIFIED_GROUP).exists()
+
+
+def backfill_unverified_profiles(*, apply=False):
+    """Counts only; every candidate is rechecked and isolated in a transaction."""
+    candidates = get_user_model().objects.filter(
+        groups__name=UNVERIFIED_GROUP,
+        is_active=True,
+        is_staff=False,
+        is_superuser=False,
+        patient_profile__isnull=True,
+    ).order_by("pk")
+    counts = dict(candidates=0, created=0, would_create=0, skipped_conflict=0,
+                  skipped_ineligible=0, failed=0)
+    for user_id in candidates.values_list("pk", flat=True).iterator():
+        counts["candidates"] += 1
+        try:
+            with transaction.atomic():
+                user = get_user_model().objects.select_for_update().filter(pk=user_id).first()
+                if (
+                    user is None or not user.is_active or user.is_staff or user.is_superuser
+                    or not is_unverified(user) or hasattr(user, "patient_profile")
+                ):
+                    counts["skipped_ineligible"] += 1
+                    continue
+                assert_profile_phone_available(user.username, user=user)
+                if apply:
+                    resolve_authenticated_patient(user)
+            counts["created" if apply else "would_create"] += 1
+        except ValidationError:
+            counts["skipped_conflict"] += 1
+        except Exception:
+            # Never print database exception text: it may contain patient data.
+            counts["failed"] += 1
+    return counts

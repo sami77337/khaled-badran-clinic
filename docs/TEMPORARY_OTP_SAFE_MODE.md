@@ -8,7 +8,7 @@ temporary behavior below. No deployment or environment change is part of this PR
 
 | Flow | Temporary mode enabled |
 | --- | --- |
-| New patient registration | Existing form/password validation and IP/phone rate limits; direct, atomic auth account creation without OTP. |
+| New patient registration | Existing form/password validation and IP/phone rate limits; atomic creation of the auth User, a new linked Patient with the submitted name/normalized phone, and the unverified marker, without OTP. The Patient is immediately available to staff and its authenticated owner. |
 | Registration identity conflicts | Neutral failure for existing account identities, linked or unlinked patient records, and matching legacy raw-phone records. No medical record is claimed. |
 | Guest consultation | Normalize and retain the submitted phone in session, validate and privately store the submission/attachments, schedule the existing `new-consultation` staff event, then clear submission state and show a generic receipt. |
 | Guest private detail, attachments and audio | Existing browser-bound verified grant remains required. Requests without that grant return 404 in temporary mode. A supplied phone or UUID confers no access. |
@@ -24,6 +24,13 @@ Temporary accounts belong to the permission-free Django auth group
 `patient_phone_unverified_temporary`. Registration fails closed if this group has
 permissions. The group is a marker, never an authorization grant. The account
 page identifies these phones as unverified even after the flag is disabled.
+The staff Patients list also displays `الهاتف غير موثّق` / `Unverified phone`
+using the existing dashboard status pill. Group membership supplies status only.
+
+See [Temporary patient profile lifecycle](TEMPORARY_PATIENT_PROFILE_LIFECYCLE.md)
+for the counts-only backfill command and the supported current/new-phone OTP
+verification paths after service returns. These paths preserve the linked
+Patient and remove the marker only after successful real OTP verification.
 
 Guest submission creates no challenge, OTP, `verified_at` timestamp or access
 grant. Staff views identify the phone as unverified at submission unless a
@@ -47,7 +54,8 @@ OTP challenges retain their original expiry and verification requirements.
   unavailable registration. Conflict responses are neutral and disclose no
   account/patient details or conflict type; existing rate limits remain active.
 - Existing medical records are never automatically linked by temporary
-  registration. Later profile resolution retains its existing conflict check.
+  registration or backfill. Both reuse profile resolution's normalized and legacy
+  raw-phone conflict checks.
   Public booking's existing phone matching is unchanged, as requested; this
   mode does not provide a new guarantee of phone ownership for booking.
 - Unverified guests receive no online private follow-up access from submitting.

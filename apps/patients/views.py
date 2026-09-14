@@ -524,7 +524,7 @@ def portal_account(request, language="ar"):
 def portal_password_change(request, language="ar"):
     language = _language(language)
     action = request.POST.get("action", "password") if request.method == "POST" else ""
-    if temporary_otp.enabled() and action in {"phone_start", "phone_verify", "phone_resend"}:
+    if temporary_otp.enabled() and action in {"phone_start", "phone_current_start", "phone_verify", "phone_resend"}:
         return temporary_otp.unavailable_response(request, language)
     form = _password_change_form(request.user, language=language)
     phone_form = AccountPhoneChangeStartForm(user=request.user, language=language)
@@ -542,6 +542,27 @@ def portal_password_change(request, language="ar"):
                 else "Your portal password has been changed.",
             )
             return redirect(_portal_url("patient_portal_account", language))
+
+    elif request.method == "POST" and action == "phone_current_start":
+        attempt_limit = rate_limits.check_phone_change_start_rate_limit(request)
+        if not attempt_limit.allowed:
+            messages.error(
+                request,
+                "عدد محاولات التحقق كبير. حاول لاحقًا." if language == "ar"
+                else "Too many verification requests. Please try again later.",
+            )
+        else:
+            try:
+                phone_change.start_current_phone_verification(user=request.user, language=language)
+            except (WhatsAppOtpServiceUnavailable, phone_change.PhoneChangeConflictError):
+                messages.error(request, temporary_otp.unavailable_message(language))
+            else:
+                messages.success(
+                    request,
+                    "تم إرسال رمز التحقق عبر واتساب إلى رقم حسابك الحالي." if language == "ar"
+                    else "A WhatsApp verification code was sent to your current account phone.",
+                )
+        return redirect(_portal_url("patient_portal_password_change", language))
 
     elif request.method == "POST" and action == "phone_start":
         phone_form = AccountPhoneChangeStartForm(
@@ -608,12 +629,16 @@ def portal_password_change(request, language="ar"):
                 code=verify_form.cleaned_data["otp"],
             )
             if result.succeeded:
+                verified_current_phone = request.user.username == result.user.username
                 update_session_auth_hash(request, result.user)
                 messages.success(
                     request,
-                    "تم تغيير رقم حسابك. استخدم الرقم الجديد لتسجيل الدخول."
-                    if language == "ar"
-                    else "Your account phone was changed. Use the new phone to sign in.",
+                    ("تم تأكيد رقم الهاتف." if language == "ar" else "Your phone number has been verified.")
+                    if verified_current_phone else (
+                        "تم تغيير رقم حسابك. استخدم الرقم الجديد لتسجيل الدخول."
+                        if language == "ar"
+                        else "Your account phone was changed. Use the new phone to sign in."
+                    ),
                 )
                 return redirect(_portal_url("patient_portal_password_change", language))
             verify_form.add_error(
@@ -688,6 +713,7 @@ def portal_password_change(request, language="ar"):
             phone_form=phone_form,
             verify_form=verify_form,
             active_challenge=active_challenge,
+            verifying_current_phone=bool(active_challenge and active_challenge.phone_e164 == request.user.username),
             masked_account_phone=services.masked_account_identifier(request.user.username),
             phone_countries=INTERNATIONAL_PHONE_COUNTRIES,
             portal_section="password",

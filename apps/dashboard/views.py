@@ -8,7 +8,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, OuterRef, Q
 from django.http import FileResponse, Http404, HttpResponseForbidden, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -30,7 +30,7 @@ from apps.clinic.models import (
 )
 from apps.core.models import AuditLog, SystemSetting
 from apps.core.views import _base_context
-from apps.patients import consultation_services
+from apps.patients import consultation_services, temporary_otp
 from apps.patients.forms import ConsultationReplyForm
 from apps.patients.localization import use_page_language
 from apps.patients.models import (
@@ -3173,6 +3173,9 @@ def dashboard_patient_list(request):
         )
     patients = list(
         patients.annotate(
+            phone_unverified=Exists(
+                Patient.objects.filter(pk=OuterRef("pk"), user__groups__name=temporary_otp.UNVERIFIED_GROUP)
+            ),
             visit_count=Count("visit_records", distinct=True),
             note_count=Count("clinical_notes", distinct=True),
             media_count=Count(

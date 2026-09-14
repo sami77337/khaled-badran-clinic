@@ -22,7 +22,7 @@ from apps.patients.models import (
     Consultation, Patient, TransientConsultation, TransientConsultationAttachment,
     TransientConsultationAudioReply, TransientConsultationChallenge,
 )
-from apps.patients.profile_resolution import PatientProfileConflictError, resolve_authenticated_patient
+from apps.patients.profile_resolution import resolve_authenticated_patient
 from apps.patients.test_expansion import ExpansionTestMixin
 
 
@@ -112,7 +112,9 @@ class TemporaryRegistrationTests(TemporaryModeFixture):
                 self.assertFalse(user.is_staff or user.is_superuser)
                 self.assertTrue(user.groups.filter(name=temporary_otp.UNVERIFIED_GROUP).exists())
                 self.assertFalse(user.get_all_permissions())
-                self.assertFalse(Patient.objects.exists())
+                patient = Patient.objects.get(user=user)
+                self.assertEqual(patient.full_name, "Synthetic Outage Account")
+                self.assertEqual(patient.phone_e164, self.phone)
                 self.assertFalse(AccountOtpChallenge.objects.exists())
                 self.sender.assert_not_called()
                 self.client.logout()
@@ -122,6 +124,7 @@ class TemporaryRegistrationTests(TemporaryModeFixture):
                 with self.settings(PATIENT_OTP_TEMPORARY_MODE=False):
                     self.assertContains(self.client.get(self.url("patient_portal_account", language)),
                                         "رقم الهاتف غير متحقق منه" if language == "ar" else "Phone unverified")
+                patient.delete()
                 user.delete()
 
     def test_conflicts_are_neutral_and_never_claim_existing_records(self):
@@ -140,10 +143,12 @@ class TemporaryRegistrationTests(TemporaryModeFixture):
                             phone_e164="" if kind == "legacy_patient" else self.phone,
                             phone_raw="+1 (202) 555-0101")
                     count = get_user_model().objects.count()
+                    patient_count = Patient.objects.count()
                     response = self.register(language)
                     self.assertContains(response, temporary_otp.unavailable_message(language))
                     self.assertNotContains(response, "Synthetic existing medical identity")
                     self.assertEqual(get_user_model().objects.count(), count)
+                    self.assertEqual(Patient.objects.count(), patient_count)
                     if patient:
                         patient.refresh_from_db()
                         self.assertEqual(patient.user_id, user.pk if user else None)
@@ -179,13 +184,14 @@ class TemporaryRegistrationTests(TemporaryModeFixture):
         group.permissions.add(Permission.objects.first())
         self.assertContains(self.register(), temporary_otp.unavailable_message("en"))
         self.assertFalse(get_user_model().objects.exists())
+        self.assertFalse(Patient.objects.exists())
 
     def test_late_patient_conflict_is_not_claimed_by_profile_resolution(self):
         self.register()
         user = get_user_model().objects.get()
+        original = Patient.objects.get(user=user)
         patient = Patient.objects.create(full_name="Synthetic late booking", phone_e164=self.phone)
-        with self.assertRaises(PatientProfileConflictError):
-            resolve_authenticated_patient(user)
+        self.assertEqual(resolve_authenticated_patient(user), original)
         patient.refresh_from_db()
         self.assertIsNone(patient.user_id)
 
@@ -345,7 +351,7 @@ class TemporarySensitiveFlowTests(TemporaryModeFixture):
                 for route, actions in (
                     ("patient_portal_account_recovery", ("start", "verify", "resend", "reset")),
                     ("patient_portal_link_appointment_recovery", ("start", "verify", "resend", "link", "clear")),
-                    ("patient_portal_password_change", ("phone_start", "phone_verify", "phone_resend")),
+                    ("patient_portal_password_change", ("phone_start", "phone_current_start", "phone_verify", "phone_resend")),
                 ):
                     url = self.url(route, language)
                     for action in actions:
@@ -409,6 +415,7 @@ class TemporarySensitiveFlowTests(TemporaryModeFixture):
             csrf_client.force_login(user)
             self.assertEqual(csrf_client.post(self.url("patient_portal_password_change", language), {}).status_code, 403)
             self.assertEqual(Client(enforce_csrf_checks=True).post(self.url("patient_portal_register", language), {}).status_code, 403)
+            user.patient_profile.delete()
             user.delete()
         self.sender.assert_not_called()
 
