@@ -3,6 +3,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import router, transaction
 from django.utils.translation import get_language, gettext_lazy as _
 
+from . import review_moderation
 from .models import AuditLog, DoctorPageContent, PublicReview, SystemSetting
 from .review_forms import ReviewListModerationForm, ReviewModerationForm
 
@@ -106,7 +107,7 @@ class PublicReviewAdmin(admin.ModelAdmin):
         return "Visible" if visible else "Hidden"
 
     def get_fields(self, request, obj=None):
-        if obj is not None and obj.source == PublicReview.Source.PATIENT_PORTAL:
+        if obj is not None and review_moderation.is_patient_review(obj):
             fields = (*self.readonly_fields, "publication_status")
             if self.has_change_permission(request, obj):
                 fields += ("review_version",)
@@ -115,7 +116,7 @@ class PublicReviewAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         fields = super().get_readonly_fields(request, obj)
-        if obj is not None and obj.source == PublicReview.Source.PATIENT_PORTAL:
+        if obj is not None and review_moderation.is_patient_review(obj):
             fields += ("publication_status",)
         return fields
 
@@ -129,37 +130,28 @@ class PublicReviewAdmin(admin.ModelAdmin):
             return super().changelist_view(request, extra_context=extra_context)
 
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
-        context["patient_review"] = obj is not None and obj.source == PublicReview.Source.PATIENT_PORTAL
+        context["patient_review"] = obj is not None and review_moderation.is_patient_review(obj)
         context["review_actions_arabic"] = (get_language() or "").startswith("ar")
         return super().render_change_form(request, context, add, change, form_url, obj)
 
     def save_model(self, request, obj, form, change):
         # A stale moderation form must never overwrite patient-authored content.
         if change:
-            if obj.source == PublicReview.Source.PATIENT_PORTAL:
-                action = form.cleaned_data.get("moderation_action")
-                if action not in {"hide", "show"}:
-                    raise PermissionDenied
-                obj.is_approved_for_publication = action == "show"
-                fields = ["is_approved_for_publication", "updated_at"]
-                if obj.is_approved_for_publication:
-                    # Show also restores reviews deactivated by the legacy UI.
-                    obj.is_active = True
-                    fields.append("is_active")
-                obj.save(update_fields=fields)
+            if review_moderation.is_patient_review(obj):
+                review_moderation.set_patient_review_visibility(obj, form.cleaned_data.get("moderation_action"))
             else:
                 obj.save(update_fields=[*self.moderation_fields, "updated_at"])
 
     def delete_model(self, request, obj):
         # Keep Django's permission/CSRF checks and confirmation page, and require
         # its explicit confirmation value before deleting a patient review.
-        if obj.source == PublicReview.Source.PATIENT_PORTAL and (
+        if review_moderation.is_patient_review(obj) and (
             request.method != "POST" or request.POST.get("post") != "yes"
         ):
             raise PermissionDenied
         super().delete_model(request, obj)
 
     def delete_queryset(self, request, queryset):
-        if request.POST.get("post") != "yes" and queryset.filter(source=PublicReview.Source.PATIENT_PORTAL).exists():
+        if request.POST.get("post") != "yes" and review_moderation.patient_reviews(queryset).exists():
             raise PermissionDenied
         super().delete_queryset(request, queryset)

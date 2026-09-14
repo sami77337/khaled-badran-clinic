@@ -2,6 +2,8 @@ from django import forms
 from django.core import signing
 from django.utils.translation import get_language
 
+from apps.core import review_moderation
+
 
 class PatientReviewActionForm(forms.Form):
     """Bind one action to the revision displayed on its review/confirmation page.
@@ -16,10 +18,11 @@ class PatientReviewActionForm(forms.Form):
     def __init__(self, *args, review, action, **kwargs):
         kwargs.setdefault("auto_id", False)
         super().__init__(*args, **kwargs)
-        self.revision = {
-            "id": review.pk, "updated_at": review.updated_at.isoformat(), "action": action,
-        }
-        self.initial["review_version"] = signing.Signer(salt=self.version_salt).sign_object(self.revision)
+        self.review = review
+        self.action = action
+        self.initial["review_version"] = review_moderation.sign_review_revision(
+            review, salt=self.version_salt, action=action,
+        )
         self.fields["review_version"].error_messages["required"] = self.reload_message
 
     @property
@@ -33,9 +36,9 @@ class PatientReviewActionForm(forms.Form):
     def clean_review_version(self):
         token = self.cleaned_data["review_version"]
         try:
-            revision = signing.Signer(salt=self.version_salt).unsign_object(token)
-        except signing.BadSignature:
+            review_moderation.validate_review_revision(
+                token, self.review, salt=self.version_salt, action=self.action,
+            )
+        except (signing.BadSignature, review_moderation.StaleReviewRevision):
             raise forms.ValidationError(self.reload_message) from None
-        if revision != self.revision:
-            raise forms.ValidationError(self.reload_message)
         return token

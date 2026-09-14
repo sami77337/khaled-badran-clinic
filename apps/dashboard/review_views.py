@@ -9,7 +9,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
-from apps.core.models import AuditLog, PublicReview
+from apps.core import review_moderation
+from apps.core.models import AuditLog
 from apps.patients.localization import use_page_language
 
 from .review_forms import PatientReviewActionForm
@@ -35,11 +36,6 @@ def _review_url(language, route="dashboard_patient_reviews", *, page=None, **kwa
     return f"{url}?{urlencode(params)}" if params else url
 
 
-def _patient_reviews():
-    # Imported reviews and linked account/patient data never enter this surface.
-    return PublicReview.objects.filter(source=PublicReview.Source.PATIENT_PORTAL)
-
-
 def _context(request, *, review=None, form=None):
     language = _dashboard_language(request)
     title = "تقييمات المرضى" if language == "ar" else "Patient Reviews"
@@ -61,7 +57,7 @@ def _context(request, *, review=None, form=None):
 @use_page_language(language_getter=_dashboard_language)
 def patient_review_list(request):
     language = _dashboard_language(request)
-    page = Paginator(_patient_reviews().order_by("-created_at", "-pk"), 20).get_page(request.GET.get("page"))
+    page = Paginator(review_moderation.patient_reviews().order_by("-created_at", "-pk"), 20).get_page(request.GET.get("page"))
     items = []
     for review in page:
         visible = review.is_active and review.is_approved_for_publication
@@ -102,16 +98,11 @@ def patient_review_visibility(request, review_id):
     language = _dashboard_language(request)
     action = request.POST.get("moderation_action")
     with transaction.atomic():
-        review = get_object_or_404(_patient_reviews().select_for_update(), pk=review_id)
+        review = get_object_or_404(review_moderation.patient_reviews().select_for_update(), pk=review_id)
         form = PatientReviewActionForm(request.POST, review=review, action=action)
-        if action not in {"hide", "show"} or not form.is_valid():
+        if action not in review_moderation.VISIBILITY_ACTIONS or not form.is_valid():
             return _action_error(request)
-        review.is_approved_for_publication = action == "show"
-        fields = ["is_approved_for_publication", "updated_at"]
-        if action == "show":
-            review.is_active = True
-            fields.append("is_active")
-        review.save(update_fields=fields)
+        review_moderation.set_patient_review_visibility(review, action)
         _audit(request, review, action)
     messages.success(request, (
         "تم إخفاء التقييم." if action == "hide" else "تم إظهار التقييم."
@@ -125,7 +116,7 @@ def patient_review_visibility(request, review_id):
 def patient_review_delete(request, review_id):
     language = _dashboard_language(request)
     with transaction.atomic():
-        queryset = _patient_reviews()
+        queryset = review_moderation.patient_reviews()
         if request.method == "POST":
             queryset = queryset.select_for_update()
         review = get_object_or_404(queryset, pk=review_id)

@@ -59,13 +59,32 @@ the actor, review row ID and fixed action label only. Reviewer name, body,
 patient account identifiers and object representations are not copied into
 the audit entry.
 
+## Shared Admin and Dashboard moderation
+
+`apps/core/review_moderation.py` owns the patient-source predicate/queryset,
+signed revision creation and validation, and Hide/Show transition. Both staff
+surfaces delegate to it. The transition rejects non-patient reviews and invalid
+actions, saves only visibility fields plus `updated_at`, and restores legacy
+`is_active=True` on Show. Hide leaves `is_active` unchanged.
+
+Each adapter retains its permissions, CSRF, transaction/row-lock lifecycle,
+templates and delete-confirmation flow. Admin keeps its revision-token namespace;
+Dashboard keeps its separate namespace and action binding, including Delete.
+Imported Admin edits use the shared revision primitive with their existing
+controls and save behavior.
+
+`apps/core/test_shared_review_moderation.py` verifies both adapters invoke the
+shared signing, validation and transition functions; all existing visibility
+states; rejection without writes when shared validation fails; stale forms in
+both directions; token namespace separation; and imported-source protection.
+
 ## Validation
 
 All fixtures are synthetic, using development settings and an isolated SQLite
 test database with empty `DATABASE_URL` and `CACHE_URL`.
 
 ```powershell
-python manage.py test apps.dashboard.test_patient_reviews apps.dashboard.test_patient_review_layout apps.core.test_review_moderation apps.patients.test_reviews apps.core.test_review_summary apps.core.test_public_showcase.PublicReviewShowcaseTests --noinput --verbosity 1
+python manage.py test apps.core.test_shared_review_moderation apps.core.test_review_moderation apps.dashboard.test_patient_reviews apps.dashboard.test_patient_review_layout apps.core.test_review_admin_layout apps.patients.test_reviews apps.core.test_review_summary apps.core.test_public_showcase.PublicReviewShowcaseTests --noinput --verbosity 1
 python manage.py check
 python manage.py makemigrations --check --dry-run
 python -m ruff check apps/dashboard/review_forms.py apps/dashboard/review_views.py apps/dashboard/urls.py apps/dashboard/test_patient_reviews.py apps/dashboard/test_patient_review_layout.py
@@ -78,11 +97,11 @@ mobile/tablet/desktop viewports. It checks overflowing text, clipped/covered
 actions, action target sizes and document direction. Screenshots can be written
 to an ignored local folder by setting `KBC_REVIEW_QA_OUTPUT` for the test run.
 
-Final validation on 2026-09-14 (Windows, Python 3.14.2, Django 5.2.15):
+Original implementation validation on 2026-09-14 (Windows, Python 3.14.2, Django 5.2.15):
 
 | Check | Result |
 | --- | --- |
-| Final focused review regressions (the command above without the layout-test label) | 77 tests: 76 passed, one optional owner-data skip, no failures; 2.765 seconds. |
+| Original focused review regressions | 77 tests: 76 passed, one optional owner-data skip, no failures; 2.765 seconds. |
 | New dashboard browser fixture | 150 responsive cases passed, including long text and actionable controls. Arabic mobile/desktop screenshots were also inspected. |
 | Complete repository suite: `python manage.py test --noinput --verbosity 1` | 1,099 tests: 1,092 passed, six skipped, one pre-existing Windows failure; 446.465 seconds. |
 | Existing admin-review, guest/staff, upload and public-surface layout fixtures | Passed as part of the complete suite. |
@@ -97,5 +116,20 @@ tests are unchanged. This is not recorded as a complete local suite pass.
 
 SQLite does not validate PostgreSQL row-lock concurrency, no shared Redis was
 configured, and Windows cannot run the existing symlink test without OS support.
-No Linux CI run is claimed for this branch. No production records, provider
+These original local runs do not establish Linux CI status. No production records, provider
 configuration, merge or deployment were changed during this continuation.
+
+Shared moderation refactor validation on 2026-09-15 (same local Windows stack):
+
+| Check | Result |
+| --- | --- |
+| Focused review command above, including six new cross-surface tests | 85 tests: 84 passed, one optional owner-data skip, no failures; 17.912 seconds. |
+| Admin and Dashboard responsive fixtures | 150 Arabic/English cases each passed in the focused and complete runs. |
+| Complete repository suite | 1,105 tests: 1,098 passed, six skipped, the same pre-existing Windows VAPID permission failure; 449.166 seconds. |
+| Django checks, migration drift, focused Ruff and whitespace checks | Passed; no model or migration changes. |
+
+The VAPID assertion was re-run on the clean detached base `d58209e` and failed
+identically (`0666` versus `0600`). Its implementation and tests remain unchanged.
+These results cover the shared core helper, adapters and all existing security
+tests. They do not establish PostgreSQL locking or shared Redis coordination.
+See PR #68 for CI evidence on the pushed refactor commit.
