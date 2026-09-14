@@ -31,6 +31,10 @@ class ReviewAdminDesktopLayoutTests(TestCase):
             self.skipTest("Install Node and Chromium or set KBC_QA_BROWSER for desktop layout QA")
         moderator = get_user_model().objects.create_superuser(username="synthetic-desktop-moderator")
         self.client.force_login(moderator)
+        PublicReview.objects.create(
+            reviewer_name="Synthetic imported review " * 6, body="Synthetic imported feedback.",
+            rating=5, language="en", source=PublicReview.Source.GOOGLE,
+        )
         pages = {}
         for language in ("ar", "en"):
             review = PublicReview.objects.create(
@@ -48,12 +52,16 @@ class ReviewAdminDesktopLayoutTests(TestCase):
                 response = self.client.get(url)
                 self.assertEqual(response.status_code, 200)
                 pages[f"{surface}-{language}"] = response.content.decode()
+            review.is_approved_for_publication = True
+            review.save()
+            visible = self.client.get(routes["detail"])
+            self.assertContains(visible, 'value="hide"')
+            pages[f"visible-{language}"] = visible.content.decode()
             form = self.client.get(routes["detail"]).context["adminform"].form
             review.body += " Updated synthetic revision."
             review.save()
             stale = self.client.post(routes["detail"], {
-                "review_version": form["review_version"].value(), "is_approved_for_publication": "on",
-                "is_active": "on", "display_order": 0, "_save": "Save",
+                "review_version": form["review_version"].value(), "moderation_action": "show",
             })
             self.assertContains(stale, "This review changed after you opened it.")
             pages[f"stale-{language}"] = stale.content.decode()

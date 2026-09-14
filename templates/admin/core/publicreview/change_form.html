@@ -1,0 +1,22 @@
+{% extends "admin/change_form.html" %}
+{% load admin_urls %}
+
+{% block submit_buttons_bottom %}
+    {% if patient_review %}
+        <div class="submit-row">
+            {% if has_change_permission %}
+                {% if original.is_approved_for_publication and original.is_active %}
+                    <button type="submit" name="moderation_action" value="hide" class="button default">{% if review_actions_arabic %}إخفاء{% else %}Hide{% endif %}</button>
+                {% else %}
+                    <button type="submit" name="moderation_action" value="show" class="button default">{% if review_actions_arabic %}إظهار{% else %}Show{% endif %}</button>
+                {% endif %}
+            {% endif %}
+            {% if has_delete_permission %}
+                {% url opts|admin_urlname:'delete' original.pk|admin_urlquote as delete_url %}
+                <a href="{% add_preserved_filters delete_url %}" class="deletelink">{% if review_actions_arabic %}حذف{% else %}Delete{% endif %}</a>
+            {% endif %}
+        </div>
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock %}
