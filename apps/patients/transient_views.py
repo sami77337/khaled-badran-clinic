@@ -8,6 +8,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_GET, require_http_methods
 
+from apps.booking.countries import INTERNATIONAL_PHONE_COUNTRIES
 from apps.core.views import _base_context
 from apps.patients import transient_services as access
 from apps.patients import temporary_otp
@@ -47,6 +48,7 @@ def _context(request, language, target=None, **extra):
         entry_url=localized_url("guest_consultation_entry", language),
         suppress_whatsapp_quick_link=True,
         patient_otp_temporary_mode=temporary_otp.enabled(),
+        phone_countries=INTERNATIONAL_PHONE_COUNTRIES,
     )
     context.update(extra)
     return context
