@@ -20,8 +20,8 @@ MAIN_ROWS = (
     ("kbc_portal", "حساب المريض", "Patient Account"),
     ("kbc_location", "موقع العيادة", "Clinic Location"),
     ("kbc_staff", "التحدث مع العيادة", "Talk to the Clinic"),
-    ("kbc_language", "اللغة / Language", "Language / اللغة"),
 )
+MAIN_LANGUAGE_ROW = ("kbc_language", "اللغة / Language", "Language / اللغة")
 BOOKING_ROWS = (
     ("kbc_book_new", "مريض جديد", "New Patient"),
     ("kbc_book_existing", "لدي سجل في العيادة", "Existing Patient"),
@@ -85,7 +85,19 @@ def main_menu(language):
             "action": {
                 "button": "Choose an option" if language == "en" else "اختر الخدمة",
                 "sections": [
-                    {"rows": [{"id": row[0], "title": row[index]} for row in MAIN_ROWS]}
+                    {
+                        "rows": [
+                            {"id": row[0], "title": row[index]} for row in MAIN_ROWS
+                        ]
+                    },
+                    {
+                        "rows": [
+                            {
+                                "id": MAIN_LANGUAGE_ROW[0],
+                                "title": MAIN_LANGUAGE_ROW[index],
+                            }
+                        ]
+                    },
                 ],
             },
         },
