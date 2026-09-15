@@ -20,16 +20,59 @@ def localized_url(route, language="ar", **kwargs):
 def entry_actions(language="ar"):
     definitions = (
         ("book", "حجز موعد", "Book Appointment", "book", ""),
+        (
+            "book_existing",
+            "حجز لمريض مسجل",
+            "Existing Patient Booking",
+            "patient_portal_book",
+            "",
+        ),
         ("portal", "حساب المريض", "Patient Account", "patient_portal_dashboard", ""),
-        ("consult_patient", "استشارة لمريض مسجل", "Registered Patient Consultation", "patient_portal_consultation_new", "consult"),
-        ("consult_guest", "استشارة كزائر", "Guest Consultation", "guest_consultation_entry", "consult"),
-        ("appointments", "مواعيدي", "Existing Appointments", "patient_portal_appointment_list", "appointments"),
-        ("link_appointment", "ربط موعد", "Link Appointment", "patient_portal_link_appointment", "appointments"),
-        ("recover_appointment", "استعادة ربط موعد", "Recover Appointment Link", "patient_portal_link_appointment_recovery", "appointments"),
+        (
+            "consult_patient",
+            "استشارة لمريض مسجل",
+            "Registered Patient Consultation",
+            "patient_portal_consultation_new",
+            "consult",
+        ),
+        (
+            "consult_guest",
+            "استشارة كزائر",
+            "Guest Consultation",
+            "guest_consultation_entry",
+            "consult",
+        ),
+        (
+            "appointments",
+            "مواعيدي",
+            "Existing Appointments",
+            "patient_portal_appointment_list",
+            "appointments",
+        ),
+        (
+            "link_appointment",
+            "ربط موعد",
+            "Link Appointment",
+            "patient_portal_link_appointment",
+            "appointments",
+        ),
+        (
+            "recover_appointment",
+            "استعادة ربط موعد",
+            "Recover Appointment Link",
+            "patient_portal_link_appointment_recovery",
+            "appointments",
+        ),
         ("location", "موقع العيادة", "Clinic Location", "contact", ""),
         ("doctor", "عن الطبيب", "About the Doctor", "doctor", ""),
         ("services", "الخدمات", "Services", "services", ""),
     )
-    return tuple(WebsiteAction(key, en if language == "en" else ar,
-                              localized_url(route, language), group)
-                 for key, ar, en, route, group in definitions)
+    return tuple(
+        WebsiteAction(
+            key,
+            en if language == "en" else ar,
+            localized_url(route, language),
+            group,
+        )
+        for key, ar, en, route, group in definitions
+    )

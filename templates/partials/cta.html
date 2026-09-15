@@ -1,3 +1,5 @@
+{% load whatsapp_links %}
+{% whatsapp_bot_url language as whatsapp_bot_entry_url %}
 <section class="cta-band" aria-labelledby="cta-title">
     <div class="container cta-inner">
         <div>
@@ -7,7 +9,7 @@
         </div>
         <div class="cta-actions">
             <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
-            <a class="btn btn-secondary" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">{{ labels.whatsapp }}</a>
+            <a class="btn btn-secondary" href="{{ whatsapp_bot_entry_url }}" target="_blank" rel="noopener noreferrer">{{ labels.whatsapp }}</a>
         </div>
     </div>
 </section>

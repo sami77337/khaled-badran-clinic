@@ -15,15 +15,20 @@ class GuestPhoneForm(forms.Form):
         self.language = language
         self.fields["phone"].label = "رقم واتساب" if language == "ar" else "WhatsApp number"
         self.fields["phone"].help_text = (
-            "أدخل رقمك المحلي الأردني أو رقمًا دوليًا يبدأ بـ +."
-            if language == "ar" else "Enter a Jordanian mobile number or an international number starting with +."
+            "اختر مفتاح الدولة ثم أدخل رقم واتساب."
+            if language == "ar"
+            else "Choose the country code, then enter your WhatsApp number."
         )
 
     def clean_phone(self):
         try:
             return normalize_phone(self.cleaned_data["phone"])
         except ValidationError:
-            raise ValidationError("أدخل رقم هاتف صحيحًا." if self.language == "ar" else "Enter a valid phone number.") from None
+            raise ValidationError(
+                "أدخل رقم هاتف صحيحًا."
+                if self.language == "ar"
+                else "Enter a valid phone number."
+            ) from None
 
 
 class GuestOtpForm(forms.Form):
