@@ -199,7 +199,7 @@ class MetaWebhookTests(SimpleTestCase):
         self.assertEqual(self.post(raw=b"x" * 262145).status_code, 413)
         self.send.assert_not_called()
 
-    def test_main_list_has_approved_arabic_welcome_and_five_stable_ids(self):
+    def test_main_list_has_approved_arabic_welcome_services_and_language_entry(self):
         self.assertEqual(
             self.post([self.message(text="private-payload-sentinel")]).status_code, 200
         )
@@ -210,10 +210,14 @@ class MetaWebhookTests(SimpleTestCase):
             content["interactive"]["body"]["text"],
             "أهلاً بك في عيادة الدكتور خالد بدران.\nكيف يمكننا مساعدتك؟",
         )
-        rows = content["interactive"]["action"]["sections"][0]["rows"]
+        sections = content["interactive"]["action"]["sections"]
         self.assertEqual(
-            [row["id"] for row in rows],
+            [row["id"] for row in sections[0]["rows"]],
             ["kbc_book", "kbc_consult", "kbc_portal", "kbc_location", "kbc_staff"],
+        )
+        self.assertEqual(
+            [row["id"] for row in sections[1]["rows"]],
+            ["kbc_language"],
         )
         self.assertNotIn("private-payload-sentinel", json.dumps(content))
 
@@ -227,9 +231,26 @@ class MetaWebhookTests(SimpleTestCase):
                 self.assertEqual(response.content, b"Invalid request")
         self.send.assert_not_called()
 
+    def test_booking_submenu_splits_new_and_existing_patient_paths(self):
+        self.assertEqual(
+            self.post([self.message(selection="kbc_book")]).status_code, 200
+        )
+        content = self.send.call_args.args[1]
+        self.assertEqual(content, menu.booking_menu("ar"))
+        buttons = content["interactive"]["action"]["buttons"]
+        self.assertEqual(
+            [item["reply"]["id"] for item in buttons],
+            ["kbc_book_new", "kbc_book_existing", "kbc_main_menu"],
+        )
+        self.assertEqual(
+            [item["reply"]["title"] for item in buttons],
+            ["مريض جديد", "لدي سجل في العيادة", "القائمة الرئيسية"],
+        )
+
     def test_website_ctas_use_existing_routes_and_never_visible_urls(self):
         routes = {
-            "kbc_book": "book",
+            "kbc_book_new": "book",
+            "kbc_book_existing": "patient_portal_book",
             "kbc_portal": "patient_portal_dashboard",
             "kbc_consult_registered": "patient_portal_consultation_new",
             "kbc_consult_guest": "guest_consultation_entry",
@@ -238,6 +259,8 @@ class MetaWebhookTests(SimpleTestCase):
             with self.settings(WHATSAPP_DEFAULT_LANGUAGE=language):
                 for selection, route in routes.items():
                     with self.subTest(language=language, selection=selection):
+                        cache.clear()
+                        self.send.reset_mock()
                         self.assertEqual(
                             self.post(
                                 [
@@ -261,18 +284,17 @@ class MetaWebhookTests(SimpleTestCase):
                         self.assertNotIn("https://", interactive["body"]["text"])
                         self.assertNotIn("untrusted-visible-label", json.dumps(content))
 
-    def test_arabic_location_uses_static_map_template_without_route_parameter(self):
+    def test_arabic_location_opens_approved_google_maps_url_directly(self):
         self.assertEqual(
             self.post([self.message(selection="kbc_location")]).status_code, 200
         )
         content = self.send.call_args.args[1]
-        self.assertEqual(content["type"], "template")
-        self.assertEqual(content["template"]["name"], "synthetic_location")
-        self.assertEqual(content["template"]["language"], {"code": "ar"})
-        self.assertEqual(content["template"]["components"], [])
-        self.assertEqual(
-            menu.DESTINATIONS["kbc_location"][1], "افتح الموقع على الخريطة"
-        )
+        interactive = content["interactive"]
+        self.assertEqual(interactive["type"], "cta_url")
+        button = interactive["action"]["parameters"]
+        self.assertEqual(button["display_text"], "فتح الموقع")
+        self.assertLessEqual(len(button["display_text"]), 20)
+        self.assertEqual(button["url"], APPROVED_CLINIC_LOCATION["map_url"])
         self.assertNotIn("contact-location", json.dumps(content))
         self.assertNotIn("untrusted-visible-label", json.dumps(content))
 
@@ -295,7 +317,7 @@ class MetaWebhookTests(SimpleTestCase):
         self.assertNotIn("contact-location", json.dumps(content))
         self.assertNotIn("untrusted-visible-label", json.dumps(content))
 
-    def test_consultation_submenu_has_registered_and_guest_reply_buttons(self):
+    def test_consultation_submenu_has_registered_guest_and_main_menu_buttons(self):
         self.assertEqual(
             self.post([self.message(selection="kbc_consult")]).status_code, 200
         )
@@ -304,10 +326,11 @@ class MetaWebhookTests(SimpleTestCase):
         buttons = content["interactive"]["action"]["buttons"]
         self.assertEqual(
             [item["reply"]["id"] for item in buttons],
-            ["kbc_consult_registered", "kbc_consult_guest"],
+            ["kbc_consult_registered", "kbc_consult_guest", "kbc_main_menu"],
         )
         self.assertEqual(
-            [item["reply"]["title"] for item in buttons], ["لدي حساب", "المتابعة كزائر"]
+            [item["reply"]["title"] for item in buttons],
+            ["لدي حساب", "المتابعة كزائر", "القائمة الرئيسية"],
         )
         message = self.message(
             message_id="synthetic-reply-button", selection="kbc_consult_guest"
@@ -322,14 +345,56 @@ class MetaWebhookTests(SimpleTestCase):
             menu.destination_message("kbc_consult_guest", "ar"),
         )
 
-    def test_handoff_has_no_followup_bot_loop_and_explicit_menu_resumes(self):
+    def test_language_menu_changes_language_and_returns_main_menu(self):
+        self.assertEqual(
+            self.post([self.message(selection="kbc_language")]).status_code, 200
+        )
+        self.assertEqual(self.send.call_args.args[1], menu.language_menu("ar"))
+        self.assertEqual(
+            self.post(
+                [
+                    self.message(
+                        message_id="synthetic-language-en",
+                        selection="kbc_language_en",
+                    )
+                ]
+            ).status_code,
+            200,
+        )
+        self.assertEqual(self.send.call_args.args[1], menu.main_menu("en"))
+        identity = (
+            META_SETTINGS["WHATSAPP_META_PHONE_NUMBER_ID"]
+            + ":"
+            + SYNTHETIC_PHONE.lstrip("+")
+        )
+        self.assertEqual(cache.get(state_key("language", identity)), "en")
+
+    def test_approved_ice_breaker_labels_route_without_reflecting_user_text(self):
+        cases = (
+            ("حجز موعد", menu.booking_menu("ar")),
+            ("استشارة طبية", menu.consultation_menu("ar")),
+            ("Book an Appointment", menu.booking_menu("ar")),
+        )
+        for index, (text, expected) in enumerate(cases):
+            with self.subTest(text=text):
+                cache.clear()
+                self.send.reset_mock()
+                self.assertEqual(
+                    self.post(
+                        [self.message(message_id=f"ice-{index}", text=text)]
+                    ).status_code,
+                    200,
+                )
+                self.assertEqual(self.send.call_args.args[1], expected)
+
+    def test_handoff_has_main_menu_escape_and_suppresses_normal_followups(self):
         self.assertEqual(
             self.post([self.message(selection="kbc_staff")]).status_code, 200
         )
-        self.assertEqual(
-            self.send.call_args.args[1],
-            {"type": "text", "text": {"body": menu.HANDOFF["ar"]}},
-        )
+        self.assertEqual(self.send.call_args.args[1], menu.handoff_message("ar"))
+        handoff = self.send.call_args.args[1]
+        buttons = handoff["interactive"]["action"]["buttons"]
+        self.assertEqual(buttons[0]["reply"]["id"], "kbc_main_menu")
         self.send.reset_mock()
         for index in range(3):
             self.assertEqual(
@@ -344,6 +409,25 @@ class MetaWebhookTests(SimpleTestCase):
                 200,
             )
         self.send.assert_not_called()
+
+        self.assertEqual(
+            self.post(
+                [
+                    self.message(
+                        message_id="synthetic-button-resume",
+                        selection="kbc_main_menu",
+                    )
+                ]
+            ).status_code,
+            200,
+        )
+        self.assertEqual(self.send.call_args.args[1], menu.main_menu("ar"))
+
+    def test_typed_menu_resumes_handoff(self):
+        self.assertEqual(
+            self.post([self.message(selection="kbc_staff")]).status_code, 200
+        )
+        self.send.reset_mock()
         self.assertEqual(
             self.post(
                 [self.message(message_id="synthetic-resume", text="القائمة")]
@@ -357,6 +441,7 @@ class MetaWebhookTests(SimpleTestCase):
             for command in ("menu", "القائمة", "start", "ابدأ", "  START  "):
                 with self.subTest(language=language, command=command):
                     cache.clear()
+                    self.send.reset_mock()
                     self.assertEqual(
                         self.post(
                             [
@@ -430,7 +515,8 @@ class MetaWebhookTests(SimpleTestCase):
             200,
         )
         self.assertEqual(
-            self.send.call_args.args[1]["text"]["body"], menu.HANDOFF["en"]
+            self.send.call_args.args[1]["interactive"]["body"]["text"],
+            menu.HANDOFF["en"],
         )
 
     def test_duplicate_events_are_sent_once_and_failed_events_can_retry(self):
@@ -496,7 +582,10 @@ class MetaWebhookTests(SimpleTestCase):
         for language in ("ar", "en"):
             values = [
                 menu.main_menu(language),
+                menu.booking_menu(language),
                 menu.consultation_menu(language),
+                menu.language_menu(language),
+                menu.handoff_message(language),
                 menu.HANDOFF[language],
                 REPLY_MESSAGES[language],
             ]
