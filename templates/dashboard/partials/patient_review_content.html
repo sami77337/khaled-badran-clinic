@@ -1,0 +1,8 @@
+<header class="record-entry-header">
+    <div>
+        <h3><bdi>{% if is_arabic %}{{ review.public_name_ar }}{% else %}{{ review.public_name_en }}{% endif %}</bdi></h3>
+        <p class="record-entry-date"><time datetime="{{ review.created_at|date:'c' }}" dir="ltr">{{ review.created_at|date:"Y-m-d H:i" }}</time></p>
+    </div>
+    <span dir="ltr" aria-label="{% if is_arabic %}التقييم{% else %}Rating{% endif %}: {{ review.rating }} / 5">{{ review.rating }} / 5</span>
+</header>
+<p class="record-clinical-text" dir="auto">{{ review.body|linebreaksbr }}</p>
