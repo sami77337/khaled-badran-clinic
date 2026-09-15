@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% load static %}
-{% block extra_head %}<meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="{% static 'css/guest-consultation.css' %}">{% endblock %}
+{% block extra_head %}
+<meta name="robots" content="noindex,nofollow">
+<link rel="stylesheet" href="{% static 'css/guest-consultation.css' %}">
+<link rel="stylesheet" href="{% static 'css/auth-phone.css' %}">
+<script src="{% static 'js/booking.js' %}" defer></script>
+{% endblock %}
 {% block content %}
 <div class="guest-consultation" data-guest-state="{{ state }}">
     <header>
@@ -15,9 +20,16 @@
     <section class="guest-card">
         <h2>{% if patient_otp_temporary_mode %}{% if is_arabic %}رقم الهاتف{% else %}Phone number{% endif %}{% elif is_reverification %}{% if is_arabic %}تحقق لعرض الاستشارة{% else %}Verify to view your consultation{% endif %}{% else %}{% if is_arabic %}تحقق من رقمك{% else %}Verify your number{% endif %}{% endif %}</h2>
         {% if is_reverification %}<p>{% if is_arabic %}سنرسل رمزًا إلى الرقم المرتبط بهذه الاستشارة:{% else %}We will send a code to the number associated with this consultation:{% endif %} <bdi dir="ltr">{{ masked_destination }}</bdi></p>{% endif %}
-        <form method="post" class="guest-form">
+        <form method="post" class="guest-form{% if not is_reverification %} patient-phone-picker{% endif %}"{% if not is_reverification %} data-booking-patient-form{% endif %}>
             {% csrf_token %}<input type="hidden" name="action" value="send">
-            {% if not is_reverification %}{{ phone_form.as_p }}{% endif %}
+            {% if not is_reverification %}
+            <div class="form-field">
+                {{ phone_form.phone.label_tag }}
+                {% include "booking/partials/international_phone_field.html" with field=phone_form.phone control_key="guest-consultation-phone" %}
+                {% if phone_form.phone.errors %}<div class="guest-alert" role="alert">{{ phone_form.phone.errors }}</div>{% endif %}
+                {% if phone_form.phone.help_text %}<p class="guest-note">{{ phone_form.phone.help_text }}</p>{% endif %}
+            </div>
+            {% endif %}
             <button class="btn btn-primary" type="submit">{% if patient_otp_temporary_mode %}{% if is_arabic %}متابعة{% else %}Continue{% endif %}{% else %}{% if is_arabic %}إرسال رمز عبر واتساب{% else %}Send WhatsApp code{% endif %}{% endif %}</button>
         </form>
         {% if not is_reverification %}{% if not patient_otp_temporary_mode %}<p class="guest-note">{% if is_arabic %}لا تحتاج إلى حساب مريض. يمكنك إرسال الاستشارة مباشرة بعد التحقق.{% else %}No patient account is required. You can submit directly after verification.{% endif %}</p>{% endif %}<a href="{{ registered_consultation_url }}">{% if is_arabic %}لدي حساب مريض — الانتقال إلى البوابة{% else %}I have a patient account — open the Portal{% endif %}</a>{% endif %}
