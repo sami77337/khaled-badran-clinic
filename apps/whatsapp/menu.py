@@ -20,13 +20,30 @@ MAIN_ROWS = (
     ("kbc_portal", "حساب المريض", "Patient Account"),
     ("kbc_location", "موقع العيادة", "Clinic Location"),
     ("kbc_staff", "التحدث مع العيادة", "Talk to the Clinic"),
+    ("kbc_language", "اللغة / Language", "Language / اللغة"),
+)
+BOOKING_ROWS = (
+    ("kbc_book_new", "مريض جديد", "New Patient"),
+    ("kbc_book_existing", "لدي سجل في العيادة", "Existing Patient"),
+    ("kbc_main_menu", "القائمة الرئيسية", "Main Menu"),
 )
 CONSULT_ROWS = (
     ("kbc_consult_registered", "لدي حساب", "I Have an Account"),
     ("kbc_consult_guest", "المتابعة كزائر", "Continue as Guest"),
+    ("kbc_main_menu", "القائمة الرئيسية", "Main Menu"),
+)
+LANGUAGE_ROWS = (
+    ("kbc_language_ar", "العربية", "Arabic"),
+    ("kbc_language_en", "English", "English"),
+    ("kbc_main_menu", "القائمة الرئيسية", "Main Menu"),
 )
 DESTINATIONS = {
-    "kbc_book": ("book", "احجز موعدك", "Book Appointment"),
+    "kbc_book_new": ("book", "احجز موعدك", "Book Appointment"),
+    "kbc_book_existing": (
+        "book_existing",
+        "حجز موعد",
+        "Book Appointment",
+    ),
     "kbc_consult_registered": (
         "consult_patient",
         "ابدأ الاستشارة",
@@ -34,8 +51,28 @@ DESTINATIONS = {
     ),
     "kbc_consult_guest": ("consult_guest", "ابدأ الاستشارة", "Start Consultation"),
     "kbc_portal": ("portal", "دخول حساب المريض", "Patient Sign In"),
-    "kbc_location": ("location", "افتح الموقع على الخريطة", "Open Map"),
+    "kbc_location": ("location", "فتح الموقع", "Open Map"),
 }
+ICE_BREAKER_SELECTIONS = {
+    "حجز موعد": "kbc_book",
+    "book an appointment": "kbc_book",
+    "استشارة طبية": "kbc_consult",
+    "medical consultation": "kbc_consult",
+    "حساب المريض": "kbc_portal",
+    "patient account": "kbc_portal",
+    "التحدث مع العيادة": "kbc_staff",
+    "talk to the clinic": "kbc_staff",
+    "موقع العيادة": "kbc_location",
+    "clinic location": "kbc_location",
+}
+
+
+def _reply_buttons(rows, language):
+    index = 2 if language == "en" else 1
+    return [
+        {"type": "reply", "reply": {"id": row[0], "title": row[index]}}
+        for row in rows
+    ]
 
 
 def main_menu(language):
@@ -55,8 +92,24 @@ def main_menu(language):
     }
 
 
+def booking_menu(language):
+    return {
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {
+                "text": (
+                    "Are you a new patient, or do you already have a patient record at the clinic?"
+                    if language == "en"
+                    else "هل أنت مريض جديد أم لديك سجل مريض في العيادة؟"
+                )
+            },
+            "action": {"buttons": _reply_buttons(BOOKING_ROWS, language)},
+        },
+    }
+
+
 def consultation_menu(language):
-    index = 2 if language == "en" else 1
     return {
         "type": "interactive",
         "interactive": {
@@ -66,10 +119,41 @@ def consultation_menu(language):
                 if language == "en"
                 else "كيف ترغب بالمتابعة؟"
             },
+            "action": {"buttons": _reply_buttons(CONSULT_ROWS, language)},
+        },
+    }
+
+
+def language_menu(language):
+    return {
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {
+                "text": "Choose your preferred language."
+                if language == "en"
+                else "اختر اللغة التي تفضلها."
+            },
+            "action": {"buttons": _reply_buttons(LANGUAGE_ROWS, language)},
+        },
+    }
+
+
+def handoff_message(language):
+    return {
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {"text": HANDOFF[language]},
             "action": {
                 "buttons": [
-                    {"type": "reply", "reply": {"id": row[0], "title": row[index]}}
-                    for row in CONSULT_ROWS
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "kbc_main_menu",
+                            "title": "Main Menu" if language == "en" else "القائمة الرئيسية",
+                        },
+                    }
                 ]
             },
         },
@@ -80,12 +164,6 @@ def destination_message(selection, language):
     key, arabic, english = DESTINATIONS[selection]
     label = english if language == "en" else arabic
     if selection == "kbc_location":
-        if language == "ar":
-            # Preserve the 23-character label with a template URL button.
-            # Its approved Google Maps URL is static: no runtime URL parameter.
-            from .meta import template_content
-
-            return template_content("LOCATION", language, [])
         url = APPROVED_CLINIC_LOCATION["map_url"]
     else:
         action = next(action for action in entry_actions(language) if action.key == key)
