@@ -65,6 +65,18 @@ ICE_BREAKER_SELECTIONS = {
     "موقع العيادة": "kbc_location",
     "clinic location": "kbc_location",
 }
+ICE_BREAKER_LANGUAGES = {
+    "حجز موعد": "ar",
+    "استشارة طبية": "ar",
+    "حساب المريض": "ar",
+    "التحدث مع العيادة": "ar",
+    "موقع العيادة": "ar",
+    "book an appointment": "en",
+    "medical consultation": "en",
+    "patient account": "en",
+    "talk to the clinic": "en",
+    "clinic location": "en",
+}
 
 
 def _reply_buttons(rows, language):
@@ -86,17 +98,19 @@ def main_menu(language):
                 "button": "Choose an option" if language == "en" else "اختر الخدمة",
                 "sections": [
                     {
+                        "title": "Services" if language == "en" else "الخدمات",
                         "rows": [
                             {"id": row[0], "title": row[index]} for row in MAIN_ROWS
-                        ]
+                        ],
                     },
                     {
+                        "title": "Language" if language == "en" else "اللغة",
                         "rows": [
                             {
                                 "id": MAIN_LANGUAGE_ROW[0],
                                 "title": MAIN_LANGUAGE_ROW[index],
                             }
-                        ]
+                        ],
                     },
                 ],
             },
