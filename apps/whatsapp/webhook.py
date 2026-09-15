@@ -115,8 +115,8 @@ def _messages(payload):
                         text.get("body"), str
                     ):
                         raise ValueError("Unexpected text")
-                    # Only these literal control words leave the parser; all
-                    # other patient-written text is discarded, never echoed.
+                    # Only bounded control words / approved starter labels leave
+                    # the parser. All other patient-written text is discarded.
                     candidate = text["body"].strip().casefold()
                     if candidate in {
                         "menu",
@@ -127,6 +127,8 @@ def _messages(payload):
                         "العربية",
                     }:
                         command = candidate
+                    else:
+                        selection = menu.ICE_BREAKER_SELECTIONS.get(candidate, "")
                 messages.append((sender, message_id, selection, command))
                 if len(messages) > 50:
                     raise ValueError("Too many messages")
@@ -154,26 +156,38 @@ def _handle_message(sender, message_id, selection, command):
             cache.set(language_key, language, timeout=86400)
         if command:
             cache.delete(handoff_key)  # Explicit menu/language request resumes the bot.
-        handoff = cache.get(handoff_key)
-        if handoff and handoff != receipt:
-            accepted = True  # Clinic staff handle follow-ups; no bot response.
-        elif selection == "kbc_staff":
-            # Set suppression before the HTTP call, retaining it on failure.
-            # A retry of this same event can still deliver the acknowledgement.
-            cache.set(
-                handoff_key, receipt, timeout=settings.WHATSAPP_HANDOFF_TTL_SECONDS
-            )
-            accepted = meta._send(
-                "+" + sender, {"type": "text", "text": {"body": menu.HANDOFF[language]}}
-            )
-        elif selection == "kbc_consult":
-            accepted = meta._send("+" + sender, menu.consultation_menu(language))
-        elif selection in menu.DESTINATIONS:
-            accepted = meta._send(
-                "+" + sender, menu.destination_message(selection, language)
-            )
-        else:
+
+        if selection == "kbc_main_menu":
+            cache.delete(handoff_key)
             accepted = meta._send("+" + sender, menu.main_menu(language))
+        elif selection in {"kbc_language_ar", "kbc_language_en"}:
+            language = "en" if selection == "kbc_language_en" else "ar"
+            cache.set(language_key, language, timeout=86400)
+            cache.delete(handoff_key)
+            accepted = meta._send("+" + sender, menu.main_menu(language))
+        else:
+            handoff = cache.get(handoff_key)
+            if handoff and handoff != receipt:
+                accepted = True  # Clinic staff handle follow-ups; no bot response.
+            elif selection == "kbc_staff":
+                # Set suppression before the HTTP call, retaining it on failure.
+                # A retry of this same event can still deliver the acknowledgement.
+                cache.set(
+                    handoff_key, receipt, timeout=settings.WHATSAPP_HANDOFF_TTL_SECONDS
+                )
+                accepted = meta._send("+" + sender, menu.handoff_message(language))
+            elif selection == "kbc_book":
+                accepted = meta._send("+" + sender, menu.booking_menu(language))
+            elif selection == "kbc_consult":
+                accepted = meta._send("+" + sender, menu.consultation_menu(language))
+            elif selection == "kbc_language":
+                accepted = meta._send("+" + sender, menu.language_menu(language))
+            elif selection in menu.DESTINATIONS:
+                accepted = meta._send(
+                    "+" + sender, menu.destination_message(selection, language)
+                )
+            else:
+                accepted = meta._send("+" + sender, menu.main_menu(language))
         if accepted:
             cache.set(receipt, True, timeout=RECEIPT_TTL)
         return accepted
