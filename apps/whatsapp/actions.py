@@ -63,6 +63,7 @@ def entry_actions(language="ar"):
             "patient_portal_link_appointment_recovery",
             "appointments",
         ),
+        ("cases", "حالات علاجية منشورة", "Published Cases", "public_cases", ""),
         ("location", "موقع العيادة", "Clinic Location", "contact", ""),
         ("doctor", "عن الطبيب", "About the Doctor", "doctor", ""),
         ("services", "الخدمات", "Services", "services", ""),

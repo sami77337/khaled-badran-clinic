@@ -52,9 +52,9 @@ DOCTOR_DEFAULT = {
 }
 
 APPROVED_CLINIC_PHONE = {
-    "display": "+962 7 8976 6332",
-    "e164": "+962789766332",
-    "whatsapp_url": "https://wa.me/962789766332",
+    "display": "+962 7 9889 8510",
+    "e164": "+962798898510",
+    "whatsapp_url": "https://wa.me/962798898510",
 }
 
 APPROVED_CLINIC_LOCATION = {

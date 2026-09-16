@@ -22,6 +22,7 @@ MAIN_ROWS = (
     ("kbc_staff", "التحدث مع العيادة", "Talk to the Clinic"),
 )
 MAIN_LANGUAGE_ROW = ("kbc_language", "اللغة / Language", "Language / اللغة")
+MAIN_CASES_ROW = ("kbc_cases", "حالات علاجية منشورة", "Published Cases")
 BOOKING_ROWS = (
     ("kbc_book_new", "مريض جديد", "New Patient"),
     ("kbc_book_existing", "لدي سجل في العيادة", "Existing Patient"),
@@ -51,6 +52,7 @@ DESTINATIONS = {
     ),
     "kbc_consult_guest": ("consult_guest", "ابدأ الاستشارة", "Start Consultation"),
     "kbc_portal": ("portal", "دخول حساب المريض", "Patient Sign In"),
+    "kbc_cases": ("cases", "حالات علاجية منشورة", "Published Cases"),
     "kbc_location": ("location", "فتح الموقع", "Open Map"),
 }
 ICE_BREAKER_SELECTIONS = {
@@ -112,6 +114,15 @@ def main_menu(language):
                             }
                         ],
                     },
+                    {
+                        "title": "Published Cases" if language == "en" else "الحالات المنشورة",
+                        "rows": [
+                            {
+                                "id": MAIN_CASES_ROW[0],
+                                "title": MAIN_CASES_ROW[index],
+                            }
+                        ],
+                    },
                 ],
             },
         },
@@ -146,6 +157,28 @@ def consultation_menu(language):
                 else "كيف ترغب بالمتابعة؟"
             },
             "action": {"buttons": _reply_buttons(CONSULT_ROWS, language)},
+        },
+    }
+
+
+def initial_language_menu():
+    return {
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {"text": "اختر اللغة / Choose language"},
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {"id": "kbc_language_ar", "title": "العربية"},
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {"id": "kbc_language_en", "title": "English"},
+                    },
+                ]
+            },
         },
     }
 
