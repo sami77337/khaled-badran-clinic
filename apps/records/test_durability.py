@@ -191,6 +191,9 @@ class ProductionStartGateTests(SimpleTestCase):
                     "python",
                     'printf "probe:%s\\n" "$*"\n'
                     'printf "probe-settings:%s\\n" "$DJANGO_SETTINGS_MODULE"\n'
+                    'if [ "$*" = "manage.py migrate --noinput" ]; then\n'
+                    '    exit 0\n'
+                    'fi\n'
                     'exit "$KBC_TEST_PROBE_EXIT"\n',
                 ),
                 (
@@ -220,12 +223,21 @@ class ProductionStartGateTests(SimpleTestCase):
     def test_failed_storage_probe_prevents_server_start(self):
         result = self.run_script(23)
         self.assertEqual(result.returncode, 23, result.stderr)
-        self.assertIn("probe:manage.py check_media_storage --write-probe", result.stdout)
+        migrate = "probe:manage.py migrate --noinput"
+        storage = "probe:manage.py check_media_storage --write-probe"
+        self.assertIn(migrate, result.stdout)
+        self.assertIn(storage, result.stdout)
+        self.assertLess(result.stdout.index(migrate), result.stdout.index(storage))
         self.assertNotIn("server:", result.stdout)
 
     def test_passing_probe_preserves_port_and_additional_gunicorn_arguments(self):
         result = self.run_script(0)
         self.assertEqual(result.returncode, 0, result.stderr)
+        migrate = "probe:manage.py migrate --noinput"
+        storage = "probe:manage.py check_media_storage --write-probe"
+        self.assertIn(migrate, result.stdout)
+        self.assertIn(storage, result.stdout)
+        self.assertLess(result.stdout.index(migrate), result.stdout.index(storage))
         self.assertIn("server:config.wsgi:application --bind 0.0.0.0:12345", result.stdout)
         self.assertIn("--access-logfile - --error-logfile - --workers 3 --timeout 60", result.stdout)
 
