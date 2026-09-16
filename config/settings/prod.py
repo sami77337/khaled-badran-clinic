@@ -49,3 +49,11 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(  # noqa: F405
     True,
 )
 SECURE_HSTS_PRELOAD = env_bool("DJANGO_SECURE_HSTS_PRELOAD", True)  # noqa: F405
+
+# After AuthenticationMiddleware and MessageMiddleware from base settings, gate
+# legacy Temporary-Mode patient accounts until their current phone passes a real
+# WhatsApp OTP. Staff and public browsing are unaffected.
+MIDDLEWARE = [  # noqa: F405
+    *MIDDLEWARE,  # noqa: F405
+    "apps.patients.verification_gate.LegacyPatientOtpGateMiddleware",
+]
