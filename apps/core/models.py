@@ -4,6 +4,8 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+from .content_validation import validate_public_text
+
 
 class SystemSetting(models.Model):
     class ValueType(models.TextChoices):
@@ -131,6 +133,48 @@ class DoctorPageContent(models.Model):
 
     def __str__(self):
         return f"Public page content — {self.doctor}"
+
+
+class DoctorPageSection(models.Model):
+    """Presentation controls; built-in bodies remain in DoctorPageContent."""
+
+    class Presentation(models.TextChoices):
+        TEXT = "TEXT", "Text"
+        LIST = "LIST", "List"
+        CHIPS = "CHIPS", "Chips"
+        CARDS = "CARDS", "Cards"
+
+    doctor = models.ForeignKey("clinic.Doctor", on_delete=models.CASCADE, related_name="public_sections")
+    # Empty key identifies a custom section. Built-in keys are server controlled.
+    key = models.CharField(max_length=32, blank=True)
+    title_ar = models.CharField(max_length=180, blank=True, validators=[validate_public_text])
+    title_en = models.CharField(max_length=180, blank=True, validators=[validate_public_text])
+    content_ar = models.TextField(blank=True, max_length=12000, validators=[validate_public_text])
+    content_en = models.TextField(blank=True, max_length=12000, validators=[validate_public_text])
+    presentation = models.CharField(max_length=5, choices=Presentation.choices, default=Presentation.LIST)
+    display_order = models.PositiveSmallIntegerField(default=90)
+    is_visible = models.BooleanField(default=True)
+    is_archived = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["display_order", "pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["doctor", "key"], condition=~models.Q(key=""), name="core_unique_builtin_doctor_section"),
+        ]
+
+
+class PublicSiteContent(models.Model):
+    """Allowlisted presentation copy, plus visibility of safe Home sections."""
+
+    key = models.CharField(max_length=100, unique=True)
+    text_ar = models.TextField(blank=True, max_length=6000, validators=[validate_public_text])
+    text_en = models.TextField(blank=True, max_length=6000, validators=[validate_public_text])
+    is_visible = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["key"]
 
 
 class PublicReview(models.Model):

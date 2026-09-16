@@ -125,11 +125,11 @@ class DoctorContentTests(TestCase):
             )
         )
         self.client.force_login(staff)
-        for query, label in (("", "الملف التعريفي للطبيب"), ("?lang=en", "Doctor Profile")):
+        for query, label in (("", "محتوى الموقع"), ("?lang=en", "Website Content")):
             dashboard = self.client.get(reverse("dashboard_home") + query)
             self.assertContains(dashboard, label)
             self.assertContains(
-                dashboard, reverse("admin:core_doctorpagecontent_changelist")
+                dashboard, reverse("dashboard_content")
             )
         url = reverse("admin:core_doctorpagecontent_add")
         data = {

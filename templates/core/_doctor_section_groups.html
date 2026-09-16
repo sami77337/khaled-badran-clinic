@@ -1,0 +1,36 @@
+{% load public_content %}
+{% for group in doctor_groups %}
+<section class="section {% if group.kind == 'clinical' %}doctor-clinical-section{% else %}doctor-details-section{% endif %}" aria-labelledby="doctor-group-{{ forloop.counter }}">
+    <div class="container">
+        <div class="section-heading compact-section-heading">
+            <p class="eyebrow">{% if group.kind == 'clinical' %}{% public_text "doctor.clinical_label" %}{% else %}{% public_text "doctor.path_label" %}{% endif %}</p>
+            <h2 id="doctor-group-{{ forloop.counter }}">{% if group.kind == 'clinical' %}{% public_text "doctor.clinical_title" %}{% else %}{% public_text "doctor.path_title" %}{% endif %}</h2>
+        </div>
+        {% if group.kind == 'professional' %}<div class="doctor-details-grid">{% endif %}
+        {% for section in group.sections %}
+            {% if group.kind == 'clinical' %}
+                {% if section.key == 'specialties' %}
+                    <article class="doctor-specialties" data-doctor-section="{{ section.key }}" aria-labelledby="doctor-specialties-title">
+                        <h3 id="doctor-specialties-title">{{ section.title }}</h3>
+                        {% include "core/_doctor_section_body.html" %}
+                    </article>
+                {% else %}
+                    <div data-doctor-section="{{ section.key }}">
+                        <div class="conditions-heading"><h3>{{ section.title }}</h3></div>
+                        {% include "core/_doctor_section_body.html" %}
+                    </div>
+                {% endif %}
+            {% else %}
+                <article class="doctor-detail-card{% if section.key == 'education' %} doctor-detail-card-wide{% elif section.key == 'awards' %} doctor-awards-card{% elif section.key == 'languages' %} doctor-languages-card{% endif %}" data-doctor-section="{{ section.key }}">
+                    <h3>{{ section.title }}</h3>
+                    {% include "core/_doctor_section_body.html" %}
+                </article>
+            {% endif %}
+        {% endfor %}
+        {% if group.kind == 'professional' %}</div>{% endif %}
+    </div>
+</section>
+{% if forloop.first %}{% include "core/_doctor_mobile_booking.html" %}{% endif %}
+{% empty %}
+{% include "core/_doctor_mobile_booking.html" %}
+{% endfor %}

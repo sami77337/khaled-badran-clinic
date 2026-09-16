@@ -1,0 +1,15 @@
+{% load static %}
+<dialog class="install-app-sheet" data-install-sheet aria-labelledby="install-app-title">
+    <h2 id="install-app-title">{% if is_arabic %}تثبيت التطبيق{% else %}Install App{% endif %}</h2>
+    <div data-install-ios hidden>
+        <ol>
+            <li>{% if is_arabic %}اضغط زر المشاركة{% else %}Tap Share{% endif %}</li>
+            <li>{% if is_arabic %}اختر «إضافة إلى الشاشة الرئيسية»{% else %}Choose “Add to Home Screen”{% endif %}</li>
+            <li>{% if is_arabic %}اضغط «إضافة»{% else %}Tap “Add”{% endif %}</li>
+        </ol>
+        <p>{% if is_arabic %}إذا لم يظهر الخيار، افتح الموقع في Safari.{% else %}If the option is missing, open the website in Safari.{% endif %}</p>
+    </div>
+    <p data-install-browser hidden>{% if is_arabic %}افتح قائمة المتصفح واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية» إذا كان الخيار متاحًا.{% else %}Open your browser menu and choose “Install App” or “Add to Home Screen” if available.{% endif %}</p>
+    <form method="dialog"><button class="install-app-close" type="submit">{% if is_arabic %}إغلاق{% else %}Close{% endif %}</button></form>
+</dialog>
+<script src="{% static 'js/install-app.js' %}" defer></script>

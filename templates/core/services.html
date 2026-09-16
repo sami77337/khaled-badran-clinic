@@ -1,13 +1,19 @@
 {% extends "base.html" %}
 
 {% block content %}
-{% include "partials/page_hero.html" %}
+{% load public_content %}
+{% public_service_groups as service_groups %}
+<section class="page-hero"><div class="container page-hero-inner">
+    <p class="eyebrow">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</p>
+    <h1>{% public_text "services.headline" %}</h1>
+    <p>{% public_text "services.subtitle" %}</p>
+</div></section>
 
 <section class="section">
     <div class="container">
         <div class="section-heading">
-            <p class="eyebrow">{% if is_arabic %}التصنيفات الطبية{% else %}Service Groups{% endif %}</p>
-            <h2>{% if is_arabic %}تصنيف واضح للخدمات{% else %}Clear service categories{% endif %}</h2>
+            <p class="eyebrow">{% public_text "services.groups_label" %}</p>
+            <h2>{% public_text "services.groups_title" %}</h2>
         </div>
         <div class="card-grid">
             {% for service_group in service_groups %}
@@ -20,9 +26,9 @@
 <section class="section section-soft">
     <div class="container">
         <div class="section-heading">
-            <p class="eyebrow">{% if is_arabic %}أنواع الزيارات{% else %}Visit Types{% endif %}</p>
-            <h2>{% if is_arabic %}اختر نوع الزيارة المناسب{% else %}Choose the appropriate visit type{% endif %}</h2>
-            <p>{% if is_arabic %}اختر نوع الزيارة ثم انتقل إلى المواعيد المتاحة. لا يلزم تسجيل الدخول للحجز.{% else %}Choose a visit type, then continue to the available appointment times. Sign-in is not required to book.{% endif %}</p>
+            <p class="eyebrow">{% public_text "services.visits_label" %}</p>
+            <h2>{% public_text "services.visits_title" %}</h2>
+            <p>{% public_text "services.visits_intro" %}</p>
         </div>
         <div class="service-list-grid">
             {% for visit_type in visit_types %}

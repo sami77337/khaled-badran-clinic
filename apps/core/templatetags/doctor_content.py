@@ -6,6 +6,12 @@ from apps.core.models import DoctorPageContent
 register = template.Library()
 
 
+@register.simple_tag
+def doctor_section_groups(doctor, language, content):
+    from apps.core.doctor_sections import public_section_groups
+    return public_section_groups(doctor, language, content)
+
+
 def _lines(value):
     return [line.strip() for line in (value or "").splitlines() if line.strip()]
 
@@ -22,17 +28,12 @@ def _memberships(value):
     return rows
 
 
-@register.simple_tag
-def doctor_public_content(doctor, language="ar"):
-    """Return doctor-page content, preferring owner-edited database copy.
-
-    Blank editable fields deliberately fall back to the approved hard-coded
-    content so a partially edited profile never removes existing information.
-    """
+def doctor_default_content(doctor, language="ar"):
+    """Return the actual blank-field fallback for rendering and editor hints."""
     from apps.core.views import DOCTOR_CONDITIONS, DOCTOR_DEFAULT, DOCTOR_PUBLIC_PROFILE
 
     language = "en" if language == "en" else "ar"
-    fallback = {
+    return {
         **DOCTOR_PUBLIC_PROFILE[language],
         "conditions": DOCTOR_CONDITIONS[language],
         "hero_summary": DOCTOR_DEFAULT[f"hero_summary_{language}"],
@@ -41,6 +42,17 @@ def doctor_public_content(doctor, language="ar"):
         ),
         "credential_label": DOCTOR_DEFAULT[f"credential_label_{language}"],
     }
+
+
+@register.simple_tag
+def doctor_public_content(doctor, language="ar"):
+    """Return doctor-page content, preferring owner-edited database copy.
+
+    Blank editable fields deliberately fall back to the approved hard-coded
+    content so a partially edited profile never removes existing information.
+    """
+    language = "en" if language == "en" else "ar"
+    fallback = doctor_default_content(doctor, language)
     if doctor is None:
         return fallback
 

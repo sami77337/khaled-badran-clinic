@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="{% static 'css/brand-closeout.css' %}">
     {% block dashboard_styles %}{% endblock %}
     <link rel="stylesheet" href="{% static 'css/file-upload.css' %}">
+    <link rel="stylesheet" href="{% static 'css/install-app.css' %}">
 </head>
 <body class="dashboard-shell {% if is_arabic %}is-rtl{% else %}is-ltr{% endif %}">
     <a class="dashboard-skip-link" href="#dashboard-main">
@@ -82,16 +83,18 @@
                         <span>{% if is_arabic %}تقييمات المرضى{% else %}Patient Reviews{% endif %}</span>
                     </a>
                 {% endif %}
-                {% if perms.core.view_doctorpagecontent or perms.core.change_doctorpagecontent %}
-                    <a class="dashboard-nav-link" href="{% url 'admin:core_doctorpagecontent_changelist' %}">
+                {% if perms.core.view_doctorpagecontent or perms.core.change_doctorpagecontent or perms.core.add_doctorpagecontent or perms.core.view_doctorpagesection or perms.core.change_doctorpagesection or perms.core.add_doctorpagesection or perms.core.view_publicsitecontent or perms.core.change_publicsitecontent or perms.core.add_publicsitecontent %}
+                    <a class="dashboard-nav-link{% if active_dashboard_nav == 'content' %} is-active{% endif %}" href="{% url 'dashboard_content' %}{% if not is_arabic %}?lang=en{% endif %}"{% if active_dashboard_nav == 'content' %} aria-current="page"{% endif %}>
                         <span class="dashboard-nav-indicator" aria-hidden="true"></span>
-                        <span>{% if is_arabic %}الملف التعريفي للطبيب{% else %}Doctor Profile{% endif %}</span>
+                        <span>{% if is_arabic %}محتوى الموقع{% else %}Website Content{% endif %}</span>
                     </a>
                 {% endif %}
             </nav>
         </div>
 
         <div class="dashboard-sidebar-footer">
+            <a class="dashboard-language-switch" href="{% url 'dashboard_password_change' %}{% if not is_arabic %}?lang=en{% endif %}">{% if is_arabic %}تغيير كلمة المرور{% else %}Change Password{% endif %}</a>
+            {% include "partials/install_button.html" with install_button_class="dashboard-language-switch" %}
             <a
                 class="dashboard-language-switch"
                 data-dashboard-public-site
@@ -131,6 +134,7 @@
     </main>
 
     {% include "partials/mobile_dashboard_navigation.html" with mobile_nav_scope="staff" %}
+    {% include "partials/install_app.html" %}
     <script src="{% static 'js/dashboard.js' %}" defer></script>
     <script src="{% static 'js/consultation-notifications.js' %}" defer></script>
     {% block dashboard_scripts %}{% endblock %}

@@ -1,0 +1,17 @@
+{% if section.mode == 'TEXT' %}
+    <p class="public-section-text">{{ section.text|linebreaksbr }}</p>
+{% elif section.mode == 'LIST' %}
+    <ul>{% for item in section.lines %}<li>{{ item }}</li>{% endfor %}</ul>
+{% elif section.mode == 'CHIPS' %}
+    <div class="{% if section.key == 'memberships' %}credential-list{% elif section.key == 'languages' %}language-list{% else %}specialty-chip-list{% endif %}">
+        {% if section.memberships %}
+            {% for item in section.memberships %}<span>{% if item.label %}{{ item.label }} — {% endif %}<bdi dir="ltr">{{ item.acronym }}</bdi></span>{% endfor %}
+        {% else %}
+            {% for item in section.lines %}<span>{{ item }}</span>{% endfor %}
+        {% endif %}
+    </div>
+{% elif section.mode == 'CARDS' %}
+    <div class="doctor-condition-grid">
+        {% for item in section.lines %}<article class="doctor-condition-group"><h4>{{ item }}</h4></article>{% endfor %}
+    </div>
+{% endif %}
