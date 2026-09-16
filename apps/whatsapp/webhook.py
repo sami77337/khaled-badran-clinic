@@ -115,8 +115,9 @@ def _messages(payload):
                         text.get("body"), str
                     ):
                         raise ValueError("Unexpected text")
-                    # Only bounded control words / approved starter labels leave
-                    # the parser. All other patient-written text is discarded.
+                    # Only bounded control words leave the parser. Every other
+                    # patient-written text is discarded and becomes a generic
+                    # language-choice prompt; the original text is never echoed.
                     candidate = text["body"].strip().casefold()
                     if candidate in {
                         "menu",
@@ -128,7 +129,7 @@ def _messages(payload):
                     }:
                         command = candidate
                     else:
-                        selection = menu.ICE_BREAKER_SELECTIONS.get(candidate, "")
+                        selection = "kbc_language_prompt"
                 messages.append((sender, message_id, selection, command))
                 if len(messages) > 50:
                     raise ValueError("Too many messages")
@@ -169,6 +170,8 @@ def _handle_message(sender, message_id, selection, command):
             handoff = cache.get(handoff_key)
             if handoff and handoff != receipt:
                 accepted = True  # Clinic staff handle follow-ups; no bot response.
+            elif selection == "kbc_language_prompt":
+                accepted = meta._send("+" + sender, menu.language_entry_menu())
             elif selection == "kbc_staff":
                 # Set suppression before the HTTP call, retaining it on failure.
                 # A retry of this same event can still deliver the acknowledgement.
