@@ -53,30 +53,6 @@ DESTINATIONS = {
     "kbc_portal": ("portal", "دخول حساب المريض", "Patient Sign In"),
     "kbc_location": ("location", "فتح الموقع", "Open Map"),
 }
-ICE_BREAKER_SELECTIONS = {
-    "حجز موعد": "kbc_book",
-    "book an appointment": "kbc_book",
-    "استشارة طبية": "kbc_consult",
-    "medical consultation": "kbc_consult",
-    "حساب المريض": "kbc_portal",
-    "patient account": "kbc_portal",
-    "التحدث مع العيادة": "kbc_staff",
-    "talk to the clinic": "kbc_staff",
-    "موقع العيادة": "kbc_location",
-    "clinic location": "kbc_location",
-}
-ICE_BREAKER_LANGUAGES = {
-    "حجز موعد": "ar",
-    "استشارة طبية": "ar",
-    "حساب المريض": "ar",
-    "التحدث مع العيادة": "ar",
-    "موقع العيادة": "ar",
-    "book an appointment": "en",
-    "medical consultation": "en",
-    "patient account": "en",
-    "talk to the clinic": "en",
-    "clinic location": "en",
-}
 
 
 def _reply_buttons(rows, language):
@@ -146,6 +122,29 @@ def consultation_menu(language):
                 else "كيف ترغب بالمتابعة؟"
             },
             "action": {"buttons": _reply_buttons(CONSULT_ROWS, language)},
+        },
+    }
+
+
+def language_entry_menu():
+    """Bilingual first-contact fallback shown for otherwise-unrecognized text."""
+    return {
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {"text": "اختر اللغة / Choose language"},
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {"id": "kbc_language_ar", "title": "العربية"},
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {"id": "kbc_language_en", "title": "English"},
+                    },
+                ]
+            },
         },
     }
 
