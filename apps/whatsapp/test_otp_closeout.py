@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from django.test import SimpleTestCase, override_settings
 
@@ -64,8 +64,8 @@ class OtpCloseoutTests(SimpleTestCase):
         self.assertEqual(
             sender.call_args_list,
             [
-                ((SYNTHETIC_PHONE, "123456", "ar"),),
-                ((SYNTHETIC_PHONE, "234567", "en"),),
-                ((SYNTHETIC_PHONE, "345678", "ar"),),
+                call(SYNTHETIC_PHONE, "123456", "ar"),
+                call(SYNTHETIC_PHONE, "234567", "en"),
+                call(SYNTHETIC_PHONE, "345678", "ar"),
             ],
         )
