@@ -161,6 +161,28 @@ def consultation_menu(language):
     }
 
 
+def initial_language_menu():
+    return {
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {"text": "اختر اللغة / Choose language"},
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {"id": "kbc_language_ar", "title": "العربية"},
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {"id": "kbc_language_en", "title": "English"},
+                    },
+                ]
+            },
+        },
+    }
+
+
 def language_menu(language):
     return {
         "type": "interactive",

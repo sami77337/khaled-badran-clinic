@@ -157,7 +157,9 @@ def _handle_message(sender, message_id, selection, command):
         if command:
             cache.delete(handoff_key)  # Explicit menu/language request resumes the bot.
 
-        if selection == "kbc_main_menu":
+        if command:
+            accepted = meta._send("+" + sender, menu.main_menu(language))
+        elif selection == "kbc_main_menu":
             cache.delete(handoff_key)
             accepted = meta._send("+" + sender, menu.main_menu(language))
         elif selection in {"kbc_language_ar", "kbc_language_en"}:
@@ -187,7 +189,7 @@ def _handle_message(sender, message_id, selection, command):
                     "+" + sender, menu.destination_message(selection, language)
                 )
             else:
-                accepted = meta._send("+" + sender, menu.main_menu(language))
+                accepted = meta._send("+" + sender, menu.initial_language_menu())
         if accepted:
             cache.set(receipt, True, timeout=RECEIPT_TTL)
         return accepted

@@ -201,7 +201,7 @@ class MetaWebhookTests(SimpleTestCase):
 
     def test_main_list_has_approved_arabic_welcome_services_and_language_entry(self):
         self.assertEqual(
-            self.post([self.message(text="private-payload-sentinel")]).status_code, 200
+            self.post([self.message(text="القائمة")]).status_code, 200
         )
         phone, content = self.send.call_args.args
         self.assertEqual(phone, SYNTHETIC_PHONE)
@@ -220,6 +220,47 @@ class MetaWebhookTests(SimpleTestCase):
             ["kbc_language"],
         )
         self.assertNotIn("private-payload-sentinel", json.dumps(content))
+
+    def test_unknown_text_prompts_for_language_before_main_menu(self):
+        for index, text in enumerate((".", "مرحبا", "Hi", "private-payload-sentinel")):
+            with self.subTest(text=text):
+                cache.clear()
+                self.send.reset_mock()
+                self.assertEqual(
+                    self.post(
+                        [self.message(message_id=f"unknown-{index}", text=text)]
+                    ).status_code,
+                    200,
+                )
+                content = self.send.call_args.args[1]
+                self.assertEqual(content, menu.initial_language_menu())
+                buttons = content["interactive"]["action"]["buttons"]
+                self.assertEqual(
+                    [item["reply"]["id"] for item in buttons],
+                    ["kbc_language_ar", "kbc_language_en"],
+                )
+                self.assertEqual(
+                    [item["reply"]["title"] for item in buttons],
+                    ["العربية", "English"],
+                )
+                self.assertEqual(
+                    content["interactive"]["body"]["text"],
+                    "اختر اللغة / Choose language",
+                )
+                self.assertNotIn(text, json.dumps(content, ensure_ascii=False))
+
+    def test_text_language_choice_returns_matching_main_menu(self):
+        for index, (text, language) in enumerate((("العربية", "ar"), ("English", "en"))):
+            with self.subTest(text=text):
+                cache.clear()
+                self.send.reset_mock()
+                self.assertEqual(
+                    self.post(
+                        [self.message(message_id=f"language-text-{index}", text=text)]
+                    ).status_code,
+                    200,
+                )
+                self.assertEqual(self.send.call_args.args[1], menu.main_menu(language))
 
     def test_invalid_timestamps_fail_without_processing_or_private_logs(self):
         for timestamp in (None, True, [], {}, "", "1" * 100, float("inf"), 1.5):
