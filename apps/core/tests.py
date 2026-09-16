@@ -1711,9 +1711,9 @@ class PublicUiFoundationTests(TestCase):
 
         self.assertContains(response, "شارع رفيق العظم 13")
         self.assertContains(response, html_lib.escape(response.context["clinic"]["map_url"]))
-        self.assertContains(response, "+962 7 8976 6332")
-        self.assertContains(response, 'href="tel:+962789766332"')
-        self.assertContains(response, 'href="https://wa.me/962789766332"')
+        self.assertContains(response, "+962 7 9889 8510")
+        self.assertContains(response, 'href="tel:+962798898510"')
+        self.assertContains(response, 'href="https://wa.me/962798898510"')
         self.assertContains(response, "تواصل مع العيادة مباشرة عبر واتساب")
         self.assertNotContains(response, "+962 7X XXX XXXX")
         self.assertNotContains(response, "ساعات العمل")
@@ -2505,7 +2505,7 @@ class PublicUiFoundationTests(TestCase):
         )
         self.assertContains(response, "Book an Appointment")
         self.assertContains(response, "Patient Portal")
-        self.assertContains(response, "+962 7 8976 6332")
+        self.assertContains(response, "+962 7 9889 8510")
         self.assertContains(response, "The website and WhatsApp are not for emergencies.", count=1)
         self.assertNotIn("For urgent symptoms, contact local emergency services immediately.", html)
 
