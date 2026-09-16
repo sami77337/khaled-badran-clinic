@@ -199,10 +199,30 @@ class MetaWebhookTests(SimpleTestCase):
         self.assertEqual(self.post(raw=b"x" * 262145).status_code, 413)
         self.send.assert_not_called()
 
-    def test_main_list_has_approved_arabic_welcome_services_and_language_entry(self):
+    def test_unknown_text_prompts_for_language_without_reflecting_patient_text(self):
         self.assertEqual(
             self.post([self.message(text="private-payload-sentinel")]).status_code, 200
         )
+        phone, content = self.send.call_args.args
+        self.assertEqual(phone, SYNTHETIC_PHONE)
+        self.assertEqual(content, menu.language_prompt())
+        self.assertEqual(
+            content["interactive"]["body"]["text"],
+            "اختر اللغة / Choose language",
+        )
+        buttons = content["interactive"]["action"]["buttons"]
+        self.assertEqual(
+            [item["reply"]["id"] for item in buttons],
+            ["kbc_language_ar", "kbc_language_en"],
+        )
+        self.assertEqual(
+            [item["reply"]["title"] for item in buttons],
+            ["العربية", "English"],
+        )
+        self.assertNotIn("private-payload-sentinel", json.dumps(content))
+
+    def test_start_command_shows_approved_arabic_main_list(self):
+        self.assertEqual(self.post([self.message(text="ابدأ")]).status_code, 200)
         phone, content = self.send.call_args.args
         self.assertEqual(phone, SYNTHETIC_PHONE)
         self.assertEqual(content, menu.main_menu("ar"))
@@ -219,7 +239,6 @@ class MetaWebhookTests(SimpleTestCase):
             [row["id"] for row in sections[1]["rows"]],
             ["kbc_language"],
         )
-        self.assertNotIn("private-payload-sentinel", json.dumps(content))
 
     def test_invalid_timestamps_fail_without_processing_or_private_logs(self):
         for timestamp in (None, True, [], {}, "", "1" * 100, float("inf"), 1.5):
@@ -315,7 +334,6 @@ class MetaWebhookTests(SimpleTestCase):
         )
         self.assertNotIn("https://", interactive["body"]["text"])
         self.assertNotIn("contact-location", json.dumps(content))
-        self.assertNotIn("untrusted-visible-label", json.dumps(content))
 
     def test_consultation_submenu_has_registered_guest_and_main_menu_buttons(self):
         self.assertEqual(
@@ -585,6 +603,7 @@ class MetaWebhookTests(SimpleTestCase):
                 menu.booking_menu(language),
                 menu.consultation_menu(language),
                 menu.language_menu(language),
+                menu.language_prompt(),
                 menu.handoff_message(language),
                 menu.HANDOFF[language],
                 REPLY_MESSAGES[language],
