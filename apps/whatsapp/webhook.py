@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 MAX_BODY_BYTES = 262144
 RECEIPT_TTL = 7 * 24 * 60 * 60
 LOCK_TTL = 60
+DELIVERY_STATUSES = {"sent", "delivered", "read", "failed"}
 
 
 def state_key(purpose, identifier):
@@ -30,6 +31,36 @@ def state_key(purpose, identifier):
         "whatsapp." + purpose, identifier, algorithm="sha256"
     ).hexdigest()
     return "whatsapp:" + purpose + ":" + digest
+
+
+def _log_delivery_statuses(value):
+    """Log delivery state and Meta error codes only; never log recipient/message data."""
+    statuses = value.get("statuses", [])
+    if not isinstance(statuses, list) or len(statuses) > 50:
+        raise ValueError("Unexpected statuses")
+    for item in statuses:
+        if not isinstance(item, dict):
+            raise ValueError("Unexpected status")
+        status = item.get("status")
+        if status not in DELIVERY_STATUSES:
+            continue
+        errors = item.get("errors", [])
+        if errors is None:
+            errors = []
+        if not isinstance(errors, list) or len(errors) > 20:
+            raise ValueError("Unexpected status errors")
+        error_codes = []
+        for error in errors:
+            if not isinstance(error, dict):
+                raise ValueError("Unexpected status error")
+            code = error.get("code")
+            if isinstance(code, int) and not isinstance(code, bool):
+                error_codes.append(str(code))
+        logger.info(
+            "WhatsApp delivery status=%s error_codes=%s",
+            status,
+            ",".join(error_codes) if error_codes else "none",
+        )
 
 
 def _messages(payload):
@@ -65,6 +96,7 @@ def _messages(payload):
                 != settings.WHATSAPP_META_PHONE_NUMBER_ID
             ):
                 raise ValueError("Unexpected destination")
+            _log_delivery_statuses(value)
             items = value.get("messages", [])
             if not isinstance(items, list):
                 raise ValueError("Unexpected messages")
