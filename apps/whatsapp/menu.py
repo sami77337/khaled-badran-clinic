@@ -37,6 +37,10 @@ LANGUAGE_ROWS = (
     ("kbc_language_en", "English", "English"),
     ("kbc_main_menu", "القائمة الرئيسية", "Main Menu"),
 )
+LANGUAGE_PROMPT_ROWS = (
+    ("kbc_language_ar", "العربية", "العربية"),
+    ("kbc_language_en", "English", "English"),
+)
 DESTINATIONS = {
     "kbc_book_new": ("book", "احجز موعدك", "Book Appointment"),
     "kbc_book_existing": (
@@ -161,6 +165,18 @@ def language_menu(language):
                 else "اختر اللغة التي تفضلها."
             },
             "action": {"buttons": _reply_buttons(LANGUAGE_ROWS, language)},
+        },
+    }
+
+
+def language_prompt():
+    """Bilingual two-button fallback for unrecognized inbound text."""
+    return {
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {"text": "اختر اللغة / Choose language"},
+            "action": {"buttons": _reply_buttons(LANGUAGE_PROMPT_ROWS, "ar")},
         },
     }
 

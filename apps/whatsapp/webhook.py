@@ -116,7 +116,8 @@ def _messages(payload):
                     ):
                         raise ValueError("Unexpected text")
                     # Only bounded control words / approved starter labels leave
-                    # the parser. All other patient-written text is discarded.
+                    # the parser. All other patient-written text is discarded and
+                    # converted to a generic language-choice action.
                     candidate = text["body"].strip().casefold()
                     if candidate in {
                         "menu",
@@ -128,7 +129,9 @@ def _messages(payload):
                     }:
                         command = candidate
                     else:
-                        selection = menu.ICE_BREAKER_SELECTIONS.get(candidate, "")
+                        selection = menu.ICE_BREAKER_SELECTIONS.get(
+                            candidate, "kbc_language_prompt"
+                        )
                 messages.append((sender, message_id, selection, command))
                 if len(messages) > 50:
                     raise ValueError("Too many messages")
@@ -182,6 +185,8 @@ def _handle_message(sender, message_id, selection, command):
                 accepted = meta._send("+" + sender, menu.consultation_menu(language))
             elif selection == "kbc_language":
                 accepted = meta._send("+" + sender, menu.language_menu(language))
+            elif selection == "kbc_language_prompt":
+                accepted = meta._send("+" + sender, menu.language_prompt())
             elif selection in menu.DESTINATIONS:
                 accepted = meta._send(
                     "+" + sender, menu.destination_message(selection, language)
