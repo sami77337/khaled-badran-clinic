@@ -11,10 +11,13 @@ def meta_configuration_checks(app_configs, **kwargs):
     issues = configuration_issues(templates=True)
     expected_senders = {
         "GUEST_CONSULTATION_OTP_SENDER": "apps.whatsapp.meta.send_guest_otp",
+        "PATIENT_ACCOUNT_OTP_SENDER": "apps.whatsapp.meta.send_guest_otp",
+        "ACCOUNT_PHONE_CHANGE_OTP_SENDER": "apps.whatsapp.meta.send_guest_otp",
+        "APPOINTMENT_LINK_RECOVERY_OTP_SENDER": "apps.whatsapp.meta.send_guest_otp",
         "WHATSAPP_CONSULTATION_NOTIFICATION_SENDER": "apps.whatsapp.meta.send_consultation_notification",
     }
     for key, expected in expected_senders.items():
-        if getattr(settings, key) != expected:
+        if getattr(settings, key, "") != expected:
             issues.append(key)
     if getattr(settings, "PRODUCTION", False):
         cache_config = settings.CACHES["default"]

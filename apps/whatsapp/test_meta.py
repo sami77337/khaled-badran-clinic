@@ -25,7 +25,8 @@ META_SETTINGS = {
     "WHATSAPP_META_WABA_ID": "202",
     "WHATSAPP_META_GRAPH_VERSION": "v999.0",  # Deliberately invented, never a production default.
     "WHATSAPP_WEBSITE_ORIGIN": "https://clinic.example.test",
-    "WHATSAPP_META_OTP_TEMPLATE": "synthetic_otp",
+    "WHATSAPP_META_OTP_TEMPLATE_AR": "synthetic_otp_ar",
+    "WHATSAPP_META_OTP_TEMPLATE_EN": "synthetic_otp_en",
     "WHATSAPP_META_CONSULTATION_REPLY_TEMPLATE": "synthetic_reply",
     "WHATSAPP_META_BOOKING_CONFIRMATION_TEMPLATE": "synthetic_confirmation",
     "WHATSAPP_META_APPOINTMENT_REMINDER_TEMPLATE": "synthetic_reminder",
@@ -33,6 +34,9 @@ META_SETTINGS = {
     "WHATSAPP_META_TEMPLATE_LANGUAGE_AR": "ar",
     "WHATSAPP_META_TEMPLATE_LANGUAGE_EN": "en_US",
     "GUEST_CONSULTATION_OTP_SENDER": "apps.whatsapp.meta.send_guest_otp",
+    "PATIENT_ACCOUNT_OTP_SENDER": "apps.whatsapp.meta.send_guest_otp",
+    "ACCOUNT_PHONE_CHANGE_OTP_SENDER": "apps.whatsapp.meta.send_guest_otp",
+    "APPOINTMENT_LINK_RECOVERY_OTP_SENDER": "apps.whatsapp.meta.send_guest_otp",
     "WHATSAPP_CONSULTATION_NOTIFICATION_SENDER": "apps.whatsapp.meta.send_consultation_notification",
     "WHATSAPP_DEFAULT_LANGUAGE": "ar",
 }
@@ -55,7 +59,10 @@ class MetaAdapterTests(SimpleTestCase):
         return json.loads(self.connection.request.call_args.kwargs["body"])
 
     def test_authentication_template_otp_body_and_copy_button_in_both_languages(self):
-        for language, code in (("ar", "ar"), ("en", "en_US")):
+        for language, locale, template in (
+            ("ar", "ar", "synthetic_otp_ar"),
+            ("en", "en_US", "synthetic_otp_en"),
+        ):
             with self.subTest(language=language):
                 self.assertTrue(
                     meta.send_guest_otp(SYNTHETIC_PHONE, "012345", language)
@@ -66,8 +73,8 @@ class MetaAdapterTests(SimpleTestCase):
                 self.assertEqual(
                     payload["template"],
                     {
-                        "name": "synthetic_otp",
-                        "language": {"code": code},
+                        "name": template,
+                        "language": {"code": locale},
                         "components": [
                             {
                                 "type": "body",
@@ -90,16 +97,27 @@ class MetaAdapterTests(SimpleTestCase):
 
     def test_template_name_and_language_are_configurable(self):
         with self.settings(
-            WHATSAPP_META_OTP_TEMPLATE="synthetic_alternate",
+            WHATSAPP_META_OTP_TEMPLATE_EN="synthetic_alternate_en",
             WHATSAPP_META_TEMPLATE_LANGUAGE_EN="en_GB",
         ):
             self.assertTrue(meta.send_guest_otp(SYNTHETIC_PHONE, "123456", "en"))
-            self.assertEqual(self.payload()["template"]["name"], "synthetic_alternate")
+            self.assertEqual(self.payload()["template"]["name"], "synthetic_alternate_en")
             self.assertEqual(self.payload()["template"]["language"]["code"], "en_GB")
 
     def test_invalid_otp_is_not_sent(self):
         for code in ("", "12345", "1234567", "private-payload-sentinel", 123456):
             self.assertFalse(meta.send_guest_otp(SYNTHETIC_PHONE, code, "ar"))
+        self.http.assert_not_called()
+
+    def test_language_specific_otp_templates_fail_closed_without_http(self):
+        for language, key in (
+            ("ar", "WHATSAPP_META_OTP_TEMPLATE_AR"),
+            ("en", "WHATSAPP_META_OTP_TEMPLATE_EN"),
+        ):
+            with self.subTest(language=language, key=key), self.settings(**{key: ""}):
+                self.assertFalse(meta.send_guest_otp(SYNTHETIC_PHONE, "123456", language))
+        with self.settings(WHATSAPP_META_OTP_TEMPLATE_AR="synthetic-invalid-template"):
+            self.assertFalse(meta.send_guest_otp(SYNTHETIC_PHONE, "123456", "ar"))
         self.http.assert_not_called()
 
     def test_missing_or_invalid_configuration_fails_without_http(self):
@@ -111,7 +129,6 @@ class MetaAdapterTests(SimpleTestCase):
             "WHATSAPP_META_VERIFY_TOKEN",
             "WHATSAPP_META_GRAPH_VERSION",
             "WHATSAPP_WEBSITE_ORIGIN",
-            "WHATSAPP_META_OTP_TEMPLATE",
             "WHATSAPP_META_TEMPLATE_LANGUAGE_AR",
         ):
             with self.subTest(key=key), self.settings(**{key: ""}):

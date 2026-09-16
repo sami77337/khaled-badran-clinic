@@ -74,14 +74,12 @@ def _send(phone_e164, content):
 
 
 def template_content(kind, language, components):
-    name = getattr(settings, f"WHATSAPP_META_{kind}_TEMPLATE", "")
-    code = getattr(
-        settings,
-        "WHATSAPP_META_TEMPLATE_LANGUAGE_EN"
-        if language == "en"
-        else "WHATSAPP_META_TEMPLATE_LANGUAGE_AR",
-        "",
-    )
+    language_key = "EN" if language == "en" else "AR"
+    if kind == "OTP":
+        name = getattr(settings, f"WHATSAPP_META_OTP_TEMPLATE_{language_key}", "")
+    else:
+        name = getattr(settings, f"WHATSAPP_META_{kind}_TEMPLATE", "")
+    code = getattr(settings, f"WHATSAPP_META_TEMPLATE_LANGUAGE_{language_key}", "")
     if not re.fullmatch(r"[a-z0-9_]{1,512}", name) or not re.fullmatch(
         r"[a-z]{2,3}(?:_[A-Z]{2})?", code
     ):
