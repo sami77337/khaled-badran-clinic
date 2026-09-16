@@ -7,21 +7,25 @@ This note records the owner-approved Commercial Delivery v1 corrections that sup
 - The main WhatsApp list remains Arabic-first and exposes booking, consultation, patient account, clinic location, staff handoff, and a visible language entry.
 - Booking first asks whether the user is a new patient or already has a patient record. New patients use the existing public login-free booking flow; existing patients use the existing protected patient-portal booking route.
 - Consultation keeps the existing registered-patient and guest flows and provides a Main Menu escape.
-- Staff handoff suppresses normal bot replies as before, but the acknowledgement now contains a Main Menu button so the user can explicitly resume automation without typing a command. The existing `menu`, `start`, `القائمة`, and `ابدأ` commands remain fallbacks.
-- Arabic and English clinic-location actions use the approved Google Maps destination through a direct CTA URL. The old Arabic LOCATION-template workaround is obsolete; `WHATSAPP_META_LOCATION_TEMPLATE` is not required by the application configuration check.
+- Staff handoff suppresses normal bot replies as before, but the acknowledgement contains a Main Menu button so the user can explicitly resume automation without typing a command. The existing `menu`, `start`, `القائمة`, and `ابدأ` commands remain fallbacks.
+- Arabic and English clinic-location actions use the approved Google Maps destination through a direct CTA URL.
 - The guest-consultation phone field reuses the existing international phone picker, with Jordan `+962` as the default and the same server-side E.164 normalization.
-- The website's primary/floating WhatsApp bot entry links use the dedicated bot number `+962798898510` with a localized prefilled `ابدأ` / `start` message. The clinic's ordinary public telephone/contact number remains unchanged.
+- The website's primary/floating WhatsApp bot entry links use the dedicated bot number `+962798898510` with no prefilled text, so Meta Ice Breakers can remain visible. The clinic's ordinary public telephone/contact number remains unchanged.
 
-## Meta conversational components
+## Language-first entry
 
-Configure four Ice Breakers on the production WhatsApp business phone when the Meta UI/API exposes conversational components:
+Production Meta Ice Breakers are intentionally limited to two choices:
 
-- `حجز موعد` / `Book an Appointment`
-- `استشارة طبية` / `Medical Consultation`
-- `حساب المريض` / `Patient Account`
-- `التحدث مع العيادة` / `Talk to the Clinic`
+- `العربية`
+- `English`
 
-The webhook recognizes these approved labels, but application correctness does not depend on Ice Breakers. Opening or locally deleting a WhatsApp conversation does not itself produce an application webhook, so no server-side automatic welcome is assumed.
+Selecting either starter is received as a normal inbound text command. The webhook stores the selected language for the bounded conversation state and immediately sends the main menu in that language.
+
+If a user sends any other text while the bot is active, the application does not reflect or persist that text. Instead it sends a bilingual language-choice message containing only `العربية` and `English`. After selection, the normal main menu is sent in the requested language.
+
+Staff handoff remains isolated from this fallback: arbitrary text sent after `التحدث مع العيادة` stays suppressed from bot automation until the user explicitly resumes with the Main Menu button or one of the existing menu/language commands.
+
+Opening or locally deleting a WhatsApp conversation does not itself produce an application webhook, so no server-side automatic welcome is assumed. Ice Breakers are the client-side first-contact entry when WhatsApp shows them.
 
 ## Browser behavior
 
