@@ -1,0 +1,14 @@
+{% load public_content %}
+<section class="section doctor-mobile-booking-section" aria-labelledby="doctor-mobile-contact-title">
+    <div class="container">
+        <aside class="doctor-contact-card doctor-contact-card-mobile">
+            <p class="eyebrow">{% public_text "doctor.booking_label" %}</p>
+            <h2 id="doctor-mobile-contact-title">{% public_text "doctor.booking_title" %}</h2>
+            <p>{% public_text "doctor.booking_intro" %}</p>
+            <div class="stacked-actions">
+                <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>
+                <a class="text-link" href="{{ clinic.map_url }}" target="_blank" rel="noopener noreferrer">{% public_text "doctor.directions" %}</a>
+            </div>
+        </aside>
+    </div>
+</section>

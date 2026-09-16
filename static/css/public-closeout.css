@@ -799,3 +799,5 @@
         height: min(58svh, 34rem);
     }
 }
+.public-section-text,
+[data-doctor-section] { overflow-wrap: anywhere; min-width: 0; }

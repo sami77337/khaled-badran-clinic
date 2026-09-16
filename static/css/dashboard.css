@@ -81,6 +81,12 @@
     --dashboard-font-en: "IBM Plex Sans", system-ui, sans-serif;
 }
 
+.owner-content-page .record-form-panel + .record-form-panel,
+.owner-section-row { margin-block-start: 1rem; }
+.owner-content-page :is(input, textarea, select) { max-width: 100%; }
+.owner-content-page :is(h1, h2, h3, p, label) { overflow-wrap: anywhere; }
+.owner-content-page .record-form-field.is-checkbox { min-height: 44px; }
+
 *,
 *::before,
 *::after {

@@ -1,9 +1,15 @@
 from django.urls import path
 
-from . import review_views, views
+from . import owner_views, review_views, views
 
 
 urlpatterns = [
+    path("account/password/", owner_views.password_change, name="dashboard_password_change"),
+    path("content/", owner_views.content_index, name="dashboard_content"),
+    path("content/copy/<str:page>/", owner_views.public_copy, name="dashboard_public_copy"),
+    path("content/doctor/bio/", owner_views.doctor_bio, name="dashboard_doctor_bio"),
+    path("content/doctor/sections/new/", owner_views.doctor_section, name="dashboard_doctor_section_new"),
+    path("content/doctor/sections/<str:section_key>/", owner_views.doctor_section, name="dashboard_doctor_section"),
     path("reviews/", review_views.patient_review_list, name="dashboard_patient_reviews"),
     path("reviews/<int:review_id>/visibility/", review_views.patient_review_visibility, name="dashboard_patient_review_visibility"),
     path("reviews/<int:review_id>/delete/", review_views.patient_review_delete, name="dashboard_patient_review_delete"),

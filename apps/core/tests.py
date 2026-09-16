@@ -1531,7 +1531,9 @@ class PublicPageContentTests(TestCase):
         response = self.client.get(reverse("home"))
 
         self.assertContains(response, 'href="/book/"')
-        self.assertNotContains(response, "<form")
+        # The install instruction sheet has a local dialog-close form only.
+        self.assertContains(response, '<form method="dialog">', count=1)
+        self.assertNotContains(response, '<form method="post"')
 
     def test_public_pages_do_not_create_appointments(self):
         route_names = [
@@ -2133,7 +2135,7 @@ class PublicUiFoundationTests(TestCase):
         approved_profile_copy = [
             "Professional Profile",
             "Professional Experience",
-            "Education & Training",
+            "Education &amp; Training",
             "Boards / Certifications",
             "Professional Memberships",
             "Specialties",
@@ -2171,7 +2173,7 @@ class PublicUiFoundationTests(TestCase):
 
         ordered_headings = [
             "Professional Experience",
-            "Education & Training",
+            "Education &amp; Training",
             "Boards / Certifications",
             "Professional Memberships",
             "Awards",

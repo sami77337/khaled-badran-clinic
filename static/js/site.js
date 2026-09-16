@@ -514,7 +514,6 @@
         startAutoplay();
     });
 
-    // Service worker registration remains intentionally disabled. Public pages
-    // must not establish a cache strategy that could include authenticated or
-    // private medical content.
+    // Install UX registers the existing push-only worker in install-app.js.
+    // No offline cache strategy is introduced for public or private responses.
 })();

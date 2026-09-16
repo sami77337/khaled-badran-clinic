@@ -1,0 +1,25 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block dashboard_styles %}<link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">{% endblock %}
+{% block dashboard_content %}
+<div class="dashboard-content patient-record-content record-form-page owner-content-page">
+    <header class="record-page-header record-form-header">
+        <a class="record-back-link" href="{{ cancel_url }}">{% if is_arabic %}العودة{% else %}Back{% endif %}</a>
+        <h1>{{ form_title }}</h1>
+    </header>
+    {% for message in messages %}<p class="record-section-note" role="status">{{ message }}</p>{% endfor %}
+    <section class="record-form-panel">
+        {% if fallback_help %}<p class="record-section-note">{% if is_arabic %}اترك الحقل فارغًا لاستخدام النص المعتمد. إخفاء القسم يمنع ظهوره حتى عند وجود نص افتراضي.{% else %}Leave a field blank to use the approved text. Hidden sections stay hidden even when fallback text exists.{% endif %}</p>{% endif %}
+        {% if not password_page %}<p class="record-section-note">{% if is_arabic %}هذا محتوى عام للموقع. أدخل نصًا فقط، دون بيانات مرضى أو روابط. الحفظ يحدّث الموقع مباشرة للأقسام الظاهرة.{% else %}This content is public. Use plain text without patient information or links. Saving updates visible content on the website immediately.{% endif %}</p>{% endif %}
+        {% if section_page %}<p class="record-section-note">{% if is_arabic %}الصفحة: الطبيب. لإخفاء قسم مؤقتًا ألغِ «ظاهر على الموقع». لاستعادة قسم مؤرشف ألغِ «مؤرشف» ثم فعّل ظهوره.{% else %}Page: Doctor. Clear “Visible on the website” to hide a section. To restore an archived section, clear “Archived” and enable visibility.{% endif %}</p>{% endif %}
+        <form class="record-form" method="post">
+            {% csrf_token %}
+            {% include "dashboard/_form_fields.html" %}
+            <div class="record-form-actions">
+                <button type="submit">{% if password_page %}{% if is_arabic %}حفظ كلمة المرور{% else %}Save Password{% endif %}{% else %}{% if is_arabic %}حفظ المحتوى{% else %}Save Content{% endif %}{% endif %}</button>
+                <a href="{{ cancel_url }}">{% if is_arabic %}إلغاء{% else %}Cancel{% endif %}</a>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}
