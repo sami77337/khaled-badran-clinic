@@ -28,14 +28,13 @@ class LegacyPatientOtpGateTests(TestCase):
     @patch("apps.patients.verification_gate._ensure_current_phone_challenge")
     def test_unverified_existing_session_is_blocked_before_private_portal_view(self, ensure):
         downstream = Mock(return_value=HttpResponse("private"))
-        response = LegacyPatientOtpGateMiddleware(downstream)(
-            self.request("/portal/appointments/")
-        )
+        request = self.request("/portal/appointments/")
+        response = LegacyPatientOtpGateMiddleware(downstream)(request)
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, "/portal/password/change/")
         downstream.assert_not_called()
-        ensure.assert_called_once_with(response.wsgi_request if hasattr(response, "wsgi_request") else ensure.call_args.args[0], "ar")
+        ensure.assert_called_once_with(request, "ar")
 
     @patch("apps.patients.verification_gate._ensure_current_phone_challenge")
     def test_english_portal_uses_english_verification_route(self, ensure):
