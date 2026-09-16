@@ -7,7 +7,6 @@ from django.conf import settings
 
 
 TEMPLATE_KINDS = (
-    "OTP",
     "CONSULTATION_REPLY",
     "BOOKING_CONFIRMATION",
     "APPOINTMENT_REMINDER",
@@ -63,6 +62,10 @@ def configuration_issues(*, templates=False):
     if settings.WHATSAPP_DEFAULT_LANGUAGE not in {"ar", "en"}:
         issues.append("WHATSAPP_DEFAULT_LANGUAGE")
     if templates:
+        for language in ("AR", "EN"):
+            key = f"WHATSAPP_META_OTP_TEMPLATE_{language}"
+            if not re.fullmatch(r"[a-z0-9_]{1,512}", getattr(settings, key, "")):
+                issues.append(key)
         for kind in TEMPLATE_KINDS:
             key = f"WHATSAPP_META_{kind}_TEMPLATE"
             if not re.fullmatch(r"[a-z0-9_]{1,512}", getattr(settings, key, "")):
