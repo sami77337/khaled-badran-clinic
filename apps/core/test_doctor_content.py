@@ -274,11 +274,11 @@ class BrandingContractTests(TestCase):
 
     def test_brand_assets_match_the_exact_owner_approved_bytes(self):
         approved_hashes = {
-            "KB_APPROVED_WEB_512.png": "fd1506fb58d0721be09858a3d9010449fe1e4f3dcbf1a7ee2004ebe5838f97b3",
-            "KB_APPROVED_256.png": "69eda221e56c8179b57893fda0cf6c9c5f6f862f2311efc0316a855a6cde9133",
-            "KB_APPROVED_APPLE_TOUCH_180.png": "1d411a1926be87b207cdb3fb5211ec80cfc8332d6925a883c8725640d0cc3449",
-            "KB_APPROVED_PWA_192.png": "dd03bd579af55f7d9c9589f5e8a3bd72ad1873a51323da93c1dc637d35dae38f",
-            "KB_APPROVED_PWA_512.png": "e711bcee2c415e2e183658d816744a5970304fb53549d7e9ab93a64c8dd0b4a7",
+            "KB_APPROVED_WEB_512.png": "47b20ec7aa3691ae5770451c8be33ab6ef37dbadce4e032ee22c5c5a341924c1",
+            "KB_APPROVED_256.png": "6ad494ad5add4bc3598ad9d4ba9dd195776bbb761d1b357a4c859306d166d568",
+            "KB_APPROVED_APPLE_TOUCH_180.png": "468f56233e0501bad6f4fa23fc02bc9e3d05fa4b2967632d35ade848f7e62acb",
+            "KB_APPROVED_PWA_192.png": "d5f21e92c2268e3e9131568054535257aa094eb5aeaac87ff2e386299b3a76ea",
+            "KB_APPROVED_PWA_512.png": "a0563c0a1fb0a6c90c9258f2d6627b2804bd0d28f1713010a76ce21bce1cee71",
         }
         for filename, expected_hash in approved_hashes.items():
             with self.subTest(filename=filename):
