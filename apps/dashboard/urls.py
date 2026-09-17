@@ -26,6 +26,16 @@ urlpatterns = [
         name="dashboard_appointment_follow_up",
     ),
     path(
+        "appointments/messages/",
+        appointment_closeout_views.appointment_message_settings,
+        name="dashboard_appointment_message_settings",
+    ),
+    path(
+        "appointments/follow-up/<int:appointment_id>/message/",
+        appointment_closeout_views.appointment_message_compose,
+        name="dashboard_appointment_message_compose",
+    ),
+    path(
         "appointments/follow-up/<int:appointment_id>/arrived/",
         appointment_closeout_views.appointment_follow_up_arrived,
         name="dashboard_appointment_follow_up_arrived",
