@@ -76,6 +76,10 @@
                     <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
                 </a>
                 {% endif %}
+                <a class="dashboard-action-link" href="{% if is_arabic %}{% url 'patient_portal_account_close' %}{% else %}{% url 'patient_portal_account_close_en' %}{% endif %}">
+                    <span>{% if is_arabic %}إغلاق الحساب{% else %}Close Account{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                </a>
             </div>
         </section>
     </div>
