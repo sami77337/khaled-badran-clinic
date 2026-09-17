@@ -7,15 +7,15 @@
     {% for message in messages %}<p class="record-section-note" role="status">{{ message }}</p>{% endfor %}
     <section class="record-form-panel">
         <h2>{% if is_arabic %}نصوص الصفحات{% else %}Page Copy{% endif %}</h2>
-        <p class="record-section-note">{% if is_arabic %}عدّل النصوص مع الحفاظ على تصميم الموقع. تبقى بيانات الطبيب والعيادة والخدمات في مصادرها الحالية.{% else %}Edit the wording while keeping the website layout. Doctor identity, clinic details and visit types retain their existing sources.{% endif %}</p>
+        <p class="record-section-note">{% if is_arabic %}عدّل النصوص والمعلومات العامة التي قد تحتاج تحديثًا مع الحفاظ على تصميم الموقع. لا يشمل ذلك البيانات الطبية الخاصة أو إعدادات النظام.{% else %}Edit public wording and information that may need updating while keeping the website design fixed. Private medical data and system settings are not part of this editor.{% endif %}</p>
         <div class="record-media-actions">
             {% for page in copy_pages %}<a href="{{ page.url }}">{{ page.label }}</a>{% endfor %}
-            {% if bio_url %}<a href="{{ bio_url }}">{% if is_arabic %}نبذة الطبيب{% else %}Doctor Biography{% endif %}</a>{% endif %}
+            {% if bio_url %}<a href="{{ bio_url }}">{% if is_arabic %}بيانات وصورة الطبيب{% else %}Doctor Profile & Photo{% endif %}</a>{% endif %}
         </div>
     </section>
     <section class="record-form-panel">
         <h2>{% if is_arabic %}أقسام صفحة الطبيب{% else %}Doctor Page Sections{% endif %}</h2>
-        <p class="record-section-note">{% if is_arabic %}الترتيب من الأصغر إلى الأكبر. يمكنك تعديل النص وطريقة العرض والظهور لكل قسم.{% else %}Sections appear from the lowest order number to the highest. Edit each section’s text, presentation and visibility.{% endif %}</p>
+        <p class="record-section-note">{% if is_arabic %}الترتيب من الأصغر إلى الأكبر. يمكنك تعديل النص وطريقة العرض والظهور لكل قسم، وإضافة قسم جديد أو أرشفة قسم مخصص.{% else %}Sections appear from the lowest order number to the highest. Edit each section’s text, presentation and visibility, add a section, or archive a custom section.{% endif %}</p>
         {% if new_section_url %}<div class="record-media-actions"><a href="{{ new_section_url }}">{% if is_arabic %}إضافة قسم{% else %}Add Section{% endif %}</a></div>{% endif %}
         {% for item in sections %}
         <article class="record-entry owner-section-row">
