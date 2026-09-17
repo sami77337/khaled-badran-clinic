@@ -1,4 +1,5 @@
 from datetime import timedelta
+from urllib.parse import parse_qs, urlsplit
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -7,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.booking import operations
-from apps.booking.models import Appointment
+from apps.booking.models import Appointment, AppointmentMessageTemplate
 from apps.clinic.models import Doctor, VisitType
 from apps.patients.models import Patient
 
@@ -139,6 +140,7 @@ class AppointmentOperationsCloseoutTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
+        self.assertIn("event=arrived", response.url)
         appointment.refresh_from_db()
         self.assertEqual(appointment.status, Appointment.Status.ARRIVED)
 
@@ -157,6 +159,7 @@ class AppointmentOperationsCloseoutTests(TestCase):
 
         response = self.client.post(url, {"note": "Patient did not arrive."})
         self.assertEqual(response.status_code, 302)
+        self.assertIn("event=no_show", response.url)
         appointment.refresh_from_db()
         self.assertEqual(appointment.status, Appointment.Status.NO_SHOW)
 
@@ -197,3 +200,135 @@ class AppointmentOperationsCloseoutTests(TestCase):
         self.assertEqual(english.status_code, 200)
         self.assertContains(arabic, "تحتاج متابعة (1)")
         self.assertContains(english, "Needs Follow-up (1)")
+
+    def test_message_settings_are_staff_only_and_bilingual(self):
+        url = reverse("dashboard_appointment_message_settings")
+        self.assertEqual(self.client.get(url).status_code, 302)
+
+        self.client.force_login(self.staff)
+        arabic = self.client.get(url)
+        english = self.client.get(f"{url}?lang=en")
+        self.assertEqual(arabic.status_code, 200)
+        self.assertEqual(english.status_code, 200)
+        self.assertContains(arabic, "رسائل المواعيد")
+        self.assertContains(english, "Appointment Messages")
+
+    def test_message_settings_save_valid_templates_and_reject_bad_placeholder(self):
+        self.client.force_login(self.staff)
+        url = reverse("dashboard_appointment_message_settings")
+        valid = self.client.post(
+            url,
+            {
+                "event": AppointmentMessageTemplate.Event.ARRIVED,
+                "is_active": "on",
+                "text_ar": "مرحبًا {patient_name} في {appointment_time}",
+                "text_en": "Hello {patient_name} at {appointment_time}",
+            },
+        )
+        self.assertEqual(valid.status_code, 302)
+        setting = AppointmentMessageTemplate.objects.get(
+            event=AppointmentMessageTemplate.Event.ARRIVED
+        )
+        self.assertTrue(setting.is_active)
+
+        invalid = self.client.post(
+            url,
+            {
+                "event": AppointmentMessageTemplate.Event.NO_SHOW,
+                "text_ar": "{secret_value}",
+                "text_en": "{secret_value}",
+            },
+        )
+        self.assertEqual(invalid.status_code, 200)
+        self.assertFalse(
+            AppointmentMessageTemplate.objects.filter(
+                event=AppointmentMessageTemplate.Event.NO_SHOW
+            ).exists()
+        )
+
+    def test_ready_message_compose_is_manual_and_uses_validated_whatsapp_url(self):
+        AppointmentMessageTemplate.objects.create(
+            event=AppointmentMessageTemplate.Event.ARRIVED,
+            is_active=True,
+            text_ar="مرحبًا {patient_name}",
+            text_en="Hello {patient_name}",
+        )
+        appointment = self.appointment(-30, status=Appointment.Status.ARRIVED)
+        self.client.force_login(self.staff)
+        url = reverse(
+            "dashboard_appointment_message_compose",
+            kwargs={"appointment_id": appointment.id},
+        )
+        response = self.client.get(f"{url}?event=arrived&lang=en")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No Message")
+        self.assertContains(response, "Opening WhatsApp here does not mean the message was sent or delivered.")
+        ready_url = response.context["ready_en_url"]
+        parsed = urlsplit(ready_url)
+        self.assertEqual(parsed.scheme, "https")
+        self.assertEqual(parsed.netloc, "wa.me")
+        self.assertEqual(parsed.path, "/962791234567")
+        self.assertEqual(parse_qs(parsed.query)["text"], ["Hello Closeout Patient"])
+
+    def test_custom_message_does_not_change_ready_template(self):
+        setting = AppointmentMessageTemplate.objects.create(
+            event=AppointmentMessageTemplate.Event.ARRIVED,
+            is_active=True,
+            text_ar="النص الافتراضي",
+            text_en="Default text",
+        )
+        appointment = self.appointment(-30, status=Appointment.Status.ARRIVED)
+        self.client.force_login(self.staff)
+        url = reverse(
+            "dashboard_appointment_message_compose",
+            kwargs={"appointment_id": appointment.id},
+        )
+        response = self.client.post(
+            url,
+            {"event": "arrived", "custom_message": "One-time custom message"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        parsed = urlsplit(response.url)
+        self.assertEqual(parsed.netloc, "wa.me")
+        self.assertEqual(parse_qs(parsed.query)["text"], ["One-time custom message"])
+        setting.refresh_from_db()
+        self.assertEqual(setting.text_en, "Default text")
+        self.assertEqual(setting.text_ar, "النص الافتراضي")
+
+    def test_compose_fails_closed_for_missing_phone_and_status_mismatch(self):
+        appointment = self.appointment(-30, status=Appointment.Status.ARRIVED)
+        self.patient.phone_raw = ""
+        self.patient.phone_e164 = ""
+        self.patient.whatsapp_phone_raw = ""
+        self.patient.whatsapp_phone_e164 = ""
+        self.patient.save(
+            update_fields=[
+                "phone_raw",
+                "phone_e164",
+                "whatsapp_phone_raw",
+                "whatsapp_phone_e164",
+            ]
+        )
+        self.client.force_login(self.staff)
+        url = reverse(
+            "dashboard_appointment_message_compose",
+            kwargs={"appointment_id": appointment.id},
+        )
+        response = self.client.post(
+            url,
+            {"event": "arrived", "custom_message": "Message"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["whatsapp_available"])
+
+        confirmed = self.appointment(-60, status=Appointment.Status.CONFIRMED)
+        mismatch_url = reverse(
+            "dashboard_appointment_message_compose",
+            kwargs={"appointment_id": confirmed.id},
+        )
+        self.assertEqual(
+            self.client.get(f"{mismatch_url}?event=arrived").status_code,
+            404,
+        )
