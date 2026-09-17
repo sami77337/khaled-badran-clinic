@@ -1,6 +1,9 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
-{% block dashboard_styles %}<link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">{% endblock %}
+{% block dashboard_styles %}
+<link rel="stylesheet" href="{% static 'css/dashboard-patient-record.css' %}">
+{% if doctor_photo_page %}<link rel="stylesheet" href="{% static 'css/owner-content-closeout.css' %}">{% endif %}
+{% endblock %}
 {% block dashboard_content %}
 <div class="dashboard-content patient-record-content record-form-page owner-content-page">
     <header class="record-page-header record-form-header">
@@ -12,7 +15,13 @@
         {% if fallback_help %}<p class="record-section-note">{% if is_arabic %}اترك الحقل فارغًا لاستخدام النص المعتمد. إخفاء القسم يمنع ظهوره حتى عند وجود نص افتراضي.{% else %}Leave a field blank to use the approved text. Hidden sections stay hidden even when fallback text exists.{% endif %}</p>{% endif %}
         {% if not password_page %}<p class="record-section-note">{% if is_arabic %}هذا محتوى عام للموقع. أدخل نصًا فقط، دون بيانات مرضى أو روابط. الحفظ يحدّث الموقع مباشرة للأقسام الظاهرة.{% else %}This content is public. Use plain text without patient information or links. Saving updates visible content on the website immediately.{% endif %}</p>{% endif %}
         {% if section_page %}<p class="record-section-note">{% if is_arabic %}الصفحة: الطبيب. لإخفاء قسم مؤقتًا ألغِ «ظاهر على الموقع». لاستعادة قسم مؤرشف ألغِ «مؤرشف» ثم فعّل ظهوره.{% else %}Page: Doctor. Clear “Visible on the website” to hide a section. To restore an archived section, clear “Archived” and enable visibility.{% endif %}</p>{% endif %}
-        <form class="record-form" method="post">
+        {% if doctor_photo_page %}
+        <div class="owner-photo-preview">
+            <p class="record-section-note">{% if is_arabic %}الصورة الحالية المستخدمة في الصفحة الرئيسية وصفحة الطبيب. رفع صورة جديدة يستبدلها في المكانين دون تغيير التصميم أو القص المعتمد.{% else %}Current photo used on Home and the Doctor page. Uploading a replacement updates both locations without changing the approved layout or crop behavior.{% endif %}</p>
+            <img src="{{ current_photo_url }}" alt="{% if is_arabic %}معاينة صورة الطبيب الحالية{% else %}Current doctor photo preview{% endif %}">
+        </div>
+        {% endif %}
+        <form class="record-form" method="post"{% if doctor_photo_page %} enctype="multipart/form-data"{% endif %}>
             {% csrf_token %}
             {% include "dashboard/_form_fields.html" %}
             <div class="record-form-actions">

@@ -5,6 +5,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from .content_validation import validate_public_text
+from .storage import doctor_photo_upload_path, public_site_media_storage
 
 
 class SystemSetting(models.Model):
@@ -84,11 +85,11 @@ class AuditLog(models.Model):
 
 
 class DoctorPageContent(models.Model):
-    """Owner-editable copy for the public doctor page.
+    """Owner-editable copy and portrait for the public doctor page.
 
     List-like sections are stored one item per line so the doctor can edit them
-    in Django admin without touching JSON or code. Blank fields intentionally
-    fall back to the approved source copy in ``apps.core.views``.
+    without touching JSON or code. Blank fields intentionally fall back to the
+    approved source copy in ``apps.core.views``.
     """
 
     doctor = models.OneToOneField(
@@ -96,6 +97,12 @@ class DoctorPageContent(models.Model):
         on_delete=models.CASCADE,
         related_name="page_content",
     )
+    profile_photo = models.FileField(
+        blank=True,
+        upload_to=doctor_photo_upload_path,
+        storage=public_site_media_storage,
+    )
+    profile_photo_content_type = models.CharField(max_length=32, blank=True)
     hero_summary_ar = models.TextField(blank=True)
     hero_summary_en = models.TextField(blank=True)
     credential_label_ar = models.TextField(blank=True)

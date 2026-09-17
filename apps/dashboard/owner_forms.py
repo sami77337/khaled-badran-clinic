@@ -6,6 +6,7 @@ from apps.core.content_validation import validate_public_text
 from apps.core.doctor_sections import BUILTIN_SECTIONS
 from apps.core.models import DoctorPageContent, DoctorPageSection
 from apps.core.public_copy import HOME_VISIBILITY, copy_definitions
+from apps.core.storage import validate_doctor_photo_upload
 
 
 def bilingual_fields(fields):
@@ -35,9 +36,12 @@ class DashboardPasswordChangeForm(PasswordChangeForm):
 
 
 class DoctorBioForm(forms.ModelForm):
+    remove_profile_photo = forms.BooleanField(required=False)
+
     class Meta:
         model = DoctorPageContent
         fields = (
+            "profile_photo",
             "hero_summary_ar",
             "hero_summary_en",
             "credential_label_ar",
@@ -45,21 +49,51 @@ class DoctorBioForm(forms.ModelForm):
             "professional_bio_ar",
             "professional_bio_en",
         )
+        widgets = {
+            "profile_photo": forms.FileInput(
+                attrs={"accept": "image/jpeg,image/png,image/webp"}
+            ),
+        }
 
     def __init__(self, *args, language="ar", **kwargs):
         super().__init__(*args, **kwargs)
+        self.language = language
+        self._profile_photo_content_type = ""
         labels = {
             "hero_summary": ("الوصف المختصر", "Short summary"),
             "credential_label": ("المؤهلات المختصرة", "Credential label"),
             "professional_bio": ("النبذة المهنية", "Professional biography"),
         }
+        self.fields["profile_photo"].label = (
+            "استبدال صورة الطبيب" if language == "ar" else "Replace doctor photo"
+        )
+        self.fields["profile_photo"].help_text = (
+            "JPG أو PNG أو WebP فقط، بحد أقصى 8 ميجابايت. تُستخدم الصورة نفسها في الرئيسية وصفحة الطبيب."
+            if language == "ar"
+            else "JPG, PNG or WebP only, up to 8 MB. The same photo is used on Home and the Doctor page."
+        )
+        self.fields["remove_profile_photo"].label = (
+            "استعادة الصورة الأصلية المعتمدة"
+            if language == "ar"
+            else "Restore the approved default photo"
+        )
+
         from apps.core.templatetags.doctor_content import doctor_default_content
 
         defaults = {
             lang: doctor_default_content(self.instance.doctor, lang)
             for lang in ("ar", "en")
         }
-        for name, field in self.fields.items():
+        text_fields = (
+            "hero_summary_ar",
+            "hero_summary_en",
+            "credential_label_ar",
+            "credential_label_en",
+            "professional_bio_ar",
+            "professional_bio_en",
+        )
+        for name in text_fields:
+            field = self.fields[name]
             base, lang = name.rsplit("_", 1)
             field.label = labels[base][language == "en"] + (
                 " — العربية" if lang == "ar" else " — English"
@@ -72,6 +106,40 @@ class DoctorBioForm(forms.ModelForm):
                 "bio" if base == "professional_bio" else base
             ]
         bilingual_fields(self.fields)
+
+    def clean_profile_photo(self):
+        value = self.cleaned_data.get("profile_photo")
+        uploaded = self.files.get("profile_photo")
+        if uploaded is None:
+            return value
+        self._profile_photo_content_type = validate_doctor_photo_upload(
+            uploaded, language=self.language
+        )
+        return value
+
+    def clean(self):
+        data = super().clean()
+        if self.files.get("profile_photo") is not None and data.get(
+            "remove_profile_photo"
+        ):
+            self.add_error(
+                "remove_profile_photo",
+                "اختر إما رفع صورة جديدة أو استعادة الصورة الأصلية، وليس كليهما."
+                if self.language == "ar"
+                else "Choose either a new photo or restore the default, not both.",
+            )
+        return data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if self.cleaned_data.get("remove_profile_photo"):
+            instance.profile_photo = ""
+            instance.profile_photo_content_type = ""
+        elif self.files.get("profile_photo") is not None:
+            instance.profile_photo_content_type = self._profile_photo_content_type
+        if commit:
+            instance.save()
+        return instance
 
 
 class DoctorSectionForm(forms.ModelForm):

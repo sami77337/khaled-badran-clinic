@@ -1,4 +1,6 @@
 from django import template
+from django.templatetags.static import static
+from django.urls import reverse
 
 from apps.core.models import DoctorPageContent
 
@@ -10,6 +12,15 @@ register = template.Library()
 def doctor_section_groups(doctor, language, content):
     from apps.core.doctor_sections import public_section_groups
     return public_section_groups(doctor, language, content)
+
+
+@register.simple_tag
+def doctor_photo_url(doctor):
+    if doctor is not None:
+        content = DoctorPageContent.objects.filter(doctor=doctor).only("profile_photo").first()
+        if content is not None and content.profile_photo and content.profile_photo.name:
+            return reverse("dashboard_doctor_public_photo")
+    return static("img/doctor/dr-khaled-badran.png")
 
 
 def _lines(value):

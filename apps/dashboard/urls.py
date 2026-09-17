@@ -1,9 +1,12 @@
 from django.urls import path
 
+from apps.core import public_media
+
 from . import owner_views, review_views, views
 
 
 urlpatterns = [
+    path("public/doctor-photo/", public_media.doctor_photo, name="dashboard_doctor_public_photo"),
     path("account/password/", owner_views.password_change, name="dashboard_password_change"),
     path("content/", owner_views.content_index, name="dashboard_content"),
     path("content/copy/<str:page>/", owner_views.public_copy, name="dashboard_public_copy"),
