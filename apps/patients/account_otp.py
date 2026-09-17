@@ -26,6 +26,7 @@ from .otp import (
     generate_otp_code,
     send_patient_account_otp,
 )
+from .profile_resolution import PatientProfileConflictError, resolve_authenticated_patient
 from . import rate_limits
 
 OTP_TTL_SECONDS = 600
@@ -231,6 +232,17 @@ def verify(request, purpose, code):
             try:
                 with transaction.atomic():
                     user = create_registration_user(challenge.phone_e164, data)
+                    try:
+                        resolve_authenticated_patient(
+                            user,
+                            full_name=data.get("full_name") or "",
+                        )
+                    except PatientProfileConflictError:
+                        # A same-phone unlinked medical record must never be
+                        # silently claimed. Keep the verified account separate;
+                        # the existing secure appointment-link flow remains the
+                        # only way to connect that historical record.
+                        pass
             except IntegrityError:
                 challenge.delete()
                 return None
