@@ -1,7 +1,9 @@
 {% extends "dashboard/base.html" %}
-{% load static %}
+{% load static appointment_closeout %}
 
 {% block dashboard_content %}
+{% appointment_needs_classification_count as follow_up_count %}
+{% url 'dashboard_appointment_follow_up' as appointment_follow_up_url %}
 <div class="dashboard-content">
     <section class="dashboard-welcome" aria-labelledby="dashboard-welcome-title">
         <div class="dashboard-welcome-copy">
@@ -76,6 +78,12 @@
                     <span>{% if is_arabic %}عرض المرضى{% else %}View Patients{% endif %}</span>
                     <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
                 </a>
+                {% if follow_up_count %}
+                    <a class="dashboard-action-link" href="{{ appointment_follow_up_url }}{% if not is_arabic %}?lang=en{% endif %}">
+                        <span>{% if is_arabic %}تحتاج متابعة ({{ follow_up_count }}){% else %}Needs Follow-up ({{ follow_up_count }}){% endif %}</span>
+                        <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                    </a>
+                {% endif %}
                 <a class="dashboard-action-link" href="{{ staff_appointments_url }}">
                     <span>{% if is_arabic %}عرض المواعيد{% else %}View Appointments{% endif %}</span>
                     <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
