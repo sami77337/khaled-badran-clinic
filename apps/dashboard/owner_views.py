@@ -4,6 +4,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.http import Http404
 from django.shortcuts import redirect, render
+from django.templatetags.static import static
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.debug import sensitive_post_parameters
@@ -17,6 +18,7 @@ from apps.core.models import (
     PublicSiteContent,
 )
 from apps.core.public_copy import PAGE_LABELS
+from apps.core.storage import schedule_public_site_file_deletion
 from apps.core.views import _active_doctor
 from apps.patients.localization import use_page_language
 
@@ -191,19 +193,46 @@ def doctor_bio(request):
         ).first() or DoctorPageContent(doctor=doctor)
         _require(request.user, DoctorPageContent, content)
         language = _dashboard_language(request)
+        old_photo_name = content.profile_photo.name if content.profile_photo else ""
+        old_photo_storage = content.profile_photo.storage if old_photo_name else None
         form = DoctorBioForm(
             request.POST if request.method == "POST" else None,
+            request.FILES if request.method == "POST" else None,
             instance=content,
             language=language,
         )
         if request.method == "POST" and form.is_valid():
-            _audit(request, form.save())
+            saved = form.save()
+            new_photo_name = saved.profile_photo.name if saved.profile_photo else ""
+            if (
+                old_photo_storage is not None
+                and old_photo_name
+                and old_photo_name != new_photo_name
+            ):
+                schedule_public_site_file_deletion(
+                    old_photo_storage, old_photo_name
+                )
+            _audit(request, saved)
             return _saved(request)
-    title = "نبذة الطبيب" if language == "ar" else "Doctor Biography"
+    title = (
+        "بيانات وصورة الطبيب" if language == "ar" else "Doctor Profile & Photo"
+    )
+    current_photo_url = (
+        reverse("dashboard_doctor_public_photo")
+        if old_photo_name
+        else static("img/doctor/dr-khaled-badran.png")
+    )
     return render(
         request,
         "dashboard/owner_form.html",
-        _context(request, title, form=form, fallback_help=True),
+        _context(
+            request,
+            title,
+            form=form,
+            fallback_help=True,
+            doctor_photo_page=True,
+            current_photo_url=current_photo_url,
+        ),
     )
 
 
