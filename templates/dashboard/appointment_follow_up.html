@@ -1,0 +1,160 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block dashboard_styles %}
+    <link rel="stylesheet" href="{% static 'css/dashboard-appointments.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content appointments-content">
+    <header class="appointments-page-header">
+        <p class="appointments-eyebrow">{% if is_arabic %}تشغيل المواعيد{% else %}Appointment Operations{% endif %}</p>
+        <h1>{% if is_arabic %}تحتاج متابعة{% else %}Needs Follow-up{% endif %}</h1>
+        <p>
+            {% if is_arabic %}
+                هذه قائمة مشتقة للمواعيد التي مر وقتها وما زالت بحاجة إلى تصنيف يدوي. لا يغيّر النظام الحالة تلقائيًا.
+            {% else %}
+                This derived queue shows appointments whose start time has passed and still require manual classification. Status is never changed automatically.
+            {% endif %}
+        </p>
+    </header>
+
+    <nav class="appointment-top-actions" aria-label="{% if is_arabic %}تنقل المواعيد{% else %}Appointment navigation{% endif %}">
+        <a class="appointment-button appointment-button-secondary" href="{{ staff_appointments_url }}">
+            {% if is_arabic %}كل المواعيد{% else %}All appointments{% endif %}
+        </a>
+    </nav>
+
+    {% if messages %}
+        <div class="appointment-messages" role="status" aria-live="polite">
+            {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+        </div>
+    {% endif %}
+
+    <section class="appointments-results" aria-labelledby="needs-classification-title">
+        <div class="appointments-section-heading">
+            <h2 id="needs-classification-title">{% if is_arabic %}بحاجة إلى تصنيف{% else %}Needs Classification{% endif %}</h2>
+            <span class="appointments-result-count">{{ page_obj.paginator.count }}</span>
+        </div>
+
+        <div class="appointments-table-scroll" role="region" aria-label="{% if is_arabic %}مواعيد بحاجة إلى تصنيف{% else %}Appointments needing classification{% endif %}" tabindex="0">
+            <table class="appointments-table">
+                <thead>
+                    <tr>
+                        <th scope="col">{% if is_arabic %}التاريخ والوقت{% else %}Date and time{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}المريض{% else %}Patient{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}الحالة الحالية{% else %}Current status{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}الإجراءات{% else %}Actions{% endif %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for appointment in appointments %}
+                        <tr>
+                            <td>
+                                <time datetime="{{ appointment.starts_at|date:'c' }}" dir="ltr">{{ appointment.starts_at|date:"Y-m-d H:i" }}</time>
+                            </td>
+                            <td>
+                                <strong>{{ appointment.patient.full_name }}</strong>
+                                <a class="appointment-inline-link" href="{{ appointment.follow_up_patient_url }}">
+                                    {% if is_arabic %}فتح سجل المريض{% else %}Open patient record{% endif %}
+                                </a>
+                            </td>
+                            <td>{{ appointment.follow_up_visit_type_label }}</td>
+                            <td><span class="appointment-status status-{{ appointment.status }}">{{ appointment.follow_up_status_label }}</span></td>
+                            <td>
+                                <form method="post" action="{{ appointment.follow_up_arrived_url }}">
+                                    {% csrf_token %}
+                                    <button class="appointment-button appointment-button-primary appointment-button-small" type="submit">
+                                        {% if is_arabic %}وصل{% else %}Arrived{% endif %}
+                                    </button>
+                                </form>
+
+                                <details>
+                                    <summary class="appointment-button appointment-button-secondary appointment-button-small">
+                                        {% if is_arabic %}لم يحضر{% else %}No-show{% endif %}
+                                    </summary>
+                                    <form class="appointment-operation-form" method="post" action="{{ appointment.follow_up_no_show_url }}">
+                                        {% csrf_token %}
+                                        <div class="appointment-field">
+                                            <label for="no-show-note-{{ appointment.id }}">{% if is_arabic %}سبب عدم الحضور{% else %}No-show reason{% endif %}</label>
+                                            <textarea id="no-show-note-{{ appointment.id }}" name="note" maxlength="500" rows="3" required></textarea>
+                                        </div>
+                                        <button class="appointment-button appointment-button-danger appointment-button-small" type="submit">
+                                            {% if is_arabic %}تأكيد عدم الحضور{% else %}Confirm no-show{% endif %}
+                                        </button>
+                                    </form>
+                                </details>
+
+                                <a class="appointment-inline-link" href="{{ appointment.follow_up_detail_url }}">
+                                    {% if is_arabic %}فتح الموعد{% else %}Open appointment{% endif %}
+                                </a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td class="appointments-empty-cell" colspan="5">
+                                {% if is_arabic %}لا توجد مواعيد بحاجة إلى تصنيف حاليًا.{% else %}No appointments currently need classification.{% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj.has_other_pages %}
+            <nav class="appointments-pagination" aria-label="{% if is_arabic %}صفحات قائمة المتابعة{% else %}Follow-up queue pages{% endif %}">
+                {% if previous_page_url %}
+                    <a class="appointment-button appointment-button-secondary appointment-button-small" href="{{ previous_page_url }}">{% if is_arabic %}السابق{% else %}Previous{% endif %}</a>
+                {% endif %}
+                <span>{% if is_arabic %}صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}{% else %}Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}{% endif %}</span>
+                {% if next_page_url %}
+                    <a class="appointment-button appointment-button-secondary appointment-button-small" href="{{ next_page_url }}">{% if is_arabic %}التالي{% else %}Next{% endif %}</a>
+                {% endif %}
+            </nav>
+        {% endif %}
+    </section>
+
+    <section class="appointments-results appointment-history-panel" aria-labelledby="arrived-awaiting-completion-title">
+        <div class="appointments-section-heading">
+            <h2 id="arrived-awaiting-completion-title">{% if is_arabic %}وصلوا — بانتظار إكمال الزيارة{% else %}Arrived — Awaiting Completion{% endif %}</h2>
+            <span class="appointments-result-count">{{ arrived_appointments|length }}</span>
+        </div>
+
+        <div class="appointments-table-scroll" role="region" aria-label="{% if is_arabic %}مواعيد وصلت وبانتظار الإكمال{% else %}Arrived appointments awaiting completion{% endif %}" tabindex="0">
+            <table class="appointments-table appointment-history-table">
+                <thead>
+                    <tr>
+                        <th scope="col">{% if is_arabic %}التاريخ والوقت{% else %}Date and time{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}المريض{% else %}Patient{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</th>
+                        <th scope="col">{% if is_arabic %}الإجراءات{% else %}Actions{% endif %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for appointment in arrived_appointments %}
+                        <tr>
+                            <td><time datetime="{{ appointment.starts_at|date:'c' }}" dir="ltr">{{ appointment.starts_at|date:"Y-m-d H:i" }}</time></td>
+                            <td>{{ appointment.patient.full_name }}</td>
+                            <td>{{ appointment.follow_up_visit_type_label }}</td>
+                            <td>
+                                <form method="post" action="{{ appointment.follow_up_complete_url }}">
+                                    {% csrf_token %}
+                                    <button class="appointment-button appointment-button-primary appointment-button-small" type="submit">
+                                        {% if is_arabic %}إكمال الزيارة{% else %}Complete Visit{% endif %}
+                                    </button>
+                                </form>
+                                <a class="appointment-inline-link" href="{{ appointment.follow_up_detail_url }}">{% if is_arabic %}فتح الموعد{% else %}Open appointment{% endif %}</a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td class="appointments-empty-cell" colspan="4">{% if is_arabic %}لا توجد زيارات وصلت وبانتظار الإكمال.{% else %}No arrived visits are awaiting completion.{% endif %}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}
