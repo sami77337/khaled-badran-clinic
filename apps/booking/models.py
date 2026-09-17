@@ -5,6 +5,8 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from .message_template_validation import validate_appointment_message_template
+
 
 def default_appointment_reminder_offset():
     return timedelta(hours=3)
@@ -118,6 +120,54 @@ class Appointment(models.Model):
     def clean(self):
         if self.starts_at and self.ends_at and self.ends_at <= self.starts_at:
             raise ValidationError({"ends_at": "End time must be after start time."})
+
+
+class AppointmentMessageTemplate(models.Model):
+    """Owner-managed ready-message settings for post-classification contact.
+
+    Rows are intentionally opt-in and inactive by default. This feature does not
+    send messages; it only stores validated AR/EN templates for the later manual
+    compose workflow.
+    """
+
+    class Event(models.TextChoices):
+        ARRIVED = "arrived", "Arrived"
+        NO_SHOW = "no_show", "No-show"
+
+    event = models.CharField(max_length=20, choices=Event.choices, unique=True)
+    is_active = models.BooleanField(default=False)
+    text_ar = models.TextField(
+        blank=True,
+        max_length=2000,
+        validators=[validate_appointment_message_template],
+    )
+    text_en = models.TextField(
+        blank=True,
+        max_length=2000,
+        validators=[validate_appointment_message_template],
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="appointment_message_template_updates",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["event"]
+
+    def clean(self):
+        super().clean()
+        if self.is_active and (not self.text_ar.strip() or not self.text_en.strip()):
+            raise ValidationError(
+                "Active appointment message settings require both Arabic and English templates."
+            )
+
+    def __str__(self):
+        return f"Appointment message: {self.get_event_display()}"
 
 
 class AppointmentStatusHistory(models.Model):
