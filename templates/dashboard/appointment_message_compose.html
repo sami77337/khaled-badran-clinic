@@ -1,0 +1,58 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block dashboard_styles %}
+<link rel="stylesheet" href="{% static 'css/dashboard-appointments.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content appointments-content">
+  <header class="appointments-page-header">
+    <p class="appointments-eyebrow">{% if is_arabic %}تشغيل المواعيد{% else %}Appointment Operations{% endif %}</p>
+    <h1>{% if is_arabic %}رسالة بعد التصنيف{% else %}Post-classification Message{% endif %}</h1>
+    <p><strong>{{ appointment.patient.full_name }}</strong> · {{ event_label }}</p>
+    <p>{% if is_arabic %}فتح واتساب هنا لا يعني أن الرسالة تم إرسالها أو تسليمها.{% else %}Opening WhatsApp here does not mean the message was sent or delivered.{% endif %}</p>
+  </header>
+
+  {% if messages %}<div class="appointment-messages" role="status" aria-live="polite">{% for message in messages %}<p>{{ message }}</p>{% endfor %}</div>{% endif %}
+
+  <section class="appointments-results">
+    <div class="appointments-section-heading"><h2>{% if is_arabic %}اختر الإجراء{% else %}Choose an action{% endif %}</h2></div>
+
+    <div class="appointment-top-actions">
+      <a class="appointment-button appointment-button-secondary" href="{{ follow_up_url }}">{% if is_arabic %}بدون رسالة{% else %}No Message{% endif %}</a>
+    </div>
+
+    <div class="appointment-history-panel">
+      <h3>{% if is_arabic %}رسالة جاهزة{% else %}Ready Message{% endif %}</h3>
+      {% if ready_ar_url or ready_en_url %}
+        <p>{% if is_arabic %}تُفتح الرسالة في واتساب لتراجعها قبل الإرسال.{% else %}The message opens in WhatsApp for review before you send it.{% endif %}</p>
+        <div class="appointment-top-actions">
+          {% if ready_ar_url %}<a class="appointment-button appointment-button-primary" href="{{ ready_ar_url }}" target="_blank" rel="noopener">{% if is_arabic %}فتح الرسالة العربية{% else %}Open Arabic message{% endif %}</a>{% endif %}
+          {% if ready_en_url %}<a class="appointment-button appointment-button-primary" href="{{ ready_en_url }}" target="_blank" rel="noopener">{% if is_arabic %}فتح الرسالة الإنجليزية{% else %}Open English message{% endif %}</a>{% endif %}
+        </div>
+      {% else %}
+        <p>{% if is_arabic %}لا توجد رسالة جاهزة مفعلة لهذا الحدث.{% else %}No active ready message is configured for this event.{% endif %}</p>
+        <a class="appointment-inline-link" href="{{ settings_url }}">{% if is_arabic %}إعداد رسائل المواعيد{% else %}Configure Appointment Messages{% endif %}</a>
+      {% endif %}
+    </div>
+
+    <div class="appointment-history-panel">
+      <h3>{% if is_arabic %}رسالة مخصصة{% else %}Custom Message{% endif %}</h3>
+      <form class="appointment-operation-form" method="post" action="{{ compose_url }}">
+        {% csrf_token %}
+        <input type="hidden" name="event" value="{{ event }}">
+        <div class="appointment-field">
+          <label for="custom-message">{% if is_arabic %}نص الرسالة{% else %}Message text{% endif %}</label>
+          <textarea id="custom-message" name="custom_message" maxlength="2000" rows="6" required>{{ custom_message }}</textarea>
+        </div>
+        <button class="appointment-button appointment-button-primary" type="submit">{% if is_arabic %}فتح في واتساب{% else %}Open in WhatsApp{% endif %}</button>
+      </form>
+    </div>
+
+    {% if not whatsapp_available %}
+      <p class="appointments-help">{% if is_arabic %}لا يوجد رقم واتساب صالح لهذا الموعد، لذلك لن يمكن فتح رسالة واتساب حتى يتم تصحيح الرقم.{% else %}This appointment has no valid WhatsApp number, so WhatsApp compose is unavailable until the number is corrected.{% endif %}</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
