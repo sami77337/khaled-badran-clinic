@@ -2,7 +2,7 @@ from django.urls import path
 
 from apps.core import public_media
 
-from . import owner_views, review_views, views
+from . import appointment_closeout_views, owner_views, review_views, views
 
 
 urlpatterns = [
@@ -20,6 +20,26 @@ urlpatterns = [
     path("consultations/guests/attachments/<uuid:public_id>/", views.dashboard_consultation_attachment, {"guest": True}, name="dashboard_guest_consultation_attachment"),
     path("consultations/guests/audio-replies/<uuid:public_id>/", views.dashboard_consultation_audio_reply, {"guest": True}, name="dashboard_guest_consultation_audio_reply"),
     path("", views.dashboard_home, name="dashboard_home"),
+    path(
+        "appointments/follow-up/",
+        appointment_closeout_views.appointment_follow_up,
+        name="dashboard_appointment_follow_up",
+    ),
+    path(
+        "appointments/follow-up/<int:appointment_id>/arrived/",
+        appointment_closeout_views.appointment_follow_up_arrived,
+        name="dashboard_appointment_follow_up_arrived",
+    ),
+    path(
+        "appointments/follow-up/<int:appointment_id>/no-show/",
+        appointment_closeout_views.appointment_follow_up_no_show,
+        name="dashboard_appointment_follow_up_no_show",
+    ),
+    path(
+        "appointments/follow-up/<int:appointment_id>/complete/",
+        appointment_closeout_views.appointment_follow_up_complete,
+        name="dashboard_appointment_follow_up_complete",
+    ),
     path("consultations/", views.dashboard_consultation_list, name="dashboard_consultation_list"),
     path(
         "consultations/<uuid:public_id>/",
