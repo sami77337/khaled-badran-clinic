@@ -23,6 +23,9 @@
         <a class="appointment-button appointment-button-secondary" href="{{ staff_appointments_url }}">
             {% if is_arabic %}كل المواعيد{% else %}All appointments{% endif %}
         </a>
+        <a class="appointment-button appointment-button-secondary" href="{{ message_settings_url }}">
+            {% if is_arabic %}رسائل المواعيد{% else %}Appointment Messages{% endif %}
+        </a>
     </nav>
 
     {% if messages %}
@@ -138,6 +141,7 @@
                             <td>{{ appointment.patient.full_name }}</td>
                             <td>{{ appointment.follow_up_visit_type_label }}</td>
                             <td>
+                                <a class="appointment-button appointment-button-secondary appointment-button-small" href="{{ appointment.follow_up_message_url }}">{% if is_arabic %}رسالة{% else %}Message{% endif %}</a>
                                 <form method="post" action="{{ appointment.follow_up_complete_url }}">
                                     {% csrf_token %}
                                     <button class="appointment-button appointment-button-primary appointment-button-small" type="submit">
