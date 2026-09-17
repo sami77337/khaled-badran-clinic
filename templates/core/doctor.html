@@ -8,10 +8,11 @@
 {% block content %}
 {% load public_content %}
 {% doctor_public_content doctor.object language as editable_doctor %}
+{% doctor_photo_url doctor.object as doctor_photo %}
 <section class="doctor-page-hero" aria-labelledby="doctor-page-title">
     <div class="container doctor-page-hero-grid">
         <div class="doctor-page-portrait">
-            <img src="{% static 'img/doctor/dr-khaled-badran.png' %}" alt="{% if is_arabic %}{{ doctor.display_name_ar }}{% else %}{{ doctor.display_name_en }}{% endif %}">
+            <img src="{{ doctor_photo }}" alt="{% if is_arabic %}{{ doctor.display_name_ar }}{% else %}{{ doctor.display_name_en }}{% endif %}">
         </div>
         <div class="doctor-page-intro">
             <p class="eyebrow">{% public_text "doctor.profile_label" %}</p>
