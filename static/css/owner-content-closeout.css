@@ -1,0 +1,19 @@
+.owner-photo-preview {
+    display: grid;
+    gap: 0.7rem;
+    margin-block-end: 1rem;
+}
+
+.owner-photo-preview p {
+    margin: 0;
+}
+
+.owner-photo-preview img {
+    display: block;
+    width: min(100%, 14rem);
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+    object-position: center;
+    border: 1px solid var(--dashboard-line);
+    border-radius: var(--dashboard-radius);
+}
