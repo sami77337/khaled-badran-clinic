@@ -49,7 +49,7 @@ class DoctorPhotoContentManagerTests(TestCase):
         )
 
     def test_editor_is_multipart_and_shows_current_photo_preview(self):
-        response = self.client.get(self.edit_url)
+        response = self.client.get(self.edit_url + "?lang=en")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'enctype="multipart/form-data"')
         self.assertContains(response, "Replace doctor photo")
