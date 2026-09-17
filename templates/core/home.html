@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static public_showcase %}
+{% load static public_showcase doctor_content %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'css/public-closeout.css' %}">
@@ -12,6 +12,7 @@
 {% public_case_groups language 3 as public_case_teasers %}
 {% home_public_reviews 12 as public_reviews %}
 {% public_review_summary as review_summary %}
+{% doctor_photo_url doctor.object as doctor_photo %}
 <section class="home-hero" aria-labelledby="home-hero-title">
     <div class="container home-hero-grid">
         <div class="home-hero-copy">
@@ -60,7 +61,7 @@
     <div class="container home-doctor-grid">
         <div class="doctor-portrait-wrap">
             <div class="doctor-portrait-backdrop" aria-hidden="true"></div>
-            <img class="doctor-portrait" src="{% static 'img/doctor/dr-khaled-badran.png' %}" alt="{% if is_arabic %}د. خالد حسان بدران{% else %}Dr. Khaled Hassan Badran{% endif %}">
+            <img class="doctor-portrait" src="{{ doctor_photo }}" alt="{% if is_arabic %}{{ doctor.display_name_ar }}{% else %}{{ doctor.display_name_en }}{% endif %}">
         </div>
         <div class="home-doctor-copy">
             <p class="eyebrow">{% public_text "home.meet_doctor" %}</p>
