@@ -24,60 +24,49 @@ jobs:
           from pathlib import Path
 
           booking = Path("apps/booking/tests.py")
-          text = booking.read_text(encoding="utf-8")
-
-          old = '''    def test_no_show_works_from_confirmed(self):
-              operations.mark_no_show(self.appointment.id, actor=self.staff, note="Patient did not arrive.")
-          '''
-          new = '''    def test_no_show_works_from_confirmed(self):
-              self.appointment.starts_at = timezone.now() - timedelta(hours=1)
-              self.appointment.ends_at = self.appointment.starts_at + timedelta(minutes=30)
-              self.appointment.save(update_fields=["starts_at", "ends_at"])
-              operations.mark_no_show(self.appointment.id, actor=self.staff, note="Patient did not arrive.")
-          '''
-          assert old in text, "no-show success test pattern not found"
-          text = text.replace(old, new, 1)
-
-          old = '''    def test_no_show_creates_history_and_audit(self):
-              operations.mark_no_show(self.appointment.id, actor=self.staff, note="Patient did not arrive.")
-          '''
-          new = '''    def test_no_show_creates_history_and_audit(self):
-              self.appointment.starts_at = timezone.now() - timedelta(hours=1)
-              self.appointment.ends_at = self.appointment.starts_at + timedelta(minutes=30)
-              self.appointment.save(update_fields=["starts_at", "ends_at"])
-              operations.mark_no_show(self.appointment.id, actor=self.staff, note="Patient did not arrive.")
-          '''
-          assert old in text, "no-show audit test pattern not found"
-          text = text.replace(old, new, 1)
-
-          old = '''                "staff_appointment_no_show",
-                          self.create_appointment(starts_at=self.future_aware(days=6)),
-                          {"note": "Patient did not arrive."},
-                          Appointment.Status.NO_SHOW,
-          '''
-          new = '''                "staff_appointment_no_show",
-                          self.create_appointment(starts_at=timezone.now() - timedelta(hours=1)),
-                          {"note": "Patient did not arrive."},
-                          Appointment.Status.NO_SHOW,
-          '''
-          assert old in text, "staff no-show redirect test pattern not found"
-          text = text.replace(old, new, 1)
+          lines = booking.read_text(encoding="utf-8").splitlines()
+          targets = {
+              "def test_no_show_works_from_confirmed(self):",
+              "def test_no_show_creates_history_and_audit(self):",
+          }
+          found = set()
+          out = []
+          for line in lines:
+              out.append(line)
+              stripped = line.strip()
+              if stripped in targets:
+                  found.add(stripped)
+                  out.extend([
+                      "        self.appointment.starts_at = timezone.now() - timedelta(hours=1)",
+                      "        self.appointment.ends_at = self.appointment.starts_at + timedelta(minutes=30)",
+                      "        self.appointment.save(update_fields=[\"starts_at\", \"ends_at\"])",
+                  ])
+          assert found == targets, f"missing no-show test methods: {targets - found}"
+          text = "\n".join(out) + "\n"
+          old_target = "self.create_appointment(starts_at=self.future_aware(days=6))"
+          new_target = "self.create_appointment(starts_at=timezone.now() - timedelta(hours=1))"
+          assert text.count(old_target) == 1, "staff no-show future fixture was not unique"
+          text = text.replace(old_target, new_target, 1)
           booking.write_text(text, encoding="utf-8")
 
           dashboard = Path("apps/dashboard/tests.py")
-          text = dashboard.read_text(encoding="utf-8")
-          old = '''        # Dashboard chrome adds one constant query for the unread count and
-                  # latest ten notification items, plus two fixed permission lookups for
-                  # the doctor editor link. Appointment rows must add none.
-                  self.assertEqual(len(captured_queries), 9)
-          '''
-          new = '''        # Dashboard chrome adds fixed queries for notifications, permissions,
-                  # and the derived Needs Follow-up count. Appointment rows must add none.
-                  self.assertEqual(len(captured_queries), 10)
-          '''
-          assert old in text, "dashboard query-count test pattern not found"
-          text = text.replace(old, new, 1)
-          dashboard.write_text(text, encoding="utf-8")
+          lines = dashboard.read_text(encoding="utf-8").splitlines()
+          in_target = False
+          replaced = False
+          out = []
+          for line in lines:
+              stripped = line.strip()
+              if stripped == "def test_today_schedule_related_data_does_not_add_per_row_queries(self):":
+                  in_target = True
+              elif in_target and stripped.startswith("def test_"):
+                  in_target = False
+              if in_target and stripped == "self.assertEqual(len(captured_queries), 9)":
+                  out.append("        self.assertEqual(len(captured_queries), 10)")
+                  replaced = True
+              else:
+                  out.append(line)
+          assert replaced, "dashboard fixed query-count expectation not found"
+          dashboard.write_text("\n".join(out) + "\n", encoding="utf-8")
           PY
       - name: Commit regression-only updates
         shell: bash
