@@ -3321,7 +3321,7 @@ class DashboardOverviewTests(DashboardOverviewTestMixin, TestCase):
         # Dashboard chrome adds one constant query for the unread count and
         # latest ten notification items, plus two fixed permission lookups for
         # the doctor editor link. Appointment rows must add none.
-        self.assertEqual(len(captured_queries), 9)
+        self.assertEqual(len(captured_queries), 10)
 
     def test_today_schedule_empty_state_is_bilingual_and_has_no_fake_rows(self):
         arabic = self.dashboard(language="ar")

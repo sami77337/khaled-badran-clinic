@@ -2807,6 +2807,9 @@ class AppointmentOperationServiceTests(BookingTestDataMixin, TestCase):
             operations.cancel_appointment(self.appointment.id, actor=self.staff, note="Late correction.")
 
     def test_no_show_works_from_confirmed(self):
+        self.appointment.starts_at = timezone.now() - timedelta(hours=1)
+        self.appointment.ends_at = self.appointment.starts_at + timedelta(minutes=30)
+        self.appointment.save(update_fields=["starts_at", "ends_at"])
         operations.mark_no_show(self.appointment.id, actor=self.staff, note="Patient did not arrive.")
 
         self.appointment.refresh_from_db()
@@ -2817,6 +2820,9 @@ class AppointmentOperationServiceTests(BookingTestDataMixin, TestCase):
             operations.mark_no_show(self.appointment.id, actor=self.staff, note="")
 
     def test_no_show_creates_history_and_audit(self):
+        self.appointment.starts_at = timezone.now() - timedelta(hours=1)
+        self.appointment.ends_at = self.appointment.starts_at + timedelta(minutes=30)
+        self.appointment.save(update_fields=["starts_at", "ends_at"])
         operations.mark_no_show(self.appointment.id, actor=self.staff, note="Patient did not arrive.")
 
         self.assertTrue(
@@ -2895,7 +2901,7 @@ class StaffAppointmentViewWorkflowTests(BookingTestDataMixin, TestCase):
             ),
             (
                 "staff_appointment_no_show",
-                self.create_appointment(starts_at=self.future_aware(days=6)),
+                self.create_appointment(starts_at=timezone.now() - timedelta(hours=1)),
                 {"note": "Patient did not arrive."},
                 Appointment.Status.NO_SHOW,
             ),
