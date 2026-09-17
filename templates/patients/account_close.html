@@ -1,0 +1,58 @@
+{% extends "patients/portal_base.html" %}
+
+{% block patient_portal_content %}
+<div class="dashboard-content patient-page-content" data-patient-page="account-close">
+    <header class="patient-page-heading">
+        <div>
+            <p class="dashboard-eyebrow">{% if is_arabic %}حساب المريض{% else %}Patient Account{% endif %}</p>
+            <h1>{% if is_arabic %}إغلاق الحساب{% else %}Close Account{% endif %}</h1>
+        </div>
+        <a class="patient-secondary-action" href="{{ portal_account_url }}">
+            {% if is_arabic %}العودة للحساب{% else %}Back to Account{% endif %}
+        </a>
+    </header>
+
+    <section class="dashboard-card patient-form-card" aria-labelledby="patient-close-account-title">
+        <div class="dashboard-card-header">
+            <div>
+                <p class="dashboard-card-kicker">{% if is_arabic %}إجراء حساس{% else %}Sensitive Action{% endif %}</p>
+                <h2 id="patient-close-account-title">{% if is_arabic %}تأكيد إغلاق حساب البوابة{% else %}Confirm Portal Account Closure{% endif %}</h2>
+            </div>
+        </div>
+        <div class="patient-card-body">
+            <p class="muted">
+                {% if is_arabic %}
+                    سيؤدي هذا إلى إيقاف تسجيل الدخول إلى حسابك وإلغاء نشر تقييمك العام إن وجد. لن يتم حذف السجل الطبي أو المواعيد أو المعلومات التي يلزم على العيادة الاحتفاظ بها، وستبقى محفوظة وفق ضوابط الخصوصية والأمان.
+                {% else %}
+                    This disables sign-in to your account and unpublishes your public review, if any. Medical records, appointments, and information the clinic must retain are not deleted and remain protected under the clinic's privacy and security controls.
+                {% endif %}
+            </p>
+
+            <form class="patient-form" method="post" action="">
+                {% csrf_token %}
+                {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+                <div class="form-field">
+                    {{ form.current_password.label_tag }}
+                    {{ form.current_password }}
+                    {{ form.current_password.errors }}
+                </div>
+                <div class="form-field patient-checkbox-field">
+                    <label for="{{ form.confirm.id_for_label }}">
+                        {{ form.confirm }}
+                        <span>{{ form.confirm.label }}</span>
+                    </label>
+                    {{ form.confirm.errors }}
+                </div>
+                <div class="patient-form-actions">
+                    <button class="patient-primary-action" type="submit">
+                        {% if is_arabic %}إغلاق الحساب{% else %}Close Account{% endif %}
+                    </button>
+                    <a class="patient-secondary-action" href="{{ portal_account_url }}">
+                        {% if is_arabic %}إلغاء{% else %}Cancel{% endif %}
+                    </a>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}

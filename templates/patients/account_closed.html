@@ -1,0 +1,27 @@
+{% extends "auth/base.html" %}
+
+{% block content %}
+<section class="auth-page" aria-labelledby="account-closed-title">
+    <div class="auth-card">
+        <div class="auth-identity" aria-label="{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}">
+            <span class="auth-monogram" aria-hidden="true">{% include "partials/brand_mark.html" with fallback="KB" %}</span>
+            <span class="auth-clinic-name">{% if is_arabic %}{{ clinic.name_ar }}{% else %}{{ clinic.name_en }}{% endif %}</span>
+        </div>
+        <div class="auth-heading">
+            <h1 id="account-closed-title">{% if is_arabic %}تم إغلاق الحساب{% else %}Account Closed{% endif %}</h1>
+            <p>
+                {% if is_arabic %}
+                    تم إيقاف الوصول إلى حساب المريض. السجلات الطبية والمعلومات المطلوب الاحتفاظ بها لم تُحذف وستبقى محفوظة بأمان لدى العيادة.
+                {% else %}
+                    Patient portal access has been disabled. Medical records and information the clinic must retain were not deleted and remain securely stored.
+                {% endif %}
+            </p>
+        </div>
+        <div class="auth-patient-actions">
+            <a href="{% if is_arabic %}{% url 'home' %}{% else %}{% url 'home_en' %}{% endif %}">{% if is_arabic %}العودة للموقع{% else %}Back to website{% endif %}</a>
+            <span aria-hidden="true"></span>
+            <a href="{% if is_arabic %}{% url 'book' %}{% else %}{% url 'book_en' %}{% endif %}">{% if is_arabic %}حجز موعد{% else %}Book Appointment{% endif %}</a>
+        </div>
+    </div>
+</section>
+{% endblock %}
