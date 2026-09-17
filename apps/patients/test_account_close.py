@@ -43,7 +43,7 @@ class PatientAccountCloseTests(TestCase):
             {"current_password": "wrong-password", "confirm": "on"},
         )
         self.assertEqual(wrong.status_code, 200)
-        self.assertContains(wrong, "current password is incorrect", html=False)
+        self.assertContains(wrong, "The current password is incorrect.")
         self.user.refresh_from_db()
         self.assertTrue(self.user.is_active)
 
