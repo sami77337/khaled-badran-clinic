@@ -160,7 +160,7 @@
                 </form>
             {% endif %}
 
-            {% if appointment.status == "confirmed" or appointment.status == "rescheduled" %}
+            {% if can_mark_no_show %}
                 <form class="appointment-operation-form appointment-operation-danger" method="post" action="{{ operation_urls.no_show }}">
                     {% csrf_token %}
                     {{ no_show_form.non_field_errors }}
