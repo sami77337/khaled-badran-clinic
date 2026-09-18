@@ -26,8 +26,8 @@ class PatientAccountCloseTests(TestCase):
 
     def test_account_page_links_to_localized_close_workflow(self):
         cases = (
-            ("patient_portal_account", "patient_portal_account_close", "إغلاق الحساب"),
-            ("patient_portal_account_en", "patient_portal_account_close_en", "Close Account"),
+            ("patient_portal_account", "patient_portal_account_close", "إغلاق حساب البوابة"),
+            ("patient_portal_account_en", "patient_portal_account_close_en", "Close Portal Account"),
         )
         for account_route, close_route, label in cases:
             with self.subTest(account_route=account_route):
@@ -35,6 +35,14 @@ class PatientAccountCloseTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, reverse(close_route))
                 self.assertContains(response, label)
+
+    def test_account_page_explains_what_closure_does_and_retains(self):
+        arabic = self.client.get(reverse("patient_portal_account"))
+        english = self.client.get(reverse("patient_portal_account_en"))
+        self.assertContains(arabic, "لا يحذف السجل الطبي أو المواعيد")
+        self.assertContains(arabic, "يوقف تسجيل الدخول")
+        self.assertContains(english, "does not delete medical records, appointments")
+        self.assertContains(english, "disables sign-in")
 
     def test_close_requires_current_password_and_explicit_confirmation(self):
         url = reverse("patient_portal_account_close_en")

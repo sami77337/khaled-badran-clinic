@@ -167,6 +167,35 @@ def _appointment_cancellation_reference(appointment):
     return signing_dumps(appointment.pk, salt=_APPOINTMENT_CANCELLATION_SIGNING_SALT)
 
 
+def _patient_cancellation_unavailable_message(appointment, language, *, cutoff_minutes):
+    language = _language(language)
+    if appointment.status == Appointment.Status.CANCELLED:
+        return "هذا الموعد ملغي بالفعل." if language == "ar" else "This appointment is already cancelled."
+    if appointment.status in (
+        Appointment.Status.ARRIVED,
+        Appointment.Status.COMPLETED,
+        Appointment.Status.NO_SHOW,
+    ):
+        return (
+            "الإلغاء الإلكتروني غير متاح بعد تسجيل الوصول أو إكمال الزيارة أو تسجيل عدم الحضور. تواصل مع العيادة عند الحاجة."
+            if language == "ar"
+            else "Online cancellation is not available after arrival, completion, or a no-show is recorded. Contact the clinic if needed."
+        )
+    now = timezone.now()
+    if appointment.starts_at <= now:
+        return (
+            "الإلغاء الإلكتروني غير متاح لأن وقت الموعد بدأ أو انتهى. تواصل مع العيادة عند الحاجة."
+            if language == "ar"
+            else "Online cancellation is unavailable because the appointment time has started or passed. Contact the clinic if needed."
+        )
+    cutoff_hours = cutoff_minutes // 60
+    return (
+        f"الإلغاء الإلكتروني متاح حتى {cutoff_hours} ساعة قبل الموعد. انتهت مهلة الإلغاء لهذا الموعد؛ تواصل مع العيادة إذا احتجت للمساعدة."
+        if language == "ar"
+        else f"Online cancellation is available until {cutoff_hours} hours before the appointment. This appointment is inside that cutoff; contact the clinic if you need help."
+    )
+
+
 def _appointment_from_cancellation_reference(reference, user):
     try:
         appointment_id = signing_loads(
@@ -1426,6 +1455,11 @@ def portal_appointment_detail(request, public_token, language="ar"):
         patient__user=request.user,
     )
     cutoff_minutes = booking_services.get_booking_settings().patient_cancellation_cutoff_minutes
+    can_cancel_appointment = booking_operations.patient_can_cancel_appointment(
+        appointment,
+        request.user,
+        cutoff_minutes=cutoff_minutes,
+    )
     return render(
         request,
         "patients/appointment_detail.html",
@@ -1434,10 +1468,15 @@ def portal_appointment_detail(request, public_token, language="ar"):
             language,
             appointment=appointment,
             status_label=services.patient_status_label(appointment.status, language),
-            can_cancel_appointment=booking_operations.patient_can_cancel_appointment(
-                appointment,
-                request.user,
-                cutoff_minutes=cutoff_minutes,
+            can_cancel_appointment=can_cancel_appointment,
+            cancellation_unavailable_message=(
+                ""
+                if can_cancel_appointment
+                else _patient_cancellation_unavailable_message(
+                    appointment,
+                    language,
+                    cutoff_minutes=cutoff_minutes,
+                )
             ),
             appointment_cancel_url=_portal_url(
                 "patient_portal_appointment_cancel",

@@ -142,7 +142,7 @@ class ContentManagerTests(TestCase):
             **changes,
         }
 
-    def test_all_manager_routes_require_staff_and_permissions(self):
+    def test_all_manager_routes_require_staff_and_all_staff_are_allowed(self):
         urls = [
             reverse("dashboard_content"),
             reverse("dashboard_doctor_bio"),
@@ -150,40 +150,35 @@ class ContentManagerTests(TestCase):
             self.section_url("awards"),
             reverse("dashboard_public_copy", args=["home"]),
         ]
-        for staff_flag in (False, True):
-            user = get_user_model().objects.create_user(
-                username=f"synthetic-unauthorized-{staff_flag}", is_staff=staff_flag
-            )
-            self.client.force_login(user)
-            for url in urls:
-                for method in (self.client.get, self.client.post):
-                    expected = (
-                        405
-                        if staff_flag
-                        and method == self.client.post
-                        and url == reverse("dashboard_content")
-                        else 403
-                    )
-                    self.assertEqual(method(url).status_code, expected, url)
+
+        nonstaff = get_user_model().objects.create_user(
+            username="synthetic-nonstaff-content-user", is_staff=False
+        )
+        self.client.force_login(nonstaff)
+        for url in urls:
+            self.assertEqual(self.client.get(url).status_code, 403, url)
+
+        staff = get_user_model().objects.create_user(
+            username="synthetic-clinic-staff-editor", is_staff=True
+        )
+        self.client.force_login(staff)
+        for url in urls:
+            self.assertEqual(self.client.get(url).status_code, 200, url)
+        dashboard = self.client.get(reverse("dashboard_home"))
+        self.assertContains(dashboard, reverse("dashboard_content"))
+        self.assertContains(dashboard, "محتوى الموقع")
+
         self.client.logout()
         for url in urls:
             self.assertEqual(self.client.get(url).status_code, 302)
 
-    def test_model_permissions_apply_to_each_surface_and_creation(self):
+    def test_staff_without_model_permissions_can_edit_controlled_content(self):
         staff = get_user_model().objects.create_user(
             username="synthetic-limited-editor", is_staff=True
         )
-        staff.user_permissions.add(
-            Permission.objects.get(codename="view_doctorpagecontent")
-        )
         self.client.force_login(staff)
+
         self.assertEqual(self.client.get(reverse("dashboard_content")).status_code, 200)
-        self.assertEqual(
-            self.client.post(reverse("dashboard_doctor_bio"), {}).status_code, 403
-        )
-        staff.user_permissions.add(
-            Permission.objects.get(codename="add_doctorpagecontent")
-        )
         self.assertEqual(
             self.client.post(
                 reverse("dashboard_doctor_bio"),
@@ -192,23 +187,25 @@ class ContentManagerTests(TestCase):
             302,
         )
         self.assertEqual(
-            self.client.post(reverse("dashboard_doctor_bio"), {}).status_code, 403
-        )
-        staff.user_permissions.add(
-            Permission.objects.get(codename="change_doctorpagecontent")
-        )
-        self.assertEqual(
             self.client.post(
-                reverse("dashboard_doctor_bio"),
-                {"professional_bio_en": "Updated synthetic biography"},
+                self.section_url("awards"),
+                self.section_data(content_en="Synthetic staff-managed award"),
             ).status_code,
             302,
         )
         self.assertEqual(
             self.client.post(
-                self.section_url("awards"), self.section_data()
+                reverse("dashboard_public_copy", args=["services"]),
+                {"services_headline_en": "Synthetic staff-managed headline"},
             ).status_code,
-            403,
+            302,
+        )
+
+        self.assertTrue(
+            AuditLog.objects.filter(
+                user=staff,
+                metadata__event="public_content_saved",
+            ).exists()
         )
 
     def test_no_rows_needed_for_defaults_and_get_never_creates_content(self):
