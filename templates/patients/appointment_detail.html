@@ -76,6 +76,8 @@
             </div>
             {% if can_cancel_appointment %}
             <p class="muted">{% if is_arabic %}يمكن الإلغاء حتى {{ patient_cancellation_cutoff_hours }} ساعة قبل الموعد.{% else %}Cancellation is available until {{ patient_cancellation_cutoff_hours }} hours before the appointment.{% endif %}</p>
+            {% elif cancellation_unavailable_message %}
+            <p class="muted" role="note">{{ cancellation_unavailable_message }}</p>
             {% endif %}
         </div>
     </section>
