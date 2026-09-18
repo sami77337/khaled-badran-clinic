@@ -433,18 +433,24 @@ def appointment_message_compose(request, appointment_id):
         else:
             return redirect(_whatsapp_compose_url(phone, custom_message))
 
-    ready_ar = appointment_messages.render_ready_message(
-        appointment,
-        event=event,
-        language="ar",
-        clinic_phone=APPROVED_CLINIC_PHONE["display"],
-    )
-    ready_en = appointment_messages.render_ready_message(
-        appointment,
-        event=event,
-        language="en",
-        clinic_phone=APPROVED_CLINIC_PHONE["display"],
-    )
+    try:
+        ready_ar = appointment_messages.render_ready_message(
+            appointment,
+            event=event,
+            language="ar",
+            clinic_phone=APPROVED_CLINIC_PHONE["display"],
+        )
+        ready_en = appointment_messages.render_ready_message(
+            appointment,
+            event=event,
+            language="en",
+            clinic_phone=APPROVED_CLINIC_PHONE["display"],
+        )
+    except ValidationError:
+        # Stored rows are validated on the supported settings path. Fail closed
+        # instead of returning a 500 if legacy/manual database edits bypassed it.
+        ready_ar = ""
+        ready_en = ""
     event_label = (
         ("تم تسجيل الوصول" if event == AppointmentMessageTemplate.Event.ARRIVED else "لم يحضر")
         if language == "ar"
