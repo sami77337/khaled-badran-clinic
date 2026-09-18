@@ -55,8 +55,10 @@ def _context(request, title, **extra):
 
 
 def _allowed(user, model, instance=None):
-    action = "change" if instance and instance.pk else "add"
-    return user.has_perm(f"core.{action}_{model._meta.model_name}")
+    # Owner-approved clinic rule: authenticated staff (doctor and clinic team)
+    # share access to the controlled Website Content Manager. Public/patient
+    # users remain excluded by the staff boundary.
+    return bool(user.is_authenticated and user.is_staff)
 
 
 def _require(user, model, instance=None):
@@ -115,13 +117,6 @@ def password_change(request):
 @_staff_required
 @require_GET
 def content_index(request):
-    models = (DoctorPageContent, DoctorPageSection, PublicSiteContent)
-    if not any(
-        request.user.has_perm(f"core.{action}_{model._meta.model_name}")
-        for model in models
-        for action in ("view", "add", "change")
-    ):
-        raise PermissionDenied
     language = _dashboard_language(request)
     doctor = _active_doctor()
     legacy = DoctorPageContent.objects.filter(doctor=doctor).first() if doctor else None
@@ -168,11 +163,7 @@ def content_index(request):
                     "url": _url(request, "dashboard_public_copy", page=page),
                 }
                 for page, labels in PAGE_LABELS.items()
-            ]
-            if request.user.has_perms(
-                ("core.add_publicsitecontent", "core.change_publicsitecontent")
-            )
-            else [],
+            ],
         ),
     )
 
@@ -297,10 +288,6 @@ def doctor_section(request, section_key=None):
 def public_copy(request, page):
     if page not in PAGE_LABELS:
         raise Http404
-    if not request.user.has_perms(
-        ("core.add_publicsitecontent", "core.change_publicsitecontent")
-    ):
-        raise PermissionDenied
     language = _dashboard_language(request)
     overrides = {
         row.key: row
