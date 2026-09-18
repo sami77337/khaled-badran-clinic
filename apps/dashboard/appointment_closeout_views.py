@@ -10,6 +10,9 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 
 from apps.booking import appointment_messages, operations
 from apps.booking.forms import MarkNoShowForm
+from apps.booking.message_template_validation import (
+    validate_appointment_message_template,
+)
 from apps.booking.models import Appointment, AppointmentMessageTemplate
 from apps.core.views import APPROVED_CLINIC_PHONE
 
@@ -105,8 +108,9 @@ def _preview_template(text, *, language):
         "clinic_phone": APPROVED_CLINIC_PHONE["display"],
     }
     try:
+        validate_appointment_message_template(text)
         return text.format(**values)
-    except (KeyError, ValueError, IndexError):
+    except (ValidationError, KeyError, ValueError, IndexError):
         return ""
 
 
@@ -124,7 +128,9 @@ def _decorate_appointment(appointment, language):
         else ("غير محدد" if language == "ar" else "Not specified")
     )
     appointment.follow_up_detail_url = _appointment_detail_url(appointment.id, language)
-    appointment.follow_up_patient_url = _patient_record_url(appointment.patient_id, language)
+    appointment.follow_up_patient_url = _patient_record_url(
+        appointment.patient_id, language
+    )
     appointment.follow_up_arrived_url = _operation_url(
         "dashboard_appointment_follow_up_arrived",
         appointment.id,
@@ -233,9 +239,17 @@ def _message_setting_rows(language, *, override=None):
             text_ar = override["text_ar"]
             text_en = override["text_en"]
         label = (
-            ("بعد تسجيل الوصول" if event == AppointmentMessageTemplate.Event.ARRIVED else "بعد عدم الحضور")
+            (
+                "بعد تسجيل الوصول"
+                if event == AppointmentMessageTemplate.Event.ARRIVED
+                else "بعد عدم الحضور"
+            )
             if language == "ar"
-            else ("After Arrived" if event == AppointmentMessageTemplate.Event.ARRIVED else "After No-show")
+            else (
+                "After Arrived"
+                if event == AppointmentMessageTemplate.Event.ARRIVED
+                else "After No-show"
+            )
         )
         rows.append(
             {
@@ -274,7 +288,7 @@ def appointment_message_settings(request):
                 text_en=override["text_en"],
                 actor=request.user,
             )
-        except ValidationError as exc:
+        except ValidationError:
             messages.error(
                 request,
                 "تعذر حفظ الإعدادات. تحقق من النصوص والمتغيرات المسموحة."
@@ -301,7 +315,9 @@ def appointment_message_settings(request):
     context.update(
         {
             "page_key": "appointment_message_settings",
-            "page_title": "رسائل المواعيد" if language == "ar" else "Appointment Messages",
+            "page_title": "رسائل المواعيد"
+            if language == "ar"
+            else "Appointment Messages",
             "canonical_url": request.build_absolute_uri(settings_url),
             "dashboard_language_switch_url": _settings_url(alternate_language),
             "active_dashboard_nav": "appointments",
@@ -334,9 +350,7 @@ def appointment_follow_up_arrived(request, appointment_id):
         return _operation_failed(request, language)
     messages.success(
         request,
-        "تم تسجيل وصول المريض."
-        if language == "ar"
-        else "Appointment marked arrived.",
+        "تم تسجيل وصول المريض." if language == "ar" else "Appointment marked arrived.",
     )
     return redirect(
         _compose_url(
@@ -452,9 +466,17 @@ def appointment_message_compose(request, appointment_id):
         ready_ar = ""
         ready_en = ""
     event_label = (
-        ("تم تسجيل الوصول" if event == AppointmentMessageTemplate.Event.ARRIVED else "لم يحضر")
+        (
+            "تم تسجيل الوصول"
+            if event == AppointmentMessageTemplate.Event.ARRIVED
+            else "لم يحضر"
+        )
         if language == "ar"
-        else ("Arrived" if event == AppointmentMessageTemplate.Event.ARRIVED else "No-show")
+        else (
+            "Arrived"
+            if event == AppointmentMessageTemplate.Event.ARRIVED
+            else "No-show"
+        )
     )
 
     context = _dashboard_home_context(
@@ -467,7 +489,9 @@ def appointment_message_compose(request, appointment_id):
     context.update(
         {
             "page_key": "appointment_message_compose",
-            "page_title": "رسالة بعد التصنيف" if language == "ar" else "Post-classification Message",
+            "page_title": "رسالة بعد التصنيف"
+            if language == "ar"
+            else "Post-classification Message",
             "canonical_url": request.build_absolute_uri(compose_url),
             "dashboard_language_switch_url": _compose_url(
                 appointment.id,
@@ -501,8 +525,6 @@ def appointment_follow_up_complete(request, appointment_id):
         return _operation_failed(request, language)
     messages.success(
         request,
-        "تم تسجيل إكمال الزيارة."
-        if language == "ar"
-        else "Visit marked complete.",
+        "تم تسجيل إكمال الزيارة." if language == "ar" else "Visit marked complete.",
     )
     return redirect(_queue_url(language))

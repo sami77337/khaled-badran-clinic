@@ -4,7 +4,10 @@ from django.utils import timezone
 
 from apps.core.models import AuditLog
 
-from .message_template_validation import ALLOWED_APPOINTMENT_MESSAGE_PLACEHOLDERS
+from .message_template_validation import (
+    ALLOWED_APPOINTMENT_MESSAGE_PLACEHOLDERS,
+    validate_appointment_message_template,
+)
 from .models import AppointmentMessageTemplate
 
 
@@ -36,7 +39,9 @@ def save_appointment_message_template(
     setting.text_ar = (text_ar or "").strip()
     setting.text_en = (text_en or "").strip()
     setting.updated_by = (
-        actor if actor is not None and getattr(actor, "is_authenticated", False) else None
+        actor
+        if actor is not None and getattr(actor, "is_authenticated", False)
+        else None
     )
     setting.full_clean()
     setting.save()
@@ -80,6 +85,7 @@ def render_ready_message(appointment, *, event, language, clinic_phone):
     template = get_ready_message_template(event, language)
     if not template:
         return ""
+    validate_appointment_message_template(template)
     starts_at = timezone.localtime(appointment.starts_at)
     values = {
         "patient_name": appointment.patient.full_name,
@@ -92,7 +98,9 @@ def render_ready_message(appointment, *, event, language, clinic_phone):
     except (KeyError, ValueError, IndexError) as exc:
         # Stored templates are validated before save. Fail closed if stale or
         # manually-corrupted data bypasses model validation.
-        raise ValidationError("Stored appointment message template is invalid.") from exc
+        raise ValidationError(
+            "Stored appointment message template is invalid."
+        ) from exc
 
 
 __all__ = [

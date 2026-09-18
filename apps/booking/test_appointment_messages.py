@@ -56,25 +56,41 @@ class AppointmentMessageBackendTests(TestCase):
             status=Appointment.Status.ARRIVED,
         )
 
-    def test_no_unapproved_default_message_exists(self):
-        self.assertEqual(AppointmentMessageTemplate.objects.count(), 0)
-        self.assertEqual(
-            get_ready_message_template(AppointmentMessageTemplate.Event.ARRIVED, "ar"),
-            "",
-        )
+    def test_approved_defaults_are_ready_in_both_languages(self):
+        self.assertEqual(AppointmentMessageTemplate.objects.count(), 2)
+        for setting in AppointmentMessageTemplate.objects.all():
+            self.assertTrue(setting.is_active)
+            for language in ("ar", "en"):
+                with self.subTest(event=setting.event, language=language):
+                    self.assertEqual(
+                        get_ready_message_template(setting.event, language),
+                        getattr(setting, f"text_{language}"),
+                    )
+                    self.assertTrue(getattr(setting, f"text_{language}"))
 
     def test_template_validation_accepts_only_allowlisted_placeholders(self):
         validate_appointment_message_template(
             "Hello {patient_name}, {appointment_date} {appointment_time} {clinic_phone}"
         )
-        with self.assertRaises(ValidationError):
-            validate_appointment_message_template("Hello {unknown_value}")
-        with self.assertRaises(ValidationError):
-            validate_appointment_message_template("Hello {patient_name!r}")
-        with self.assertRaises(ValidationError):
-            validate_appointment_message_template("Hello {patient_name")
+        for invalid in (
+            "{unknown_value}",
+            "{patient_name!r}",
+            "{patient_name!s}",
+            "{patient_name:}",
+            "{patient_name:>20}",
+            "{patient_name:{clinic_phone}}",
+            "{patient_name.upper}",
+            "{patient_name[0]}",
+            "{patient_name",
+            "patient_name}",
+            "{}",
+            "{{patient_name}}",
+        ):
+            with self.subTest(template=invalid), self.assertRaises(ValidationError):
+                validate_appointment_message_template(invalid)
 
     def test_active_setting_requires_both_languages(self):
+        original = list(AppointmentMessageTemplate.objects.values())
         with self.assertRaises(ValidationError):
             save_appointment_message_template(
                 event=AppointmentMessageTemplate.Event.ARRIVED,
@@ -83,7 +99,7 @@ class AppointmentMessageBackendTests(TestCase):
                 text_en="",
                 actor=self.staff,
             )
-        self.assertFalse(AppointmentMessageTemplate.objects.exists())
+        self.assertEqual(list(AppointmentMessageTemplate.objects.values()), original)
 
     def test_save_is_audited_without_copying_template_text_into_audit_metadata(self):
         setting = save_appointment_message_template(
@@ -98,12 +114,19 @@ class AppointmentMessageBackendTests(TestCase):
             model_name="AppointmentMessageTemplate",
             object_id=str(setting.pk),
         )
-        self.assertEqual(audit.metadata["event"], AppointmentMessageTemplate.Event.NO_SHOW)
+        self.assertEqual(
+            audit.metadata["event"], AppointmentMessageTemplate.Event.NO_SHOW
+        )
         self.assertFalse(audit.metadata["is_active"])
         self.assertNotIn("text_ar", audit.metadata)
         self.assertNotIn("text_en", audit.metadata)
+        self.assertEqual(audit.user, self.staff)
+        self.assertEqual(setting.updated_by, self.staff)
+        self.assertEqual(set(audit.metadata), {"event", "is_active", "changed_fields"})
 
-    def test_ready_message_renders_allowed_values_without_sending_or_mutating_appointment(self):
+    def test_ready_message_renders_allowed_values_without_sending_or_mutating_appointment(
+        self,
+    ):
         save_appointment_message_template(
             event=AppointmentMessageTemplate.Event.ARRIVED,
             is_active=True,

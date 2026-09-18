@@ -1,4 +1,4 @@
-from string import Formatter
+import re
 
 from django.core.exceptions import ValidationError
 
@@ -9,25 +9,17 @@ ALLOWED_APPOINTMENT_MESSAGE_PLACEHOLDERS = (
     "appointment_time",
     "clinic_phone",
 )
-_ALLOWED_PLACEHOLDER_SET = frozenset(ALLOWED_APPOINTMENT_MESSAGE_PLACEHOLDERS)
+_ALLOWED_PLACEHOLDER_PATTERN = re.compile(
+    r"\{(?:" + "|".join(ALLOWED_APPOINTMENT_MESSAGE_PLACEHOLDERS) + r")\}"
+)
 
 
 def validate_appointment_message_template(value):
     """Allow plain text plus a small, explicit placeholder vocabulary."""
     if not value:
         return
-    try:
-        parts = Formatter().parse(value)
-        for _literal, field_name, format_spec, conversion in parts:
-            if field_name is None:
-                continue
-            if (
-                field_name not in _ALLOWED_PLACEHOLDER_SET
-                or format_spec
-                or conversion
-            ):
-                raise ValidationError(
-                    "Unsupported appointment message placeholder or formatting syntax."
-                )
-    except (ValueError, IndexError) as exc:
-        raise ValidationError("Invalid appointment message template syntax.") from exc
+    remainder = _ALLOWED_PLACEHOLDER_PATTERN.sub("", value)
+    if "{" in remainder or "}" in remainder:
+        raise ValidationError(
+            "Unsupported appointment message placeholder or formatting syntax."
+        )

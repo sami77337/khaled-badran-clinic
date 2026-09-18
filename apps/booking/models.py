@@ -125,9 +125,9 @@ class Appointment(models.Model):
 class AppointmentMessageTemplate(models.Model):
     """Owner-managed ready-message settings for post-classification contact.
 
-    Rows are intentionally opt-in and inactive by default. This feature does not
-    send messages; it only stores validated AR/EN templates for the later manual
-    compose workflow.
+    Owner-approved defaults are seeded by data migration. Staff may edit or
+    disable them. New blank rows remain inactive until explicitly configured;
+    templates only support manual compose and never send messages.
     """
 
     class Event(models.TextChoices):
