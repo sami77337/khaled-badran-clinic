@@ -271,6 +271,27 @@ class AppointmentOperationsCloseoutTests(TestCase):
         self.assertEqual(parsed.path, "/962791234567")
         self.assertEqual(parse_qs(parsed.query)["text"], ["Hello Closeout Patient"])
 
+    def test_compose_fails_closed_when_stored_ready_template_is_corrupt(self):
+        AppointmentMessageTemplate.objects.create(
+            event=AppointmentMessageTemplate.Event.ARRIVED,
+            is_active=True,
+            text_ar="{broken",
+            text_en="{broken",
+        )
+        appointment = self.appointment(-30, status=Appointment.Status.ARRIVED)
+        self.client.force_login(self.staff)
+        url = reverse(
+            "dashboard_appointment_message_compose",
+            kwargs={"appointment_id": appointment.id},
+        )
+
+        response = self.client.get(f"{url}?event=arrived&lang=en")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["ready_ar_url"], "")
+        self.assertEqual(response.context["ready_en_url"], "")
+        self.assertContains(response, "No active ready message is configured for this event.")
+
     def test_custom_message_does_not_change_ready_template(self):
         setting = AppointmentMessageTemplate.objects.create(
             event=AppointmentMessageTemplate.Event.ARRIVED,
