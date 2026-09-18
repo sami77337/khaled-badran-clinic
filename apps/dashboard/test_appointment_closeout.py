@@ -332,3 +332,29 @@ class AppointmentOperationsCloseoutTests(TestCase):
             self.client.get(f"{mismatch_url}?event=arrived").status_code,
             404,
         )
+
+
+    def test_staff_detail_hides_no_show_before_start_and_shows_after_start(self):
+        future = self.appointment(60, status=Appointment.Status.CONFIRMED)
+        past = self.appointment(-60, status=Appointment.Status.CONFIRMED)
+        self.client.force_login(self.staff)
+
+        future_response = self.client.get(
+            reverse("staff_appointment_detail", kwargs={"appointment_id": future.id})
+        )
+        past_response = self.client.get(
+            reverse("staff_appointment_detail", kwargs={"appointment_id": past.id})
+        )
+
+        self.assertEqual(future_response.status_code, 200)
+        self.assertEqual(past_response.status_code, 200)
+        self.assertFalse(future_response.context["can_mark_no_show"])
+        self.assertTrue(past_response.context["can_mark_no_show"])
+        self.assertNotContains(
+            future_response,
+            reverse("staff_appointment_no_show", kwargs={"appointment_id": future.id}),
+        )
+        self.assertContains(
+            past_response,
+            reverse("staff_appointment_no_show", kwargs={"appointment_id": past.id}),
+        )
