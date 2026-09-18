@@ -77,9 +77,16 @@
                 </a>
                 {% endif %}
                 <a class="dashboard-action-link" href="{% if is_arabic %}{% url 'patient_portal_account_close' %}{% else %}{% url 'patient_portal_account_close_en' %}{% endif %}">
-                    <span>{% if is_arabic %}إغلاق الحساب{% else %}Close Account{% endif %}</span>
+                    <span>{% if is_arabic %}إغلاق حساب البوابة{% else %}Close Portal Account{% endif %}</span>
                     <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
                 </a>
+                <p class="muted">
+                    {% if is_arabic %}
+                        إغلاق الحساب يوقف تسجيل الدخول ويُلغي نشر تقييمك العام إن وجد. لا يحذف السجل الطبي أو المواعيد أو المعلومات التي يجب على العيادة الاحتفاظ بها.
+                    {% else %}
+                        Closing the account disables sign-in and unpublishes your public review, if any. It does not delete medical records, appointments, or information the clinic must retain.
+                    {% endif %}
+                </p>
             </div>
         </section>
     </div>
