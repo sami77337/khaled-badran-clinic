@@ -3322,7 +3322,7 @@ class DashboardOverviewTests(DashboardOverviewTestMixin, TestCase):
         # and latest notification items. Website Content and Patient Reviews
         # are staff-bound directly, so there are no model-permission lookups.
         # Appointment rows must add no per-row queries.
-        self.assertEqual(len(captured_queries), 7)
+        self.assertEqual(len(captured_queries), 8)
 
     def test_today_schedule_empty_state_is_bilingual_and_has_no_fake_rows(self):
         arabic = self.dashboard(language="ar")

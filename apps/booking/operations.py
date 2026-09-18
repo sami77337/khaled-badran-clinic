@@ -44,6 +44,39 @@ def staff_appointment_queryset():
     return Appointment.objects.select_related("doctor", "patient", "visit_type")
 
 
+def needs_classification_queryset(*, now=None):
+    """Return the derived operational queue without mutating appointment status."""
+    now = now or timezone.now()
+    return staff_appointment_queryset().filter(
+        starts_at__lt=now,
+        status__in=(
+            Appointment.Status.CONFIRMED,
+            Appointment.Status.RESCHEDULED,
+        ),
+    )
+
+
+def appointment_needs_classification(appointment, *, now=None):
+    now = now or timezone.now()
+    return (
+        appointment.starts_at < now
+        and appointment.status in NO_SHOW_ALLOWED_FROM
+    )
+
+
+def can_mark_arrived(appointment):
+    return appointment.status in ARRIVAL_ALLOWED_FROM
+
+
+def can_mark_completed(appointment):
+    return appointment.status == Appointment.Status.ARRIVED
+
+
+def can_mark_no_show(appointment, *, now=None):
+    now = now or timezone.now()
+    return appointment.status in NO_SHOW_ALLOWED_FROM and appointment.starts_at <= now
+
+
 def get_staff_appointment(appointment_id, *, for_update=False):
     queryset = staff_appointment_queryset()
     if for_update:
@@ -202,10 +235,13 @@ def mark_completed(appointment_id, *, actor=None, note=""):
 
 
 @transaction.atomic
-def mark_no_show(appointment_id, *, note, actor=None):
+def mark_no_show(appointment_id, *, note, actor=None, now=None):
     note = _clean_required_note(note, "No-show note is required.")
     appointment = get_staff_appointment(appointment_id, for_update=True)
     _assert_transition(appointment, NO_SHOW_ALLOWED_FROM, "No-show")
+    now = now or timezone.now()
+    if appointment.starts_at > now:
+        raise ValidationError("No-show cannot be marked before the appointment start time.")
     return _save_status_change(
         appointment,
         new_status=Appointment.Status.NO_SHOW,
