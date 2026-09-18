@@ -4,7 +4,6 @@ from urllib.parse import urlencode
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
@@ -18,13 +17,11 @@ from .views import _dashboard_home_context, _dashboard_language, _staff_required
 
 
 def _review_permission(*permissions):
+    # Owner-approved clinic rule: review moderation is an operational staff
+    # responsibility for both the doctor and clinic team. The existing staff
+    # boundary, CSRF checks, optimistic version token, and AuditLog remain.
     def decorate(view):
-        @wraps(view)
-        def permitted(request, *args, **kwargs):
-            if not any(request.user.has_perm(f"core.{permission}_publicreview") for permission in permissions):
-                return HttpResponseForbidden()
-            return view(request, *args, **kwargs)
-        return _staff_required(permitted)
+        return _staff_required(view)
     return decorate
 
 

@@ -202,27 +202,48 @@ class DashboardPatientReviewTests(TestCase):
                 self.assertNotIn(self.review.body, response.content.decode())
             self.assertEqual(self.snapshot(), before)
 
-    def test_model_permissions_separate_read_change_and_delete(self):
-        for permission in (None, "view", "change", "delete"):
-            user = get_user_model().objects.create_user(username=f"synthetic-{permission}-staff", is_staff=True)
-            if permission:
-                user.user_permissions.add(Permission.objects.get(content_type__app_label="core", codename=f"{permission}_publicreview"))
-            client = Client()
-            client.force_login(user)
-            response = client.get(self.list_url)
-            self.assertEqual(response.status_code, 200 if permission else 403)
-            home = client.get(reverse("dashboard_home"))
-            (self.assertContains if permission else self.assertNotContains)(home, reverse("dashboard_patient_reviews"))
-            if permission:
-                (self.assertContains if permission == "change" else self.assertNotContains)(response, 'name="moderation_action"')
-                (self.assertContains if permission == "delete" else self.assertNotContains)(response, self.delete_url)
-            before = self.snapshot()
-            self.assertEqual(client.get(self.delete_url).status_code, 200 if permission == "delete" else 403)
-            if permission != "change":
-                self.assertEqual(client.post(self.visibility_url, self.action_data()).status_code, 403)
-            if permission != "delete":
-                self.assertEqual(client.post(self.delete_url, self.delete_data()).status_code, 403)
-            self.assertEqual(self.snapshot(), before)
+    def test_all_staff_can_read_change_and_delete_without_model_permissions(self):
+        staff = get_user_model().objects.create_user(
+            username="synthetic-clinic-staff-reviewer", is_staff=True
+        )
+        client = Client()
+        client.force_login(staff)
+
+        response = client.get(self.list_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="moderation_action"')
+        self.assertContains(response, self.delete_url)
+
+        home = client.get(reverse("dashboard_home"))
+        self.assertContains(home, reverse("dashboard_patient_reviews"))
+
+        item = next(
+            item for item in response.context["review_items"]
+            if item["review"].pk == self.review.pk
+        )
+        visibility_data = {
+            "review_version": item["form"]["review_version"].value(),
+            "moderation_action": item["action"],
+        }
+        self.assertEqual(
+            client.post(self.visibility_url, visibility_data).status_code,
+            302,
+        )
+
+        delete_page = client.get(self.delete_url)
+        self.assertEqual(delete_page.status_code, 200)
+        delete_data = {
+            "review_version": delete_page.context["form"]["review_version"].value(),
+            "post": "yes",
+        }
+        self.assertEqual(client.post(self.delete_url, delete_data).status_code, 302)
+        self.assertFalse(PublicReview.objects.filter(pk=self.review.pk).exists())
+        self.assertTrue(
+            AuditLog.objects.filter(
+                user=staff,
+                metadata__action="patient_review_delete",
+            ).exists()
+        )
 
     def test_csrf_is_required_for_visibility_and_delete(self):
         client = Client(enforce_csrf_checks=True)

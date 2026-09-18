@@ -3318,10 +3318,11 @@ class DashboardOverviewTests(DashboardOverviewTestMixin, TestCase):
             response = dashboard_views.dashboard_home(request)
 
         self.assertEqual(response.status_code, 200)
-        # Dashboard chrome adds one constant query for the unread count and
-        # latest ten notification items, plus two fixed permission lookups for
-        # the doctor editor link. Appointment rows must add none.
-        self.assertEqual(len(captured_queries), 9)
+        # Dashboard chrome keeps a constant query budget for the unread count
+        # and latest notification items. Website Content and Patient Reviews
+        # are staff-bound directly, so there are no model-permission lookups.
+        # Appointment rows must add no per-row queries.
+        self.assertEqual(len(captured_queries), 7)
 
     def test_today_schedule_empty_state_is_bilingual_and_has_no_fake_rows(self):
         arabic = self.dashboard(language="ar")
@@ -3394,11 +3395,13 @@ class DashboardOverviewTests(DashboardOverviewTestMixin, TestCase):
         self.assertContains(response, f'href="{reverse("staff_appointment_list")}"')
         self.assertContains(response, f'href="{reverse("dashboard_patient_list")}"')
         self.assertContains(response, f'href="{reverse("dashboard_scheduling")}?lang=en"')
+        self.assertContains(response, f'href="{reverse("dashboard_content")}?lang=en"')
+        self.assertContains(response, f'href="{reverse("dashboard_patient_reviews")}?lang=en"')
+        self.assertContains(response, "Website Content")
+        self.assertContains(response, "Patient Reviews")
         for unavailable_label in (
             "Medical Records",
             "Clinic Settings",
-            "Content",
-            "Reviews",
             "New Patient",
             "Edit Clinic Schedule",
             "Update Website Content",
@@ -4077,8 +4080,6 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
             "Drag",
             "Medical Records",
             "Clinic Settings",
-            "Content",
-            "Reviews",
         ):
             self.assertNotContains(response, prohibited_label)
 
