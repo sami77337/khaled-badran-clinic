@@ -840,6 +840,7 @@ def _staff_detail_context(request, appointment, **extra):
             auto_id="id_reschedule_%s",
         ),
         no_show_form=MarkNoShowForm(language=language, auto_id="id_no_show_%s"),
+        can_mark_no_show=operations.can_mark_no_show(appointment),
         arrived_form=StatusNoteForm(language=language, auto_id="id_arrived_%s"),
         complete_form=StatusNoteForm(language=language, auto_id="id_complete_%s"),
         page_title=(
