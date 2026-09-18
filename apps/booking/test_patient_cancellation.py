@@ -216,6 +216,47 @@ class PatientAppointmentCancellationTests(TestCase):
         appointment.refresh_from_db()
         self.assertEqual(appointment.status, Appointment.Status.CONFIRMED)
 
+    def test_detail_explains_when_online_cancellation_is_unavailable(self):
+        self.client.force_login(self.user)
+
+        inside_cutoff = self.create_appointment(
+            starts_at=timezone.now() + timedelta(hours=6)
+        )
+        response = self.client.get(
+            reverse(
+                "patient_portal_appointment_detail_en",
+                kwargs={"public_token": inside_cutoff.public_token},
+            )
+        )
+        self.assertNotContains(response, "Cancel Appointment")
+        self.assertContains(response, "inside that cutoff")
+        self.assertContains(response, "contact the clinic")
+
+        completed = self.create_appointment(status=Appointment.Status.COMPLETED)
+        response = self.client.get(
+            reverse(
+                "patient_portal_appointment_detail",
+                kwargs={"public_token": completed.public_token},
+            )
+        )
+        self.assertNotContains(response, "إلغاء الموعد")
+        self.assertContains(response, "الإلغاء الإلكتروني غير متاح")
+
+    def test_detail_keeps_cancel_action_when_eligible(self):
+        appointment = self.create_appointment(
+            starts_at=timezone.now() + timedelta(hours=24)
+        )
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse(
+                "patient_portal_appointment_detail",
+                kwargs={"public_token": appointment.public_token},
+            )
+        )
+        self.assertContains(response, "إلغاء الموعد")
+        self.assertContains(response, "يمكن الإلغاء حتى 12 ساعة قبل الموعد")
+        self.assertNotContains(response, "انتهت مهلة الإلغاء")
+
     def test_staff_cancellation_remains_unaffected_by_patient_cutoff(self):
         appointment = self.create_appointment(starts_at=timezone.now() + timedelta(hours=1))
         cancelled = operations.cancel_appointment(
