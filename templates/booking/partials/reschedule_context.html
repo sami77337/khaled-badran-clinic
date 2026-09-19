@@ -1,0 +1,11 @@
+<section class="booking-appointment-summary" aria-label="{% if is_arabic %}الموعد السابق{% else %}Previous appointment{% endif %}" data-reschedule-context>
+    <div class="booking-appointment-summary-copy">
+        <p class="booking-kicker">{% if is_arabic %}الموعد السابق{% else %}Previous appointment{% endif %} · <bdi>{{ appointment.confirmation_reference }}</bdi></p>
+        <p class="booking-appointment-service">{% if is_arabic %}{{ appointment.visit_type.name_ar }}{% else %}{{ appointment.visit_type.name_en }}{% endif %}</p>
+        <p>{% if is_arabic %}{{ appointment.doctor.display_name_ar }}{% else %}{{ appointment.doctor.display_name_en }}{% endif %}</p>
+        <time class="booking-appointment-time" datetime="{{ appointment.starts_at|date:'c' }}">
+            <span>{% if is_arabic %}{{ appointment.starts_at|date:"l، j F Y" }}{% else %}{{ appointment.starts_at|date:"l, j F Y" }}{% endif %}</span>
+            <span dir="ltr">{{ appointment.starts_at|time:"H:i" }}</span>
+        </time>
+    </div>
+</section>

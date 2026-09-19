@@ -11,7 +11,7 @@ from apps.booking.audit import create_appointment_audit
 from apps.booking.models import Appointment, AppointmentStatusHistory
 from apps.booking.phone import normalize_phone
 from apps.booking.selectors import get_active_doctor, get_active_visit_type, get_active_visit_types
-from apps.clinic.models import ClosedDay, DoctorSchedule, DoctorScheduleOverride
+from apps.clinic.models import ClosedDay, Doctor, DoctorSchedule, DoctorScheduleOverride
 from apps.core.models import AuditLog, SystemSetting
 from apps.patients.models import Patient
 
@@ -352,6 +352,15 @@ def validate_public_booking_request(visit_type, starts_at, settings=None, doctor
     return doctor, starts_at, ends_at
 
 
+def lock_booking_doctor(doctor_id):
+    """Serialize slot writes, including different starts with overlapping durations.
+
+    Call inside an atomic block, before validating availability or locking an
+    appointment. All booking/reschedule writers use the same lock order.
+    """
+    return Doctor.objects.select_for_update().get(pk=doctor_id)
+
+
 @transaction.atomic
 def create_public_appointment(
     *,
@@ -366,6 +375,8 @@ def create_public_appointment(
 ):
     settings = get_booking_settings()
     doctor = get_active_doctor()
+    if doctor is not None:
+        doctor = lock_booking_doctor(doctor.pk)
     visit_type = get_active_visit_type(visit_type_id, doctor=doctor)
     doctor, starts_at, ends_at = validate_public_booking_request(
         visit_type=visit_type,
