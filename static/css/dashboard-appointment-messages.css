@@ -8,6 +8,7 @@
 }
 
 .message-settings-header {
+    justify-content: flex-start;
     flex-wrap: wrap;
     gap: 0.3rem 0.75rem;
     margin-block-end: 0;
@@ -51,6 +52,7 @@
 .message-settings-help {
     display: flex;
     min-width: 0;
+    align-items: baseline;
     flex-wrap: wrap;
     gap: 0.3rem 0.55rem;
     margin: 0;
@@ -62,6 +64,11 @@
 
 .message-settings-help code {
     min-width: 0;
+    max-width: 100%;
+    border: 1px solid var(--dashboard-line);
+    border-radius: var(--dashboard-radius);
+    background: var(--dashboard-ivory);
+    padding: 0.1rem 0.4rem;
     font-family: var(--dashboard-font-en);
     unicode-bidi: isolate;
 }
@@ -72,6 +79,7 @@
     border-radius: 0.68rem;
     background: var(--dashboard-ivory);
     padding: 0.75rem;
+    text-align: start;
     overflow-wrap: anywhere;
 }
 
