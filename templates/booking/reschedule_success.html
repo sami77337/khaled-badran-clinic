@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load static i18n %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/booking.css' %}">{% endblock %}
+{% block content %}
+{% language language %}
+<section class="booking-flow" data-booking-flow>
+    <div class="booking-flow-container">
+        <div class="booking-card" data-booking-card data-booking-success>
+            <div class="booking-success-panel">
+                <div class="booking-success-mark" aria-hidden="true"><span class="booking-icon-check"></span></div>
+                <h1>{% if is_arabic %}تمت إعادة جدولة موعدك{% else %}Your Appointment Was Rescheduled{% endif %}</h1>
+                <p class="booking-success-intro">{% if is_arabic %}تم تأكيد موعدك الجديد. نتطلع إلى استقبالك في العيادة.{% else %}Your new appointment is confirmed. We look forward to welcoming you at the clinic.{% endif %}</p>
+                <div class="booking-reference"><span>{% if is_arabic %}رمز التأكيد:{% else %}Confirmation reference:{% endif %}</span><strong dir="ltr">{{ appointment.confirmation_reference }}</strong></div>
+                <dl class="booking-success-details">
+                    <div><dt>{% if is_arabic %}التاريخ والوقت الجديد{% else %}New date &amp; time{% endif %}</dt><dd><time datetime="{{ appointment.starts_at|date:'c' }}"><span>{% if is_arabic %}{{ appointment.starts_at|date:"l، j F Y" }}{% else %}{{ appointment.starts_at|date:"l, j F Y" }}{% endif %}</span> <span dir="ltr">{{ appointment.starts_at|time:"H:i" }}</span></time></dd></div>
+                    <div><dt>{% if is_arabic %}نوع الزيارة{% else %}Visit type{% endif %}</dt><dd>{% if is_arabic %}{{ appointment.visit_type.name_ar }}{% else %}{{ appointment.visit_type.name_en }}{% endif %}</dd></div>
+                    <div><dt>{% if is_arabic %}الطبيب{% else %}Doctor{% endif %}</dt><dd>{% if is_arabic %}{{ appointment.doctor.display_name_ar }}{% else %}{{ appointment.doctor.display_name_en }}{% endif %}</dd></div>
+                    <div><dt>{% if is_arabic %}موقع العيادة{% else %}Clinic location{% endif %}</dt><dd>{% if is_arabic %}{{ clinic.address_ar|linebreaksbr }}{% else %}{{ clinic.address_en|linebreaksbr }}{% endif %}</dd></div>
+                </dl>
+                <div class="booking-actions"><a class="booking-primary-action" href="{{ home_url }}">{% if is_arabic %}العودة للرئيسية{% else %}Return home{% endif %}</a></div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endlanguage %}
+{% endblock %}

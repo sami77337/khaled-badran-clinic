@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load static i18n %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/booking.css' %}">{% endblock %}
+{% block content %}
+{% language language %}
+<section class="booking-flow" data-booking-flow>
+    <div class="booking-flow-container">
+        <header class="booking-flow-heading"><h1>{% if is_arabic %}تأكيد إعادة الجدولة{% else %}Confirm Reschedule{% endif %}</h1></header>
+        {% include "booking/partials/progress_steps.html" %}
+        <div class="booking-card" data-booking-card>
+            <div class="booking-panel">
+                <a class="booking-back-link" href="{{ slots_url }}?starts_at={{ starts_at|urlencode }}">
+                    <span class="booking-icon-arrow booking-icon-arrow-back" aria-hidden="true"></span>
+                    {% if is_arabic %}تغيير الوقت{% else %}Change time{% endif %}
+                </a>
+                {% include "booking/partials/reschedule_context.html" %}
+                <header class="booking-panel-header"><h2>{% if is_arabic %}موعدك الجديد{% else %}Your new appointment{% endif %}</h2></header>
+                <section class="booking-appointment-summary" data-reschedule-new-time aria-label="{% if is_arabic %}الموعد الجديد{% else %}New appointment{% endif %}">
+                    <time class="booking-appointment-time" datetime="{{ slot_display|date:'c' }}">
+                        <span>{% if is_arabic %}{{ slot_display|date:"l، j F Y" }}{% else %}{{ slot_display|date:"l, j F Y" }}{% endif %}</span>
+                        <span dir="ltr">{{ slot_display|time:"H:i" }}</span>
+                    </time>
+                </section>
+                <p>{% if is_arabic %}راجع الوقت الجديد، ثم أكّد إعادة جدولة موعدك.{% else %}Review the new time, then confirm your reschedule.{% endif %}</p>
+                <form class="booking-form" method="post" action="{{ confirm_url }}" data-reschedule-form>
+                    {% csrf_token %}
+                    <input type="hidden" name="starts_at" value="{{ starts_at }}">
+                    <div class="booking-actions">
+                        <button class="booking-primary-action" type="submit">{% if is_arabic %}تأكيد إعادة الجدولة{% else %}Confirm reschedule{% endif %}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+{% endlanguage %}
+{% endblock %}

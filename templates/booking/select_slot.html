@@ -8,16 +8,19 @@
 
 {% block content %}
 {% language language %}
-<section class="booking-flow" data-booking-flow data-booking-slot-step data-booking-confirm-url="{{ confirm_url }}" data-booking-visit-type-id="{{ visit_type.id }}">
+<section class="booking-flow" data-booking-flow data-booking-slot-step data-booking-confirm-url="{{ confirm_url }}"{% if not is_reschedule %} data-booking-visit-type-id="{{ visit_type.id }}"{% endif %}>
     <div class="booking-flow-container">
         <header class="booking-flow-heading">
-            <h1>{% if is_arabic %}احجز موعدك{% else %}Book Your Appointment{% endif %}</h1>
+            <h1>{% if is_reschedule %}{% if is_arabic %}إعادة جدولة موعدك{% else %}Reschedule Your Appointment{% endif %}{% else %}{% if is_arabic %}احجز موعدك{% else %}Book Your Appointment{% endif %}{% endif %}</h1>
         </header>
 
         {% include "booking/partials/progress_steps.html" %}
 
         <div class="booking-card" data-booking-card>
             <div class="booking-panel">
+                {% if is_reschedule %}
+                    {% include "booking/partials/reschedule_context.html" %}
+                {% else %}
                 <a class="booking-back-link" href="{{ visit_type_url }}?visit_type={{ visit_type.id }}" data-booking-back>
                     <span class="booking-icon-arrow booking-icon-arrow-back" aria-hidden="true"></span>
                     {% if is_arabic %}رجوع{% else %}Back{% endif %}
@@ -32,6 +35,7 @@
                         </p>
                     </div>
                 </div>
+                {% endif %}
 
                 <header class="booking-panel-header">
                     <h2>{% if is_arabic %}اختر التاريخ والوقت{% else %}Select Date &amp; Time{% endif %}</h2>
@@ -42,7 +46,7 @@
                         <h3 id="booking-available-dates">{% if is_arabic %}التواريخ المتاحة{% else %}Available Dates{% endif %}</h3>
                         <div class="booking-date-list" data-booking-date-groups>
                             {% for group in grouped_slots %}
-                                <a class="booking-date-button{% if group.date == selected_date %} is-selected{% endif %}" href="{{ slots_url }}?visit_type={{ visit_type.id }}&amp;date={{ group.date|date:'Y-m-d' }}" data-booking-date-group data-booking-date="{{ group.date|date:'Y-m-d' }}"{% if group.date == selected_date %} data-booking-selected-date aria-current="date"{% endif %}>
+                                <a class="booking-date-button{% if group.date == selected_date %} is-selected{% endif %}" href="{{ slots_url }}?{% if not is_reschedule %}visit_type={{ visit_type.id }}&amp;{% endif %}date={{ group.date|date:'Y-m-d' }}" data-booking-date-group data-booking-date="{{ group.date|date:'Y-m-d' }}"{% if group.date == selected_date %} data-booking-selected-date aria-current="date"{% endif %}>
                                     <time datetime="{{ group.date|date:'Y-m-d' }}">
                                         <span class="booking-date-weekday">{{ group.date|date:"D" }}</span>
                                         <span class="booking-date-value">{{ group.date|date:"j M" }}</span>
@@ -58,7 +62,7 @@
                             {% for group in grouped_slots %}
                                 <div class="booking-slot-grid" data-booking-time-grid data-booking-time-panel data-booking-date="{{ group.date|date:'Y-m-d' }}" aria-label="{% if is_arabic %}الأوقات المتاحة للتاريخ المحدد{% else %}Available times for the selected date{% endif %}"{% if group.date != selected_date %} hidden{% endif %}>
                                     {% for slot in group.slots %}
-                                        <a class="booking-slot-button{% if selected_slot.value == slot.value %} is-selected{% endif %}" href="{{ slots_url }}?visit_type={{ visit_type.id }}&amp;date={{ group.date|date:'Y-m-d' }}&amp;starts_at={{ slot.value|urlencode }}" data-booking-slot data-booking-slot-value="{{ slot.value }}"{% if selected_slot.value == slot.value %} data-booking-selected-time aria-current="time"{% endif %}>
+                                        <a class="booking-slot-button{% if selected_slot.value == slot.value %} is-selected{% endif %}" href="{{ slots_url }}?{% if not is_reschedule %}visit_type={{ visit_type.id }}&amp;{% endif %}date={{ group.date|date:'Y-m-d' }}&amp;starts_at={{ slot.value|urlencode }}" data-booking-slot data-booking-slot-value="{{ slot.value }}"{% if selected_slot.value == slot.value %} data-booking-selected-time aria-current="time"{% endif %}>
                                             <time datetime="{{ slot.value }}" dir="ltr">{{ slot.local_time|time:"H:i" }}</time>
                                             <span class="booking-slot-check" aria-hidden="true"{% if selected_slot.value != slot.value %} hidden{% endif %}><span class="booking-icon-check"></span></span>
                                         </a>
@@ -70,7 +74,7 @@
 
                     <div class="booking-continue booking-slot-continue">
                         {% if selected_slot %}
-                            <a class="booking-primary-action booking-continue-action" href="{{ confirm_url }}?visit_type={{ visit_type.id }}&amp;starts_at={{ selected_slot.value|urlencode }}" data-booking-slot-continue>
+                            <a class="booking-primary-action booking-continue-action" href="{{ confirm_url }}?{% if not is_reschedule %}visit_type={{ visit_type.id }}&amp;{% endif %}starts_at={{ selected_slot.value|urlencode }}" data-booking-slot-continue>
                                 <span>{% if is_arabic %}متابعة{% else %}Continue{% endif %}</span>
                                 <span class="booking-icon-arrow booking-icon-arrow-forward" aria-hidden="true"></span>
                             </a>
@@ -84,10 +88,15 @@
                 {% else %}
                     <div class="booking-empty-state" role="status">
                         <h3>{% if is_arabic %}لا توجد أوقات متاحة{% else %}No available times{% endif %}</h3>
+                        {% if is_reschedule %}
+                        <p>{% if is_arabic %}لا توجد أوقات متاحة لهذا الموعد حالياً. تواصل مع العيادة للمساعدة.{% else %}There are currently no available times for this appointment. Contact the clinic for help.{% endif %}</p>
+                        <a class="booking-secondary-action" href="{{ contact_url }}">{% if is_arabic %}تواصل مع العيادة{% else %}Contact the clinic{% endif %}</a>
+                        {% else %}
                         <p>{% if is_arabic %}جرّب خدمة أخرى أو تواصل مع العيادة.{% else %}Try another service or contact the clinic.{% endif %}</p>
                         <a class="booking-secondary-action" href="{{ visit_type_url }}?visit_type={{ visit_type.id }}">
                             {% if is_arabic %}تغيير الخدمة{% else %}Change service{% endif %}
                         </a>
+                        {% endif %}
                     </div>
                 {% endif %}
             </div>

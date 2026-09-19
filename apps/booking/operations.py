@@ -253,6 +253,11 @@ def mark_no_show(appointment_id, *, note, actor=None, now=None):
 
 def validate_reschedule_target(appointment, starts_at, *, now=None):
     _assert_transition(appointment, RESCHEDULE_ALLOWED_FROM, "Reschedule")
+    return validate_reschedule_slot(appointment, starts_at, now=now)
+
+
+def validate_reschedule_slot(appointment, starts_at, *, now=None):
+    """Shared slot rules; callers must enforce their own transition eligibility."""
     if appointment.doctor is None or not appointment.doctor.is_active:
         raise ValidationError("Rescheduling requires an active doctor.")
     if appointment.visit_type is None or not appointment.visit_type.is_active:
@@ -287,6 +292,8 @@ def validate_reschedule_target(appointment, starts_at, *, now=None):
 
 @transaction.atomic
 def reschedule_appointment(appointment_id, *, starts_at, actor=None, note=""):
+    doctor_id = Appointment.objects.values_list("doctor_id", flat=True).get(pk=appointment_id)
+    services.lock_booking_doctor(doctor_id)
     appointment = get_staff_appointment(appointment_id, for_update=True)
     old_status = appointment.status
     old_starts_at = appointment.starts_at
