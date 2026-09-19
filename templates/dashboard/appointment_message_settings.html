@@ -3,6 +3,7 @@
 
 {% block dashboard_styles %}
 <link rel="stylesheet" href="{% static 'css/dashboard-appointments.css' %}">
+<link rel="stylesheet" href="{% static 'css/dashboard-appointment-messages.css' %}">
 {% endblock %}
 
 {% block dashboard_content %}
@@ -20,28 +21,34 @@
   {% if messages %}<div class="appointment-messages" role="status" aria-live="polite">{% for message in messages %}<p>{{ message }}</p>{% endfor %}</div>{% endif %}
 
   {% for item in message_settings %}
-  <section class="appointments-results" aria-labelledby="message-setting-{{ item.event }}">
-    <div class="appointments-section-heading"><h2 id="message-setting-{{ item.event }}">{{ item.label }}</h2></div>
-    <form class="appointment-operation-form" method="post" action="{{ settings_url }}">
+  <section class="appointments-results message-settings-card" aria-labelledby="message-setting-{{ item.event }}">
+    <form class="appointment-operation-form message-settings-form" method="post" action="{{ settings_url }}">
       {% csrf_token %}
       <input type="hidden" name="event" value="{{ item.event }}">
-      <div class="appointment-field">
-        <label><input type="checkbox" name="is_active" {% if item.is_active %}checked{% endif %}> {% if is_arabic %}تفعيل الرسالة الجاهزة{% else %}Enable ready message{% endif %}</label>
+      <div class="appointments-section-heading message-settings-header">
+        <h2 id="message-setting-{{ item.event }}">{{ item.label }}</h2>
+        <label class="message-settings-activation"><input type="checkbox" name="is_active" {% if item.is_active %}checked{% endif %}> <span>{% if is_arabic %}تفعيل الرسالة الجاهزة{% else %}Enable ready message{% endif %}</span></label>
       </div>
-      <div class="appointment-field">
-        <label for="text-ar-{{ item.event }}">{% if is_arabic %}النص العربي{% else %}Arabic text{% endif %}</label>
-        <textarea id="text-ar-{{ item.event }}" name="text_ar" maxlength="2000" rows="5">{{ item.text_ar }}</textarea>
+      <div class="message-settings-grid">
+        <div class="appointment-field">
+          <label for="text-ar-{{ item.event }}">{% if is_arabic %}النص العربي{% else %}Arabic text{% endif %}</label>
+          <textarea id="text-ar-{{ item.event }}" name="text_ar" maxlength="2000" rows="3" dir="rtl" lang="ar" aria-describedby="message-placeholders-{{ item.event }}">{{ item.text_ar }}</textarea>
+        </div>
+        <div class="appointment-field">
+          <label for="text-en-{{ item.event }}">{% if is_arabic %}النص الإنجليزي{% else %}English text{% endif %}</label>
+          <textarea id="text-en-{{ item.event }}" name="text_en" maxlength="2000" rows="3" dir="ltr" lang="en" aria-describedby="message-placeholders-{{ item.event }}">{{ item.text_en }}</textarea>
+        </div>
       </div>
-      <div class="appointment-field">
-        <label for="text-en-{{ item.event }}">{% if is_arabic %}النص الإنجليزي{% else %}English text{% endif %}</label>
-        <textarea id="text-en-{{ item.event }}" name="text_en" maxlength="2000" rows="5" dir="ltr">{{ item.text_en }}</textarea>
-      </div>
-      <p class="appointments-help">{% if is_arabic %}المتغيرات المسموحة فقط:{% else %}Allowed placeholders only:{% endif %} <code>{patient_name}</code> <code>{appointment_date}</code> <code>{appointment_time}</code> <code>{clinic_phone}</code></p>
-      <div class="appointment-history-panel">
-        <strong>{% if is_arabic %}معاينة عربية{% else %}Arabic preview{% endif %}</strong>
-        <p>{{ item.preview_ar|default:"—" }}</p>
-        <strong>{% if is_arabic %}معاينة إنجليزية{% else %}English preview{% endif %}</strong>
-        <p dir="ltr">{{ item.preview_en|default:"—" }}</p>
+      <p class="message-settings-help" id="message-placeholders-{{ item.event }}"><span>{% if is_arabic %}المتغيرات المسموحة فقط:{% else %}Allowed placeholders only:{% endif %}</span> <code dir="ltr">{patient_name}</code> <code dir="ltr">{appointment_date}</code> <code dir="ltr">{appointment_time}</code> <code dir="ltr">{clinic_phone}</code></p>
+      <div class="message-settings-grid">
+        <div class="message-settings-preview">
+          <strong>{% if is_arabic %}معاينة عربية{% else %}Arabic preview{% endif %}</strong>
+          <p dir="rtl" lang="ar">{{ item.preview_ar|default:"—" }}</p>
+        </div>
+        <div class="message-settings-preview">
+          <strong>{% if is_arabic %}معاينة إنجليزية{% else %}English preview{% endif %}</strong>
+          <p dir="ltr" lang="en">{{ item.preview_en|default:"—" }}</p>
+        </div>
       </div>
       <button class="appointment-button appointment-button-primary" type="submit">{% if is_arabic %}حفظ الإعدادات{% else %}Save settings{% endif %}</button>
     </form>
