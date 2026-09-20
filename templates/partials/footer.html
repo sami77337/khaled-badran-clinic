@@ -28,7 +28,6 @@
                     {% if is_arabic %}{{ clinic.address_ar|linebreaksbr }}{% else %}{{ clinic.address_en|linebreaksbr }}{% endif %}
                 </a>
                 <a class="footer-phone" href="tel:{{ clinic.phone_e164 }}" dir="ltr">{{ clinic.phone_display }}</a>
-                <a class="footer-whatsapp" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">{{ labels.whatsapp }}</a>
             </address>
         </div>
     </div>
