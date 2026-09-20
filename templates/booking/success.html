@@ -61,11 +61,6 @@
                     <a class="booking-secondary-action" href="{% if is_arabic %}{% url 'patient_portal_link_appointment' %}{% else %}{% url 'patient_portal_link_appointment_en' %}{% endif %}?token={{ appointment.public_token }}">
                         {% if is_arabic %}ربط الموعد بالبوابة{% else %}Link in patient portal{% endif %}
                     </a>
-                    {% if whatsapp_is_configured and whatsapp_url %}
-                        <a class="booking-secondary-action" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">
-                            {% if is_arabic %}واتساب العيادة{% else %}Clinic WhatsApp{% endif %}
-                        </a>
-                    {% endif %}
                 </div>
             </div>
         </div>
