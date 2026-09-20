@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load static %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/booking.css' %}">{% endblock %}
+{% block content %}
+<section class="booking-flow" data-booking-flow>
+    <div class="booking-flow-container">
+        <div class="booking-card" data-booking-card>
+            <div class="booking-panel">
+                <div class="booking-empty-state" role="alert">
+                    <h1>{% if is_arabic %}تعذرت إعادة جدولة الموعد{% else %}Unable to reschedule{% endif %}</h1>
+                    <p>{% if is_arabic %}قد يكون الرابط أو الوقت المختار غير متاح. حاول اختيار وقت متاح باستخدام رابطك، أو تواصل مع العيادة للمساعدة.{% else %}The link or selected time may be unavailable. Try choosing an available time using your link, or contact the clinic for help.{% endif %}</p>
+                    <div class="booking-actions">
+                        {% if retry_url %}<a class="booking-primary-action" href="{{ retry_url }}">{% if is_arabic %}اختيار وقت آخر{% else %}Choose another time{% endif %}</a>{% endif %}
+                        <a class="booking-secondary-action" href="{{ contact_url }}">{% if is_arabic %}تواصل مع العيادة{% else %}Contact the clinic{% endif %}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

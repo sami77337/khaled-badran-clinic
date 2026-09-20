@@ -225,6 +225,7 @@ LOGGING = {
     "filters": {
         "whatsapp_privacy": {"()": "apps.whatsapp.logging.WebhookPrivacyFilter"},
         "push_privacy": {"()": "apps.notifications.logging.PushPrivacyFilter"},
+        "reschedule_privacy": {"()": "apps.booking.logging.RescheduleLinkPrivacyFilter"},
     },
     "formatters": {
         "console": {
@@ -236,7 +237,7 @@ LOGGING = {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "console",
-            "filters": ["whatsapp_privacy", "push_privacy"],
+            "filters": ["whatsapp_privacy", "push_privacy", "reschedule_privacy"],
         },
     },
     "root": {

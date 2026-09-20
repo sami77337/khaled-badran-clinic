@@ -1,4 +1,4 @@
-<nav class="booking-steps" aria-label="{% if is_arabic %}خطوات الحجز{% else %}Booking steps{% endif %}" data-booking-progress>
+<nav class="booking-steps{% if is_reschedule %} booking-steps-reschedule{% endif %}" aria-label="{% if is_arabic %}خطوات الحجز{% else %}Booking steps{% endif %}" data-booking-progress>
     <ol>
         {% for key, label in booking_steps %}
             <li class="booking-step{% if active_step == key %} is-active{% endif %}{% if active_step == 'slot' and key == 'visit_type' %} is-complete{% elif active_step == 'confirm' and key != 'confirm' %} is-complete{% endif %}"{% if active_step == key %} aria-current="step"{% endif %}>

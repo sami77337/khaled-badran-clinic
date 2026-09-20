@@ -5,6 +5,7 @@ from django.urls import include, path
 from django.views.generic.base import RedirectView
 
 from apps.booking import views as booking_views
+from apps.booking import reschedule_views
 from apps.core import review_views, views
 from apps.patients import account_close, account_views
 from apps.patients import views as patient_views
@@ -426,6 +427,9 @@ handler404 = "apps.core.views.public_404"
 # Explicit localized guest routes; portal routes retain their existing handlers.
 for language, prefix, suffix in (("ar", "", ""), ("en", "en/", "_en")):
     urlpatterns += [
+        path(prefix + "book/reschedule/<str:token>/", reschedule_views.select_slot, {"language": language}, name="patient_reschedule" + suffix),
+        path(prefix + "book/reschedule/<str:token>/confirm/", reschedule_views.confirm, {"language": language}, name="patient_reschedule_confirm" + suffix),
+        path(prefix + "book/reschedule/<str:token>/success/", reschedule_views.success, {"language": language}, name="patient_reschedule_success" + suffix),
         path(prefix + "consult/", transient_views.guest_entry, {"language": language}, name="guest_consultation_entry" + suffix),
         path(prefix + "consult/<uuid:public_id>/", transient_views.guest_entry, {"language": language}, name="guest_consultation_detail" + suffix),
         path(prefix + "consult/attachments/<uuid:public_id>/", transient_views.guest_media, {"language": language}, name="guest_consultation_attachment" + suffix),
