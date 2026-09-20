@@ -1,4 +1,4 @@
-{% load static whatsapp_links %}
+{% load static %}
 <!doctype html>
 <html lang="{{ language|default:'ar' }}" dir="{{ direction|default:'rtl' }}">
 <head>
@@ -73,12 +73,6 @@
                 {{ labels.book }}
             </a>
         </div>
-    {% endif %}
-    {% if use_public_shell and whatsapp_is_configured and whatsapp_url and not suppress_whatsapp_quick_link %}
-        {% whatsapp_bot_url language as whatsapp_bot_entry_url %}
-        <a class="whatsapp-quick-link" href="{{ whatsapp_bot_entry_url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ labels.whatsapp }}">
-            <span aria-hidden="true">WA</span>
-        </a>
     {% endif %}
     {% if not suppress_footer %}
         {% if use_public_shell %}
