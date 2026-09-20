@@ -35,10 +35,6 @@
                         <dd><a href="tel:{{ clinic.phone_e164 }}" dir="ltr">{{ clinic.phone_display }}</a></dd>
                     </div>
                 {% endif %}
-                <div class="whatsapp-status-row">
-                    <dt><span aria-hidden="true">WA</span> {{ labels.whatsapp }}</dt>
-                    <dd><a href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">{{ labels.whatsapp_note }}</a></dd>
-                </div>
             </dl>
             <div class="contact-page-actions">
                 <a class="btn btn-primary" href="{{ booking_url }}">{{ labels.book }}</a>

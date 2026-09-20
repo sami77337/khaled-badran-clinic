@@ -335,9 +335,9 @@ PAGE_COPY = {
         },
         "whatsapp_policy": {
             "title": "سياسة استخدام واتساب",
-            "description": "مسودة سياسة استخدام واتساب للتواصل مع عيادة الدكتور خالد بدران.",
+            "description": "سياسة استخدام واتساب للمصادقة والرسائل التشغيلية في عيادة الدكتور خالد بدران.",
             "headline": "سياسة استخدام واتساب",
-            "subtitle": "واتساب قناة تواصل إدارية ومبدئية، وليس قناة طوارئ أو تشخيص.",
+            "subtitle": "واتساب مخصص للمصادقة والرسائل التشغيلية المعتمدة، وليس قناة تواصل عامة أو طوارئ.",
         },
         "booking": {
             "title": "حجز موعد",
@@ -403,9 +403,9 @@ PAGE_COPY = {
         },
         "whatsapp_policy": {
             "title": "WhatsApp Use Policy",
-            "description": "Initial WhatsApp communication policy for Dr. Khaled Badran Clinic.",
+            "description": "WhatsApp use policy for authentication and operational messaging at Dr. Khaled Badran Clinic.",
             "headline": "WhatsApp Use Policy",
-            "subtitle": "WhatsApp is for administrative and initial communication, not emergencies or diagnosis.",
+            "subtitle": "WhatsApp is used for authentication and approved operational messaging, not as a public contact or emergency channel.",
         },
         "booking": {
             "title": "Book an Appointment",
@@ -438,8 +438,8 @@ LABELS = {
         "medical_disclaimer": "إخلاء طبي",
         "whatsapp_policy": "سياسة واتساب",
         "patient_portal": "بوابة المريض",
-        "not_emergency": "الموقع وواتساب غير مخصصين للطوارئ. في الحالات الطارئة اتصل بخدمات الطوارئ المحلية فوراً.",
-        "public_emergency": "الموقع وواتساب ليسا للطوارئ.",
+        "not_emergency": "الموقع غير مخصص للطوارئ. في الحالات الطارئة اتصل بخدمات الطوارئ المحلية فوراً.",
+        "public_emergency": "الموقع ليس للطوارئ.",
         "verify_profile": "تحتاج تفاصيل المؤهلات والعضويات والخبرة إلى تدقيق نهائي قبل النشر العام.",
     },
     "en": {
@@ -457,8 +457,8 @@ LABELS = {
         "medical_disclaimer": "Medical Disclaimer",
         "whatsapp_policy": "WhatsApp Policy",
         "patient_portal": "Patient Portal",
-        "not_emergency": "This website and WhatsApp are not for emergencies. For urgent symptoms, contact local emergency services immediately.",
-        "public_emergency": "The website and WhatsApp are not for emergencies.",
+        "not_emergency": "This website is not for emergencies. For urgent symptoms, contact local emergency services immediately.",
+        "public_emergency": "The website is not for emergencies.",
         "verify_profile": "Credentials, memberships, and experience details should be verified before final public publication.",
     },
 }

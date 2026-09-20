@@ -1715,8 +1715,8 @@ class PublicUiFoundationTests(TestCase):
         self.assertContains(response, html_lib.escape(response.context["clinic"]["map_url"]))
         self.assertContains(response, "+962 7 9889 8510")
         self.assertContains(response, 'href="tel:+962798898510"')
-        self.assertContains(response, 'href="https://wa.me/962798898510"')
-        self.assertContains(response, "تواصل مع العيادة مباشرة عبر واتساب")
+        self.assertNotContains(response, 'href="https://wa.me/962798898510"')
+        self.assertNotContains(response, "تواصل مع العيادة مباشرة عبر واتساب")
         self.assertNotContains(response, "+962 7X XXX XXXX")
         self.assertNotContains(response, "ساعات العمل")
         self.assertNotContains(response, "ساعات الدوام")
@@ -1753,7 +1753,7 @@ class PublicUiFoundationTests(TestCase):
             self.assertContains(response, html_lib.escape(line))
         self.assertContains(response, clinic["phone_display"])
         self.assertContains(response, f'href="tel:{clinic["phone_e164"]}"')
-        self.assertContains(response, f'href="{html_lib.escape(response.context["whatsapp_url"])}"')
+        self.assertNotContains(response, f'href="{html_lib.escape(response.context["whatsapp_url"])}"')
         self.assertContains(response, f'href="{response.context["booking_url"]}"')
         self.assertTrue(clinic["map_embed_url"])
         return response
@@ -2508,7 +2508,8 @@ class PublicUiFoundationTests(TestCase):
         self.assertContains(response, "Book an Appointment")
         self.assertContains(response, "Patient Portal")
         self.assertContains(response, "+962 7 9889 8510")
-        self.assertContains(response, "The website and WhatsApp are not for emergencies.", count=1)
+        self.assertContains(response, "The website is not for emergencies.", count=1)
+        self.assertNotContains(response, "The website and WhatsApp are not for emergencies.")
         self.assertNotIn("For urgent symptoms, contact local emergency services immediately.", html)
 
         footer_source = (settings.BASE_DIR / "templates" / "partials" / "footer.html").read_text(

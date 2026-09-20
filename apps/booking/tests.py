@@ -2036,7 +2036,7 @@ class PublicBookingVisualContractTests(BookingTestDataMixin, TestCase):
                 self.assertContains(response, doctor_name)
                 self.assertContains(response, visit_name)
                 self.assertContains(response, location)
-                self.assertContains(response, "https://wa.me/962798898510")
+                self.assertNotContains(response, "https://wa.me/962798898510")
                 if direction == "rtl":
                     self.assertContains(response, "،")
                 else:
