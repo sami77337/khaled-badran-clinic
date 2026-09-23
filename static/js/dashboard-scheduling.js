@@ -11,6 +11,16 @@
                 var shouldExpand = customizationToggle.getAttribute("aria-expanded") !== "true";
                 customizationToggle.setAttribute("aria-expanded", shouldExpand ? "true" : "false");
                 customizationDetails.hidden = !shouldExpand;
+                if (shouldExpand) {
+                    var customizationTarget = document.getElementById("customize-day-form") || customizationDetails;
+                    var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                    window.requestAnimationFrame(function () {
+                        customizationTarget.scrollIntoView({
+                            behavior: reduceMotion ? "auto" : "smooth",
+                            block: "start",
+                        });
+                    });
+                }
             });
         }
     }
