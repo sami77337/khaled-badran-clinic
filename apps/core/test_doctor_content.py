@@ -253,6 +253,17 @@ class BrandingContractTests(TestCase):
                 self.assertNotIn(APPROVED_LOGO_PATH, html)
                 self.assertNotIn("kb-approved.png", html)
 
+    def test_ios_mobile_logo_contrast_uses_approved_assets_without_replacement(self):
+        stylesheet = (settings.BASE_DIR / "static" / "css" / "brand-closeout.css").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("@supports (-webkit-touch-callout: none)", stylesheet)
+        self.assertIn(".site-header .public-brand-logo", stylesheet)
+        self.assertIn("background: var(--color-ivory)", stylesheet)
+        self.assertIn(".dashboard-mobile-monogram", stylesheet)
+        self.assertIn("background: var(--dashboard-ivory)", stylesheet)
+        self.assertNotIn("filter:", stylesheet)
+
     def test_manifest_uses_only_the_approved_192_and_512_png_icons(self):
         manifest = json.loads(
             (settings.BASE_DIR / "static/site.webmanifest").read_text(encoding="utf-8")
