@@ -34,7 +34,7 @@ function worker(windows = []) {
     return { shown, opened, closed, emit, handlers };
 }
 
-test("fixed AR/EN copy, no private text/options, stable collapse tags and no intrusive behavior", async () => {
+test("fixed AR/EN copy, no private text/options, stable tags and normal system alert behavior", async () => {
     const sw = worker();
     for (const event of ["new-consultation", "new-booking"]) {
         for (const language of ["ar", "en"]) {
@@ -43,7 +43,8 @@ test("fixed AR/EN copy, no private text/options, stable collapse tags and no int
                 const notification = sw.shown.at(-1);
                 assert.equal(notification.tag, "kbc-" + event);
                 assert.equal(notification.requireInteraction, false);
-                assert.equal(notification.renotify, false);
+                assert.equal(notification.renotify, true);
+                assert.equal(notification.silent, false);
                 assert.equal(notification.dir, language === "ar" ? "rtl" : "ltr");
                 assert.deepEqual(notification.data, { event, language });
                 assert(!JSON.stringify(notification).includes("PRIVATE"));
