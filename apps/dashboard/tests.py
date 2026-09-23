@@ -4042,6 +4042,10 @@ class DashboardSchedulingTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertIn('data-scheduling-customization-toggle', javascript)
         self.assertIn('setAttribute("aria-expanded"', javascript)
         self.assertIn("customizationDetails.hidden", javascript)
+        self.assertIn('getElementById("customize-day-form")', javascript)
+        self.assertIn('matchMedia("(prefers-reduced-motion: reduce)")', javascript)
+        self.assertIn("requestAnimationFrame", javascript)
+        self.assertIn("scrollIntoView", javascript)
 
     def test_calendar_keeps_operational_scope_while_exposing_special_hours(self):
         self.client.force_login(self.staff)
