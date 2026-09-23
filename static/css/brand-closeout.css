@@ -19,3 +19,22 @@
         flex-basis: 42px;
     }
 }
+
+
+/* iPhone/iOS WebKit: keep the approved dark logo legible on burgundy mobile chrome. */
+@supports (-webkit-touch-callout: none) {
+    @media (max-width: 767px) {
+        .site-header .public-brand-logo {
+            box-sizing: border-box;
+            border-radius: 0.65rem;
+            background: var(--color-ivory);
+            padding: 0.22rem;
+        }
+
+        .dashboard-mobile-monogram {
+            box-sizing: border-box;
+            background: var(--dashboard-ivory);
+            padding: 0.2rem;
+        }
+    }
+}
