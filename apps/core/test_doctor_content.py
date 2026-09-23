@@ -227,6 +227,20 @@ class BrandingContractTests(TestCase):
             self.assertContains(response, "css/brand-closeout.css")
             self.assert_approved_site_icons(response)
 
+    def test_iphone_mobile_headers_keep_approved_logo_visible(self):
+        stylesheet = (
+            settings.BASE_DIR / "static" / "css" / "brand-closeout.css"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("@supports (-webkit-touch-callout: none)", stylesheet)
+        self.assertIn("@media (max-width: 767px)", stylesheet)
+        self.assertIn(".site-header .public-brand-logo", stylesheet)
+        self.assertIn(
+            ".dashboard-mobile-header .dashboard-mobile-monogram",
+            stylesheet,
+        )
+        self.assertIn("background: #FFFFFF;", stylesheet)
+
     def test_each_site_icon_checks_its_own_asset_availability(self):
         for missing_path in (
             APPROVED_LOGO_PATH,
