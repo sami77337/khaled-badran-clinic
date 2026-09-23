@@ -40,7 +40,8 @@ self.addEventListener("push", (event) => {
         lang: data.language,
         dir: data.language === "ar" ? "rtl" : "ltr",
         requireInteraction: false,
-        renotify: false,
+        renotify: true,
+        silent: false,
         data: { event: data.event, language: data.language },
     }));
 });
