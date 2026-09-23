@@ -19,3 +19,21 @@
         flex-basis: 42px;
     }
 }
+
+@supports (-webkit-touch-callout: none) {
+    @media (max-width: 767px) {
+        .site-header .public-brand-logo {
+            overflow: hidden;
+            border-radius: 0.55rem;
+            background: #FFFFFF;
+            padding: 0.18rem;
+        }
+
+        .dashboard-mobile-header .dashboard-mobile-monogram {
+            overflow: hidden;
+            border-color: rgba(255, 255, 255, 0.72);
+            background: #FFFFFF;
+            padding: 0.2rem;
+        }
+    }
+}
