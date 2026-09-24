@@ -116,7 +116,8 @@
     border-block-start: 1px solid #E3D9CD;
 }
 
-.consultation-notification-item button {
+.consultation-notification-item button,
+.consultation-notification-item > a {
     display: flex;
     width: 100%;
     min-height: 4rem;
@@ -130,13 +131,16 @@
     padding: 0.72rem 0.9rem;
     text-align: start;
     font: inherit;
+    text-decoration: none;
 }
 
-.consultation-notification-item.is-unread button {
+.consultation-notification-item.is-unread button,
+.consultation-notification-item.is-unread > a {
     background: #F5EDEE;
 }
 
-.consultation-notification-item button:hover {
+.consultation-notification-item button:hover,
+.consultation-notification-item > a:hover {
     background: #F4EEE7;
 }
 
