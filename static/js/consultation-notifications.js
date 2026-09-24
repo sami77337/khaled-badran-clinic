@@ -6,6 +6,79 @@
         return;
     }
 
+    let bookingSeenPromise = null;
+
+    const syncSeenBookings = (sourceRoot) => {
+        const form = sourceRoot.querySelector("[data-booking-seen-on-open-form]");
+        if (!form || bookingSeenPromise) {
+            return;
+        }
+        const bookingCount = Number(form.dataset.bookingUnseenCount || "0");
+        if (!bookingCount) {
+            return;
+        }
+
+        bookingSeenPromise = fetch(form.action, {
+            method: "POST",
+            body: new FormData(form),
+            credentials: "same-origin",
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("Could not mark booking notifications as seen.");
+                }
+                return response.json();
+            })
+            .then(() => {
+                roots.forEach((root) => {
+                    const total = Number(root.dataset.notificationTotalCount || "0");
+                    const nextTotal = Math.max(0, total - bookingCount);
+                    root.dataset.notificationTotalCount = String(nextTotal);
+
+                    const badge = root.querySelector("[data-notification-badge]");
+                    const count = root.querySelector("[data-notification-count]");
+                    const badgeCopy = root.querySelector("[data-notification-badge-copy]");
+                    const badgeText = nextTotal > 99 ? "99+" : String(nextTotal);
+
+                    if (badge) {
+                        badge.textContent = badgeText;
+                        badge.hidden = nextTotal === 0;
+                    }
+                    if (count) {
+                        count.firstChild.textContent = nextTotal === 0 ? "" : badgeText;
+                        count.hidden = nextTotal === 0;
+                    }
+                    if (badgeCopy) {
+                        const label = root.dataset.notificationCountLabel || "";
+                        badgeCopy.textContent = nextTotal === 0 ? "" : `${nextTotal} ${label}`;
+                    }
+
+                    root.querySelectorAll("[data-booking-notification-item]").forEach((item) => {
+                        item.classList.remove("is-unread");
+                        item.querySelector(".consultation-notification-unread-dot")?.remove();
+                        item.querySelector("[data-notification-unread-copy]")?.remove();
+                    });
+
+                    root.querySelectorAll("[data-booking-seen-on-open-form]").forEach((seenForm) => {
+                        seenForm.dataset.bookingUnseenCount = "0";
+                    });
+
+                    const markButton = root.querySelector(
+                        '.consultation-notification-panel-actions form[action="' +
+                        form.action +
+                        '"] button'
+                    );
+                    if (markButton) {
+                        markButton.disabled = true;
+                    }
+                });
+            })
+            .catch(() => {
+                bookingSeenPromise = null;
+            });
+    };
+
     // Hiding a header can blur its focused control before the resize event.
     let focusedControl = document.activeElement;
     document.addEventListener("focusin", (event) => {
@@ -46,6 +119,9 @@
             closeOthers(root);
             panel.hidden = !willOpen;
             trigger.setAttribute("aria-expanded", String(willOpen));
+            if (willOpen && root.dataset.staffAttentionBell === "true") {
+                syncSeenBookings(root);
+            }
         });
     });
 
