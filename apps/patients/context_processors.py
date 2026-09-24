@@ -39,11 +39,12 @@ def _staff_attention_context(user, language):
     ).order_by("-created_at", "-id")
     booking_notifications = AppointmentStaffNotification.objects.filter(
         recipient=user,
+        seen_at__isnull=True,
     ).select_related("appointment").order_by("-created_at", "-id")
 
     registered_count = registered.count()
     guest_count = guests.count()
-    booking_unseen_count = booking_notifications.filter(seen_at__isnull=True).count()
+    booking_unseen_count = booking_notifications.count()
     unread_count = registered_count + guest_count + booking_unseen_count
 
     items = []
