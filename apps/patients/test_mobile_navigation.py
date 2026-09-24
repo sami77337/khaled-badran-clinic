@@ -2,9 +2,14 @@ import re
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from datetime import timedelta
+
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
+from apps.booking.models import Appointment, AppointmentStaffNotification
+from apps.clinic.models import Doctor, VisitType
 from apps.patients.models import Consultation, ConsultationNotification, Patient
 
 
@@ -135,6 +140,73 @@ class MobileDashboardNavigationTests(TestCase):
         self.assertNotIn(str(staff_notification.public_id), staff_response.content.decode())
         self.assertIn("dashboard-navigation-badge", staff_navigation)
         self.assertContains(staff_response, "dashboard-navigation-badge", count=2)
+
+    def test_staff_consultations_badge_excludes_unseen_booking_attention(self):
+        ConsultationNotification.objects.create(
+            recipient=self.staff,
+            consultation=self.consultation,
+            kind=ConsultationNotification.Kind.NEW_CONSULTATION,
+        )
+        doctor = Doctor.objects.create(
+            full_name_ar="طبيب تجريبي",
+            full_name_en="Synthetic Doctor",
+            title_ar="د.",
+            title_en="Dr.",
+            specialty_ar="اختبار",
+            specialty_en="Synthetic",
+            is_active=True,
+        )
+        visit_type = VisitType.objects.create(
+            doctor=doctor,
+            name_ar="موعد تجريبي",
+            name_en="Synthetic appointment",
+            duration_minutes=30,
+            is_active=True,
+        )
+        starts_at = timezone.now() + timedelta(days=1)
+        appointment = Appointment.objects.create(
+            doctor=doctor,
+            patient=self.patient,
+            visit_type=visit_type,
+            starts_at=starts_at,
+            ends_at=starts_at + timedelta(minutes=30),
+        )
+        AppointmentStaffNotification.objects.create(
+            recipient=self.staff,
+            appointment=appointment,
+        )
+
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("dashboard_consultation_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["consultation_notification_unread_count"], 2)
+        self.assertEqual(
+            response.context["consultation_notification_consultation_count"],
+            1,
+        )
+
+        navigation = self.mobile_nav(response, "staff")
+        consultation_item = re.search(
+            r'<a class="dashboard-mobile-nav-item is-active"[^>]+'
+            r'data-mobile-nav-item="consultations".*?</a>',
+            navigation,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(consultation_item)
+        self.assertIn(
+            '<span class="dashboard-navigation-badge">1</span>',
+            consultation_item.group(0),
+        )
+        self.assertNotIn(
+            '<span class="dashboard-navigation-badge">2</span>',
+            consultation_item.group(0),
+        )
+
+        html = response.content.decode()
+        self.assertEqual(
+            html.count('<span class="dashboard-navigation-badge">1</span>'),
+            2,
+        )
 
     def test_mobile_header_order_and_shared_notification_component(self):
         self.client.force_login(self.patient_user)
