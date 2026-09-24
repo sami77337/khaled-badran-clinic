@@ -131,7 +131,8 @@ class MobileDashboardNavigationTests(TestCase):
         self.client.force_login(self.staff)
         staff_response = self.client.get(reverse("dashboard_consultation_list"))
         staff_navigation = self.mobile_nav(staff_response, "staff")
-        self.assertIn(str(staff_notification.public_id), staff_response.content.decode())
+        self.assertIn(str(self.consultation.public_id), staff_response.content.decode())
+        self.assertNotIn(str(staff_notification.public_id), staff_response.content.decode())
         self.assertIn("dashboard-navigation-badge", staff_navigation)
         self.assertContains(staff_response, "dashboard-navigation-badge", count=2)
 
