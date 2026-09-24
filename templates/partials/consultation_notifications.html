@@ -43,6 +43,7 @@
             hidden
         >
             {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
         </form>
     {% endif %}
 
@@ -132,6 +133,9 @@
         <div class="consultation-notification-panel-actions">
             <form method="post" action="{{ consultation_notification_mark_all_url }}">
                 {% csrf_token %}
+                {% if consultation_notification_staff_mode %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                {% endif %}
                 <button
                     type="submit"
                     {% if consultation_notification_staff_mode %}data-booking-mark-seen-button{% endif %}
