@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from apps.booking.countries import INTERNATIONAL_PHONE_COUNTRIES
 from apps.booking.forms import PUBLIC_BOOKING_ERROR_COPY, PublicBookingForm
-from apps.booking.models import Appointment, AppointmentStatusHistory
+from apps.booking.models import Appointment, AppointmentStaffNotification, AppointmentStatusHistory
 from apps.booking.phone import normalize_phone
 from apps.booking import operations, rate_limits, services
 from apps.clinic.models import ClosedDay, Doctor, DoctorSchedule, DoctorScheduleOverride, VisitType
@@ -150,6 +150,41 @@ class BookingTestDataMixin:
         self.set_setting(SystemSetting.APPOINTMENT_REMINDER_OFFSET_MINUTES, 180)
         slots = services.generate_available_slots(visit_type, target_date=tomorrow, doctor=doctor)
         return doctor, visit_type, tomorrow, slots[0]
+
+
+class StaffBookingNotificationTests(BookingTestDataMixin, TestCase):
+    def test_public_booking_creates_unseen_notification_for_each_active_staff(self):
+        first_staff = self.create_staff_user("booking-notification-staff-one")
+        second_staff = self.create_staff_user("booking-notification-staff-two")
+        inactive_staff = self.create_staff_user("booking-notification-inactive")
+        inactive_staff.is_active = False
+        inactive_staff.save(update_fields=["is_active"])
+        self.create_user("booking-notification-patient")
+
+        _doctor, visit_type, _day, slot = self.setup_public_booking()
+
+        with (
+            patch("apps.whatsapp.booking.schedule_booking_confirmation"),
+            patch("apps.notifications.services.schedule_staff_event"),
+        ):
+            appointment = services.create_public_appointment(
+                full_name="Synthetic booking notification patient",
+                phone_raw="0791111111",
+                visit_type_id=visit_type.pk,
+                starts_at=slot.starts_at,
+            )
+
+        notifications = AppointmentStaffNotification.objects.filter(
+            appointment=appointment,
+        )
+        self.assertEqual(notifications.count(), 2)
+        self.assertSetEqual(
+            set(notifications.values_list("recipient_id", flat=True)),
+            {first_staff.pk, second_staff.pk},
+        )
+        self.assertFalse(notifications.exclude(seen_at__isnull=True).exists())
+        self.assertFalse(notifications.filter(recipient=inactive_staff).exists())
+
 
 
 class BookingServiceTests(BookingTestDataMixin, TestCase):
