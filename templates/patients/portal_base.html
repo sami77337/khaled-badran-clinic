@@ -77,8 +77,8 @@
                     >
                         <span class="dashboard-nav-indicator" aria-hidden="true"></span>
                         <span>{{ item.label }}</span>
-                        {% if item.key == "consultations" and consultation_notification_unread_count %}
-                            <span class="dashboard-navigation-badge">{{ consultation_notification_unread_badge }}</span>
+                        {% if item.key == "consultations" and consultation_notification_consultation_count %}
+                            <span class="dashboard-navigation-badge">{{ consultation_notification_consultation_badge }}</span>
                         {% endif %}
                     </a>
                 {% endfor %}
