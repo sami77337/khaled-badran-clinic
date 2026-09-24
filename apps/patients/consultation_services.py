@@ -217,11 +217,12 @@ def update_consultation_reply(
             has_visible_reply = bool(locked.staff_reply) or has_audio_after_save
             patient_user = None if guest else locked.patient.user
             if not had_visible_reply and has_visible_reply:
-                ConsultationNotification.objects.filter(
-                    consultation=locked,
-                    kind=ConsultationNotification.Kind.NEW_CONSULTATION,
-                    read_at__isnull=True,
-                ).update(read_at=timezone.now())
+                if not guest:
+                    ConsultationNotification.objects.filter(
+                        consultation=locked,
+                        kind=ConsultationNotification.Kind.NEW_CONSULTATION,
+                        read_at__isnull=True,
+                    ).update(read_at=timezone.now())
                 if patient_user is not None:
                     ConsultationNotification.objects.get_or_create(
                         recipient=patient_user,
