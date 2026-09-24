@@ -455,7 +455,7 @@ async function main() {
                 const list = panel.querySelector('.consultation-notification-list');
                 const header = panel.querySelector('.consultation-notification-panel-header');
                 const actions = panel.querySelector('.consultation-notification-panel-actions');
-                const buttons = [...list.querySelectorAll('button')];
+                const buttons = [...list.querySelectorAll('button, a[href]')];
                 const bounds = panel.getBoundingClientRect();
                 const hit = (el, clip) => {
                     const r = el.getBoundingClientRect();
