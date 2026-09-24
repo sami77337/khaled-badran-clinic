@@ -122,6 +122,42 @@ class Appointment(models.Model):
             raise ValidationError({"ends_at": "End time must be after start time."})
 
 
+class AppointmentStaffNotification(models.Model):
+    """Per-staff seen state for newly created public appointments."""
+
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="appointment_staff_notifications",
+    )
+    appointment = models.ForeignKey(
+        Appointment,
+        on_delete=models.CASCADE,
+        related_name="staff_notifications",
+    )
+    seen_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["recipient", "appointment"],
+                name="unique_staff_appointment_notification",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["recipient", "seen_at", "created_at"],
+                name="book_not_rec_seen_created",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Appointment notification {self.public_id}"
+
+
 class AppointmentMessageTemplate(models.Model):
     """Owner-managed ready-message settings for post-classification contact.
 
