@@ -6,6 +6,7 @@ from django.test import TransactionTestCase
 class AppointmentMessageDefaultMigrationTests(TransactionTestCase):
     previous = [("booking", "0005_appointmentmessagetemplate")]
     current = [("booking", "0006_approved_appointment_message_defaults")]
+    latest = [("booking", "0007_appointmentstaffnotification")]
 
     def migrate(self, target):
         executor = MigrationExecutor(connection)
@@ -15,7 +16,7 @@ class AppointmentMessageDefaultMigrationTests(TransactionTestCase):
         )
 
     def setUp(self):
-        self.addCleanup(self.migrate, self.current)
+        self.addCleanup(self.migrate, self.latest)
         self.template = self.migrate(self.previous)
         self.template.objects.all().delete()
 
