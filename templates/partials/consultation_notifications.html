@@ -59,7 +59,7 @@
             </h2>
             {% if consultation_notification_unread_count %}
                 <span class="consultation-notification-count" data-notification-count>
-                    {{ consultation_notification_unread_badge }}
+                    <span data-notification-count-value>{{ consultation_notification_unread_badge }}</span>
                     <span class="dashboard-sr-only">
                         {% if consultation_notification_staff_mode %}
                             {% if is_arabic %}تحتاج انتباهك{% else %}need your attention{% endif %}
@@ -132,7 +132,11 @@
         <div class="consultation-notification-panel-actions">
             <form method="post" action="{{ consultation_notification_mark_all_url }}">
                 {% csrf_token %}
-                <button type="submit"{% if not consultation_notification_mark_all_enabled %} disabled{% endif %}>
+                <button
+                    type="submit"
+                    {% if consultation_notification_staff_mode %}data-booking-mark-seen-button{% endif %}
+                    {% if not consultation_notification_mark_all_enabled %}disabled{% endif %}
+                >
                     {% if consultation_notification_staff_mode %}
                         {% if is_arabic %}تحديد الحجوزات كمشاهدة{% else %}Mark bookings as seen{% endif %}
                     {% else %}
