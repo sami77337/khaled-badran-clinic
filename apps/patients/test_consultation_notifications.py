@@ -1,3 +1,4 @@
+from datetime import timedelta
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
@@ -6,13 +7,17 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
+from apps.booking.models import Appointment, AppointmentStaffNotification
+from apps.clinic.models import Doctor, VisitType
 from apps.patients import consultation_services
 from apps.patients.models import (
     Consultation,
     ConsultationAudioReply,
     ConsultationNotification,
     Patient,
+    TransientConsultation,
 )
 
 
@@ -379,7 +384,7 @@ class ConsultationNotificationReadAndPrivacyTests(TestCase):
         self.patient_notification.refresh_from_db()
         self.assertEqual(self.patient_notification.read_at, first_read_at)
 
-    def test_staff_post_open_marks_read_and_redirects_to_private_dashboard(self):
+    def test_staff_post_open_keeps_attention_pending_and_redirects_to_private_dashboard(self):
         self.client.force_login(self.staff)
         response = self.client.post(self.open_url(self.staff_notification, english=True))
         expected = reverse(
@@ -388,7 +393,7 @@ class ConsultationNotificationReadAndPrivacyTests(TestCase):
         )
         self.assertRedirects(response, f"{expected}?lang=en", fetch_redirect_response=False)
         self.staff_notification.refresh_from_db()
-        self.assertIsNotNone(self.staff_notification.read_at)
+        self.assertIsNone(self.staff_notification.read_at)
 
     def test_get_does_not_mutate_and_anonymous_is_denied(self):
         self.client.force_login(self.patient_a_user)
@@ -502,3 +507,149 @@ class ConsultationNotificationReadAndPrivacyTests(TestCase):
         self.assertContains(response, "99+")
         self.assertEqual(response.context["consultation_notification_unread_count"], 101)
         self.assertEqual(len(response.context["consultation_notification_items"]), 10)
+
+class StaffAttentionBellTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.staff = user_model.objects.create_user(
+            username="attention-doctor",
+            is_staff=True,
+        )
+        self.patient_user = user_model.objects.create_user(username="attention-patient")
+        self.patient = Patient.objects.create(
+            user=self.patient_user,
+            full_name="Synthetic Attention Patient",
+            phone_raw="+962700000201",
+            phone_e164="+962700000201",
+        )
+        self.doctor = Doctor.objects.create(
+            full_name_ar="طبيب تجريبي",
+            full_name_en="Synthetic Doctor",
+            title_ar="د.",
+            title_en="Dr.",
+            specialty_ar="اختبار",
+            specialty_en="Synthetic",
+            is_active=True,
+        )
+        self.visit_type = VisitType.objects.create(
+            doctor=self.doctor,
+            name_ar="موعد تجريبي",
+            name_en="Synthetic appointment",
+            duration_minutes=30,
+            is_active=True,
+        )
+        self.registered = Consultation.objects.create(
+            patient=self.patient,
+            question="Synthetic registered attention question",
+        )
+        self.staff_notification = ConsultationNotification.objects.create(
+            recipient=self.staff,
+            consultation=self.registered,
+            kind=ConsultationNotification.Kind.NEW_CONSULTATION,
+        )
+        self.guest = TransientConsultation.objects.create(
+            phone_e164="+962700000202",
+            display_name="Synthetic guest",
+            question="Synthetic guest attention question",
+            language="ar",
+        )
+        starts_at = timezone.now() + timedelta(days=1)
+        self.appointment = Appointment.objects.create(
+            doctor=self.doctor,
+            patient=self.patient,
+            visit_type=self.visit_type,
+            starts_at=starts_at,
+            ends_at=starts_at + timedelta(minutes=30),
+        )
+        self.booking_notification = AppointmentStaffNotification.objects.create(
+            recipient=self.staff,
+            appointment=self.appointment,
+        )
+        self.client.force_login(self.staff)
+
+    def attention_context(self):
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        return response
+
+    def test_bell_counts_unanswered_registered_guest_and_unseen_booking(self):
+        response = self.attention_context()
+
+        self.assertEqual(response.context["consultation_notification_unread_count"], 3)
+        self.assertEqual(
+            response.context["consultation_notification_consultation_count"],
+            2,
+        )
+        self.assertEqual(
+            response.context["consultation_notification_booking_unseen_count"],
+            1,
+        )
+        self.assertContains(response, "استشارة جديدة")
+        self.assertContains(response, "موعد جديد")
+        self.assertContains(response, "تحديد الحجوزات كمشاهدة")
+
+    def test_mark_seen_clears_only_booking_attention(self):
+        response = self.client.post(
+            reverse("consultation_notifications_mark_all_read"),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["bookings_seen"], 1)
+
+        self.booking_notification.refresh_from_db()
+        self.staff_notification.refresh_from_db()
+        self.assertIsNotNone(self.booking_notification.seen_at)
+        self.assertIsNone(self.staff_notification.read_at)
+
+        refreshed = self.attention_context()
+        self.assertEqual(refreshed.context["consultation_notification_unread_count"], 2)
+        self.assertEqual(
+            refreshed.context["consultation_notification_consultation_count"],
+            2,
+        )
+
+    def test_actual_text_and_guest_replies_resolve_consultation_attention(self):
+        self.booking_notification.seen_at = timezone.now()
+        self.booking_notification.save(update_fields=["seen_at"])
+
+        with patch("apps.whatsapp.notifications.schedule_reply_notification"):
+            consultation_services.update_consultation_reply(
+                consultation=self.registered,
+                staff_user=self.staff,
+                reply="Synthetic actual reply",
+                status=Consultation.Status.ANSWERED,
+            )
+        after_registered = self.attention_context()
+        self.assertEqual(
+            after_registered.context["consultation_notification_unread_count"],
+            1,
+        )
+
+        with patch("apps.whatsapp.notifications.schedule_reply_notification"):
+            consultation_services.update_consultation_reply(
+                consultation=self.guest,
+                staff_user=self.staff,
+                reply="Synthetic guest reply",
+                status=Consultation.Status.ANSWERED,
+            )
+        after_guest = self.attention_context()
+        self.assertEqual(
+            after_guest.context["consultation_notification_unread_count"],
+            0,
+        )
+
+    def test_staff_bell_js_marks_bookings_seen_on_open(self):
+        response = self.attention_context()
+        self.assertContains(response, "data-booking-seen-on-open-form")
+        self.assertContains(response, 'data-staff-attention-bell="true"')
+
+        javascript = (
+            __import__("pathlib").Path(__file__).resolve().parents[2]
+            / "static"
+            / "js"
+            / "consultation-notifications.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("syncSeenBookings", javascript)
+        self.assertIn('X-Requested-With": "XMLHttpRequest"', javascript)
+        self.assertIn("data-booking-notification-item", javascript)
+
