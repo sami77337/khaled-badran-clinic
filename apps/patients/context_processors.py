@@ -29,60 +29,76 @@ def _language_url(route_name, language, **kwargs):
 
 
 def _staff_attention_context(user, language):
-    registered = Consultation.objects.filter(
-        staff_reply="",
-        audio_reply__isnull=True,
-    ).order_by("-created_at", "-id")
-    guests = TransientConsultation.objects.filter(
-        staff_reply="",
-        audio_reply__isnull=True,
-    ).order_by("-created_at", "-id")
-    booking_notifications = AppointmentStaffNotification.objects.filter(
-        recipient=user,
-        seen_at__isnull=True,
-    ).select_related("appointment").order_by("-created_at", "-id")
+    registered_rows = list(
+        Consultation.objects.filter(
+            staff_reply="",
+            audio_reply__isnull=True,
+        )
+        .annotate(attention_total=Window(expression=Count("pk")))
+        .order_by("-created_at", "-id")
+        .values("public_id", "created_at", "attention_total")[:10]
+    )
+    guest_rows = list(
+        TransientConsultation.objects.filter(
+            staff_reply="",
+            audio_reply__isnull=True,
+        )
+        .annotate(attention_total=Window(expression=Count("pk")))
+        .order_by("-created_at", "-id")
+        .values("public_id", "created_at", "attention_total")[:10]
+    )
+    booking_rows = list(
+        AppointmentStaffNotification.objects.filter(
+            recipient=user,
+            seen_at__isnull=True,
+        )
+        .annotate(attention_total=Window(expression=Count("pk")))
+        .order_by("-created_at", "-id")
+        .values("created_at", "attention_total")[:10]
+    )
 
-    registered_count = registered.count()
-    guest_count = guests.count()
-    booking_unseen_count = booking_notifications.count()
-    unread_count = registered_count + guest_count + booking_unseen_count
+    registered_count = registered_rows[0]["attention_total"] if registered_rows else 0
+    guest_count = guest_rows[0]["attention_total"] if guest_rows else 0
+    booking_unseen_count = booking_rows[0]["attention_total"] if booking_rows else 0
+    consultation_count = registered_count + guest_count
+    unread_count = consultation_count + booking_unseen_count
 
     items = []
-    for consultation in registered[:10]:
+    for consultation in registered_rows:
         items.append(
             {
                 "kind": "new_consultation",
-                "created_at": consultation.created_at,
+                "created_at": consultation["created_at"],
                 "is_pending": True,
                 "open_method": "get",
                 "url": _language_url(
                     "dashboard_consultation_detail",
                     language,
-                    public_id=consultation.public_id,
+                    public_id=consultation["public_id"],
                 ),
             }
         )
-    for consultation in guests[:10]:
+    for consultation in guest_rows:
         items.append(
             {
                 "kind": "new_consultation",
-                "created_at": consultation.created_at,
+                "created_at": consultation["created_at"],
                 "is_pending": True,
                 "open_method": "get",
                 "url": _language_url(
                     "dashboard_guest_consultation_detail",
                     language,
-                    public_id=consultation.public_id,
+                    public_id=consultation["public_id"],
                 ),
             }
         )
     appointments_url = _language_url("staff_appointment_list", language)
-    for notification in booking_notifications[:10]:
+    for notification in booking_rows:
         items.append(
             {
                 "kind": "new_booking",
-                "created_at": notification.created_at,
-                "is_pending": notification.seen_at is None,
+                "created_at": notification["created_at"],
+                "is_pending": True,
                 "open_method": "get",
                 "url": appointments_url,
             }
@@ -96,13 +112,9 @@ def _staff_attention_context(user, language):
         "consultation_notification_unread_badge": (
             "99+" if unread_count > 99 else str(unread_count) if unread_count else ""
         ),
-        "consultation_notification_consultation_count": registered_count + guest_count,
+        "consultation_notification_consultation_count": consultation_count,
         "consultation_notification_consultation_badge": (
-            "99+"
-            if registered_count + guest_count > 99
-            else str(registered_count + guest_count)
-            if registered_count + guest_count
-            else ""
+            "99+" if consultation_count > 99 else str(consultation_count) if consultation_count else ""
         ),
         "consultation_notification_open_route": "",
         "consultation_notification_mark_all_url": reverse(
