@@ -3318,11 +3318,12 @@ class DashboardOverviewTests(DashboardOverviewTestMixin, TestCase):
             response = dashboard_views.dashboard_home(request)
 
         self.assertEqual(response.status_code, 200)
-        # Dashboard chrome keeps a constant query budget for the unread count
-        # and latest notification items. Website Content and Patient Reviews
-        # are staff-bound directly, so there are no model-permission lookups.
+        # Dashboard chrome keeps a constant query budget for staff attention:
+        # unresolved registered consultations, unresolved guest consultations,
+        # and unseen bookings. Website Content and Patient Reviews are
+        # staff-bound directly, so there are no model-permission lookups.
         # Appointment rows must add no per-row queries.
-        self.assertEqual(len(captured_queries), 8)
+        self.assertEqual(len(captured_queries), 10)
 
     def test_today_schedule_empty_state_is_bilingual_and_has_no_fake_rows(self):
         arabic = self.dashboard(language="ar")
