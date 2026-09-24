@@ -8,7 +8,11 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from apps.booking.audit import create_appointment_audit
-from apps.booking.models import Appointment, AppointmentStatusHistory
+from apps.booking.models import (
+    Appointment,
+    AppointmentStaffNotification,
+    AppointmentStatusHistory,
+)
 from apps.booking.phone import normalize_phone
 from apps.booking.selectors import get_active_doctor, get_active_visit_type, get_active_visit_types
 from apps.clinic.models import ClosedDay, Doctor, DoctorSchedule, DoctorScheduleOverride
@@ -452,8 +456,23 @@ def create_public_appointment(
     from apps.whatsapp.booking import schedule_booking_confirmation
 
     schedule_booking_confirmation(appointment.pk, "en" if language == "en" else "ar")
+    from django.contrib.auth import get_user_model
     from apps.notifications.services import schedule_staff_event
 
+    recipient_ids = list(
+        get_user_model()
+        .objects.filter(is_active=True, is_staff=True)
+        .values_list("pk", flat=True)
+    )
+    AppointmentStaffNotification.objects.bulk_create(
+        [
+            AppointmentStaffNotification(
+                recipient_id=recipient_id,
+                appointment=appointment,
+            )
+            for recipient_id in recipient_ids
+        ]
+    )
     schedule_staff_event("new-booking")
     return appointment
 
