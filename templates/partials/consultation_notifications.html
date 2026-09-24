@@ -1,7 +1,11 @@
 <div
     class="consultation-notifications {{ notification_placement }}"
     data-consultation-notifications
-    {% if consultation_notification_staff_mode %}data-staff-attention-bell="true"{% endif %}
+    data-notification-total-count="{{ consultation_notification_unread_count }}"
+    {% if consultation_notification_staff_mode %}
+        data-staff-attention-bell="true"
+        data-notification-count-label="{% if is_arabic %}تحتاج انتباهك{% else %}need your attention{% endif %}"
+    {% endif %}
 >
     <button
         class="consultation-notification-trigger"
