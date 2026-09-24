@@ -10,7 +10,7 @@ from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import ValidationError
 from django.core.signing import BadSignature, dumps as signing_dumps, loads as signing_loads
 from django.db import transaction
-from django.http import FileResponse, Http404, HttpResponseNotAllowed
+from django.http import FileResponse, Http404, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
@@ -22,7 +22,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from apps.booking import operations as booking_operations
 from apps.booking import services as booking_services
 from apps.booking.countries import INTERNATIONAL_PHONE_COUNTRIES
-from apps.booking.models import Appointment
+from apps.booking.models import Appointment, AppointmentStaffNotification
 from apps.core.views import _base_context
 from apps.patients import consultation_services, link_recovery, phone_change, temporary_otp
 from apps.patients import rate_limits, services
@@ -1318,7 +1318,10 @@ def consultation_notification_open(request, public_id, language="ar"):
             recipient=request.user,
         )
         destination = _notification_destination(notification, request.user, language)
-        if notification.read_at is None:
+        if (
+            notification.kind == ConsultationNotification.Kind.CONSULTATION_REPLIED
+            and notification.read_at is None
+        ):
             notification.read_at = timezone.now()
             notification.save(update_fields=["read_at"])
     return redirect(destination)
@@ -1342,10 +1345,18 @@ def _notification_return_url(request, language):
 @_login_required
 def consultation_notifications_mark_all_read(request, language="ar"):
     language = _language(language)
-    ConsultationNotification.objects.filter(
-        recipient=request.user,
-        read_at__isnull=True,
-    ).update(read_at=timezone.now())
+    if request.user.is_staff and request.user.is_active:
+        bookings_seen = AppointmentStaffNotification.objects.filter(
+            recipient=request.user,
+            seen_at__isnull=True,
+        ).update(seen_at=timezone.now())
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"bookings_seen": bookings_seen})
+    else:
+        ConsultationNotification.objects.filter(
+            recipient=request.user,
+            read_at__isnull=True,
+        ).update(read_at=timezone.now())
     return redirect(_notification_return_url(request, language))
 
 
