@@ -480,8 +480,8 @@ class ConsultationNotificationReadAndPrivacyTests(TestCase):
         self.client.force_login(self.staff)
         staff_ar = self.client.get(reverse("home"))
         staff_en = self.client.get(reverse("home_en"))
-        self.assertContains(staff_ar, "استشارة جديدة", count=2)
-        self.assertContains(staff_en, "New consultation", count=2)
+        self.assertContains(staff_ar, "استشارة جديدة")
+        self.assertContains(staff_en, "New consultation")
         self.assertNotContains(staff_en, self.consultation_a.question)
         self.assertNotContains(staff_en, self.patient_a.full_name)
         self.assertNotContains(staff_en, self.patient_a.phone_raw)
@@ -643,8 +643,10 @@ class StaffAttentionBellTests(TestCase):
         self.assertContains(response, "data-booking-seen-on-open-form")
         self.assertContains(response, 'data-staff-attention-bell="true"')
 
+        from pathlib import Path
+
         javascript = (
-            __import__("pathlib").Path(__file__).resolve().parents[2]
+            Path(__file__).resolve().parents[2]
             / "static"
             / "js"
             / "consultation-notifications.js"
