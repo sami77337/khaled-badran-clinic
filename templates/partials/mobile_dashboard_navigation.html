@@ -19,7 +19,7 @@
         <a class="dashboard-mobile-nav-item{% if portal_section == 'consultations' %} is-active{% endif %}" href="{{ portal_consultations_url }}" data-mobile-nav-item="consultations">
             <span class="dashboard-mobile-nav-icon-wrap">
                 {% include "partials/mobile_dashboard_nav_icon.html" with mobile_nav_icon="consultations" %}
-                {% if consultation_notification_unread_count %}<span class="dashboard-navigation-badge">{{ consultation_notification_unread_badge }}</span>{% endif %}
+                {% if consultation_notification_consultation_count %}<span class="dashboard-navigation-badge">{{ consultation_notification_consultation_badge }}</span>{% endif %}
             </span>
             <span>{% if is_arabic %}الاستشارات{% else %}Consultations{% endif %}</span>
         </a>
@@ -39,7 +39,7 @@
         <a class="dashboard-mobile-nav-item{% if active_dashboard_nav == 'consultations' %} is-active{% endif %}" href="{% url 'dashboard_consultation_list' %}{% if not is_arabic %}?lang=en{% endif %}" data-mobile-nav-item="consultations">
             <span class="dashboard-mobile-nav-icon-wrap">
                 {% include "partials/mobile_dashboard_nav_icon.html" with mobile_nav_icon="consultations" %}
-                {% if consultation_notification_unread_count %}<span class="dashboard-navigation-badge">{{ consultation_notification_unread_badge }}</span>{% endif %}
+                {% if consultation_notification_consultation_count %}<span class="dashboard-navigation-badge">{{ consultation_notification_consultation_badge }}</span>{% endif %}
             </span>
             <span>{% if is_arabic %}الاستشارات{% else %}Consultations{% endif %}</span>
         </a>
