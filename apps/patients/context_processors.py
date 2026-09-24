@@ -95,6 +95,14 @@ def _staff_attention_context(user, language):
         "consultation_notification_unread_badge": (
             "99+" if unread_count > 99 else str(unread_count) if unread_count else ""
         ),
+        "consultation_notification_consultation_count": registered_count + guest_count,
+        "consultation_notification_consultation_badge": (
+            "99+"
+            if registered_count + guest_count > 99
+            else str(registered_count + guest_count)
+            if registered_count + guest_count
+            else ""
+        ),
         "consultation_notification_open_route": "",
         "consultation_notification_mark_all_url": reverse(
             "consultation_notifications_mark_all_read_en"
@@ -147,6 +155,10 @@ def _patient_notification_context(user, language):
         "consultation_notification_unread_badge": (
             "99+" if unread_count > 99 else str(unread_count) if unread_count else ""
         ),
+        "consultation_notification_consultation_count": unread_count,
+        "consultation_notification_consultation_badge": (
+            "99+" if unread_count > 99 else str(unread_count) if unread_count else ""
+        ),
         "consultation_notification_open_route": (
             "consultation_notification_open_en"
             if language == "en"
@@ -170,6 +182,8 @@ def consultation_notifications(request):
         "consultation_notification_items": (),
         "consultation_notification_unread_count": 0,
         "consultation_notification_unread_badge": "",
+        "consultation_notification_consultation_count": 0,
+        "consultation_notification_consultation_badge": "",
         "consultation_notification_staff_mode": False,
         "consultation_notification_booking_unseen_count": 0,
         "consultation_notification_mark_all_enabled": False,
