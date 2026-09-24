@@ -46,7 +46,10 @@
                         badge.hidden = nextTotal === 0;
                     }
                     if (count) {
-                        count.firstChild.textContent = nextTotal === 0 ? "" : badgeText;
+                        const countValue = count.querySelector("[data-notification-count-value]");
+                        if (countValue) {
+                            countValue.textContent = nextTotal === 0 ? "" : badgeText;
+                        }
                         count.hidden = nextTotal === 0;
                     }
                     if (badgeCopy) {
@@ -64,11 +67,7 @@
                         seenForm.dataset.bookingUnseenCount = "0";
                     });
 
-                    const markButton = root.querySelector(
-                        '.consultation-notification-panel-actions form[action="' +
-                        form.action +
-                        '"] button'
-                    );
+                    const markButton = root.querySelector("[data-booking-mark-seen-button]");
                     if (markButton) {
                         markButton.disabled = true;
                     }
