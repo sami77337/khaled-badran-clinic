@@ -20,7 +20,7 @@ UPCOMING_STATUSES = (Appointment.Status.CONFIRMED, Appointment.Status.RESCHEDULE
 
 
 def due_reminders(now):
-    if not booking_services.get_booking_settings().reminder_enabled:
+    if not booking_services.automatic_reminders_enabled():
         return Appointment.objects.none()
     return (
         Appointment.objects.filter(
