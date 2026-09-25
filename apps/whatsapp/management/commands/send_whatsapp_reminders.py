@@ -1,10 +1,8 @@
-from collections import Counter
-
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 from django.utils import timezone
 
-from apps.whatsapp.booking import due_reminders, send_due_reminder
+from apps.whatsapp.booking import dispatch_due_reminders, due_reminders
 from apps.whatsapp.configuration import configuration_issues, is_available
 
 
@@ -42,18 +40,7 @@ class Command(BaseCommand):
             raise CommandError(
                 "Reminder delivery requires a database with row locking (PostgreSQL)."
             )
-        ids = list(
-            due_reminders(timezone.now()).values_list("pk", flat=True)[
-                : options["limit"]
-            ]
-        )
-        counts = Counter()
-        for appointment_id in ids:
-            try:
-                counts[send_due_reminder(appointment_id)] += 1
-            except Exception:
-                # DB/provider exceptions may contain private values. Report counts only.
-                counts["failed"] += 1
+        counts = dispatch_due_reminders(limit=options["limit"])
         self.stdout.write(
             f"Reminders: {counts['sent']} sent, {counts['skipped']} skipped, {counts['failed']} failed."
         )
