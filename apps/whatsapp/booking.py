@@ -1,5 +1,6 @@
 """Neutral booking delivery using existing appointment state and transactions."""
 
+from collections import Counter
 from functools import partial
 import logging
 
@@ -62,6 +63,21 @@ def send_due_reminder(appointment_id):
         appointment.reminder_sent_at = timezone.now()
         appointment.save(update_fields=["reminder_sent_at", "updated_at"])
         return "sent"
+
+
+def dispatch_due_reminders(*, limit=100):
+    if not 1 <= limit <= 1000:
+        raise ValueError("limit must be between 1 and 1000")
+    appointment_ids = list(
+        due_reminders(timezone.now()).values_list("pk", flat=True)[:limit]
+    )
+    counts = Counter()
+    for appointment_id in appointment_ids:
+        try:
+            counts[send_due_reminder(appointment_id)] += 1
+        except Exception:
+            counts["failed"] += 1
+    return counts
 
 
 @sensitive_variables()

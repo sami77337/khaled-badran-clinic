@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import timedelta
 from io import StringIO
 import json
@@ -161,17 +162,18 @@ class WhatsAppBookingTests(TestCase):
                 call_command("send_whatsapp_reminders")
         for result, failed in (("sent", False), ("failed", True)):
             output = StringIO()
+            counts = Counter({result: 1})
             with patch.object(connection.features, "has_select_for_update", True):
                 with patch(
-                    "apps.whatsapp.management.commands.send_whatsapp_reminders.send_due_reminder",
-                    return_value=result,
-                ) as send:
+                    "apps.whatsapp.management.commands.send_whatsapp_reminders.dispatch_due_reminders",
+                    return_value=counts,
+                ) as dispatch:
                     if failed:
                         with self.assertRaises(CommandError):
                             call_command("send_whatsapp_reminders", stdout=output)
                     else:
                         call_command("send_whatsapp_reminders", stdout=output)
-                    send.assert_called_once_with(appointment.pk)
+                    dispatch.assert_called_once_with(limit=100)
             self.assertNotIn(SYNTHETIC_PHONE, output.getvalue())
             self.assertIn("Reminders:", output.getvalue())
         self.http.assert_not_called()

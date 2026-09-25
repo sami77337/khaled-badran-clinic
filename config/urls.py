@@ -12,6 +12,7 @@ from apps.patients import views as patient_views
 from apps.patients import transient_views
 from apps.patients import review_views as patient_review_views
 from apps.whatsapp.webhook import webhook as whatsapp_webhook
+from apps.whatsapp.reminder_dispatch import reminder_dispatch as whatsapp_reminder_dispatch
 from apps.notifications.views import service_worker
 
 
@@ -19,6 +20,7 @@ urlpatterns = [
     path("sw.js", service_worker, name="service_worker"),
     path("dashboard/phone-notifications/", include("apps.notifications.urls")),
     path("integrations/whatsapp/webhook/", whatsapp_webhook, name="whatsapp_webhook"),
+    path("integrations/whatsapp/reminders/dispatch/", whatsapp_reminder_dispatch, name="whatsapp_reminder_dispatch"),
     path("", views.home, {"language": "ar"}, name="home"),
     path("login/", patient_views.portal_login, {"language": "ar"}, name="login"),
     path("doctor/", views.doctor_profile, {"language": "ar"}, name="doctor"),
