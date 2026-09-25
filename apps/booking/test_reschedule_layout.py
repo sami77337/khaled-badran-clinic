@@ -1,6 +1,7 @@
 """Chromium QA of real Django-rendered rescheduling pages, with synthetic data."""
 
 import json
+from datetime import timedelta
 import os
 from pathlib import Path
 import re
@@ -16,6 +17,7 @@ from django.urls import reverse
 from apps.booking import rescheduling
 from apps.booking.test_patient_rescheduling import RescheduleFixtureMixin
 from apps.core.models import SystemSetting
+from apps.patients.models import Patient
 
 
 class PatientRescheduleLayoutTests(RescheduleFixtureMixin, TestCase):
@@ -30,6 +32,23 @@ class PatientRescheduleLayoutTests(RescheduleFixtureMixin, TestCase):
             if os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true":
                 self.fail("Node and Chromium are required for reschedule layout QA in CI")
             self.skipTest("Node and Chromium are required for reschedule layout QA")
+        public_patient = Patient.objects.create(
+            full_name="PRIVATE-PUBLIC-BOOKING-PATIENT-SENTINEL",
+            phone_raw="+962790000088",
+            phone_e164="+962790000088",
+        )
+        public_appointment = self.create_appointment(
+            doctor=self.doctor,
+            visit_type=self.visit_type,
+            patient=public_patient,
+            starts_at=self.target + timedelta(days=1),
+        )
+        public_appointment.booking_note = "PRIVATE-PUBLIC-BOOKING-NOTE-SENTINEL"
+        public_appointment.contact_phone_raw = "0790000088"
+        public_appointment.contact_phone_e164 = "+962790000088"
+        public_appointment.whatsapp_phone_raw = "0790000088"
+        public_appointment.whatsapp_phone_e164 = "+962790000088"
+        public_appointment.save()
         pages = {}
         for language in ("ar", "en"):
             for state, route, query in (
@@ -46,11 +65,37 @@ class PatientRescheduleLayoutTests(RescheduleFixtureMixin, TestCase):
             setting = SystemSetting.objects.create(key=SystemSetting.BOOKING_ENABLED, value="false")
             pages[f"empty-{language}"] = self.client.get(self.url(language=language)).content.decode()
             setting.delete()
-            # Exercise the shared template's original booking branch too.
+            # Exercise the shared template's original public booking branch too.
             pages[f"booking-{language}"] = self.client.get(
                 reverse("booking_slots_en" if language == "en" else "booking_slots"),
                 {"visit_type": self.visit_type.pk},
             ).content.decode()
+
+            confirm_response = self.client.get(
+                reverse("booking_confirm_en" if language == "en" else "booking_confirm"),
+                {"visit_type": self.visit_type.pk, "starts_at": self.target.isoformat()},
+            )
+            self.assertEqual(confirm_response.status_code, 200)
+            pages[f"booking-confirm-{language}"] = confirm_response.content.decode()
+
+            success_response = self.client.get(
+                reverse(
+                    "booking_success_en" if language == "en" else "booking_success",
+                    kwargs={"public_token": public_appointment.public_token},
+                )
+            )
+            self.assertEqual(success_response.status_code, 200)
+            self.assertIn("no-store", success_response.headers.get("Cache-Control", ""))
+            success_html = success_response.content.decode()
+            for private_value in (
+                public_patient.full_name,
+                public_patient.phone_e164,
+                public_appointment.booking_note,
+                public_appointment.contact_phone_e164,
+                public_appointment.whatsapp_phone_e164,
+            ):
+                self.assertNotIn(private_value, success_html)
+            pages[f"booking-success-{language}"] = success_html
         self.assertEqual(self.post().status_code, 302)
         self.appointment.refresh_from_db()
         receipt = rescheduling.make_reschedule_receipt(self.appointment)
