@@ -6,7 +6,8 @@ from django.test import TransactionTestCase
 class AppointmentMessageDefaultMigrationTests(TransactionTestCase):
     previous = [("booking", "0005_appointmentmessagetemplate")]
     current = [("booking", "0006_approved_appointment_message_defaults")]
-    latest = [("booking", "0007_appointmentstaffnotification")]
+    seeded = [("booking", "0007_appointmentstaffnotification")]
+    latest = [("booking", "0008_editable_message_defaults")]
 
     def migrate(self, target):
         executor = MigrationExecutor(connection)
@@ -59,3 +60,33 @@ class AppointmentMessageDefaultMigrationTests(TransactionTestCase):
         self.migrate(self.previous)
         template = self.migrate(self.current)
         self.assertEqual(list(template.objects.order_by("event").values()), original)
+
+
+    def test_latest_migration_upgrades_only_untouched_active_defaults(self):
+        template = self.migrate(self.seeded)
+        arrived = template.objects.get(event="arrived")
+        no_show = template.objects.get(event="no_show")
+
+        no_show.is_active = False
+        no_show.save(update_fields=["is_active"])
+
+        template = self.migrate(self.latest)
+        arrived = template.objects.get(event="arrived")
+        no_show = template.objects.get(event="no_show")
+
+        self.assertIn("{patient_name}", arrived.text_ar)
+        self.assertIn("{appointment_date}", arrived.text_ar)
+        self.assertIn("{appointment_time}", arrived.text_ar)
+        self.assertIn("{patient_name}", arrived.text_en)
+        self.assertIn("{appointment_date}", arrived.text_en)
+        self.assertIn("{appointment_time}", arrived.text_en)
+
+        self.assertFalse(no_show.is_active)
+        self.assertEqual(
+            no_show.text_ar,
+            "لم يتم تسجيل حضورك للموعد. إذا كنت بحاجة إلى إعادة الجدولة، يرجى التواصل مع العيادة.",
+        )
+        self.assertEqual(
+            no_show.text_en,
+            "Your attendance was not recorded for this appointment. Please contact the clinic if you need to reschedule.",
+        )
