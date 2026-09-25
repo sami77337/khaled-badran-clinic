@@ -177,11 +177,21 @@ appointment identifier and language in an authorized operator session; no public
 retry endpoint exists. Consultation reply notifications retain their existing
 after-commit behavior and do not roll back the doctor's saved reply on failure.
 
-Schedule this command against the production PostgreSQL database, for example
-every minute using the hosting provider's scheduled-job facility:
+The production web service owns the database and Meta credentials. To avoid
+duplicating those secrets into a second Render service, the production scheduler
+uses the authenticated internal reminder-dispatch endpoint.
+
+Set a high-entropy `REMINDER_CRON_TOKEN` only in Render. The endpoint is POST-only,
+CSRF-exempt for machine access, requires that token in the `X-KBC-Cron-Token`
+header, uses constant-time comparison, and returns only aggregate counts.
+
+The Render cron job can run every minute with a tiny standard-library client and
+needs only the production dispatch URL plus the shared token. The management
+command remains available for authorized operator use against a fully configured
+production environment:
 
 ```text
-python -B manage.py send_whatsapp_reminders --limit 100
+DJANGO_SETTINGS_MODULE=config.settings.prod python -B manage.py send_whatsapp_reminders --limit 100
 ```
 
 Preview without sending or updating records:
