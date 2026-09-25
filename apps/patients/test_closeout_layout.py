@@ -108,7 +108,12 @@ class FinalCloseoutLayoutTests(TestCase):
             self.skipTest("Install Chromium or set KBC_QA_BROWSER for closeout layout QA")
         user = get_user_model().objects.create_user(username="synthetic-closeout-patient")
         staff = get_user_model().objects.create_user(username="synthetic-closeout-staff", is_staff=True)
-        patient = Patient.objects.create(user=user, full_name="Synthetic closeout patient")
+        patient = Patient.objects.create(
+            user=user,
+            full_name="PRIVATE-PATIENT-PII-SENTINEL",
+            phone_raw="+962790000099",
+            phone_e164="+962790000099",
+        )
         doctor = Doctor.objects.create(
             full_name_ar="طبيب تجريبي",
             full_name_en="Synthetic Doctor",
@@ -168,6 +173,12 @@ class FinalCloseoutLayoutTests(TestCase):
                     title="W" * 180, description=long_text,
                 )
                 ClinicalNote.objects.create(patient=patient, title="W" * 180, body=long_text, is_visible_to_patient=True)
+                ClinicalNote.objects.create(
+                    patient=patient,
+                    title="PRIVATE-CLINICAL-SENTINEL",
+                    body="PRIVATE-CLINICAL-BODY-SENTINEL",
+                    is_visible_to_patient=False,
+                )
                 ConsultationAttachment.objects.create(
                     consultation=consultation, file_category="image",
                     file=SimpleUploadedFile("W" * 170 + ".jpg", b"synthetic-media", content_type="image/jpeg"),
@@ -189,6 +200,15 @@ class FinalCloseoutLayoutTests(TestCase):
                     html = response.content.decode()
                     if name.startswith("portal-") or name.startswith("medical-records"):
                         self.assertNotIn("PRIVATE-BOOKING-NOTE-SENTINEL", html)
+                    if name.startswith("case-") or name.startswith("cases-"):
+                        for private_value in (
+                            patient.full_name,
+                            patient.phone_e164,
+                            "PRIVATE-CLINICAL-SENTINEL",
+                            "PRIVATE-CLINICAL-BODY-SENTINEL",
+                            "PRIVATE-BOOKING-NOTE-SENTINEL",
+                        ):
+                            self.assertNotIn(private_value, html)
                     pages[name] = html
 
                 for language in ("ar", "en"):
@@ -196,6 +216,7 @@ class FinalCloseoutLayoutTests(TestCase):
                     self.client.logout()
                     for route in ("home", "reviews", "contact"):
                         add_page(f"{route}-{language}", reverse(route + suffix))
+                    add_page(f"cases-list-{language}", reverse("public_cases" + suffix))
                     add_page(f"case-detail-{language}", reverse("public_case_detail" + suffix, kwargs={"case_id": public_case.pk}))
                     self.client.force_login(user)
                     for name, route in (

@@ -80,11 +80,19 @@ async function main() {
                         if (r.height < 40) issues.push('small action target');
                         if (!control.contains(document.elementFromPoint((r.left+r.right)/2, (r.top+r.bottom)/2))) issues.push('covered action');
                     }
+                    for (const field of [...document.querySelectorAll(
+                        '.booking-flow input:not([type=hidden]):not([type=checkbox]):not([type=radio]), ' +
+                        '.booking-flow select, .booking-flow textarea'
+                    )].filter(visible)) {
+                        const r = field.getBoundingClientRect();
+                        if (r.left < -1 || r.right > innerWidth + 1) issues.push('field overflow');
+                        if (r.height < 40) issues.push('small field target');
+                    }
                     return { issues, direction: document.documentElement.dir };
                 })()`);
                 assert.equal(result.direction, page.endsWith("-ar") ? "rtl" : "ltr", page);
                 assert.deepEqual(result.issues, [], `${page} ${width}x${height}: ${JSON.stringify(result.issues)}`);
-                if (page.startsWith("slots-") || page.startsWith("selected-") || page.startsWith("booking-")) {
+                if (page.startsWith("slots-") || page.startsWith("selected-") || /^booking-(ar|en)$/.test(page)) {
                     const interaction = await evaluate(`(() => {
                         const flow = document.querySelector('[data-booking-slot-step]');
                         const dates = [...flow.querySelectorAll('[data-booking-date-group]')];
@@ -114,6 +122,24 @@ async function main() {
                         return {method: form.method, fields: [...form.elements].map(el => el.name).filter(Boolean).sort()};
                     })()`), {method: "post", fields: ["csrfmiddlewaretoken", "starts_at"]});
                 }
+                if (page.startsWith("booking-confirm-")) {
+                    const bookingForm = await evaluate(`(() => {
+                        const form = document.querySelector('[data-booking-patient-form]');
+                        const fields = [...form.elements].map(el => el.name).filter(Boolean);
+                        const required = ["csrfmiddlewaretoken", "full_name", "phone", "same_as_phone", "whatsapp_phone", "booking_note", "visit_type", "starts_at"];
+                        return {
+                            method: form.method,
+                            hasRequired: required.every(name => fields.includes(name)),
+                            action: new URL(form.action).pathname,
+                        };
+                    })()`);
+                    assert.equal(bookingForm.method, "post");
+                    assert.ok(bookingForm.hasRequired, page + ": required public booking fields");
+                    assert.ok(bookingForm.action.includes("/book/confirm/"), page + ": public booking action");
+                }
+                if (page.startsWith("booking-success-")) {
+                    assert.ok(await evaluate(`Boolean(document.querySelector('[data-booking-success]'))`), page + ": success marker");
+                }
                 if (process.env.KBC_RESCHEDULE_QA_OUTPUT && (width === 390 || width === 1440) && !page.startsWith("booking-")) {
                     // Slot selection preserves the viewport on the next frame.
                     // Let that and the existing selection transition finish first.
@@ -129,7 +155,7 @@ async function main() {
             }
         }
         assert.deepEqual(runtimeErrors, [], "Browser runtime errors");
-        console.log(`PASS: ${cases} rendered AR/EN cases at 320/390/768/1024/1440; slot interactions, confirmation, success, empty/error, and original booking.`);
+        console.log(`PASS: ${cases} rendered AR/EN cases at 320/390/768/1024/1440; reschedule + public booking slots/confirm/success, empty/error states, and privacy-safe actions.`);
     } finally {
         if (send && ws?.readyState === WebSocket.OPEN) { send("Browser.close").catch(() => {}); await delay(300); }
         server.close();
