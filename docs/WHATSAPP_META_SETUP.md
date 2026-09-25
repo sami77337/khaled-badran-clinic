@@ -190,8 +190,15 @@ Preview without sending or updating records:
 python -B manage.py send_whatsapp_reminders --dry-run
 ```
 
-Eligibility requires a future confirmed/rescheduled appointment, enabled reminders,
-no `reminder_sent_at`, and `starts_at - reminder_offset <= now`. Arrived, cancelled,
+Reminder controls are available to staff under **Dashboard → Appointment Messages**.
+The dashboard can enable or disable automatic reminders globally and change the default
+lead time used for new bookings. The message body itself remains the Meta-approved
+template; the application supplies only the appointment date and time parameters.
+Existing appointments retain their saved `reminder_offset` when the default changes.
+
+Eligibility requires a future confirmed/rescheduled appointment, the global reminder
+control enabled, the appointment's own reminder flag enabled, no `reminder_sent_at`,
+and `starts_at - reminder_offset <= now`. Arrived, cancelled,
 completed, no-show, past, not-yet-due and previously notified appointments are skipped.
 Each row is rechecked under a PostgreSQL lock held through the send and timestamp
 save; `SKIP LOCKED` prevents overlapping scheduler jobs selecting the same row.
