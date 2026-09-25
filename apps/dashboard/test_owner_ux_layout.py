@@ -48,6 +48,10 @@ class OwnerUXLayoutTests(TestCase):
                     reverse(route + ("_en" if language == "en" else ""))
                 ).content.decode()
             for name, route, kwargs in (
+                ("dashboard-home", "dashboard_home", {}),
+                ("scheduling", "dashboard_scheduling", {}),
+                ("appointment-messages", "dashboard_appointment_message_settings", {}),
+                ("appointment-follow-up", "dashboard_appointment_follow_up", {}),
                 ("content", "dashboard_content", {}),
                 ("home-form", "dashboard_public_copy", {"page": "home"}),
                 ("section-form", "dashboard_doctor_section_new", {}),
