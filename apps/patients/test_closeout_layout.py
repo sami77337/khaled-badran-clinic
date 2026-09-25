@@ -133,6 +133,7 @@ class FinalCloseoutLayoutTests(TestCase):
             starts_at=starts_at,
             ends_at=starts_at + timedelta(minutes=30),
             status=Appointment.Status.CONFIRMED,
+            booking_note="PRIVATE-BOOKING-NOTE-SENTINEL",
         )
         for _ in range(9):
             consultation = Consultation.objects.create(patient=patient, question="Synthetic layout question")
@@ -185,7 +186,10 @@ class FinalCloseoutLayoutTests(TestCase):
                 def add_page(name, url):
                     response = self.client.get(url)
                     self.assertEqual(response.status_code, 200, url)
-                    pages[name] = response.content.decode()
+                    html = response.content.decode()
+                    if name.startswith("portal-") or name.startswith("medical-records"):
+                        self.assertNotIn("PRIVATE-BOOKING-NOTE-SENTINEL", html)
+                    pages[name] = html
 
                 for language in ("ar", "en"):
                     suffix = "_en" if language == "en" else ""
