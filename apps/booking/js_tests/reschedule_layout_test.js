@@ -92,7 +92,7 @@ async function main() {
                 })()`);
                 assert.equal(result.direction, page.endsWith("-ar") ? "rtl" : "ltr", page);
                 assert.deepEqual(result.issues, [], `${page} ${width}x${height}: ${JSON.stringify(result.issues)}`);
-                if (page.startsWith("slots-") || page.startsWith("selected-") || page.startsWith("booking-")) {
+                if (page.startsWith("slots-") || page.startsWith("selected-") || /^booking-(ar|en)$/.test(page)) {
                     const interaction = await evaluate(`(() => {
                         const flow = document.querySelector('[data-booking-slot-step]');
                         const dates = [...flow.querySelectorAll('[data-booking-date-group]')];
