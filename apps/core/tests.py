@@ -2081,6 +2081,7 @@ class PublicUiFoundationTests(TestCase):
             '<section class="home-hero"',
             '<section class="section home-doctor"',
             '<section class="section home-cases"',
+            '<section class="section home-services"',
             'id="reviews"',
             '<section class="section home-contact"',
             '<section class="section home-faq"',
@@ -2100,13 +2101,14 @@ class PublicUiFoundationTests(TestCase):
             self.assertIn('data-review-empty', response_html)
             self.assertNotIn('data-review-card', response_html)
             self.assertNotIn('data-review-summary', response_html)
-            self.assertNotIn('class="section home-services"', response_html)
+            self.assertIn('class="section home-services"', response_html)
             self.assertNotIn("Patient Stories", response_html)
             self.assertNotIn("قصص المرضى", response_html)
             self.assertNotIn("Testimonials", response_html)
             self.assertNotIn("4.8", response_html)
             self.assertNotIn("174", response_html)
         self.assertIn(".home-hero-visual {\n    display: none;", css)
+        self.assertIn(".home-services {\n    display: none;", css)
         self.assertIn(".home-faq {\n    display: none;", css)
         self.assertIn('.home-reviews[data-review-surface="empty"]', css)
         self.assertIn(".home-reviews-empty", css)
