@@ -7,10 +7,11 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.booking import operations
+from apps.booking import appointment_messages, operations
 from apps.booking.models import Appointment, AppointmentMessageTemplate
 from apps.clinic.models import Doctor, VisitType
 from apps.core.models import AuditLog
+from apps.core.views import APPROVED_CLINIC_PHONE
 from apps.patients.models import Patient
 
 
@@ -359,7 +360,8 @@ class AppointmentOperationsCloseoutTests(TestCase):
         ):
             with self.subTest(template=invalid):
                 AppointmentMessageTemplate.objects.filter(event="arrived").update(
-                    text_ar=invalid
+                    text_ar=invalid,
+                    text_en=invalid,
                 )
                 response = self.client.get(f"{url}?event=arrived&lang=en")
                 self.assertEqual(response.status_code, 200)
@@ -629,7 +631,6 @@ class AppointmentOperationsCloseoutTests(TestCase):
                 url, {"event": "arrived", "message_text": "Synthetic message"}
             )
             self.assertEqual(response.status_code, 200)
-            self.assertFalse(response.context["whatsapp_available"])
             self.assertFalse(response.context["whatsapp_available"])
             for event in ("no_show", "completed", "unknown"):
                 self.assertEqual(
