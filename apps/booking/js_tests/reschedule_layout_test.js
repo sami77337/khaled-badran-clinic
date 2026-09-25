@@ -114,6 +114,24 @@ async function main() {
                         return {method: form.method, fields: [...form.elements].map(el => el.name).filter(Boolean).sort()};
                     })()`), {method: "post", fields: ["csrfmiddlewaretoken", "starts_at"]});
                 }
+                if (page.startsWith("booking-confirm-")) {
+                    const bookingForm = await evaluate(`(() => {
+                        const form = document.querySelector('[data-booking-patient-form]');
+                        const fields = [...form.elements].map(el => el.name).filter(Boolean);
+                        const required = ["csrfmiddlewaretoken", "full_name", "phone", "same_as_phone", "whatsapp_phone", "booking_note", "visit_type", "starts_at"];
+                        return {
+                            method: form.method,
+                            hasRequired: required.every(name => fields.includes(name)),
+                            action: new URL(form.action).pathname,
+                        };
+                    })()`);
+                    assert.equal(bookingForm.method, "post");
+                    assert.ok(bookingForm.hasRequired, page + ": required public booking fields");
+                    assert.ok(bookingForm.action.includes("/book/confirm/"), page + ": public booking action");
+                }
+                if (page.startsWith("booking-success-")) {
+                    assert.ok(await evaluate(`Boolean(document.querySelector('[data-booking-success]'))`), page + ": success marker");
+                }
                 if (process.env.KBC_RESCHEDULE_QA_OUTPUT && (width === 390 || width === 1440) && !page.startsWith("booking-")) {
                     // Slot selection preserves the viewport on the next frame.
                     // Let that and the existing selection transition finish first.
@@ -129,7 +147,7 @@ async function main() {
             }
         }
         assert.deepEqual(runtimeErrors, [], "Browser runtime errors");
-        console.log(`PASS: ${cases} rendered AR/EN cases at 320/390/768/1024/1440; slot interactions, confirmation, success, empty/error, and original booking.`);
+        console.log(`PASS: ${cases} rendered AR/EN cases at 320/390/768/1024/1440; reschedule + public booking slots/confirm/success, empty/error states, and privacy-safe actions.`);
     } finally {
         if (send && ws?.readyState === WebSocket.OPEN) { send("Browser.close").catch(() => {}); await delay(300); }
         server.close();
