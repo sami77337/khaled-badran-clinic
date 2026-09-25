@@ -754,6 +754,12 @@ summary:focus-visible {
     color: rgba(255, 255, 255, 0.76);
 }
 
+.home-services {
+    display: none;
+    border-block: 1px solid var(--color-line);
+    background: rgba(245, 239, 233, 0.72);
+}
+
 .home-faq {
     display: none;
     background: rgba(255, 255, 255, 0.7);
@@ -1649,6 +1655,7 @@ summary:focus-visible {
         background: var(--color-white);
     }
 
+    .home-services,
     .home-faq {
         display: block;
     }
