@@ -80,6 +80,14 @@ async function main() {
                         if (r.height < 40) issues.push('small action target');
                         if (!control.contains(document.elementFromPoint((r.left+r.right)/2, (r.top+r.bottom)/2))) issues.push('covered action');
                     }
+                    for (const field of [...document.querySelectorAll(
+                        '.booking-flow input:not([type=hidden]):not([type=checkbox]):not([type=radio]), ' +
+                        '.booking-flow select, .booking-flow textarea'
+                    )].filter(visible)) {
+                        const r = field.getBoundingClientRect();
+                        if (r.left < -1 || r.right > innerWidth + 1) issues.push('field overflow');
+                        if (r.height < 40) issues.push('small field target');
+                    }
                     return { issues, direction: document.documentElement.dir };
                 })()`);
                 assert.equal(result.direction, page.endsWith("-ar") ? "rtl" : "ltr", page);
