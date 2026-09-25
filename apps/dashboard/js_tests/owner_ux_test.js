@@ -77,10 +77,39 @@ async function main() {
                         const r = el.getBoundingClientRect();
                         if (r.left < -1 || r.right > innerWidth + 1) issues.push('section overflow');
                     }
-                    return { issues, direction: document.documentElement.dir };
+                    const homeServices = document.querySelector('.home-services');
+                    const activeMobileNav = document.querySelector('.mobile-nav > a.is-active:not(.btn)');
+                    let activeMobileUsesWood = null;
+                    if (activeMobileNav) {
+                        const probe = document.createElement('span');
+                        probe.style.color = 'var(--color-wood)';
+                        document.body.appendChild(probe);
+                        activeMobileUsesWood = getComputedStyle(activeMobileNav).color === getComputedStyle(probe).color;
+                        probe.remove();
+                    }
+                    return {
+                        issues,
+                        direction: document.documentElement.dir,
+                        homeServicesVisible: homeServices ? getComputedStyle(homeServices).display !== 'none' : null,
+                        activeMobileUsesWood,
+                    };
                 })()`);
                 assert.equal(result.direction, page.endsWith("-ar") ? "rtl" : "ltr", page);
                 assert.deepEqual(result.issues, [], `${page} ${width}x${height}: ${JSON.stringify(result.issues)}`);
+                if (page === "home-ar" || page === "home-en") {
+                    assert.equal(
+                        result.homeServicesVisible,
+                        width >= 768,
+                        `${page} ${width}x${height}: Home Services must be hidden only below 768px`,
+                    );
+                }
+                if (result.activeMobileUsesWood !== null) {
+                    assert.equal(
+                        result.activeMobileUsesWood,
+                        true,
+                        `${page} ${width}x${height}: active mobile route must use the approved wood color`,
+                    );
+                }
                 if (process.env.KBC_OWNER_QA_OUTPUT && (width === 390 || width === 1440)) {
                     await evaluate("scrollTo({top: 0, behavior: 'instant'})");
                     const screenshot = await send("Page.captureScreenshot", { format: "png" });
