@@ -272,7 +272,7 @@ def _message_setting_rows(language, *, override=None):
 def _reminder_settings_initial():
     settings = booking_services.get_booking_settings()
     return {
-        "is_active": settings.reminder_enabled,
+        "is_active": booking_services.automatic_reminders_enabled(),
         "reminder_offset_minutes": settings.reminder_offset_minutes,
     }
 
