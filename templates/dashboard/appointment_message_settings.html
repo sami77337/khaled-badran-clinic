@@ -11,7 +11,7 @@
   <header class="appointments-page-header">
     <p class="appointments-eyebrow">{% if is_arabic %}تشغيل المواعيد{% else %}Appointment Operations{% endif %}</p>
     <h1>{% if is_arabic %}رسائل المواعيد{% else %}Appointment Messages{% endif %}</h1>
-    <p>{% if is_arabic %}إعداد الرسائل الجاهزة بعد تسجيل الوصول أو عدم الحضور. هذه الإعدادات لا ترسل أي رسالة تلقائيًا.{% else %}Configure ready messages used after Arrived or No-show classification. These settings never send messages automatically.{% endif %}</p>
+    <p>{% if is_arabic %}إعداد الرسائل الافتراضية بعد تسجيل الوصول أو عدم الحضور. تظهر الرسالة للطبيب أو الموظف قبل فتحها في واتساب ويمكن تعديلها لكل موعد.{% else %}Configure default messages used after Arrived or No-show classification. Staff review and can edit the message for each appointment before opening it in WhatsApp.{% endif %}</p>
   </header>
 
   <nav class="appointment-top-actions">
@@ -27,7 +27,7 @@
       <input type="hidden" name="event" value="{{ item.event }}">
       <div class="appointments-section-heading message-settings-header">
         <h2 id="message-setting-{{ item.event }}">{{ item.label }}</h2>
-        <label class="message-settings-activation"><input type="checkbox" name="is_active" {% if item.is_active %}checked{% endif %}> <span>{% if is_arabic %}تفعيل الرسالة الجاهزة{% else %}Enable ready message{% endif %}</span></label>
+        <label class="message-settings-activation"><input type="checkbox" name="is_active" {% if item.is_active %}checked{% endif %}> <span>{% if is_arabic %}تفعيل الرسالة الافتراضية{% else %}Enable default message{% endif %}</span></label>
       </div>
       <div class="message-settings-grid">
         <div class="appointment-field">

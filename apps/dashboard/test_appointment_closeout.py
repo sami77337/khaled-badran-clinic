@@ -7,10 +7,11 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.booking import operations
+from apps.booking import appointment_messages, operations
 from apps.booking.models import Appointment, AppointmentMessageTemplate
 from apps.clinic.models import Doctor, VisitType
 from apps.core.models import AuditLog
+from apps.core.views import APPROVED_CLINIC_PHONE
 from apps.patients.models import Patient
 
 
@@ -301,11 +302,11 @@ class AppointmentOperationsCloseoutTests(TestCase):
         self.assertEqual(invalid.status_code, 200)
         self.assertEqual(list(AppointmentMessageTemplate.objects.values()), original)
 
-    def test_ready_message_compose_is_manual_and_uses_validated_whatsapp_url(self):
+    def test_message_compose_prefills_rendered_default_and_opens_whatsapp(self):
         AppointmentMessageTemplate.objects.filter(event="arrived").update(
             is_active=True,
-            text_ar="مرحبًا {patient_name}",
-            text_en="Hello {patient_name}",
+            text_ar="مرحبًا {patient_name} بتاريخ {appointment_date} الساعة {appointment_time}",
+            text_en="Hello {patient_name} on {appointment_date} at {appointment_time}",
         )
         appointment = self.appointment(-30, status=Appointment.Status.ARRIVED)
         self.client.force_login(self.staff)
@@ -315,18 +316,32 @@ class AppointmentOperationsCloseoutTests(TestCase):
         )
         response = self.client.get(f"{url}?event=arrived&lang=en")
 
+        expected = (
+            f"Hello Closeout Patient on "
+            f"{timezone.localtime(appointment.starts_at):%Y-%m-%d} at "
+            f"{timezone.localtime(appointment.starts_at):%H:%M}"
+        )
         self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["has_default_message"])
+        self.assertEqual(response.context["message_text"], expected)
         self.assertContains(response, "No Message")
         self.assertContains(
             response,
             "Opening WhatsApp here does not mean the message was sent or delivered.",
         )
-        ready_url = response.context["ready_en_url"]
-        parsed = urlsplit(ready_url)
+        self.assertNotContains(response, "Ready Message")
+        self.assertNotContains(response, "Custom Message")
+
+        opened = self.client.post(
+            f"{url}?event=arrived&lang=en",
+            {"event": "arrived", "message_text": expected},
+        )
+        self.assertEqual(opened.status_code, 302)
+        parsed = urlsplit(opened.url)
         self.assertEqual(parsed.scheme, "https")
         self.assertEqual(parsed.netloc, "wa.me")
         self.assertEqual(parsed.path, "/962791234567")
-        self.assertEqual(parse_qs(parsed.query)["text"], ["Hello Closeout Patient"])
+        self.assertEqual(parse_qs(parsed.query)["text"], [expected])
 
     def test_compose_fails_closed_when_stored_ready_template_is_corrupt(self):
         appointment = self.appointment(-30, status=Appointment.Status.ARRIVED)
@@ -345,23 +360,23 @@ class AppointmentOperationsCloseoutTests(TestCase):
         ):
             with self.subTest(template=invalid):
                 AppointmentMessageTemplate.objects.filter(event="arrived").update(
-                    text_ar=invalid
+                    text_ar=invalid,
+                    text_en=invalid,
                 )
                 response = self.client.get(f"{url}?event=arrived&lang=en")
                 self.assertEqual(response.status_code, 200)
-                self.assertEqual(response.context["ready_ar_url"], "")
-                self.assertEqual(response.context["ready_en_url"], "")
+                self.assertFalse(response.context["has_default_message"])
+                self.assertEqual(response.context["message_text"], "")
                 self.assertContains(
-                    response, "No active ready message is configured for this event."
+                    response, "No default message is active for this event."
                 )
-                self.assertContains(response, "Custom Message")
                 settings = self.client.get(
                     reverse("dashboard_appointment_message_settings")
                 )
                 self.assertEqual(settings.status_code, 200)
                 custom = self.client.post(
                     url,
-                    {"event": "arrived", "custom_message": "Synthetic custom message"},
+                    {"event": "arrived", "message_text": "Synthetic custom message"},
                 )
                 self.assertEqual(custom.status_code, 302)
                 self.assertEqual(urlsplit(custom.url).netloc, "wa.me")
@@ -384,7 +399,7 @@ class AppointmentOperationsCloseoutTests(TestCase):
         )
         response = self.client.post(
             url,
-            {"event": "arrived", "custom_message": "One-time custom message"},
+            {"event": "arrived", "message_text": "One-time custom message"},
         )
 
         self.assertEqual(response.status_code, 302)
@@ -417,7 +432,7 @@ class AppointmentOperationsCloseoutTests(TestCase):
         )
         response = self.client.post(
             url,
-            {"event": "arrived", "custom_message": "Message"},
+            {"event": "arrived", "message_text": "Message"},
         )
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.context["whatsapp_available"])
@@ -535,7 +550,7 @@ class AppointmentOperationsCloseoutTests(TestCase):
                     ):
                         response = method(
                             url,
-                            {"event": "arrived", "custom_message": "Synthetic message"},
+                            {"event": "arrived", "message_text": "Synthetic message"},
                         )
                         self.assertIn(response.status_code, (302, 403))
                         self.assertNotIn(
@@ -571,7 +586,7 @@ class AppointmentOperationsCloseoutTests(TestCase):
         )
         self.assertEqual(
             client.post(
-                url, {"event": "arrived", "custom_message": "Synthetic message"}
+                url, {"event": "arrived", "message_text": "Synthetic message"}
             ).status_code,
             403,
         )
@@ -589,16 +604,17 @@ class AppointmentOperationsCloseoutTests(TestCase):
                 "dashboard_appointment_message_compose",
                 kwargs={"appointment_id": appointment.id},
             )
-            template = AppointmentMessageTemplate.objects.get(event=event)
-            response = self.client.get(url, {"event": event})
-            self.assertEqual(response.status_code, 200)
-            for language in ("ar", "en"):
-                parsed = urlsplit(response.context[f"ready_{language}_url"])
-                self.assertEqual(parsed.netloc, "wa.me")
-                self.assertEqual(
-                    parse_qs(parsed.query)["text"],
-                    [getattr(template, f"text_{language}")],
+            for language, suffix in (("ar", ""), ("en", "&lang=en")):
+                response = self.client.get(f"{url}?event={event}{suffix}")
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response.context["has_default_message"])
+                rendered = appointment_messages.render_ready_message(
+                    appointment,
+                    event=event,
+                    language=language,
+                    clinic_phone=APPROVED_CLINIC_PHONE["display"],
                 )
+                self.assertEqual(response.context["message_text"], rendered)
 
     def test_invalid_phone_and_event_fail_closed_for_get_and_post(self):
         appointment = self.appointment(-30, status=Appointment.Status.ARRIVED)
@@ -612,16 +628,14 @@ class AppointmentOperationsCloseoutTests(TestCase):
         )
         for method in (self.client.get, self.client.post):
             response = method(
-                url, {"event": "arrived", "custom_message": "Synthetic message"}
+                url, {"event": "arrived", "message_text": "Synthetic message"}
             )
             self.assertEqual(response.status_code, 200)
             self.assertFalse(response.context["whatsapp_available"])
-            self.assertEqual(response.context["ready_ar_url"], "")
-            self.assertEqual(response.context["ready_en_url"], "")
             for event in ("no_show", "completed", "unknown"):
                 self.assertEqual(
                     method(
-                        url, {"event": event, "custom_message": "Synthetic message"}
+                        url, {"event": event, "message_text": "Synthetic message"}
                     ).status_code,
                     404,
                 )

@@ -12,11 +12,13 @@ status. Staff can mark arrival, record a no-show with an internal reason, or
 complete an arrived visit. No-show is blocked before the appointment start time;
 completed, cancelled, and no-show appointments remain terminal.
 
-After recording arrival or no-show, staff choose No Message, Ready Message, or
-Custom Message. Ready messages support Arabic and English. Both message choices
-open a validated `wa.me` link for staff to review and send manually. Opening a
-link does not record a sent or delivered message. Custom text does not overwrite
-the saved ready-message settings.
+After recording arrival or no-show, staff see one editable message field.
+The active default for the current dashboard language is rendered with the
+appointment's patient name, date, and time already filled in. Staff can open that
+text in WhatsApp unchanged, edit it, replace it with a fully custom message, or
+choose No Message. The final text opens through a validated `wa.me` link for
+manual review and sending. Opening WhatsApp does not record a sent or delivered
+message, and per-appointment edits never overwrite the saved default template.
 
 ## Default messages and migration
 
