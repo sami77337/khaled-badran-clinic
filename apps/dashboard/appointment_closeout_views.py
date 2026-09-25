@@ -418,24 +418,41 @@ def appointment_message_compose(request, appointment_id):
         raise Http404
 
     phone = _validated_e164(appointment.effective_whatsapp_phone)
-    custom_message = request.POST.get("custom_message") or ""
     compose_url = _compose_url(appointment.id, event, language)
 
+    try:
+        default_message = appointment_messages.render_ready_message(
+            appointment,
+            event=event,
+            language=language,
+            clinic_phone=APPROVED_CLINIC_PHONE["display"],
+        )
+    except ValidationError:
+        # Stored rows are validated on the supported settings path. Fail closed
+        # instead of returning a 500 if legacy/manual database edits bypassed it.
+        default_message = ""
+
+    message_text = (
+        request.POST.get("message_text", "")
+        if request.method == "POST"
+        else default_message
+    )
+
     if request.method == "POST":
-        custom_message = custom_message.strip()
-        if not custom_message:
+        message_text = message_text.strip()
+        if not message_text:
             messages.error(
                 request,
-                "أدخل نص الرسالة المخصصة."
+                "أدخل نص الرسالة أو اختر بدون رسالة."
                 if language == "ar"
-                else "Enter a custom message.",
+                else "Enter a message or choose No Message.",
             )
-        elif len(custom_message) > 2000:
+        elif len(message_text) > 2000:
             messages.error(
                 request,
-                "الرسالة المخصصة طويلة جدًا."
+                "الرسالة طويلة جدًا."
                 if language == "ar"
-                else "The custom message is too long.",
+                else "The message is too long.",
             )
         elif not phone:
             messages.error(
@@ -445,26 +462,8 @@ def appointment_message_compose(request, appointment_id):
                 else "This appointment has no valid WhatsApp number.",
             )
         else:
-            return redirect(_whatsapp_compose_url(phone, custom_message))
+            return redirect(_whatsapp_compose_url(phone, message_text))
 
-    try:
-        ready_ar = appointment_messages.render_ready_message(
-            appointment,
-            event=event,
-            language="ar",
-            clinic_phone=APPROVED_CLINIC_PHONE["display"],
-        )
-        ready_en = appointment_messages.render_ready_message(
-            appointment,
-            event=event,
-            language="en",
-            clinic_phone=APPROVED_CLINIC_PHONE["display"],
-        )
-    except ValidationError:
-        # Stored rows are validated on the supported settings path. Fail closed
-        # instead of returning a 500 if legacy/manual database edits bypassed it.
-        ready_ar = ""
-        ready_en = ""
     event_label = (
         (
             "تم تسجيل الوصول"
@@ -505,9 +504,8 @@ def appointment_message_compose(request, appointment_id):
             "compose_url": compose_url,
             "follow_up_url": _queue_url(language),
             "settings_url": _settings_url(language),
-            "ready_ar_url": _whatsapp_compose_url(phone, ready_ar),
-            "ready_en_url": _whatsapp_compose_url(phone, ready_en),
-            "custom_message": custom_message,
+            "message_text": message_text,
+            "has_default_message": bool(default_message),
             "whatsapp_available": bool(phone),
         }
     )
