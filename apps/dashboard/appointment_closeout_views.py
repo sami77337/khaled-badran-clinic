@@ -3,19 +3,23 @@ from urllib.parse import urlencode
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from apps.booking import appointment_messages, operations
+from apps.booking import services as booking_services
 from apps.booking.forms import MarkNoShowForm
 from apps.booking.message_template_validation import (
     validate_appointment_message_template,
 )
 from apps.booking.models import Appointment, AppointmentMessageTemplate
+from apps.core.models import AuditLog, SystemSetting
 from apps.core.views import APPROVED_CLINIC_PHONE
 
+from .forms import AppointmentReminderSettingsForm
 from .views import (
     _dashboard_home_context,
     _dashboard_language,
@@ -265,44 +269,144 @@ def _message_setting_rows(language, *, override=None):
     return rows
 
 
+def _reminder_settings_initial():
+    settings = booking_services.get_booking_settings()
+    return {
+        "is_active": booking_services.automatic_reminders_enabled(),
+        "reminder_offset_minutes": settings.reminder_offset_minutes,
+    }
+
+
+@transaction.atomic
+def _save_reminder_settings(*, is_active, reminder_offset_minutes, actor):
+    specs = (
+        (
+            SystemSetting.APPOINTMENT_REMINDER_ENABLED,
+            "true" if is_active else "false",
+            SystemSetting.ValueType.BOOLEAN,
+            "Enable automatic appointment reminders.",
+        ),
+        (
+            SystemSetting.APPOINTMENT_REMINDER_OFFSET_MINUTES,
+            str(reminder_offset_minutes),
+            SystemSetting.ValueType.DURATION_MINUTES,
+            "Default appointment reminder offset.",
+        ),
+    )
+    for key, value, value_type, description in specs:
+        setting = (
+            SystemSetting.objects.select_for_update()
+            .filter(key=key)
+            .first()
+        )
+        old_value = setting.value if setting is not None else None
+        if setting is None:
+            setting = SystemSetting.objects.create(
+                key=key,
+                value=value,
+                value_type=value_type,
+                description=description,
+            )
+            changed = True
+        else:
+            changed = setting.value != value or setting.value_type != value_type
+            setting.value = value
+            setting.value_type = value_type
+            setting.description = description
+            if changed:
+                setting.save(
+                    update_fields=["value", "value_type", "description", "updated_at"]
+                )
+        if changed:
+            AuditLog.objects.create(
+                user=actor,
+                action=AuditLog.Action.SETTINGS_CHANGE,
+                app_label="core",
+                model_name="SystemSetting",
+                object_id=str(setting.pk),
+                object_repr=key,
+                message="Updated appointment reminder setting.",
+                metadata={
+                    "key": key,
+                    "old_value": old_value,
+                    "new_value": value,
+                },
+            )
+
+
 @_staff_required
 @require_http_methods(["GET", "POST"])
 def appointment_message_settings(request):
     language = _dashboard_language(request)
     override = None
+    reminder_form = AppointmentReminderSettingsForm(
+        language=language,
+        initial=_reminder_settings_initial(),
+    )
+
     if request.method == "POST":
-        event = (request.POST.get("event") or "").strip()
-        if event not in AppointmentMessageTemplate.Event.values:
-            raise Http404
-        override = {
-            "event": event,
-            "is_active": request.POST.get("is_active") == "on",
-            "text_ar": request.POST.get("text_ar") or "",
-            "text_en": request.POST.get("text_en") or "",
-        }
-        try:
-            appointment_messages.save_appointment_message_template(
-                event=event,
-                is_active=override["is_active"],
-                text_ar=override["text_ar"],
-                text_en=override["text_en"],
-                actor=request.user,
+        settings_kind = (request.POST.get("settings_kind") or "message").strip()
+        if settings_kind == "reminder":
+            reminder_form = AppointmentReminderSettingsForm(
+                request.POST,
+                language=language,
             )
-        except ValidationError:
+            if reminder_form.is_valid():
+                _save_reminder_settings(
+                    is_active=reminder_form.cleaned_data["is_active"],
+                    reminder_offset_minutes=reminder_form.cleaned_data[
+                        "reminder_offset_minutes"
+                    ],
+                    actor=request.user,
+                )
+                messages.success(
+                    request,
+                    "تم حفظ إعدادات التذكير."
+                    if language == "ar"
+                    else "Reminder settings saved.",
+                )
+                return redirect(_settings_url(language))
             messages.error(
                 request,
-                "تعذر حفظ الإعدادات. تحقق من النصوص والمتغيرات المسموحة."
+                "تعذر حفظ إعدادات التذكير. تحقق من القيم."
                 if language == "ar"
-                else "Settings could not be saved. Check the texts and allowed placeholders.",
+                else "Reminder settings could not be saved. Check the values.",
             )
+        elif settings_kind == "message":
+            event = (request.POST.get("event") or "").strip()
+            if event not in AppointmentMessageTemplate.Event.values:
+                raise Http404
+            override = {
+                "event": event,
+                "is_active": request.POST.get("is_active") == "on",
+                "text_ar": request.POST.get("text_ar") or "",
+                "text_en": request.POST.get("text_en") or "",
+            }
+            try:
+                appointment_messages.save_appointment_message_template(
+                    event=event,
+                    is_active=override["is_active"],
+                    text_ar=override["text_ar"],
+                    text_en=override["text_en"],
+                    actor=request.user,
+                )
+            except ValidationError:
+                messages.error(
+                    request,
+                    "تعذر حفظ الإعدادات. تحقق من النصوص والمتغيرات المسموحة."
+                    if language == "ar"
+                    else "Settings could not be saved. Check the texts and allowed placeholders.",
+                )
+            else:
+                messages.success(
+                    request,
+                    "تم حفظ إعدادات الرسالة."
+                    if language == "ar"
+                    else "Appointment message settings saved.",
+                )
+                return redirect(_settings_url(language))
         else:
-            messages.success(
-                request,
-                "تم حفظ إعدادات الرسالة."
-                if language == "ar"
-                else "Appointment message settings saved.",
-            )
-            return redirect(_settings_url(language))
+            raise Http404
 
     context = _dashboard_home_context(
         request,
@@ -323,6 +427,7 @@ def appointment_message_settings(request):
             "active_dashboard_nav": "appointments",
             "follow_up_url": _queue_url(language),
             "settings_url": settings_url,
+            "reminder_form": reminder_form,
             "message_settings": _message_setting_rows(language, override=override),
         }
     )

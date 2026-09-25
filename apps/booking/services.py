@@ -24,6 +24,7 @@ DEFAULT_BOOKING_ENABLED = True
 DEFAULT_BOOKING_MIN_LEAD_MINUTES = 180
 DEFAULT_BOOKING_MAX_DAYS_AHEAD = 30
 DEFAULT_BOOKING_SLOT_INTERVAL_MINUTES = 15
+DEFAULT_APPOINTMENT_REMINDER_ENABLED = True
 DEFAULT_APPOINTMENT_REMINDER_OFFSET_MINUTES = 180
 DEFAULT_PATIENT_CANCELLATION_CUTOFF_MINUTES = 720
 
@@ -111,6 +112,13 @@ def get_integer_setting(key, default, minimum=0, maximum=None):
 
 def get_duration_setting(key, default_minutes, minimum=0):
     return timedelta(minutes=get_integer_setting(key, default_minutes, minimum=minimum))
+
+
+def automatic_reminders_enabled():
+    return get_boolean_setting(
+        SystemSetting.APPOINTMENT_REMINDER_ENABLED,
+        DEFAULT_APPOINTMENT_REMINDER_ENABLED,
+    )
 
 
 def get_bool_setting(key, default):

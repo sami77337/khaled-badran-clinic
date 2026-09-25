@@ -559,6 +559,45 @@ class BookingRulesForm(forms.Form):
         )
 
 
+class AppointmentReminderSettingsForm(forms.Form):
+    is_active = forms.BooleanField(required=False)
+    reminder_offset_minutes = forms.IntegerField(
+        min_value=0,
+        max_value=MAX_BOOKING_RULE_MINUTES,
+        widget=forms.NumberInput(
+            attrs={"min": "0", "max": str(MAX_BOOKING_RULE_MINUTES), "inputmode": "numeric"}
+        ),
+    )
+
+    def __init__(self, *args, language="ar", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["is_active"].label = _scheduling_copy(
+            language,
+            "تفعيل التذكير التلقائي",
+            "Enable automatic reminder",
+        )
+        self.fields["reminder_offset_minutes"].label = _scheduling_copy(
+            language,
+            "وقت التذكير قبل الموعد",
+            "Reminder lead time",
+        )
+        self.fields["reminder_offset_minutes"].help_text = _scheduling_copy(
+            language,
+            "بالدقائق — القيمة الافتراضية 180 دقيقة (3 ساعات).",
+            "Minutes — the default is 180 minutes (3 hours).",
+        )
+        self.fields["reminder_offset_minutes"].error_messages["required"] = _scheduling_copy(
+            language,
+            "وقت التذكير مطلوب.",
+            "Reminder lead time is required.",
+        )
+        self.fields["reminder_offset_minutes"].error_messages["invalid"] = _scheduling_copy(
+            language,
+            "أدخل عدد دقائق صحيحًا.",
+            "Enter a valid number of minutes.",
+        )
+
+
 class StaffVisitRecordForm(_LocalizedRecordFormMixin, forms.ModelForm):
     visit_date = forms.DateTimeField(
         input_formats=DATETIME_INPUT_FORMATS,

@@ -20,10 +20,35 @@
 
   {% if messages %}<div class="appointment-messages" role="status" aria-live="polite">{% for message in messages %}<p>{{ message }}</p>{% endfor %}</div>{% endif %}
 
+  <section class="appointments-results message-settings-card" aria-labelledby="appointment-reminder-settings">
+    <form class="appointment-operation-form message-settings-form" method="post" action="{{ settings_url }}">
+      {% csrf_token %}
+      <input type="hidden" name="settings_kind" value="reminder">
+      <div class="appointments-section-heading message-settings-header">
+        <h2 id="appointment-reminder-settings">{% if is_arabic %}تذكير الموعد التلقائي{% else %}Automatic Appointment Reminder{% endif %}</h2>
+        <label class="message-settings-activation">{{ reminder_form.is_active }} <span>{% if is_arabic %}تفعيل التذكير{% else %}Enable reminder{% endif %}</span></label>
+      </div>
+      <p class="appointments-help">{% if is_arabic %}يُرسل التذكير تلقائيًا عبر قالب WhatsApp معتمد من Meta. نص القالب الأساسي يُدار في Meta ولا يمكن تحريره كنص حر من الموقع.{% else %}The reminder is sent automatically through a Meta-approved WhatsApp template. The template body is managed in Meta and cannot be edited as free text from the website.{% endif %}</p>
+      <div class="appointment-field">
+        <label for="{{ reminder_form.reminder_offset_minutes.id_for_label }}">{% if is_arabic %}وقت التذكير قبل الموعد{% else %}Reminder lead time{% endif %}</label>
+        {{ reminder_form.reminder_offset_minutes }}
+        <p class="appointments-help">{% if is_arabic %}بالدقائق. 180 دقيقة = 3 ساعات. تغيير هذه القيمة يصبح الـdefault للحجوزات الجديدة؛ المواعيد القائمة تحتفظ بوقت التذكير المحفوظ لديها.{% else %}In minutes. 180 minutes = 3 hours. Changing this value becomes the default for new bookings; existing appointments keep their saved reminder offset.{% endif %}</p>
+        {% for error in reminder_form.reminder_offset_minutes.errors %}<p class="appointments-help">{{ error }}</p>{% endfor %}
+      </div>
+      <div class="message-settings-help">
+        <span class="message-settings-help-heading">{% if is_arabic %}القيم التي يضيفها الموقع تلقائيًا إلى قالب Meta:{% else %}Values the website automatically supplies to the Meta template:{% endif %}</span>
+        <span class="message-settings-placeholder"><span>{% if is_arabic %}تاريخ الموعد{% else %}Appointment date{% endif %}</span> <code dir="ltr">{appointment_date}</code></span>
+        <span class="message-settings-placeholder"><span>{% if is_arabic %}وقت الموعد{% else %}Appointment time{% endif %}</span> <code dir="ltr">{appointment_time}</code></span>
+      </div>
+      <button class="appointment-button appointment-button-primary" type="submit">{% if is_arabic %}حفظ إعدادات التذكير{% else %}Save reminder settings{% endif %}</button>
+    </form>
+  </section>
+
   {% for item in message_settings %}
   <section class="appointments-results message-settings-card" aria-labelledby="message-setting-{{ item.event }}">
     <form class="appointment-operation-form message-settings-form" method="post" action="{{ settings_url }}">
       {% csrf_token %}
+      <input type="hidden" name="settings_kind" value="message">
       <input type="hidden" name="event" value="{{ item.event }}">
       <div class="appointments-section-heading message-settings-header">
         <h2 id="message-setting-{{ item.event }}">{{ item.label }}</h2>
