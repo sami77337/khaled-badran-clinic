@@ -10,6 +10,7 @@ from django.db.models import DateTimeField, ExpressionWrapper, F
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
 
+from apps.booking import services as booking_services
 from apps.booking.models import Appointment
 from . import meta
 from .webhook import state_key
@@ -19,6 +20,8 @@ UPCOMING_STATUSES = (Appointment.Status.CONFIRMED, Appointment.Status.RESCHEDULE
 
 
 def due_reminders(now):
+    if not booking_services.get_booking_settings().reminder_enabled:
+        return Appointment.objects.none()
     return (
         Appointment.objects.filter(
             status__in=UPCOMING_STATUSES,
