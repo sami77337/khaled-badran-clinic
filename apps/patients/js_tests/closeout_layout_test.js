@@ -267,7 +267,7 @@ async function main() {
         const widths = [320, 360, 375, 390, 412, 430, 479, 480, 540, 600, 639, 640, 641, 667, 719, 720, 767, 768, 799, 800, 844, 899, 900, 1023, 1024, 1279, 1280, 1440];
         let reviews = 0, folders = 0, notifications = 0, rotations = 0, closeout = 0;
         for (const language of ["ar", "en"]) {
-            for (const surface of ["home", "contact", "case-detail", "medical-records", "consultation-patient", "consultation-staff", "folder-delete", "link", "link-errors"]) {
+            for (const surface of ["home", "contact", "case-detail", "portal-dashboard", "portal-account", "portal-account-close", "portal-appointments", "portal-appointment-detail", "portal-appointment-cancel", "medical-records", "consultation-patient", "consultation-staff", "folder-delete", "link", "link-errors"]) {
                 await navigate(`${surface}-${language}`);
                 for (const width of widths) {
                     for (const height of [260, 844]) {
@@ -321,6 +321,23 @@ async function main() {
                                 const gap = recovery.getBoundingClientRect().top - actions.getBoundingClientRect().bottom;
                                 const expected = parseFloat(getComputedStyle(actions).rowGap);
                                 if (Math.abs(gap - expected) > 1) failures.push({ kind: 'recovery-action-gap', gap, expected });
+                            }
+                            if (surface.startsWith('portal-')) {
+                                const controls = [...document.querySelectorAll(
+                                    '#patient-portal-main button, ' +
+                                    '#patient-portal-main input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=file]), ' +
+                                    '#patient-portal-main select, #patient-portal-main textarea, ' +
+                                    '#patient-portal-main .dashboard-action-link'
+                                )].filter(el => el.checkVisibility());
+                                for (const control of controls) {
+                                    const r = control.getBoundingClientRect();
+                                    if (r.left < -1 || r.right > innerWidth + 1) {
+                                        failures.push({ kind: 'portal-control-overflow', tag: control.tagName, box: r.toJSON() });
+                                    }
+                                    if (r.height < 40) {
+                                        failures.push({ kind: 'portal-small-target', tag: control.tagName, height: r.height });
+                                    }
+                                }
                             }
                             return { failures, count: nodes.length, expectsText: !!selectors[surface], direction: document.documentElement.dir,
                                 width: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth };

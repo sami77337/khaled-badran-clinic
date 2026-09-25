@@ -1,5 +1,6 @@
 """Real Django pages and installed Chromium; only isolated synthetic records."""
 import json
+from datetime import timedelta
 import os
 from pathlib import Path
 import shutil
@@ -14,9 +15,12 @@ from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
-from django.utils import translation
+from django.utils import timezone, translation
 
+from apps.booking.models import Appointment
+from apps.clinic.models import Doctor, VisitType
 from apps.core.models import PublicReview
+from apps.patients import views as patient_views
 from apps.patients.models import Consultation, ConsultationAttachment, ConsultationNotification, Patient
 from apps.records.models import ClinicalNote, PublicCase, PublicCaseMedia, RecordMedia, RecordMediaFolder
 
@@ -105,6 +109,32 @@ class FinalCloseoutLayoutTests(TestCase):
         user = get_user_model().objects.create_user(username="synthetic-closeout-patient")
         staff = get_user_model().objects.create_user(username="synthetic-closeout-staff", is_staff=True)
         patient = Patient.objects.create(user=user, full_name="Synthetic closeout patient")
+        doctor = Doctor.objects.create(
+            full_name_ar="طبيب تجريبي",
+            full_name_en="Synthetic Doctor",
+            title_ar="د.",
+            title_en="Dr.",
+            specialty_ar="اختبار",
+            specialty_en="Test",
+            is_active=True,
+        )
+        visit_type = VisitType.objects.create(
+            doctor=doctor,
+            name_ar="زيارة تجريبية",
+            name_en="Synthetic Visit",
+            duration_minutes=30,
+            is_active=True,
+        )
+        starts_at = timezone.now() + timedelta(days=2)
+        appointment = Appointment.objects.create(
+            doctor=doctor,
+            patient=patient,
+            visit_type=visit_type,
+            starts_at=starts_at,
+            ends_at=starts_at + timedelta(minutes=30),
+            status=Appointment.Status.CONFIRMED,
+            booking_note="PRIVATE-BOOKING-NOTE-SENTINEL",
+        )
         for _ in range(9):
             consultation = Consultation.objects.create(patient=patient, question="Synthetic layout question")
             for recipient, kind in (
@@ -156,7 +186,10 @@ class FinalCloseoutLayoutTests(TestCase):
                 def add_page(name, url):
                     response = self.client.get(url)
                     self.assertEqual(response.status_code, 200, url)
-                    pages[name] = response.content.decode()
+                    html = response.content.decode()
+                    if name.startswith("portal-") or name.startswith("medical-records"):
+                        self.assertNotIn("PRIVATE-BOOKING-NOTE-SENTINEL", html)
+                    pages[name] = html
 
                 for language in ("ar", "en"):
                     suffix = "_en" if language == "en" else ""
@@ -165,8 +198,33 @@ class FinalCloseoutLayoutTests(TestCase):
                         add_page(f"{route}-{language}", reverse(route + suffix))
                     add_page(f"case-detail-{language}", reverse("public_case_detail" + suffix, kwargs={"case_id": public_case.pk}))
                     self.client.force_login(user)
-                    for name, route in (("medical-records", "patient_portal_medical_records"), ("link", "patient_portal_link_appointment")):
+                    for name, route in (
+                        ("portal-dashboard", "patient_portal_dashboard"),
+                        ("portal-account", "patient_portal_account"),
+                        ("portal-account-close", "patient_portal_account_close"),
+                        ("portal-appointments", "patient_portal_appointment_list"),
+                        ("medical-records", "patient_portal_medical_records"),
+                        ("link", "patient_portal_link_appointment"),
+                    ):
                         add_page(f"{name}-{language}", reverse(route + suffix))
+                    add_page(
+                        f"portal-appointment-detail-{language}",
+                        reverse(
+                            "patient_portal_appointment_detail" + suffix,
+                            kwargs={"public_token": appointment.public_token},
+                        ),
+                    )
+                    add_page(
+                        f"portal-appointment-cancel-{language}",
+                        reverse(
+                            "patient_portal_appointment_cancel" + suffix,
+                            kwargs={
+                                "reference": patient_views._appointment_cancellation_reference(
+                                    appointment
+                                )
+                            },
+                        ),
+                    )
                     invalid_link = self.client.post(reverse("patient_portal_link_appointment" + suffix), {})
                     self.assertEqual(invalid_link.status_code, 200)
                     pages[f"link-errors-{language}"] = invalid_link.content.decode()
