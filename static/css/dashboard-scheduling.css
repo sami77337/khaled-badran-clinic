@@ -1519,6 +1519,16 @@
     scroll-margin-block-start: 1rem;
 }
 
+#customize-day-form {
+    scroll-margin-block-start: 1rem;
+}
+
+@media (max-width: 63.999rem) {
+    #customize-day-form {
+        scroll-margin-block-start: 5.25rem;
+    }
+}
+
 .is-rtl .scheduling-management-header p,
 .is-rtl .scheduling-field label,
 .is-rtl .scheduling-field-help,

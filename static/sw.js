@@ -40,7 +40,9 @@ self.addEventListener("push", (event) => {
         lang: data.language,
         dir: data.language === "ar" ? "rtl" : "ltr",
         requireInteraction: false,
-        renotify: false,
+        renotify: true,
+        silent: false,
+        icon: "/static/img/brand/KB_APPROVED_PWA_192.png",
         data: { event: data.event, language: data.language },
     }));
 });

@@ -69,8 +69,11 @@ The worker supplies only this fixed copy:
 Both the provider `Topic` and browser notification `tag` are stable:
 `kbc-new-consultation` and `kbc-new-booking`. Pending pushes collapse by category;
 displayed notifications replace the earlier category notification where supported
-by the platform. `requireInteraction` and `renotify` are false. There are no custom
-sounds, vibration patterns, action buttons or app badge changes.
+by the platform, while `renotify=true` requests a fresh system alert for each
+delivered event. `silent=false` leaves normal notification sound behavior to the
+device and OS settings; there is no custom sound, vibration pattern, action button,
+or app badge change. The approved clinic PWA icon is supplied where the platform
+supports notification icons.
 
 The root-scoped worker at `/sw.js` uses no offline cache. Taps navigate/focus an
 existing staff window, or open `/dashboard/consultations/` or `/staff/appointments/`
