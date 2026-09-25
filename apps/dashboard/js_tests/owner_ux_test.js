@@ -7,7 +7,7 @@ const path = require("node:path");
 const { launchBrowser } = require("../../core/js_tests/browser_launcher");
 const [browser, fixture] = process.argv.slice(2);
 const { pages, assets } = JSON.parse(fs.readFileSync(fixture, "utf8"));
-const viewports = [[390, 844], [768, 1024], [1440, 900]];
+const viewports = [[320, 568], [390, 844], [768, 1024], [1024, 768], [1440, 900]];
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function main() {
@@ -164,7 +164,7 @@ async function main() {
         assert.deepEqual(runtimeErrors, [], 'No uncaught browser exceptions');
         assert.deepEqual(await evaluate('caches.keys()'), [], 'No response cache created');
         assert.equal(await evaluate("navigator.serviceWorker.getRegistration('/').then(reg => Boolean(reg && reg.active && reg.active.scriptURL.endsWith('/sw.js')))"), true, 'Existing root worker registered');
-        console.log(`PASS: ${cases} responsive pages (390/768/1440, AR/EN); ${installCases.length} install runtime cases. Native device installation is not exercised.`);
+        console.log(`PASS: ${cases} responsive pages (320/390/768/1024/1440, AR/EN); ${installCases.length} install runtime cases. Native device installation is not exercised.`);
     } finally {
         if (send && ws?.readyState === WebSocket.OPEN) { send("Browser.close").catch(() => {}); await delay(300); }
         server.close();
