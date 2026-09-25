@@ -1915,14 +1915,14 @@ summary:focus-visible {
     }
 
     .mobile-nav > a.is-active:not(.btn) {
-        border-color: var(--color-line);
+        border-color: rgba(193, 154, 107, 0.55);
         background: var(--color-soft);
-        color: var(--color-burgundy);
-        box-shadow: inset 4px 0 0 var(--color-burgundy);
+        color: var(--color-wood);
+        box-shadow: inset 4px 0 0 var(--color-beige);
     }
 
     .is-rtl .mobile-nav > a.is-active:not(.btn) {
-        box-shadow: inset -4px 0 0 var(--color-burgundy);
+        box-shadow: inset -4px 0 0 var(--color-beige);
     }
 
     .mobile-nav > .mobile-drawer-booking {
