@@ -8,9 +8,10 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.booking import appointment_messages, operations
+from apps.booking import services as booking_services
 from apps.booking.models import Appointment, AppointmentMessageTemplate
 from apps.clinic.models import Doctor, VisitType
-from apps.core.models import AuditLog
+from apps.core.models import AuditLog, SystemSetting
 from apps.core.views import APPROVED_CLINIC_PHONE
 from apps.patients.models import Patient
 
@@ -245,6 +246,10 @@ class AppointmentOperationsCloseoutTests(TestCase):
         self.assertEqual(english.status_code, 200)
         self.assertContains(arabic, "رسائل المواعيد")
         self.assertContains(english, "Appointment Messages")
+        self.assertContains(arabic, "تذكير الموعد التلقائي")
+        self.assertContains(english, "Automatic Appointment Reminder")
+        self.assertContains(arabic, "قالب WhatsApp معتمد من Meta")
+        self.assertContains(english, "Meta-approved WhatsApp template")
         self.assertContains(
             arabic,
             "يمكنك إدراج معلومات الموعد تلقائيًا داخل الرسالة:",
@@ -270,6 +275,34 @@ class AppointmentOperationsCloseoutTests(TestCase):
         ):
             self.assertContains(arabic, placeholder)
             self.assertContains(english, placeholder)
+
+    def test_message_settings_save_reminder_controls_and_share_offset_setting(self):
+        self.client.force_login(self.staff)
+        url = reverse("dashboard_appointment_message_settings")
+        response = self.client.post(url, {"settings_kind": "reminder", "is_active": "on", "reminder_offset_minutes": "240"})
+        self.assertEqual(response.status_code, 302)
+        enabled = SystemSetting.objects.get(key=SystemSetting.APPOINTMENT_REMINDER_ENABLED)
+        offset = SystemSetting.objects.get(key=SystemSetting.APPOINTMENT_REMINDER_OFFSET_MINUTES)
+        self.assertEqual(enabled.value, "true")
+        self.assertEqual(offset.value, "240")
+        settings = booking_services.get_booking_settings()
+        self.assertTrue(settings.reminder_enabled)
+        self.assertEqual(settings.reminder_offset_minutes, 240)
+        self.assertEqual(AuditLog.objects.filter(action=AuditLog.Action.SETTINGS_CHANGE, model_name="SystemSetting").count(), 2)
+        disabled = self.client.post(url, {"settings_kind": "reminder", "reminder_offset_minutes": "240"})
+        self.assertEqual(disabled.status_code, 302)
+        enabled.refresh_from_db()
+        self.assertEqual(enabled.value, "false")
+        self.assertFalse(booking_services.get_booking_settings().reminder_enabled)
+
+    def test_message_settings_reject_invalid_reminder_offset(self):
+        self.client.force_login(self.staff)
+        url = reverse("dashboard_appointment_message_settings")
+        original = list(SystemSetting.objects.order_by("key").values())
+        response = self.client.post(url, {"settings_kind": "reminder", "is_active": "on", "reminder_offset_minutes": "-1"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(SystemSetting.objects.order_by("key").values()), original)
+        self.assertContains(response, "تعذر حفظ إعدادات التذكير")
 
     def test_message_settings_save_valid_templates_and_reject_bad_placeholder(self):
         self.client.force_login(self.staff)
