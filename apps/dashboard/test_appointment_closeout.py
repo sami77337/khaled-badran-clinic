@@ -286,14 +286,14 @@ class AppointmentOperationsCloseoutTests(TestCase):
         self.assertEqual(enabled.value, "true")
         self.assertEqual(offset.value, "240")
         settings = booking_services.get_booking_settings()
-        self.assertTrue(settings.reminder_enabled)
+        self.assertTrue(booking_services.automatic_reminders_enabled())
         self.assertEqual(settings.reminder_offset_minutes, 240)
         self.assertEqual(AuditLog.objects.filter(action=AuditLog.Action.SETTINGS_CHANGE, model_name="SystemSetting").count(), 2)
         disabled = self.client.post(url, {"settings_kind": "reminder", "reminder_offset_minutes": "240"})
         self.assertEqual(disabled.status_code, 302)
         enabled.refresh_from_db()
         self.assertEqual(enabled.value, "false")
-        self.assertFalse(booking_services.get_booking_settings().reminder_enabled)
+        self.assertFalse(booking_services.automatic_reminders_enabled())
 
     def test_message_settings_reject_invalid_reminder_offset(self):
         self.client.force_login(self.staff)
