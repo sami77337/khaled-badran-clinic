@@ -267,7 +267,7 @@ async function main() {
         const widths = [320, 360, 375, 390, 412, 430, 479, 480, 540, 600, 639, 640, 641, 667, 719, 720, 767, 768, 799, 800, 844, 899, 900, 1023, 1024, 1279, 1280, 1440];
         let reviews = 0, folders = 0, notifications = 0, rotations = 0, closeout = 0;
         for (const language of ["ar", "en"]) {
-            for (const surface of ["home", "contact", "case-detail", "portal-dashboard", "portal-account", "portal-account-close", "portal-appointments", "portal-appointment-detail", "portal-appointment-cancel", "medical-records", "consultation-patient", "consultation-staff", "folder-delete", "link", "link-errors"]) {
+            for (const surface of ["home", "contact", "cases-list", "case-detail", "portal-dashboard", "portal-account", "portal-account-close", "portal-appointments", "portal-appointment-detail", "portal-appointment-cancel", "medical-records", "consultation-patient", "consultation-staff", "folder-delete", "link", "link-errors"]) {
                 await navigate(`${surface}-${language}`);
                 for (const width of widths) {
                     for (const height of [260, 844]) {
@@ -276,6 +276,7 @@ async function main() {
                             const failures = [];
                             const surface = ${JSON.stringify(surface)};
                             const selectors = {
+                                'cases-list': '.public-case-card h2, .public-case-card h3, .public-case-card p',
                                 'case-detail': '.public-case-detail-hero h1, .public-case-detail-hero p, .public-case-detail-note-card',
                                 'medical-records': '.portal-rich-text, .portal-media-card h3',
                                 'consultation-patient': '.portal-media-meta',
