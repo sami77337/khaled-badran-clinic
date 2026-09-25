@@ -2118,12 +2118,28 @@ class PublicUiFoundationTests(TestCase):
 
         self.assertIn('data-hero-carousel', html)
         self.assertIn('class="home-hero-visual"', html)
+        self.assertIn('class="section home-services"', html)
         self.assertIn('class="section home-reviews"', html)
         self.assertIn('class="section home-faq"', html)
         self.assertIn('@media (min-width: 768px)', css)
-        self.assertIn('.home-faq {\n        display: block;', css)
+        self.assertIn('.home-services {\n    display: none;', css)
+        self.assertIn('.home-services,\n    .home-faq {\n        display: block;', css)
         self.assertNotIn('.home-reviews[hidden]', css)
-        self.assertNotIn('.home-services', css)
+        self.assertIn(
+            '.mobile-nav > a.is-active:not(.btn) {\n'
+            '        border-color: rgba(193, 154, 107, 0.55);\n'
+            '        background: var(--color-soft);\n'
+            '        color: var(--color-wood);\n'
+            '        box-shadow: inset 4px 0 0 var(--color-beige);',
+            css,
+        )
+        self.assertNotIn(
+            '.mobile-nav > a.is-active:not(.btn) {\n'
+            '        border-color: var(--color-line);\n'
+            '        background: var(--color-soft);\n'
+            '        color: var(--color-burgundy);',
+            css,
+        )
         self.assertNotIn('transform: scale(', css.casefold())
 
     def test_doctor_page_renders_backend_identity_and_approved_owner_profile(self):
