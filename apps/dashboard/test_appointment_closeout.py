@@ -217,6 +217,22 @@ class AppointmentOperationsCloseoutTests(TestCase):
         self.assertContains(arabic, "تحتاج متابعة (1)")
         self.assertContains(english, "Needs Follow-up (1)")
 
+    def test_dashboard_keeps_appointment_messages_shortcut_when_follow_up_is_zero(self):
+        self.client.force_login(self.staff)
+
+        arabic = self.client.get(reverse("dashboard_home"))
+        english = self.client.get(f"{reverse('dashboard_home')}?lang=en")
+        settings_url = reverse("dashboard_appointment_message_settings")
+
+        self.assertEqual(arabic.status_code, 200)
+        self.assertEqual(english.status_code, 200)
+        self.assertNotContains(arabic, "تحتاج متابعة (")
+        self.assertNotContains(english, "Needs Follow-up (")
+        self.assertContains(arabic, "رسائل المواعيد")
+        self.assertContains(english, "Appointment Messages")
+        self.assertContains(arabic, f'href="{settings_url}"')
+        self.assertContains(english, f'href="{settings_url}?lang=en"')
+
     def test_message_settings_are_staff_only_and_bilingual(self):
         url = reverse("dashboard_appointment_message_settings")
         self.assertEqual(self.client.get(url).status_code, 302)
@@ -228,6 +244,31 @@ class AppointmentOperationsCloseoutTests(TestCase):
         self.assertEqual(english.status_code, 200)
         self.assertContains(arabic, "رسائل المواعيد")
         self.assertContains(english, "Appointment Messages")
+        self.assertContains(
+            arabic,
+            "يمكنك إدراج معلومات الموعد تلقائيًا داخل الرسالة:",
+        )
+        self.assertContains(
+            english,
+            "You can insert appointment information automatically into the message:",
+        )
+        for label in ("اسم المريض", "تاريخ الموعد", "وقت الموعد", "هاتف العيادة"):
+            self.assertContains(arabic, label)
+        for label in (
+            "Patient name",
+            "Appointment date",
+            "Appointment time",
+            "Clinic phone",
+        ):
+            self.assertContains(english, label)
+        for placeholder in (
+            "{patient_name}",
+            "{appointment_date}",
+            "{appointment_time}",
+            "{clinic_phone}",
+        ):
+            self.assertContains(arabic, placeholder)
+            self.assertContains(english, placeholder)
 
     def test_message_settings_save_valid_templates_and_reject_bad_placeholder(self):
         self.client.force_login(self.staff)

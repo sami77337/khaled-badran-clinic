@@ -4,6 +4,7 @@
 {% block dashboard_content %}
 {% appointment_needs_classification_count as follow_up_count %}
 {% url 'dashboard_appointment_follow_up' as appointment_follow_up_url %}
+{% url 'dashboard_appointment_message_settings' as appointment_message_settings_url %}
 <div class="dashboard-content">
     <section class="dashboard-welcome" aria-labelledby="dashboard-welcome-title">
         <div class="dashboard-welcome-copy">
@@ -86,6 +87,10 @@
                 {% endif %}
                 <a class="dashboard-action-link" href="{{ staff_appointments_url }}">
                     <span>{% if is_arabic %}عرض المواعيد{% else %}View Appointments{% endif %}</span>
+                    <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
+                </a>
+                <a class="dashboard-action-link" href="{{ appointment_message_settings_url }}{% if not is_arabic %}?lang=en{% endif %}">
+                    <span>{% if is_arabic %}رسائل المواعيد{% else %}Appointment Messages{% endif %}</span>
                     <span aria-hidden="true">{% if is_arabic %}←{% else %}→{% endif %}</span>
                 </a>
             </div>

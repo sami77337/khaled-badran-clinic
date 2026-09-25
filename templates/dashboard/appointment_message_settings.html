@@ -39,7 +39,13 @@
           <textarea id="text-en-{{ item.event }}" name="text_en" maxlength="2000" rows="3" dir="ltr" lang="en" aria-describedby="message-placeholders-{{ item.event }}">{{ item.text_en }}</textarea>
         </div>
       </div>
-      <p class="message-settings-help" id="message-placeholders-{{ item.event }}"><span>{% if is_arabic %}المتغيرات المسموحة فقط:{% else %}Allowed placeholders only:{% endif %}</span> <code dir="ltr">{patient_name}</code> <code dir="ltr">{appointment_date}</code> <code dir="ltr">{appointment_time}</code> <code dir="ltr">{clinic_phone}</code></p>
+      <div class="message-settings-help" id="message-placeholders-{{ item.event }}">
+        <span class="message-settings-help-heading">{% if is_arabic %}يمكنك إدراج معلومات الموعد تلقائيًا داخل الرسالة:{% else %}You can insert appointment information automatically into the message:{% endif %}</span>
+        <span class="message-settings-placeholder"><span>{% if is_arabic %}اسم المريض{% else %}Patient name{% endif %}</span> <code dir="ltr">{patient_name}</code></span>
+        <span class="message-settings-placeholder"><span>{% if is_arabic %}تاريخ الموعد{% else %}Appointment date{% endif %}</span> <code dir="ltr">{appointment_date}</code></span>
+        <span class="message-settings-placeholder"><span>{% if is_arabic %}وقت الموعد{% else %}Appointment time{% endif %}</span> <code dir="ltr">{appointment_time}</code></span>
+        <span class="message-settings-placeholder"><span>{% if is_arabic %}هاتف العيادة{% else %}Clinic phone{% endif %}</span> <code dir="ltr">{clinic_phone}</code></span>
+      </div>
       <div class="message-settings-grid">
         <div class="message-settings-preview" dir="rtl">
           <strong>{% if is_arabic %}معاينة عربية{% else %}Arabic preview{% endif %}</strong>
