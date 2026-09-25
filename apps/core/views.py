@@ -770,6 +770,7 @@ def _render_public(
 
 def home(request, language=DEFAULT_LANGUAGE):
     language = _normalize_language(language)
+    services = _visit_types(language)
     return _render_public(
         request,
         "core/home.html",
@@ -777,6 +778,7 @@ def home(request, language=DEFAULT_LANGUAGE):
         language,
         {
             "case_labels": PUBLIC_CASE_LABELS[language],
+            "service_highlights": services[:4],
             "public_reviews": (),
             "review_summary": None,
         },
