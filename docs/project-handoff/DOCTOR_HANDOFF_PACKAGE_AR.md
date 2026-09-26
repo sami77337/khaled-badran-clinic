@@ -1,161 +1,248 @@
 # حزمة تسليم الطبيب — Commercial Delivery v1
 
-هذه الوثيقة هي حزمة التسليم التجارية للطبيب/العيادة بعد إغلاق Commercial Delivery v1 وإقفال تصحيحات الـcloseout المعتمدة.
+هذه الحزمة مخصصة للتشغيل اليومي للعيادة بعد إغلاق **Commercial Delivery v1**.
 
-> هذه الحزمة **Commercial-ready** وليست تصريحًا بأن جميع بنود Production Readiness الخارجية مكتملة. مسار Production Readiness منفصل.
+> هذه الحزمة تعني أن المنتج التجاري المتفق عليه تم تسليمه وإغلاقه. لا تعني أن كل بند خارجي ضمن Production Readiness أو Operations أصبح منتهيًا.
 
-## حالة التسليم
+## مرجع التسليم
 
+- الموقع: `https://drkhaledbadran.com`
 - Repository: `sami77337/khaled-badran-clinic`
-- Commercial Delivery الأساسي: PR #44 — merged.
-- Post-closeout defect/brand corrections: PR #50 + PR #52 + PR #51 — merged.
-- Application delivery head بعد آخر تصحيح: `81255edefca92adf83eb15d5d407aff07a9cc03c`.
-- Production deploy: `dep-dai9eq0ae00c73domseg` — LIVE.
-- العربية هي اللغة الافتراضية، مع دعم English / LTR.
-- Final Figma-to-Django visual implementation وResponsive QA مغلقان ضمن النطاق المعتمد.
+- Final application commit: `f25fcac7d300c6aeb6b472bd4a009341e740f69a`
+- Production deploy: `dep-daropq7avr4c73fimu6g` — LIVE
+- اللغة الافتراضية: العربية / RTL
+- English / LTR مدعوم.
+- Final responsive QA: phone / tablet / laptop / desktop.
 
-## ما تم تسليمه
+## 1. Dashboard — الاستخدام اليومي
 
-### الموقع العام والهوية
+من Dashboard يمكن للطبيب/الموظف المخوّل إدارة العمل التشغيلي اليومي، بما يشمل:
 
-- Home / Doctor / Services / Reviews / Cases / Contact & Location.
-- Responsive على phone / tablet / laptop / desktop.
-- Arabic RTL + English LTR.
-- خريطة العيادة المصورة المعتمدة مع بقاء رابط الاتجاهات الحقيقي عبر `clinic.map_url`.
-- لا توجد صور Google reviewer/profile داخل التعليقات.
-- تم تثبيت ملفات الهوية النهائية المعتمدة byte-for-byte عبر PR #52:
-  - web/in-page logo.
-  - favicon.
-  - Apple touch icon.
-  - PWA 192×192 و512×512.
-- asset-integrity SHA256 contract مغطى بالاختبارات ولا يتم توليد/قص/تلوين الملفات داخل المشروع.
+- المواعيد والجداول.
+- الحالات التي تحتاج متابعة/تصنيف.
+- Patient records.
+- الملاحظات والزيارات.
+- الصور والفيديوهات الطبية القصيرة ضمن الصلاحيات.
+- Patient Reviews.
+- Public Cases.
+- Website Content.
+- Appointment Messages.
+- Reminder controls.
 
-### الحجز
+الصلاحيات الحالية هي المرجع؛ لا تستخدم حساب موظف لتنفيذ إجراء غير مخوّل له.
 
-- الحجز العام لا يتطلب تسجيل دخول.
-- حالات success/error آمنة وواضحة للمريض.
-- إدارة الجداول والمواعيد تبقى من لوحة الطبيب/الموظفين وفق الصلاحيات الحالية.
+## 2. Scheduling والمواعيد
 
-### التقييمات
+يمكن إدارة:
 
-- المريض المسجل يستطيع إنشاء/تعديل/حذف تقييمه فقط.
-- تقييم المريض يبدأ Pending ولا يصبح عامًا إلا بعد موافقة الطبيب/الموظف المخوّل.
-- تعديل تقييم مريض منشور يعيده إلى Pending ويزيل Featured تلقائيًا.
-- الطبيب/الموظف يستطيع approve/unapprove وactivate/deactivate وfeature/order/delete، بدون تعديل نص المريض نفسه.
-- الجمهور يرى فقط `approved + active`.
-- Google/external rating-only reviews مدعومة حتى لو لم يوجد نص.
-- Average Rating ديناميكي ويُحسب من جميع `PublicReview` المنشورة والفعالة، بغض النظر عن المصدر، بما فيها rating-only reviews.
-- العرض يستخدم منزلتين عشريتين.
+- الجدول الأسبوعي.
+- أوقات الفتح والإغلاق.
+- أكثر من فترة في اليوم حسب النظام الحالي.
+- الاستثناءات والأيام الخاصة.
+- المواعيد الحالية.
 
-### بيانات Google Reviews المعتمدة
+الحجز العام لا يحتاج Login.
 
-بيانات المالك المعتمدة محمّلة حاليًا في Production:
+تغيير الجدول لا يجب أن يُستخدم لحذف موعد موجود. المواعيد القائمة تبقى سجلات فعلية يجب التعامل معها من Workflow المواعيد.
 
-- 57 تقييمًا.
-- المتوسط المنشور: `4.93 / 5`.
+## 3. Appointment Messages
 
-Dataset المصدرية تبقى خارج Git عمدًا. لا حاجة لإعادة تشغيل import كجزء من closeout. إذا احتاجت بيئة أخرى إلى التحميل مستقبلًا، يستخدم الأمر المعتمد مع ملف المالك فقط:
+صفحة **Appointment Messages / رسائل المواعيد** هي مكان إعداد رسائل Arrived / No-show والتحكم بالتذكير التلقائي.
 
-```bash
-python manage.py import_public_reviews <owner-approved-json> --approve
-```
+رسائل Arrived / No-show:
 
-الاستيراد Idempotent؛ تكرار تشغيله على نفس البيانات لا يفترض أن ينشئ duplicates.
+- يوجد Default بالعربية والإنجليزية.
+- عند فتح Compose يتم إدخال بيانات الموعد المسموحة تلقائيًا.
+- الموظف يستطيع إرسال النص كما هو.
+- أو تعديله/استبداله.
+- أو اختيار No Message.
+- التعديل لموعد واحد لا يغيّر الـDefault المحفوظ.
+- فتح WhatsApp لا يعني أن النظام سجّل Sent/Delivered.
 
-### Patient Portal والسجل الطبي
+لا تضع معلومات طبية حساسة غير لازمة داخل رسالة WhatsApp.
 
-- المريض يرى بياناته المصرّح بها فقط.
-- Medical record content يبقى read-only للمريض في v1.
-- الطبيب/الموظف يحدد ما يصبح مرئيًا للمريض.
-- private media لا تُكشف عبر direct public URLs.
+## 4. Reminder controls
 
-### Public Cases
+التذكير التلقائي يعمل عبر Meta-approved WhatsApp template.
 
-- النشر العام يتطلب `approved_public_case + consent_confirmed + active`.
-- patient identity والبيانات السريرية الخاصة لا تُعرض في الصفحة العامة.
-- الوصول للوسائط العامة يتم عبر controlled media routes، وليس روابط private storage مباشرة.
+من Dashboard يمكن:
 
-### Consultations وOTP behavior
+- Enable / Disable للتذكير التلقائي.
+- تعديل Default lead time بالدقائق.
+- القيمة الافتراضية: 180 دقيقة = 3 ساعات.
 
-- Registered consultation flow يبقى خاصًا ومملوكًا للمريض.
-- Guest/transient consultation flow موجود داخل الموقع مع authorization مبني على OTP/session وليس UUID وحده.
-- رد الطبيب يمكن أن يكون Text أو Voice داخل المسار الآمن للموقع.
-- PR #51 أصلح حالة فشل مزود OTP: لا ينتقل المستخدم إلى verification stage وهمي إذا لم يتم إرسال الرمز، وتظهر رسالة AR/EN محايدة بدون كشف provider details أو PII.
-- Meta WhatsApp Cloud API plumbing موجود كمسار Production منفصل، لكن live Meta onboarding/configuration لم يُغلق بعد وهو متابع في issue #45.
-- Live Meta activation ليست blocker لـCommercial Delivery v1 حسب Scope Lock؛ WhatsApp v1 التجاري يبقى quick-link boundary ما لم يُعامل العمل كProduction scope منفصل.
+مهم:
 
-### Login behavior
+- تغيير الـDefault يطبّق على الحجوزات الجديدة.
+- المواعيد الموجودة تحتفظ بالـreminder offset المخزن لديها.
+- نص Meta template الأساسي ليس Free-text من Dashboard.
+- الـscheduler يعمل تلقائيًا في Production؛ لا يحتاج الطبيب تشغيل command يدويًا.
 
-- PR #50 أغلق إعادة إرسال Failed Login POST عند refresh باستخدام Post/Redirect/Get مع الحفاظ على الرسائل الآمنة، اللغة، `next` الآمن، rate limits وCSRF/auth boundaries.
+إذا احتاجت Meta template نفسها إلى تغيير فعلي، فهذا Developer/Admin operation لأنه قد يتطلب موافقة Meta.
 
-## قواعد التشغيل اليومية للطبيب/العيادة
+## 5. Arrived / No-show / Complete Visit
 
-1. استخدم Dashboard لإدارة المواعيد، السجلات، حالات النشر، التقييمات، والحالات العامة ضمن الصلاحيات الموجودة.
-2. لا تنشر أي Patient Case قبل التأكد من consent وحالة `approved_public_case`.
-3. لا ترسل private medical media كرابط عام مباشر.
-4. راجع Patient Reviews قبل الموافقة على نشرها.
-5. أي تعديل من المريض على Review منشور يعيده تلقائيًا إلى Pending ويحتاج مراجعة جديدة.
-6. أبقِ WhatsApp ضمن الحدود التشغيلية المعتمدة إلى أن يكتمل Production Meta activation بشكل منفصل.
-7. لا تحفظ كلمات المرور أو tokens أو patient data في docs/screenshots/chat handoff artifacts.
+بعد وقت الموعد، يستخدم الموظف Workflow التصنيف الموجود بدل تعديل الحالات بشكل عشوائي.
 
-## Security / Privacy boundaries المحفوظة
+- Arrived: يسجل وصول المريض وفق المسار الحالي.
+- No-show: يستخدم فقط حسب القواعد الحالية وبعد وقت الموعد.
+- No-show reason الداخلي لا يجب نسخه تلقائيًا إلى المريض.
+- Complete Visit يستخدم بعد اكتمال الزيارة وفق Workflow الحالي.
 
-- لا يوجد real patient data في tests/docs/screenshots داخل Git.
-- Patient ownership isolation محفوظة.
-- private media access control محفوظ.
-- public cases consent-gated.
-- CSRF/auth boundaries محفوظة.
-- لا يوجد public patient PII.
-- لا توجد direct private medical media URLs.
-- لا يوجد Medical AI / diagnosis / treatment automation.
-- OTP/provider failure messaging لا يكشف account existence أو provider exception details.
+لا يوجد automatic status transition يجعل موعدًا Arrived/No-show بدون قرار الموظف.
 
-## Evidence النهائي
+## 6. Patient records والوسائط
 
-أحدث evidence بعد تصحيحات الـcloseout:
+السجل الطبي v1 عملي ومحدود، وليس Hospital EMR.
 
-- GitHub Dependency audit — PASS.
-- GitHub Django checks — PASS.
-- `python manage.py makemigrations --check --dry-run` — PASS.
-- `python manage.py check` — PASS.
-- `python manage.py deployment_smoke` — `13 pass / 7 local-development warnings / 0 failure / 0 strict blocker` في CI.
-- Full Django suite على merge candidate: `962 PASS`, `5 skipped`.
-- responsive/layout regression suites ضمن full CI — PASS.
-- approved brand asset hash verification — PASS للملفات الخمسة المعتمدة.
-- Production deploy `dep-dai9eq0ae00c73domseg` — LIVE على application head `81255edefca92adf83eb15d5d407aff07a9cc03c`.
-- فحص Render بعد deploy لم يُظهر production HTTP 5xx في العينة اللاحقة للنشر.
+الطبيب/الموظف المخوّل يمكنه:
 
-تحذيرات `check --deploy` وdeployment smoke التي تظهر تحت `config.settings.dev` تخص بيئة CI/local development ولا تُستخدم وحدها كحكم على إعداد Production.
+- إنشاء/عرض Visit records.
+- إضافة ملاحظات ضمن الصلاحيات.
+- رفع الصور والفيديوهات القصيرة المدعومة.
+- تحديد ما إذا كان المحتوى يبقى private أو يصبح visible to patient.
+- إدارة public-case eligibility عبر المسار المخصص.
 
-## Credential handoff
+قواعد ثابتة:
 
-قبل تسليم بيانات الدخول النهائية للطبيب:
+- Private by default.
+- visible_to_patient لا تعني Public.
+- لا ترسل private media عبر direct storage URL.
+- لا تغيّر visibility بدون سبب تشغيلي واضح.
 
-- دوّر كلمة مرور حساب الطبيب بشكل خاص.
-- سلّمها بقناة خاصة خارج Git/docs/screenshots.
-- لا تُدرج password أو token أو OTP أو secret في هذه الحزمة.
+## 7. Public Cases + Consent
 
-هذه خطوة credential hygiene نهائية، وليست Feature جديدة ولا إعادة فتح لـCommercial Delivery.
+لا يجوز نشر Patient Case للعامة إلا عندما تتحقق بوابات النشر الحالية، وأهمها:
 
-## ما لا يزال خارج Commercial Delivery v1
+- Consent confirmed.
+- approved public-case state.
+- Active/public eligibility.
 
-هذه البنود لا تمنع التسليم التجاري الحالي، لكنها تبقى ضمن Production Readiness أو Operations حسب الحاجة:
+الموقع العام لا يجب أن يكشف:
 
-- إكمال Meta WhatsApp Cloud API live onboarding/configuration والقوالب والاشتراك بالـwebhook وexisting-number coexistence verification — issue #45.
-- legal/privacy production approval.
-- managed database backup/restore evidence.
-- monitoring provider + alert routing.
-- privacy-safe error reporting.
-- load/concurrency validation.
-- final production go/no-go.
+- اسم المريض.
+- الهاتف.
+- بيانات تعريفية خاصة.
+- clinical notes الخاصة.
+- private storage paths.
 
-## تعريف الإغلاق
+أي حالة لا يوجد لها consent واضح تبقى غير عامة.
 
-Commercial Delivery v1 يعتبر مكتملًا من جهة الكود والواجهات والـQA، مع دمج ونشر تصحيحات الـcloseout الأخيرة. أي عمل لاحق يجب أن يُصنّف بوضوح كأحد الآتي:
+## 8. Patient Portal
 
-- Production readiness.
-- Deployment/data operation.
+المريض يستخدم Patient Portal للوصول إلى المحتوى المسموح له فقط.
+
+المبادئ:
+
+- يرى حسابه هو فقط.
+- يرى approved/visible content فقط.
+- Medical content في v1 read-only للمريض.
+- private staff-only content لا يظهر.
+- Appointment list/detail/cancel/reschedule تعمل حسب القواعد الحالية.
+- Close Account يستخدم safeguards الحالية ولا يعني محو السجلات التي يجب الاحتفاظ بها.
+
+إذا أبلغ مريض عن ظهور بيانات مريض آخر، اعتبر ذلك Security incident ولا تحاول معالجة الموضوع يدويًا من Dashboard.
+
+## 9. Patient Reviews
+
+الموظف المخوّل يستطيع مراجعة وإدارة Visibility/Approval وفق النظام الحالي.
+
+لا تعدّل معنى مراجعة المريض أو تنسب إليه نصًا لم يكتبه.
+
+Public site يعرض فقط المراجعات المؤهلة للنشر حسب الحالة الحالية.
+
+## 10. Website Content
+
+يمكن استخدام Website Content Manager لتعديل المحتوى العام المعتمد ضمن الحقول الموجودة.
+
+لا تستخدمه لاختراع Medical claims جديدة أو وعود علاجية غير معتمدة.
+
+أي تغيير Design System حقيقي — لون جديد، typography جديدة، component style جديد، redesign — يحتاج قرار مالك قبل التنفيذ.
+
+## 11. ما هو تشغيل يومي وما يحتاج Developer/Admin؟
+
+### تشغيل يومي للطبيب/العيادة
+
+- إدارة schedule.
+- إدارة appointments.
+- تصنيف Arrived / No-show.
+- Appointment Messages.
+- Reminder enable/disable وlead time.
+- Patient records.
+- media visibility.
+- Reviews moderation.
+- Public Cases بعد consent.
+- Website Content ضمن الحقول المتاحة.
+
+### Developer/Admin
+
+- تغيير Meta templates أو credentials.
+- Render/service/cron settings.
+- environment variables/secrets.
+- database/storage/backup operations.
+- dependency upgrades.
+- code/schema changes.
+- DNS/TLS/infrastructure.
+- security incident remediation.
+- إضافة Feature جديدة.
+
+## 12. Security / Privacy rules
+
+يجب الحفاظ دائمًا على:
+
+- لا Public patient PII.
+- لا direct private medical media URLs.
+- patient ownership isolation.
+- private media access control.
+- consent-gated public cases.
+- CSRF/auth boundaries.
+- لا Secrets داخل screenshots/docs/chat.
+- لا real patient data في test/demo material.
+- لا Medical AI diagnosis/treatment automation.
+
+## 13. Troubleshooting التشغيلي
+
+إذا ظهرت مشكلة:
+
+1. حدّد الشاشة والخطوة التي سبقتها.
+2. لا تنسخ Patient data إلى GitHub issue أو screenshot عام.
+3. استخدم بيانات Synthetic عند إعادة المشكلة.
+4. لا تغيّر DB أو permissions يدويًا كحل سريع.
+5. صعّد المشكلة كـDefect للـDeveloper إذا كانت Functional/Security.
+6. إذا كانت مرتبطة بـMeta/Render/credentials، تعامل معها كـAdmin/Operations task.
+
+## 14. QA المرجعي
+
+آخر application closeout gate:
+
+- Dependency audit: PASS.
+- Django checks: PASS.
+- migration check: PASS.
+- deployment smoke: PASS.
+- Full Django suite: **1249 PASS**.
+- responsive AR/EN browser gates: PASS.
+- Patient Portal + Privacy/Security: PASS.
+- Public Cases / Consent: PASS.
+- Public Booking E2E: PASS.
+- Messaging + Reminder scheduler: PASS.
+- Production deploy: LIVE.
+
+## 15. Credential handoff
+
+كلمات المرور، tokens، OTPs، Meta credentials، Render secrets وأي مفاتيح خاصة:
+
+- لا تحفظ في Git.
+- لا توضع في هذه الوثيقة.
+- تسلّم عبر قناة خاصة مناسبة.
+- تدوير credentials عند الحاجة هو Operations/credential hygiene وليس Feature.
+
+## حالة الإغلاق
+
+**Commercial Delivery v1 = CLOSED / HANDED OFF**
+
+أي عمل لاحق يصنّف بوضوح كواحد من:
+
 - Defect correction.
+- Production Readiness / Operations.
+- Deployment/data operation.
 - Owner-approved new scope.
-
-ولا يجوز إعادة فتح Features مكتملة أو توسيع النطاق بدون قرار واضح من المالك.
