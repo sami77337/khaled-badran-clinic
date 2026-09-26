@@ -2,6 +2,8 @@
 
 This plan defines future staging-only load and concurrency validation. It does not add heavy load-test dependencies and does not authorize production load testing.
 
+Exception approved for current Production Readiness: one bounded, read-only small-clinic Production GET profile may run with no patient/staff/private routes and no writes. It is not a stress test and does not authorize broader Production load testing.
+
 ## Rules
 
 - Run load tests only in staging or an isolated production-like clone.
@@ -24,13 +26,19 @@ Before adding a dependency:
 
 ## Target Metrics Placeholders
 
-These targets must be approved later:
+Current owner-authorized bounded production read-only baseline:
 
-- Public page p95 response time: `TBD`.
+- Public/read-only mixed profile p95 response time: `<= 2.5 seconds` for the small-clinic baseline.
+- Maximum single request in that profile: `<= 5 seconds`.
+- Error-rate threshold for that profile: `0 request errors`.
+
+Targets that still require a separate write-path/staff performance decision:
+
+- Public page p95 response time outside the bounded mixed profile: `TBD`.
 - Booking slot generation p95 response time: `TBD`.
 - Booking POST p95 response time under normal load: `TBD`.
 - Staff appointment list p95 response time: `TBD`.
-- Error-rate threshold: `TBD`.
+- Booking/staff write-path error-rate threshold: `TBD`.
 - Maximum acceptable duplicate-booking race failures: `0 confirmed double bookings`.
 - Rate-limit consistency target across app processes: `TBD`.
 
