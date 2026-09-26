@@ -76,6 +76,17 @@ A deliberately small production baseline is defined for the clinic's current low
 
 This is a small-clinic operating baseline, not a stress/capacity ceiling. Write-path race integrity remains tested in isolated PostgreSQL + Redis CI.
 
+Observed run on 2026-09-26:
+
+- 48/48 requests returned HTTP 200;
+- errors: 0;
+- p50: 0.295s;
+- p95: 0.603s;
+- maximum single request: 0.654s;
+- slowest sampled route: Arabic Services at 0.654s p95/max for its six requests.
+
+Result: **PASS** for the approved bounded small-clinic read-only baseline.
+
 ## Confirmed provider backup foundations
 
 Current Render capabilities provide important foundations:
