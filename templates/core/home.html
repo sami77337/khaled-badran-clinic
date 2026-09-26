@@ -165,6 +165,23 @@
 </section>
 {% endif %}
 
+<section class="section home-services" id="services" aria-labelledby="home-services-title">
+    <div class="container">
+        <div class="section-heading section-heading-row">
+            <div>
+                <p class="eyebrow">{% if is_arabic %}رعاية متخصصة بتقييم طبي{% else %}Specialized Care Guided by Assessment{% endif %}</p>
+                <h2 id="home-services-title">{% if is_arabic %}خدمات العيادة{% else %}Clinic Services{% endif %}</h2>
+            </div>
+            <a class="btn btn-secondary" href="{{ services_url }}">{% if is_arabic %}عرض كل الخدمات{% else %}View All Services{% endif %}</a>
+        </div>
+        <div class="card-grid home-service-grid">
+            {% for visit_type in service_highlights %}
+                {% include "partials/service_card.html" with visit_type=visit_type %}
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
 {% if home_visible.reviews %}
 <section
     id="reviews"

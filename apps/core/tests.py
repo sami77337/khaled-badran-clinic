@@ -1646,7 +1646,7 @@ class PublicUiFoundationTests(TestCase):
         self.assertNotContains(response, "Price:")
         self.assert_no_service_dictionary_leak(response)
 
-    def test_home_omits_visit_type_services_while_services_routes_remain_available(self):
+    def test_home_restores_desktop_service_highlights_between_cases_and_reviews(self):
         self.create_public_visit_type()
 
         arabic_home = self.client.get(reverse("home"))
@@ -1654,12 +1654,33 @@ class PublicUiFoundationTests(TestCase):
         arabic_services = self.client.get(reverse("services"))
         english_services = self.client.get(reverse("services_en"))
 
-        self.assertNotContains(arabic_home, "استشارة اختبار عامة")
-        self.assertNotContains(english_home, "Synthetic public consultation")
-        self.assertNotContains(arabic_home, 'class="section home-services"')
-        self.assertNotContains(english_home, 'class="section home-services"')
+        self.assertContains(arabic_home, "استشارة اختبار عامة")
+        self.assertContains(english_home, "Synthetic public consultation")
+        self.assertContains(arabic_home, 'class="section home-services"')
+        self.assertContains(english_home, 'class="section home-services"')
         self.assertContains(arabic_services, "استشارة اختبار عامة")
         self.assertContains(english_services, "Synthetic public consultation")
+
+        for response in [arabic_home, english_home]:
+            html = response.content.decode()
+            self.assertLess(
+                html.index('class="section home-cases"'),
+                html.index('class="section home-services"'),
+            )
+            self.assertLess(
+                html.index('class="section home-services"'),
+                html.index('class="section home-reviews"'),
+            )
+
+        stylesheet = (
+            settings.BASE_DIR / "static" / "css" / "public.css"
+        ).read_text(encoding="utf-8")
+        self.assertIn(".home-services {\n    display: none;", stylesheet)
+        self.assertIn(
+            ".home-services,\n    .home-faq {\n        display: block;",
+            stylesheet,
+        )
+
         for response in [arabic_home, english_home, arabic_services, english_services]:
             self.assert_no_service_dictionary_leak(response)
 
@@ -2069,6 +2090,7 @@ class PublicUiFoundationTests(TestCase):
             '<section class="home-hero"',
             '<section class="section home-doctor"',
             '<section class="section home-cases"',
+            '<section class="section home-services"',
             'id="reviews"',
             '<section class="section home-contact"',
             '<section class="section home-faq"',
@@ -2088,13 +2110,14 @@ class PublicUiFoundationTests(TestCase):
             self.assertIn('data-review-empty', response_html)
             self.assertNotIn('data-review-card', response_html)
             self.assertNotIn('data-review-summary', response_html)
-            self.assertNotIn('class="section home-services"', response_html)
+            self.assertIn('class="section home-services"', response_html)
             self.assertNotIn("Patient Stories", response_html)
             self.assertNotIn("قصص المرضى", response_html)
             self.assertNotIn("Testimonials", response_html)
             self.assertNotIn("4.8", response_html)
             self.assertNotIn("174", response_html)
         self.assertIn(".home-hero-visual {\n    display: none;", css)
+        self.assertIn(".home-services {\n    display: none;", css)
         self.assertIn(".home-faq {\n    display: none;", css)
         self.assertIn('.home-reviews[data-review-surface="empty"]', css)
         self.assertIn(".home-reviews-empty", css)
@@ -2106,12 +2129,16 @@ class PublicUiFoundationTests(TestCase):
 
         self.assertIn('data-hero-carousel', html)
         self.assertIn('class="home-hero-visual"', html)
+        self.assertIn('class="section home-services"', html)
         self.assertIn('class="section home-reviews"', html)
         self.assertIn('class="section home-faq"', html)
         self.assertIn('@media (min-width: 768px)', css)
-        self.assertIn('.home-faq {\n        display: block;', css)
+        self.assertIn('.home-services {\n    display: none;', css)
+        self.assertIn(
+            '.home-services,\n    .home-faq {\n        display: block;',
+            css,
+        )
         self.assertNotIn('.home-reviews[hidden]', css)
-        self.assertNotIn('.home-services', css)
         self.assertNotIn('transform: scale(', css.casefold())
 
     def test_doctor_page_renders_backend_identity_and_approved_owner_profile(self):
