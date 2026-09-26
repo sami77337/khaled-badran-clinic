@@ -1,0 +1,83 @@
+name: Production uptime checks
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "7,17,27,37,47,57 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-uptime
+  cancel-in-progress: true
+
+jobs:
+  public-health:
+    name: Production health and readiness
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check production endpoints without response bodies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          warn_seconds="5.0"
+          hard_seconds="20.0"
+          failures=0
+
+          check_endpoint() {
+            local label="$1"
+            local url="$2"
+            local result
+            local curl_exit
+            local status
+            local total_time
+            local final_url
+
+            set +e
+            result="$(curl \
+              --location \
+              --silent \
+              --show-error \
+              --output /dev/null \
+              --retry 2 \
+              --retry-delay 5 \
+              --retry-all-errors \
+              --max-time 20 \
+              --write-out "%{http_code}|%{time_total}|%{url_effective}" \
+              "$url")"
+            curl_exit=$?
+            set -e
+
+            if [ "$curl_exit" -ne 0 ]; then
+              echo "::error title=$label unavailable::curl exited $curl_exit; no response body was printed"
+              failures=1
+              return
+            fi
+
+            IFS='|' read -r status total_time final_url <<< "$result"
+            printf '%s status=%s time_total=%ss final_url=%s\n' "$label" "$status" "$total_time" "$final_url"
+
+            if [ "$status" != "200" ]; then
+              echo "::error title=$label bad status::expected HTTP 200 but observed $status"
+              failures=1
+            fi
+
+            if awk "BEGIN { exit !($total_time > $hard_seconds) }"; then
+              echo "::error title=$label hard latency threshold exceeded::observed ${total_time}s"
+              failures=1
+            elif awk "BEGIN { exit !($total_time > $warn_seconds) }"; then
+              echo "::warning title=$label slow response::observed ${total_time}s"
+            fi
+          }
+
+          check_endpoint "Production liveness" "https://drkhaledbadran.com/health/"
+          check_endpoint "Production readiness" "https://drkhaledbadran.com/health/ready/"
+          check_endpoint "Arabic Home" "https://drkhaledbadran.com/"
+          check_endpoint "English Home" "https://drkhaledbadran.com/en/"
+
+          if [ "$failures" -ne 0 ]; then
+            exit 1
+          fi
