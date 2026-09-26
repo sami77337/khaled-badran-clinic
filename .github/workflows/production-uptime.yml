@@ -79,6 +79,30 @@ jobs:
           check_endpoint "Arabic Home" "https://drkhaledbadran.com/"
           check_endpoint "English Home" "https://drkhaledbadran.com/en/"
 
+          redirect_result="$(curl --silent --show-error --output /dev/null --max-time 20 --write-out "%{http_code}|%{redirect_url}" "http://drkhaledbadran.com/health/")"
+          IFS='|' read -r redirect_status redirect_url <<< "$redirect_result"
+          printf 'HTTP redirect status=%s target=%s\n' "$redirect_status" "$redirect_url"
+          case "$redirect_status" in
+            301|302|307|308) ;;
+            *)
+              echo "::error title=HTTP redirect missing::expected redirect status but observed $redirect_status"
+              failures=1
+              ;;
+          esac
+          case "$redirect_url" in
+            https://drkhaledbadran.com/*) ;;
+            *)
+              echo "::error title=HTTPS redirect target invalid::expected drkhaledbadran.com HTTPS target"
+              failures=1
+              ;;
+          esac
+
+          headers="$(curl --silent --show-error --head --max-time 20 "https://drkhaledbadran.com/health/")"
+          if ! printf '%s\n' "$headers" | grep -qi '^strict-transport-security:'; then
+            echo "::error title=HSTS missing::Strict-Transport-Security was not observed"
+            failures=1
+          fi
+
           if [ "$failures" -ne 0 ]; then
             exit 1
           fi
