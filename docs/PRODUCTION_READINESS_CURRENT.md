@@ -61,6 +61,21 @@ hard latency. This provides an external signal independent of the Render runtime
 
 It is not a substitute for a dedicated monitoring/alert-routing provider.
 
+### Bounded production read-only load baseline
+
+A deliberately small production baseline is defined for the clinic's current low-volume operating stage:
+
+- 48 GET requests total;
+- maximum 4 concurrent requests;
+- public/health/booking GET routes only;
+- no POST requests;
+- no appointments, patients, messages or medical records created;
+- no private/staff pages;
+- response bodies are discarded and never printed;
+- pass target: zero request errors, overall p95 <= 2.5 seconds, and no single request above 5 seconds.
+
+This is a small-clinic operating baseline, not a stress/capacity ceiling. Write-path race integrity remains tested in isolated PostgreSQL + Redis CI.
+
 ## Confirmed provider backup foundations
 
 Current Render capabilities provide important foundations:
@@ -69,14 +84,13 @@ Current Render capabilities provide important foundations:
 - persistent Render disks receive automatic encrypted daily snapshots;
 - the application private-media roots are on the attached persistent disk.
 
-These foundations do **not** replace an isolated restore drill.
+These foundations do **not** replace a provider-level isolated restore drill. A local synthetic PostgreSQL logical backup/restore drill already passed in Batch 15 OPS 02; the remaining blocker is the real Render-managed recovery path.
 
 ## Remaining production-readiness work
 
-### BLOCKER — isolated restore drill
+### BLOCKER — Render-managed isolated restore drill
 
-A real restore test has not yet been completed against an isolated recovery
-database / recovery target. Do not test restoration by overwriting active
+The repository already has a successful local synthetic PostgreSQL logical backup/restore drill. A real Render-managed restore/PITR test has not yet been completed against an isolated recovery database / recovery target. Do not test restoration by overwriting active
 production.
 
 The drill must validate:
