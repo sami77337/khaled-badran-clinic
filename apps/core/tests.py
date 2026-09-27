@@ -1565,6 +1565,48 @@ class PublicPageContentTests(TestCase):
         self.assertContains(robots_response, "Sitemap:")
         self.assertContains(sitemap_response, "<urlset", status_code=200)
 
+    @override_settings(PUBLIC_SITE_ORIGIN="https://drkhaledbadran.com")
+    def test_public_seo_urls_ignore_incoming_render_hostname(self):
+        render_host = "khaled-badran-clinic-production.onrender.com"
+
+        home_response = self.client.get(reverse("home"), HTTP_HOST=render_host)
+        reviews_response = self.client.get(reverse("reviews"), HTTP_HOST=render_host)
+        robots_response = self.client.get(reverse("robots_txt"), HTTP_HOST=render_host)
+        sitemap_response = self.client.get(reverse("sitemap_xml"), HTTP_HOST=render_host)
+
+        self.assertEqual(
+            home_response.context["canonical_url"],
+            "https://drkhaledbadran.com/",
+        )
+        self.assertEqual(
+            home_response.context["og_image_url"],
+            "https://drkhaledbadran.com/static/img/clinic/clinic-interior-1.png",
+        )
+        self.assertEqual(
+            reviews_response.context["canonical_url"],
+            f"https://drkhaledbadran.com{reverse('reviews')}",
+        )
+
+        robots_content = robots_response.content.decode()
+        sitemap_content = sitemap_response.content.decode()
+        self.assertIn(
+            "Sitemap: https://drkhaledbadran.com/sitemap.xml",
+            robots_content,
+        )
+        self.assertIn(
+            f"https://drkhaledbadran.com{reverse('reviews')}",
+            sitemap_content,
+        )
+        self.assertIn(
+            f"https://drkhaledbadran.com{reverse('reviews_en')}",
+            sitemap_content,
+        )
+        self.assertNotIn(reverse("patient_portal_dashboard"), sitemap_content)
+        self.assertNotIn(reverse("patient_portal_dashboard_en"), sitemap_content)
+        self.assertNotIn("onrender.com", home_response.content.decode())
+        self.assertNotIn("onrender.com", robots_content)
+        self.assertNotIn("onrender.com", sitemap_content)
+
 
 class PublicUiFoundationTests(TestCase):
     public_stylesheet_href = f'href="{settings.STATIC_URL}css/public.css"'
