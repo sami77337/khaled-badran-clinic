@@ -101,6 +101,11 @@ The encrypted plaintext is a tar stream containing:
 - `media/public-cases/`;
 - optional `runtime/webpush/vapid-private.key`.
 
+Only the auto-provisioned Web Push private key that lives on the persistent disk is
+included. Environment-managed secrets such as `DJANGO_SECRET_KEY`, Meta credentials,
+R2 credentials and the backup encryption key remain in the separate operator secret
+recovery inventory; they are intentionally not copied into the R2 backup.
+
 The manifest contains only aggregate counts/sizes, database dump digest,
 encryption key identifier, timestamp and presence/absence of the runtime key.
 It does not contain patient names, phone numbers, appointment identifiers,
