@@ -40,7 +40,7 @@ the trigger and status waiter.
 
 Production web service:
 
-- `KBC_R2_ENDPOINT_URL`
+- `KBC_R2_ENDPOINT_URL` — must be the EU jurisdiction endpoint: `https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com`
 - `KBC_R2_BUCKET`
 - `KBC_R2_ACCESS_KEY_ID`
 - `KBC_R2_SECRET_ACCESS_KEY`
@@ -61,7 +61,9 @@ exactly 32 random bytes. Keep the recovery copy outside both Render and R2.
 `KBC_BACKUP_KEY_ID` is a non-secret identifier only.
 
 The R2 token must remain restricted to the single backup bucket with only the
-object permissions required for this job. Public bucket access and `r2.dev`
+object permissions required for this job. The implementation rejects non-EU R2
+endpoints so this EU-jurisdiction bucket cannot be accidentally configured against
+the default or another jurisdiction endpoint. Public bucket access and `r2.dev`
 must remain disabled.
 
 ## Consistency boundary
