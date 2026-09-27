@@ -73,7 +73,7 @@ def _r2_config():
         or parsed.query
         or parsed.fragment
         or parsed.path not in ("", "/")
-        or not parsed.hostname.endswith(".r2.cloudflarestorage.com")
+        or not parsed.hostname.endswith(".eu.r2.cloudflarestorage.com")
     ):
         raise BackupError("Backup destination configuration invalid.")
     return {
@@ -449,6 +449,18 @@ def _object_key(created_at):
     return f"production/{created_at:%Y/%m/%d}/{stamp}-{os.urandom(4).hex()}.kbc"
 
 
+def _cleanup_stale_snapshots():
+    SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    for child in SNAPSHOT_DIR.iterdir():
+        try:
+            if child.is_symlink() or child.is_file():
+                child.unlink()
+            elif child.is_dir():
+                shutil.rmtree(child)
+        except OSError:
+            raise BackupError("Stale backup workspace cleanup failed.") from None
+
+
 def run_offsite_backup(run_id):
     run_id = _safe_run_id(run_id)
     roots = _media_roots()
@@ -460,6 +472,7 @@ def run_offsite_backup(run_id):
     writer = None
 
     with _backup_lock():
+        _cleanup_stale_snapshots()
         if snapshot_parent.exists():
             raise BackupError("Backup workspace already exists.")
         snapshot_parent.mkdir(parents=True, mode=0o700)
