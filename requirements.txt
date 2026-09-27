@@ -6,4 +6,4 @@ psycopg[binary]>=3.2,<4.0
 redis>=5.0,<6.0
 whitenoise>=6.8,<7.0
 pywebpush==2.5.0
-boto3>=1.40,<2.0\n
+boto3>=1.40,<2.0
