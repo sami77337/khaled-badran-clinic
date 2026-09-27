@@ -6,7 +6,7 @@ from django.views.generic.base import RedirectView
 
 from apps.booking import views as booking_views
 from apps.booking import reschedule_views
-from apps.core import review_views, views
+from apps.core import backup_dispatch, review_views, views
 from apps.patients import account_close, account_views
 from apps.patients import views as patient_views
 from apps.patients import transient_views
@@ -21,6 +21,8 @@ urlpatterns = [
     path("dashboard/phone-notifications/", include("apps.notifications.urls")),
     path("integrations/whatsapp/webhook/", whatsapp_webhook, name="whatsapp_webhook"),
     path("integrations/whatsapp/reminders/dispatch/", whatsapp_reminder_dispatch, name="whatsapp_reminder_dispatch"),
+    path("integrations/backup/run/", backup_dispatch.backup_trigger, name="backup_trigger"),
+    path("integrations/backup/status/", backup_dispatch.backup_status, name="backup_status"),
     path("", views.home, {"language": "ar"}, name="home"),
     path("login/", patient_views.portal_login, {"language": "ar"}, name="login"),
     path("doctor/", views.doctor_profile, {"language": "ar"}, name="doctor"),
