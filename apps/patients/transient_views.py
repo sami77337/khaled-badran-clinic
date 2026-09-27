@@ -9,7 +9,7 @@ from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_GET, require_http_methods
 
 from apps.booking.countries import INTERNATIONAL_PHONE_COUNTRIES
-from apps.core.views import _base_context
+from apps.core.views import _base_context, _public_site_url
 from apps.patients import transient_services as access
 from apps.patients import temporary_otp
 from apps.patients.localization import use_page_language
@@ -41,7 +41,7 @@ def _context(request, language, target=None, **extra):
     title = "استشارة كزائر" if language == "ar" else "Guest Consultation"
     context.update(
         page_key="guest_consultation", page_title=title, meta_description=title,
-        canonical_url=request.build_absolute_uri(_url(language, target)),
+        canonical_url=_public_site_url(_url(language, target)),
         language_switch={"label": "English" if language == "ar" else "العربية",
                          "url": _url("en" if language == "ar" else "ar", target)},
         registered_consultation_url=localized_url("patient_portal_consultation_new", language),

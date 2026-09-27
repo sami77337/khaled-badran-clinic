@@ -1,5 +1,6 @@
 from pathlib import PurePosixPath
 
+from django.conf import settings
 from django.db import connection
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
@@ -22,6 +23,12 @@ from .showcase import grouped_public_cases
 
 SUPPORTED_LANGUAGES = {"ar", "en"}
 DEFAULT_LANGUAGE = "ar"
+
+
+def _public_site_url(path):
+    normalized_path = path if path.startswith("/") else f"/{path}"
+    return f"{settings.PUBLIC_SITE_ORIGIN}{normalized_path}"
+
 
 DOCTOR_DEFAULT = {
     "full_name_ar": "خالد حسان بدران",
@@ -477,6 +484,20 @@ ROUTE_NAMES = {
     "patient_portal": {"ar": "patient_portal_dashboard", "en": "patient_portal_dashboard_en"},
 }
 
+SITEMAP_PAGE_KEYS = (
+    "home",
+    "doctor",
+    "services",
+    "cases",
+    "contact",
+    "privacy",
+    "terms",
+    "medical_disclaimer",
+    "whatsapp_policy",
+    "booking",
+)
+SITEMAP_EXTRA_ROUTES = ("reviews", "reviews_en")
+
 PUBLIC_CASE_LABELS = {
     "ar": {
         "approved_only": "تُعرض هنا فقط الحالات المصرّح بنشرها بموافقة صريحة.",
@@ -732,8 +753,8 @@ def _base_context(
             "label": "English" if language == "ar" else "العربية",
             "url": _route_url(page_key, alternate_language),
         },
-        "canonical_url": request.build_absolute_uri(canonical_path),
-        "og_image_url": request.build_absolute_uri(static("img/clinic/clinic-interior-1.png")),
+        "canonical_url": _public_site_url(canonical_path),
+        "og_image_url": _public_site_url(static("img/clinic/clinic-interior-1.png")),
         "booking_placeholder_url": _route_url("booking", language),
         "booking_url": _route_url("booking", language),
         "whatsapp_placeholder_url": clinic["whatsapp_url"],
@@ -948,14 +969,14 @@ def public_404(request, exception=None):
                 if language == "en"
                 else "تعذر العثور على صفحة العيادة المطلوبة."
             ),
-            "canonical_url": request.build_absolute_uri(request.path),
+            "canonical_url": _public_site_url(request.path),
         }
     )
     return render(request, "404.html", context, status=404)
 
 
 def robots_txt(request):
-    sitemap_url = request.build_absolute_uri(reverse("sitemap_xml"))
+    sitemap_url = _public_site_url(reverse("sitemap_xml"))
     content = "\n".join(
         [
             "User-agent: *",
@@ -969,9 +990,11 @@ def robots_txt(request):
 
 def sitemap_xml(request):
     urls = []
-    for page_routes in ROUTE_NAMES.values():
+    for page_key in SITEMAP_PAGE_KEYS:
+        page_routes = ROUTE_NAMES[page_key]
         for language in ("ar", "en"):
-            urls.append(request.build_absolute_uri(reverse(page_routes[language])))
+            urls.append(_public_site_url(reverse(page_routes[language])))
+    urls.extend(_public_site_url(reverse(route_name)) for route_name in SITEMAP_EXTRA_ROUTES)
 
     xml_urls = "\n".join(
         f"  <url><loc>{url}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>"
