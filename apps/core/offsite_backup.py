@@ -235,8 +235,10 @@ def _verify_snapshot_references(snapshot_roots, references):
 
 def _run_pg_dump(target, snapshot_name):
     database_url = _required_env("DATABASE_URL")
-    env = os.environ.copy()
-    env["PGDATABASE"] = database_url
+    env = {"PGDATABASE": database_url}
+    for name in ("PATH", "LANG", "LC_ALL", "LD_LIBRARY_PATH"):
+        if os.getenv(name):
+            env[name] = os.environ[name]
     command = [
         "pg_dump",
         "--format=custom",
