@@ -186,6 +186,11 @@ TIME_ZONE = os.getenv("TIME_ZONE", "Asia/Amman")
 USE_I18N = True
 USE_TZ = True
 
+PUBLIC_SITE_ORIGIN = (
+    os.getenv("PUBLIC_SITE_ORIGIN", "").strip().rstrip("/")
+    or "https://drkhaledbadran.com"
+)
+
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
