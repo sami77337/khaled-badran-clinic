@@ -51,6 +51,7 @@ Production web service:
 Backup cron:
 
 - `KBC_BACKUP_INTERNAL_ORIGIN`
+- `KBC_BACKUP_REQUEST_HOST`
 - `KBC_BACKUP_CRON_TOKEN`
 
 Do not place values in Git, issues, screenshots, chat or shell transcripts.
