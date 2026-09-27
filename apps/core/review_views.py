@@ -49,7 +49,7 @@ def reviews(request, language="ar"):
             "page": page,
             "page_title": f"{page['title']} | {context['clinic']['name_ar'] if language == 'ar' else context['clinic']['name_en']}",
             "meta_description": page["description"],
-            "canonical_url": request.build_absolute_uri(reverse(current_route)),
+            "canonical_url": core_views._public_site_url(reverse(current_route)),
             "language_switch": {
                 "label": "English" if language == "ar" else "العربية",
                 "url": reverse(alternate_route),
