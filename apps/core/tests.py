@@ -1565,7 +1565,10 @@ class PublicPageContentTests(TestCase):
         self.assertContains(robots_response, "Sitemap:")
         self.assertContains(sitemap_response, "<urlset", status_code=200)
 
-    @override_settings(PUBLIC_SITE_ORIGIN="https://drkhaledbadran.com")
+    @override_settings(
+        PUBLIC_SITE_ORIGIN="https://drkhaledbadran.com",
+        ALLOWED_HOSTS=["khaled-badran-clinic-production.onrender.com"],
+    )
     def test_public_seo_urls_ignore_incoming_render_hostname(self):
         render_host = "khaled-badran-clinic-production.onrender.com"
 
