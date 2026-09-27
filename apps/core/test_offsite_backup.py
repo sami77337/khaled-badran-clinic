@@ -55,6 +55,36 @@ class BackupCryptoTests(TestCase):
                 offsite_backup._r2_config()
 
 
+    def test_r2_endpoint_requires_eu_jurisdiction(self):
+        env = {
+            "KBC_R2_ENDPOINT_URL": "https://account-id.r2.cloudflarestorage.com",
+            "KBC_R2_BUCKET": "synthetic-bucket",
+            "KBC_R2_ACCESS_KEY_ID": "synthetic-access",
+            "KBC_R2_SECRET_ACCESS_KEY": "synthetic-secret",
+            "KBC_BACKUP_KEY_ID": "synthetic-key-id",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            with self.assertRaises(offsite_backup.BackupError):
+                offsite_backup._r2_config()
+
+        env["KBC_R2_ENDPOINT_URL"] = "https://account-id.eu.r2.cloudflarestorage.com"
+        with patch.dict(os.environ, env, clear=False):
+            config = offsite_backup._r2_config()
+        self.assertEqual(config["bucket"], "synthetic-bucket")
+
+
+class BackupWorkspaceTests(TestCase):
+    def test_stale_snapshot_cleanup_removes_only_backup_workspace_children(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            stale = root / "stale-run"
+            stale.mkdir()
+            (stale / "synthetic.bin").write_bytes(b"synthetic")
+            with patch.object(offsite_backup, "SNAPSHOT_DIR", root):
+                offsite_backup._cleanup_stale_snapshots()
+            self.assertEqual(list(root.iterdir()), [])
+
+
 class BackupStatusTests(TestCase):
     def test_status_file_contains_only_sanitized_state(self):
         with tempfile.TemporaryDirectory() as temp_dir:
