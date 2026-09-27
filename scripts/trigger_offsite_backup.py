@@ -19,9 +19,13 @@ def _env(name):
     return value
 
 
-def _request(url, token, payload=None):
+def _request(url, token, request_host, payload=None):
     body = None
-    headers = {"X-KBC-Backup-Token": token}
+    headers = {
+        "X-KBC-Backup-Token": token,
+        "Host": request_host,
+        "X-Forwarded-Proto": "https",
+    }
     if payload is not None:
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         headers["Content-Type"] = "application/json"
@@ -36,10 +40,12 @@ def main():
         if not origin.startswith(("http://", "https://")):
             raise RuntimeError("backup cron configuration invalid")
         token = _env("KBC_BACKUP_CRON_TOKEN")
+        request_host = _env("KBC_BACKUP_REQUEST_HOST")
 
         status_code, response = _request(
             f"{origin}/integrations/backup/run/",
             token,
+            request_host,
         )
         if status_code != 202 or response.get("status") != "accepted":
             raise RuntimeError("backup trigger failed")
@@ -54,6 +60,7 @@ def main():
                 status_code, response = _request(
                     f"{origin}/integrations/backup/status/",
                     token,
+                    request_host,
                     {"run_id": run_id},
                 )
             except urllib.error.HTTPError as exc:
