@@ -94,6 +94,8 @@ class PublicReviewAdmin(admin.ModelAdmin):
     readonly_fields = (
         "reviewer_name", "body", "rating", "language", "source", "source_reference",
         "submitted_by", "reviewed_at", "created_at", "updated_at",
+        "publication_consent_at", "publication_consent_version",
+        "publication_consent_language", "publication_withdrawn_at",
     )
 
     def has_add_permission(self, request):
@@ -101,7 +103,10 @@ class PublicReviewAdmin(admin.ModelAdmin):
 
     @admin.display(description=_("Status"))
     def publication_status(self, obj):
-        visible = obj.is_approved_for_publication and obj.is_active
+        visible = (
+            obj.is_approved_for_publication and obj.is_active
+            and obj.publication_withdrawn_at is None
+        )
         if (get_language() or "").startswith("ar"):
             return "ظاهر" if visible else "مخفي"
         return "Visible" if visible else "Hidden"
