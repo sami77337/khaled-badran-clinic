@@ -381,6 +381,18 @@ class ConsultationExpansionTests(ExpansionTestMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.context["consultations"]), 1)
 
+    def test_nonimage_bytes_cannot_be_saved_as_consultation_image(self):
+        self.client.force_login(self.user_a)
+        file = SimpleUploadedFile("test.jpg", b"<html>synthetic</html>", content_type="image/jpeg")
+        response = self.client.post(
+            reverse("patient_portal_consultation_new"),
+            {"question": "Synthetic question", "attachments": file},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["form"].errors)
+        self.assertFalse(Consultation.objects.exists())
+        self.assertFalse(ConsultationAttachment.objects.exists())
+
     def test_patient_cannot_view_or_fetch_other_patient_content(self):
         consultation, attachment = self.create_consultation_with_attachment(self.patient_b)
         self.client.force_login(self.user_a)
