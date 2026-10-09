@@ -24,6 +24,16 @@ from apps.patients import transient_services as access
 
 
 class GuestConsultationTests(TestCase):
+
+    def test_guest_submission_template_includes_non_emergency_notice(self):
+        from pathlib import Path
+        template = (Path(__file__).resolve().parents[2] / "templates" / "patients" / "guest_consultation.html").read_text(encoding="utf-8")
+        form_section = template.split('{% elif state == "form" %}', 1)[1].split('{% elif state == "receipt" %}', 1)[0]
+        self.assertIn("data-consultation-safety-notice", form_section)
+        self.assertIn("هذه الخدمة ليست للطوارئ", form_section)
+        self.assertIn("This service is not for emergencies", form_section)
+        self.assertNotIn('name="consent"', form_section)
+
     phone = "+12025550101"
 
     @classmethod

@@ -51,6 +51,7 @@
     <section class="guest-card">
         <h2>{% if is_arabic %}تفاصيل الاستشارة{% else %}Consultation details{% endif %}</h2>
         <p>{% if patient_otp_temporary_mode %}{% if is_arabic %}رقم الهاتف غير متحقق منه{% else %}Phone unverified{% endif %}{% else %}{% if is_arabic %}تم التحقق من{% else %}Verified{% endif %}{% endif %} <bdi dir="ltr">{{ masked_destination }}</bdi></p>
+        <p class="guest-note" data-consultation-safety-notice>{% if is_arabic %}هذه الخدمة ليست للطوارئ ولا تضمن ردًا فوريًا. في الحالة الطارئة اتصل بخدمات الطوارئ المحلية أو اطلب رعاية عاجلة. قد يطلب الطبيب مراجعة حضورية.{% else %}This service is not for emergencies and does not promise an immediate response. For an emergency, contact local emergency services or seek urgent care. The clinician may request an in-person visit.{% endif %}</p>
         <form method="post" enctype="multipart/form-data" class="guest-form" novalidate>
             {% csrf_token %}<input type="hidden" name="action" value="submit">{{ form.as_p }}
             <p class="guest-note">{% if is_arabic %}حتى 5 ملفات: JPG أو PNG أو WebP أو PDF بحجم 10 ميجابايت لكل ملف، أو فيديو MP4 قصير بحجم 50 ميجابايت.{% else %}Up to 5 files: JPG, PNG, WebP, or PDF up to 10 MiB each; short MP4 video up to 50 MiB.{% endif %}</p>

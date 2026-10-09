@@ -92,6 +92,16 @@
                 {% if form.password2.errors %}<div class="auth-field-errors" role="alert">{{ form.password2.errors }}</div>{% endif %}
             </div>
 
+            <p class="auth-register-return" data-register-privacy-notice>
+                {% if is_arabic %}
+                    نستخدم اسمك ورقم هاتفك وبيانات الدخول لإنشاء حساب المريض وتأمينه، والبريد الإلكتروني اختياري. لمعرفة تفاصيل استخدام البيانات وحقوقك اقرأ
+                    <a href="{% url 'privacy' %}">سياسة الخصوصية</a>.
+                {% else %}
+                    We use your name, phone number, and sign-in details to create and secure your patient account. Email is optional. For details about data use and your rights, read the
+                    <a href="{% url 'privacy_en' %}">Privacy Policy</a>.
+                {% endif %}
+            </p>
+
             <button class="auth-submit" type="submit">
                 <span>{% if is_arabic %}إنشاء الحساب{% else %}Create account{% endif %}</span>
                 <svg class="auth-submit-arrow" aria-hidden="true" viewBox="0 0 20 20" fill="none">

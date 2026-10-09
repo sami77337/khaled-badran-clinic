@@ -86,6 +86,34 @@ class PageFormLanguageTests(TestCase):
                     self.assertContains(response, escape(message))
                 self.assertContains(response, expected_help)
 
+    def test_registration_discloses_account_data_use_without_privacy_checkbox(self):
+        for route, privacy_route, text in (
+            ("patient_portal_register", "privacy", "نستخدم اسمك ورقم هاتفك"),
+            ("patient_portal_register_en", "privacy_en", "We use your name, phone number"),
+        ):
+            with self.subTest(route=route):
+                response = self.client.get(reverse(route))
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "data-register-privacy-notice")
+                self.assertContains(response, text)
+                self.assertContains(response, f'href="{reverse(privacy_route)}"')
+                self.assertNotContains(response, 'name="privacy_consent"')
+                self.assertContains(response, "auth-submit")
+
+    def test_registered_consultation_shows_non_emergency_notice_in_both_languages(self):
+        self.client.force_login(self.user)
+        for language, route, expected, opposite in (
+            ("ar", "patient_portal_consultation_new", "هذه الخدمة ليست للطوارئ", "This service is not for emergencies"),
+            ("en", "patient_portal_consultation_new_en", "This service is not for emergencies", "هذه الخدمة ليست للطوارئ"),
+        ):
+            with self.subTest(language=language):
+                response = self.client.get(reverse(route))
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "data-consultation-safety-notice")
+                self.assertContains(response, expected)
+                self.assertNotContains(response, opposite)
+                self.assertContains(response, "patient-primary-action")
+
     def test_phone_and_otp_invalid_errors_follow_page_language(self):
         for language in ("ar", "en"):
             with self.subTest(language=language):
