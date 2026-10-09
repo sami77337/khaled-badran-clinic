@@ -135,16 +135,18 @@ class ClinicAccountRoleTests(TestCase):
         self.staff.save(update_fields=["is_staff"])
         self.assertIsNone(clinic_role(self.staff))
 
-    def test_apply_sets_staff_login_flag_without_creating_a_new_account(self):
+    def test_role_assignment_refuses_public_accounts_and_creates_no_users(self):
         baseline = get_user_model().objects.count()
-        output = self._assign(self.patient_user, ROLE_DOCTOR)
-        self.assertIn("DRY RUN", output)
-        self.assertEqual(get_user_model().objects.count(), baseline)
         other = get_user_model().objects.create_user(
-            username="synthetic-new-doctor-identity",
+            username="synthetic-unverified-staff-identity",
         )
-        self._assign(other, ROLE_DOCTOR, apply=True)
+        with self.assertRaises(CommandError):
+            self._assign(other, ROLE_DOCTOR, apply=True)
         other.refresh_from_db()
-        self.assertTrue(other.is_staff)
-        self.assertEqual(clinic_role(other), ROLE_DOCTOR)
+        self.assertFalse(other.is_staff)
+        self.assertIsNone(clinic_role(other))
+        self.assertEqual(get_user_model().objects.count(), baseline + 1)
+
+        output = self._assign(self.unassigned, ROLE_DOCTOR, apply=True)
+        self.assertIn("Applied doctor role", output)
         self.assertEqual(get_user_model().objects.count(), baseline + 1)
