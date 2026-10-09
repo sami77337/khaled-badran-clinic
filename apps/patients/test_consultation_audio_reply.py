@@ -10,6 +10,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.core.test_utils import close_test_response
+from apps.patients.clinical_test_utils import grant_clinical_reply_permissions
 from apps.patients.models import (
     CONSULTATION_AUDIO_MAX_BYTES,
     Consultation,
@@ -48,6 +49,7 @@ class ConsultationAudioReplyTests(TestCase):
             password=self.password,
             is_staff=True,
         )
+        grant_clinical_reply_permissions(self.staff)
         self.patient_user = user_model.objects.create_user(
             username="+962790300001",
             password=self.password,
