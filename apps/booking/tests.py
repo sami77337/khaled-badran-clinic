@@ -19,7 +19,10 @@ from django.utils import timezone
 
 from apps.booking.countries import INTERNATIONAL_PHONE_COUNTRIES
 from apps.booking.forms import PUBLIC_BOOKING_ERROR_COPY, PublicBookingForm
-from apps.booking.models import Appointment, AppointmentStaffNotification, AppointmentStatusHistory
+from apps.booking.models import (
+    Appointment, AppointmentStaffNotification, AppointmentStatusHistory,
+    BOOKING_WHATSAPP_CONSENT_VERSION,
+)
 from apps.booking.phone import normalize_phone
 from apps.booking import operations, rate_limits, services
 from apps.clinic.models import ClosedDay, Doctor, DoctorSchedule, DoctorScheduleOverride, VisitType
@@ -638,6 +641,7 @@ class PublicBookingFormTests(BookingTestDataMixin, TestCase):
             "visit_type",
             "starts_at",
             "booking_note",
+            "whatsapp_notifications_consent",
         )
         expected_required = {
             "full_name": True,
@@ -647,6 +651,7 @@ class PublicBookingFormTests(BookingTestDataMixin, TestCase):
             "visit_type": True,
             "starts_at": True,
             "booking_note": False,
+            "whatsapp_notifications_consent": False,
         }
 
         for language in ("ar", "en"):
@@ -664,6 +669,8 @@ class PublicBookingFormTests(BookingTestDataMixin, TestCase):
                 self.assertTrue(form.fields["visit_type"].widget.is_hidden)
                 self.assertTrue(form.fields["starts_at"].widget.is_hidden)
                 self.assertEqual(form.fields["same_as_phone"].widget.input_type, "checkbox")
+                self.assertEqual(form.fields["whatsapp_notifications_consent"].widget.input_type, "checkbox")
+                self.assertFalse(form.fields["whatsapp_notifications_consent"].initial)
                 self.assertEqual(form.fields["booking_note"].widget.__class__.__name__, "Textarea")
                 self.assertIsNone(form.fields["booking_note"].max_length)
 
@@ -700,11 +707,21 @@ class PublicBookingFormTests(BookingTestDataMixin, TestCase):
         data = self.valid_form_data()
         data.pop("same_as_phone")
         data["whatsapp_phone"] = ""
+        data["whatsapp_notifications_consent"] = "on"
 
         form = PublicBookingForm(data=data)
 
         self.assertFalse(form.is_valid())
         self.assertIn("whatsapp_phone", form.errors)
+
+    def test_no_whatsapp_consent_does_not_require_a_separate_destination(self):
+        data = self.valid_form_data()
+        data.pop("same_as_phone")
+        form = PublicBookingForm(data=data)
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertFalse(form.cleaned_data["whatsapp_notifications_consent"])
+        self.assertEqual(form.cleaned_data["whatsapp_phone"], "")
 
     def test_invalid_separate_whatsapp_keeps_localized_field_error(self):
         for language in ("ar", "en"):
@@ -921,6 +938,33 @@ class PublicBookingViewTests(BookingTestDataMixin, TestCase):
         self.assertEqual(appointment.patient.phone_e164, "+962791234567")
         self.assertEqual(appointment.status, Appointment.Status.CONFIRMED)
         self.assertEqual(appointment.booking_note, "Please call before appointment.")
+        self.assertFalse(appointment.reminder_enabled)
+        self.assertIsNone(appointment.booking_whatsapp_consent_at)
+        self.assertEqual(appointment.booking_whatsapp_consent_version, "")
+
+    def test_booking_whatsapp_opt_in_is_explicit_localized_and_persisted(self):
+        for language, route_name in (("ar", "booking_confirm"), ("en", "booking_confirm_en")):
+            with self.subTest(language=language):
+                # Each subTest needs a different slot to respect the unique constraint.
+                slot = self.slot if language == "ar" else services.generate_available_slots(self.visit_type, target_date=self.tomorrow, doctor=self.doctor)[1]
+                response = self.client.post(
+                    reverse(route_name),
+                    {
+                        "full_name": "Synthetic Consent Patient",
+                        "phone": "0791234567" if language == "ar" else "0791234568",
+                        "same_as_phone": "on",
+                        "visit_type": str(self.visit_type.id),
+                        "starts_at": slot.value,
+                        "whatsapp_notifications_consent": "on",
+                    },
+                )
+                self.assertEqual(response.status_code, 302)
+                appointment = Appointment.objects.get(starts_at=slot.starts_at)
+                self.assertTrue(appointment.reminder_enabled)
+                self.assertIsNotNone(appointment.booking_whatsapp_consent_at)
+                self.assertEqual(appointment.booking_whatsapp_consent_language, language)
+                self.assertEqual(appointment.booking_whatsapp_consent_version, BOOKING_WHATSAPP_CONSENT_VERSION)
+                self.assertIsNone(appointment.booking_whatsapp_consent_withdrawn_at)
 
     def test_final_public_post_rejects_weekly_slot_outside_special_hours(self):
         DoctorScheduleOverride.objects.create(
