@@ -64,6 +64,7 @@ class PublicBookingForm(forms.Form):
     visit_type = forms.ModelChoiceField(queryset=VisitType.objects.none(), widget=forms.HiddenInput)
     starts_at = forms.CharField(widget=forms.HiddenInput)
     booking_note = forms.CharField(required=False, widget=forms.Textarea)
+    whatsapp_notifications_consent = forms.BooleanField(required=False)
 
     def __init__(self, *args, language="ar", authenticated_user=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -82,6 +83,14 @@ class PublicBookingForm(forms.Form):
         self.fields["whatsapp_phone"].label = "رقم واتساب" if language == "ar" else "WhatsApp number"
         self.fields["visit_type"].label = "نوع الزيارة" if language == "ar" else "Visit type"
         self.fields["booking_note"].label = "ملاحظة اختيارية" if language == "ar" else "Optional note"
+        self.fields["whatsapp_notifications_consent"].label = (
+            "أوافق على تلقي تأكيد وتذكير هذا الموعد عبر WhatsApp باستخدام Meta WhatsApp Business Platform. "
+            "هذه الرسائل اختيارية، ويمكن طلب إيقاف الرسائل المستقبلية من العيادة."
+            if language == "ar" else
+            "I agree to receive confirmation and reminder messages for this appointment through "
+            "WhatsApp using the Meta WhatsApp Business Platform. These messages are optional; "
+            "I can ask the clinic to stop future messages."
+        )
         self.fields["full_name"].error_messages["required"] = self.error_copy["full_name_required"]
         self.fields["phone"].error_messages["required"] = self.error_copy["phone_required"]
         self.fields["visit_type"].error_messages.update(
@@ -124,6 +133,7 @@ class PublicBookingForm(forms.Form):
             }
         )
         self.fields["same_as_phone"].widget.attrs["class"] = "booking-checkbox"
+        self.fields["whatsapp_notifications_consent"].widget.attrs["class"] = "booking-checkbox"
         self.fields["visit_type"].empty_label = None
         self.doctor = doctor
         self.normalized_phone = ""
@@ -165,17 +175,23 @@ class PublicBookingForm(forms.Form):
             cleaned_data["whatsapp_phone"] = cleaned_data.get("phone", "")
         else:
             if not whatsapp_phone:
-                self.add_error("whatsapp_phone", self.error_copy["whatsapp_invalid"])
-                return cleaned_data
-            try:
-                self.normalized_whatsapp_phone = normalize_phone(whatsapp_phone)
-            except ValidationError as exc:
-                self.add_error(
-                    "whatsapp_phone",
-                    self.localized_error(exc, fallback_key="whatsapp_invalid"),
-                )
-                return cleaned_data
-            cleaned_data["whatsapp_phone"] = whatsapp_phone
+                if cleaned_data.get("whatsapp_notifications_consent"):
+                    self.add_error("whatsapp_phone", self.error_copy["whatsapp_invalid"])
+                    return cleaned_data
+                # A separate WhatsApp destination is not required when
+                # appointment notifications were not requested.
+                self.normalized_whatsapp_phone = ""
+                cleaned_data["whatsapp_phone"] = ""
+            else:
+                try:
+                    self.normalized_whatsapp_phone = normalize_phone(whatsapp_phone)
+                except ValidationError as exc:
+                    self.add_error(
+                        "whatsapp_phone",
+                        self.localized_error(exc, fallback_key="whatsapp_invalid"),
+                    )
+                    return cleaned_data
+                cleaned_data["whatsapp_phone"] = whatsapp_phone
 
         visit_type = cleaned_data.get("visit_type")
         starts_at = cleaned_data.get("starts_at")
@@ -197,6 +213,7 @@ class PublicBookingForm(forms.Form):
             full_name=self.cleaned_data["full_name"],
             phone_raw=self.cleaned_data["phone"],
             whatsapp_phone_raw=self.cleaned_data.get("whatsapp_phone") or "",
+            whatsapp_notifications_consent=self.cleaned_data.get("whatsapp_notifications_consent", False),
             visit_type_id=self.cleaned_data["visit_type"].id,
             starts_at=self.cleaned_data["starts_at"],
             booking_note=self.cleaned_data.get("booking_note", ""),
