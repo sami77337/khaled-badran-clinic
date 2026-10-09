@@ -302,7 +302,7 @@ def _delete_consultation_files(files):
             # Continue remaining cleanup; never report a rollback or expose a
             # private storage key through exception text/traceback.
             logger.error(
-                "Consultation deleted; private attachment cleanup failed "
+                "Consultation deleted; private file cleanup failed "
                 "(attachment_id=%s, error_class=%s).",
                 attachment_id, type(exc).__name__,
             )
