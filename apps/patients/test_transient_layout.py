@@ -12,6 +12,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -58,7 +59,7 @@ class GuestConsultationLayoutTests(TestCase):
                             "attachments": SimpleUploadedFile("synthetic.html", b"synthetic", content_type="text/html")}))
                         long_text = ("س" * 350 + " W" + "W" * 350 + " https://example.test/" + "x" * 300 + "\n") * 4
                         response = client.post(entry, {"action": "submit", "question": long_text, "display_name": "W" * 100,
-                            "attachments": SimpleUploadedFile("W" * 235 + ".pdf", b"synthetic", content_type="application/pdf")})
+                            "attachments": SimpleUploadedFile("W" * 235 + ".pdf", synthetic_media_bytes("application/pdf"), content_type="application/pdf")})
                         self.assertEqual(response.status_code, 302)
                         detail = response.url
                         guest = TransientConsultation.objects.latest("id")
@@ -72,7 +73,7 @@ class GuestConsultationLayoutTests(TestCase):
                         guest.save()
                         capture("empty-reply", client.get(detail))
                         audio = TransientConsultationAudioReply.objects.create(consultation=guest, created_by=staff,
-                            file=SimpleUploadedFile("synthetic.webm", b"synthetic", content_type="audio/webm"))
+                            file=SimpleUploadedFile("synthetic.webm", synthetic_media_bytes("audio/webm"), content_type="audio/webm"))
                         capture("voice-only", client.get(detail))
                         audio.delete()
                         guest.status = "closed"
