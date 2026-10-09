@@ -115,6 +115,7 @@ class DashboardPatientReviewTests(TestCase):
         self.client.force_login(self.patient)
         response = self.client.post(reverse("patient_portal_review_edit_en", args=[self.review.pk]), {
             "reviewer_name": "Updated patient display", "rating": 2, "body": "Updated synthetic feedback.",
+            "publication_consent": "on",
         })
         self.assertEqual(response.status_code, 302)
         self.assert_public(True, body="Updated synthetic feedback.", rating=2)
@@ -151,7 +152,9 @@ class DashboardPatientReviewTests(TestCase):
         for unused in range(2):
             self.assertEqual(self.client.post(self.visibility_url, self.action_data()).status_code, 302)
         self.assertEqual(self.client.post(self.delete_url, self.delete_data()).status_code, 302)
-        entries = list(AuditLog.objects.filter(model_name="PublicReview").order_by("created_at"))
+        entries = list(AuditLog.objects.filter(
+            model_name="PublicReview", user=self.moderator,
+        ).order_by("created_at"))
         self.assertEqual([entry.metadata for entry in entries], [
             {"action": "patient_review_hide"}, {"action": "patient_review_show"}, {"action": "patient_review_delete"},
         ])
