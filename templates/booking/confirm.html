@@ -90,6 +90,16 @@
                             {% if form.booking_note.errors %}<div class="booking-field-errors" role="alert">{{ form.booking_note.errors }}</div>{% endif %}
                         </div>
 
+                        <p class="booking-phone-hint" data-booking-privacy-notice>
+                            {% if is_arabic %}
+                                تستخدم العيادة البيانات التي تدخلها لإدارة موعدك وتقديم الخدمة المرتبطة به. لمعرفة التفاصيل عن استخدام بياناتك وحقوقك، راجع
+                                <a href="{% url 'privacy' %}">سياسة الخصوصية</a>.
+                            {% else %}
+                                The clinic uses the details you enter to manage your appointment and the related service. For details about how your data is used and your rights, read the
+                                <a href="{% url 'privacy_en' %}">Privacy Policy</a>.
+                            {% endif %}
+                        </p>
+
                         <button class="booking-primary-action booking-confirm-action" type="submit">
                             {% if is_arabic %}تأكيد الموعد{% else %}Confirm Booking{% endif %}
                         </button>
