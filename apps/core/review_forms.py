@@ -56,6 +56,12 @@ class ReviewModerationForm(forms.ModelForm):
                     "اختر إخفاء أو إظهار." if (get_language() or "").startswith("ar")
                     else "Choose Hide or Show."
                 )
+            if action == "show" and current.publication_withdrawn_at is not None:
+                raise forms.ValidationError(
+                    "سحب المريض موافقة النشر. لا يمكن إعادة النشر إلا بموافقته."
+                    if (get_language() or "").startswith("ar") else
+                    "The patient withdrew publication consent. Only the patient can republish."
+                )
             cleaned_data["moderation_action"] = action
         return cleaned_data
 
