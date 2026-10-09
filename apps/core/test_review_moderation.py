@@ -108,6 +108,7 @@ class ReviewModerationTests(TestCase):
     def test_admin_cannot_show_review_after_patient_withdrawal(self):
         from django.utils import timezone
 
+        self.client.cookies[settings.LANGUAGE_COOKIE_NAME] = "en"
         self.review.publication_withdrawn_at = timezone.now()
         self.review.is_approved_for_publication = False
         self.review.is_active = False
