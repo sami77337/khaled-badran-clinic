@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
 
 from apps.booking import services as booking_services
-from apps.booking.models import Appointment
+from apps.booking.models import Appointment, BOOKING_WHATSAPP_CONSENT_VERSION
 from . import meta
 from .webhook import state_key
 
@@ -29,6 +29,9 @@ def due_reminders(now):
             starts_at__gt=now,
             reminder_enabled=True,
             reminder_sent_at__isnull=True,
+            booking_whatsapp_consent_at__isnull=False,
+            booking_whatsapp_consent_version=BOOKING_WHATSAPP_CONSENT_VERSION,
+            booking_whatsapp_consent_withdrawn_at__isnull=True,
         )
         .annotate(
             due_at=ExpressionWrapper(
@@ -98,6 +101,10 @@ def send_booking_confirmation(appointment_id, language):
             pk=appointment_id,
             status__in=UPCOMING_STATUSES,
             starts_at__gt=timezone.now(),
+            reminder_enabled=True,
+            booking_whatsapp_consent_at__isnull=False,
+            booking_whatsapp_consent_version=BOOKING_WHATSAPP_CONSENT_VERSION,
+            booking_whatsapp_consent_withdrawn_at__isnull=True,
         ).first()
         if appointment is None:
             return False
