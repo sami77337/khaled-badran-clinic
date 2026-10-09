@@ -122,6 +122,109 @@ class PatientReviewTests(TestCase):
                 review.delete()
                 audit.delete()
 
+    def test_unchecked_publication_consent_blocks_new_reviews_in_both_languages(self):
+        for language in ("ar", "en"):
+            with self.subTest(language=language):
+                url = self.url(language=language)
+                response = self.client.get(url)
+                self.assertContains(response, "data-review-publication-consent")
+                self.assertContains(response, 'name="publication_consent"')
+                self.assertFalse(response.context["form"].fields["publication_consent"].initial)
+                denied = self.client.post(url, {
+                    "reviewer_name": "", "rating": 4,
+                    "body": "Synthetic review without consent.",
+                })
+                self.assertEqual(denied.status_code, 200)
+                self.assertIn("publication_consent", denied.context["form"].errors)
+                self.assertContains(
+                    denied, "يجب اختيار الموافقة" if language == "ar"
+                    else "Select publication consent",
+                )
+                self.assertFalse(PublicReview.objects.filter(submitted_by=self.owner).exists())
+                self.assertFalse(AuditLog.objects.filter(
+                    user=self.owner, metadata__action="patient_review_publication_consent",
+                ).exists())
+
+    def test_missing_consent_on_edit_does_not_change_review_or_prior_evidence(self):
+        before = timezone.now()
+        review = self.create_review(
+            is_approved_for_publication=True, publication_consent_at=before,
+            publication_consent_version=PORTAL_REVIEW_PUBLICATION_CONSENT_VERSION,
+            publication_consent_language="en",
+        )
+        response = self.client.post(self.url("edit", review=review), {
+            "reviewer_name": "Forged edit", "rating": 2,
+            "body": "Edited without consent.",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("publication_consent", response.context["form"].errors)
+        review.refresh_from_db()
+        self.assertEqual(review.body, "Synthetic review text.")
+        self.assertEqual(review.rating, 4)
+        self.assertEqual(review.publication_consent_at, before)
+        self.assertTrue(review.is_approved_for_publication)
+
+    def test_withdraw_hides_public_surfaces_and_allows_fresh_patient_consent(self):
+        review = self.create_review(
+            is_approved_for_publication=True,
+            publication_consent_at=timezone.now(),
+            publication_consent_version=PORTAL_REVIEW_PUBLICATION_CONSENT_VERSION,
+            publication_consent_language="en",
+        )
+        accepted_at = review.publication_consent_at
+        self.assertContains(self.client.get(reverse("reviews_en")), review.body)
+        self.assertEqual(self.client.get(self.url("withdraw", review=review)).status_code, 405)
+
+        response = self.client.post(self.url("withdraw", review=review))
+        self.assertRedirects(response, self.url())
+        review.refresh_from_db()
+        self.assertIsNotNone(review.publication_withdrawn_at)
+        self.assertEqual(review.publication_consent_at, accepted_at)
+        self.assertFalse(review.is_approved_for_publication)
+        self.assertFalse(review.is_active)
+        withdrawn_at = review.publication_withdrawn_at
+        for route in ("home", "home_en", "reviews", "reviews_en"):
+            self.assertNotContains(self.client.get(reverse(route)), review.body)
+        mine = self.client.get(self.url())
+        self.assertContains(mine, 'data-review-status="hidden"')
+        self.assertContains(mine, "data-review-publication-withdrawn")
+        self.assertContains(mine, review.body)
+        audit = AuditLog.objects.get(
+            user=self.owner, model_name="PublicReview",
+            metadata__action="patient_review_publication_withdrawn",
+        )
+        self.assertEqual(audit.object_id, str(review.pk))
+        self.assertNotIn(review.body, str(audit.metadata) + audit.message + audit.object_repr)
+        self.assertRedirects(self.client.post(self.url("withdraw", review=review)), self.url())
+        review.refresh_from_db()
+        self.assertEqual(review.publication_withdrawn_at, withdrawn_at)
+        self.assertEqual(AuditLog.objects.filter(
+            user=self.owner, metadata__action="patient_review_publication_withdrawn",
+        ).count(), 1)
+
+        publish = self.client.post(self.url("edit", review=review), {
+            "reviewer_name": "", "rating": 5,
+            "body": "Fresh synthetic review.", "publication_consent": "on",
+        })
+        self.assertRedirects(publish, self.url())
+        review.refresh_from_db()
+        self.assertIsNone(review.publication_withdrawn_at)
+        self.assertTrue(review.is_approved_for_publication)
+        self.assertTrue(review.is_active)
+        self.assertEqual(review.publication_consent_version, PORTAL_REVIEW_PUBLICATION_CONSENT_VERSION)
+        self.assertEqual(review.publication_consent_language, "en")
+        self.assertContains(self.client.get(reverse("reviews_en")), "Fresh synthetic review.")
+        self.assertEqual(AuditLog.objects.filter(
+            user=self.owner, metadata__action="patient_review_publication_consent",
+        ).count(), 1)
+
+    def test_legacy_reviews_are_neither_backfilled_nor_bulk_hidden(self):
+        legacy = self.create_review(is_approved_for_publication=True)
+        self.assertIsNone(legacy.publication_consent_at)
+        self.assertEqual(legacy.publication_consent_version, "")
+        self.assertEqual(legacy.publication_consent_language, "")
+        self.assertContains(self.client.get(reverse("reviews_en")), legacy.body)
+
     def test_duplicate_submission_preserves_original_review(self):
         review = self.create_review()
         response = self.client.post(self.url(), {"body": "Replacement", "rating": 1})
