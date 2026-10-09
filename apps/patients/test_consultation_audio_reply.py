@@ -207,8 +207,20 @@ class ConsultationAudioReplyTests(TestCase):
             },
         )
 
+        incompatible_content = self.client.post(
+            f"{self.staff_reply_url(consultation)}?lang=en",
+            {
+                "staff_reply": "",
+                "status": Consultation.Status.ANSWERED,
+                "audio_reply": SimpleUploadedFile(
+                    "synthetic.webm", b"invalid synthetic audio",
+                    content_type="audio/webm",
+                ),
+            },
+        )
         self.assertEqual(mismatch.status_code, 200)
         self.assertEqual(oversized.status_code, 200)
+        self.assertEqual(incompatible_content.status_code, 200)
         self.assertContains(oversized, "15 MiB")
         consultation.refresh_from_db()
         self.assertEqual(consultation.status, Consultation.Status.NEW)
