@@ -105,6 +105,28 @@ class ReviewModerationTests(TestCase):
             self.assertEqual(self.client.post(self.url, self.moderation_data(action)).status_code, 302)
             self.assert_public(action == "show")
 
+    def test_admin_cannot_show_review_after_patient_withdrawal(self):
+        from django.utils import timezone
+
+        self.review.publication_withdrawn_at = timezone.now()
+        self.review.is_approved_for_publication = False
+        self.review.is_active = False
+        self.review.save(update_fields=[
+            "publication_withdrawn_at", "is_approved_for_publication",
+            "is_active", "updated_at",
+        ])
+        page = self.client.get(self.url)
+        self.assertContains(page, "Publication consent withdrawn by patient")
+        self.assertNotContains(page, 'name="moderation_action"')
+        before = self.snapshot()
+        data = self.moderation_data("show")
+        response = self.client.post(self.url, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["adminform"].form.errors)
+        self.assertContains(response, "The patient withdrew publication consent")
+        self.assertEqual(self.snapshot(), before)
+        self.assert_public(False)
+
     def test_show_restores_legacy_inactive_review(self):
         for approved in (False, True):
             PublicReview.objects.filter(pk=self.review.pk).update(is_active=False, is_approved_for_publication=approved)
