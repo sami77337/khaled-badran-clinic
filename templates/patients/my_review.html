@@ -26,12 +26,21 @@
                     {% csrf_token %}
                     {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
                     {% for field in form %}
-                        <div class="form-field">
-                            {{ field.label_tag }}{{ field }}
-                            {% if field.help_text %}<p class="helptext" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</p>{% endif %}
-                            {% if field.errors %}<div role="alert">{{ field.errors }}</div>{% endif %}
-                        </div>
+                        {% if field.name != "publication_consent" %}
+                            <div class="form-field">
+                                {{ field.label_tag }}{{ field }}
+                                {% if field.help_text %}<p class="helptext" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</p>{% endif %}
+                                {% if field.errors %}<div role="alert">{{ field.errors }}</div>{% endif %}
+                            </div>
+                        {% endif %}
                     {% endfor %}
+                    <div class="form-field patient-checkbox-field" data-review-publication-consent>
+                        <label for="{{ form.publication_consent.id_for_label }}">
+                            {{ form.publication_consent }}
+                            <span>{{ form.publication_consent.label }}</span>
+                        </label>
+                        {% if form.publication_consent.errors %}<div role="alert">{{ form.publication_consent.errors }}</div>{% endif %}
+                    </div>
                     <div class="patient-form-actions">
                         <button class="patient-primary-action" type="submit">{% if editing %}{% if is_arabic %}حفظ ونشر التعديل{% else %}Save and Publish Changes{% endif %}{% else %}{% if is_arabic %}نشر التقييم{% else %}Publish Review{% endif %}{% endif %}</button>
                         {% if editing %}<a class="patient-secondary-action" href="{{ review_url }}">{% if is_arabic %}إلغاء{% else %}Cancel{% endif %}</a>{% endif %}
@@ -49,6 +58,20 @@
                 </article>
                 <div class="patient-form-actions">
                     <a class="patient-primary-action" href="{{ review_edit_url }}">{% if is_arabic %}تعديل{% else %}Edit{% endif %}</a>
+                    {% if review.publication_withdrawn_at %}
+                        <p class="patient-record-meta" data-review-publication-withdrawn>
+                            {% if is_arabic %}تم سحب موافقة نشر هذا التقييم. لا يمكن للعيادة إظهاره مجددًا دون موافقتك الجديدة.{% else %}Publication consent has been withdrawn. The clinic cannot show this review again without your new consent.{% endif %}
+                        </p>
+                    {% else %}
+                        <details class="patient-review-delete" data-review-withdraw>
+                            <summary class="patient-secondary-action">{% if is_arabic %}إيقاف نشر التقييم{% else %}Stop Publishing Review{% endif %}</summary>
+                            <form class="patient-form patient-inline-form" method="post" action="{{ review_withdraw_url }}">
+                                {% csrf_token %}
+                                <p class="patient-record-meta">{% if is_arabic %}سيختفي تقييمك من الصفحات العامة والتقييم الإجمالي، لكنه سيبقى محفوظًا في حسابك لتعديله أو حذفه.{% else %}Your review will disappear from public pages and ratings, but remain in your account for editing or deletion.{% endif %}</p>
+                                <button class="patient-secondary-action" type="submit">{% if is_arabic %}تأكيد إيقاف النشر{% else %}Confirm Stop Publishing{% endif %}</button>
+                            </form>
+                        </details>
+                    {% endif %}
                     <details class="patient-review-delete">
                         <summary class="patient-secondary-action">{% if is_arabic %}حذف{% else %}Delete{% endif %}</summary>
                         <form class="patient-form patient-inline-form" method="post" action="{{ review_delete_url }}">
