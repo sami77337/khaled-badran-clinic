@@ -41,6 +41,11 @@ class Command(BaseCommand):
 
             if not user.is_active:
                 raise CommandError("Inactive accounts cannot receive a clinic role.")
+            if not user.is_staff:
+                raise CommandError(
+                    "Only existing staff accounts can receive a clinic role. "
+                    "Create a dedicated named staff account first."
+                )
             if role == ROLE_STAFF and user.is_superuser:
                 raise CommandError(
                     "Remove superuser privileges through the approved "
@@ -72,9 +77,6 @@ class Command(BaseCommand):
             # Other pre-existing groups and account data remain untouched.
             user.groups.remove(doctor_group, staff_group)
             user.groups.add(doctor_group if role == ROLE_DOCTOR else staff_group)
-            if not user.is_staff:
-                user.is_staff = True
-                user.save(update_fields=["is_staff"])
 
         self.stdout.write(
             self.style.SUCCESS(
