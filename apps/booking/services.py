@@ -10,6 +10,7 @@ from django.utils.dateparse import parse_datetime
 from apps.booking.audit import create_appointment_audit
 from apps.booking.models import (
     Appointment,
+    BOOKING_WHATSAPP_CONSENT_VERSION,
     AppointmentStaffNotification,
     AppointmentStatusHistory,
 )
@@ -382,6 +383,7 @@ def create_public_appointment(
     starts_at,
     booking_note="",
     whatsapp_phone_raw="",
+    whatsapp_notifications_consent=False,
     authenticated_user=None,
     language="ar",
 ):
@@ -399,6 +401,7 @@ def create_public_appointment(
 
     normalized_phone = normalize_phone(phone_raw)
     normalized_whatsapp = normalize_phone(whatsapp_phone_raw) if whatsapp_phone_raw else normalized_phone
+    opted_in = whatsapp_notifications_consent is True
 
     if authenticated_user is not None and authenticated_user.is_authenticated and not authenticated_user.is_staff:
         from apps.patients.profile_resolution import resolve_authenticated_patient
@@ -435,6 +438,10 @@ def create_public_appointment(
         starts_at=starts_at,
         ends_at=ends_at,
         reminder_offset=timedelta(minutes=settings.reminder_offset_minutes),
+        reminder_enabled=opted_in,
+        booking_whatsapp_consent_at=timezone.now() if opted_in else None,
+        booking_whatsapp_consent_version=BOOKING_WHATSAPP_CONSENT_VERSION if opted_in else "",
+        booking_whatsapp_consent_language=("en" if language == "en" else "ar") if opted_in else "",
         booking_note=(booking_note or "").strip(),
         contact_phone_raw=phone_raw.strip(),
         contact_phone_e164=normalized_phone,
@@ -463,7 +470,8 @@ def create_public_appointment(
     )
     from apps.whatsapp.booking import schedule_booking_confirmation
 
-    schedule_booking_confirmation(appointment.pk, "en" if language == "en" else "ar")
+    if opted_in:
+        schedule_booking_confirmation(appointment.pk, "en" if language == "en" else "ar")
     from django.contrib.auth import get_user_model
     from apps.notifications.services import schedule_staff_event
 
