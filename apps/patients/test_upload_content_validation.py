@@ -105,18 +105,18 @@ class ConsultationUploadContentValidationTests(SimpleTestCase):
 
     def test_unreadable_and_unseekable_uploads_are_rejected(self):
         file = self.upload("private.jpg", "image/jpeg")
-        with patch.object(file, "tell", side_effect=OSError("synthetic IO problem")):
+        with patch.object(file.file, "tell", side_effect=OSError("synthetic IO problem")):
             with self.assertRaises(ValidationError):
                 validate_consultation_upload(file)
         file = self.upload("private.pdf", "application/pdf")
-        with patch.object(file, "read", side_effect=OSError("synthetic IO problem")):
+        with patch.object(file.file, "read", side_effect=OSError("synthetic IO problem")):
             with self.assertRaises(ValidationError):
                 validate_consultation_upload(file)
 
     def test_signature_inspection_never_reads_unbounded_file_content(self):
         upload = self.upload("private.mp4", "video/mp4", payload=synthetic_media_bytes("video/mp4", b"x" * 65536))
         upload.seek(29)
-        with patch.object(upload, "read", wraps=upload.read) as read:
+        with patch.object(upload.file, "read", wraps=upload.file.read) as read:
             meta = validate_consultation_upload(upload)
         self.assertEqual(meta["file_size"], upload.size)
         self.assertEqual(upload.tell(), 29)
