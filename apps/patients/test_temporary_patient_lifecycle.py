@@ -62,7 +62,7 @@ class TemporaryProfileRegistrationTests(TemporaryModeFixture):
             self.assertContains(self.register(), temporary_otp.unavailable_message("en"))
         self.assertFalse(get_user_model().objects.exists())
         self.assertFalse(Patient.objects.exists())
-        self.assertFalse(Group.objects.exists())
+        self.assertFalse(Group.objects.filter(name=temporary_otp.UNVERIFIED_GROUP).exists())
 
     def test_populated_permission_free_marker_accepts_another_patient(self):
         self.register()
@@ -84,7 +84,7 @@ class TemporaryProfileRegistrationTests(TemporaryModeFixture):
             m2m_changed.disconnect(fail, sender=through)
         self.assertFalse(get_user_model().objects.exists())
         self.assertFalse(Patient.objects.exists())
-        self.assertFalse(Group.objects.exists())
+        self.assertFalse(Group.objects.filter(name=temporary_otp.UNVERIFIED_GROUP).exists())
 
     def test_shared_resolver_rejects_legacy_raw_phone_without_claiming(self):
         user = get_user_model().objects.create_user(username=self.phone)

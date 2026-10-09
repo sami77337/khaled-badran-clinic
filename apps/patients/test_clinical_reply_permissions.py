@@ -1,7 +1,8 @@
 """Synthetic-only clinical reply authorization tests for registered/guest models."""
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Group, Permission
+from apps.patients.clinic_roles import CLINIC_DOCTOR_GROUP, CLINIC_STAFF_GROUP
 from django.core.exceptions import PermissionDenied
 from django.test import TestCase
 from django.urls import reverse
@@ -53,6 +54,11 @@ class ClinicalReplyLeastPrivilegeTests(TestCase):
         cls.doctor.user_permissions.add(registered_permission, guest_permission)
         cls.registered_only.user_permissions.add(registered_permission)
         cls.guest_only.user_permissions.add(guest_permission)
+        doctor_group = Group.objects.get(name=CLINIC_DOCTOR_GROUP)
+        staff_group = Group.objects.get(name=CLINIC_STAFF_GROUP)
+        for user in (cls.doctor, cls.registered_only, cls.guest_only):
+            user.groups.add(doctor_group)
+        cls.front_desk.groups.add(staff_group)
 
     def _cases(self):
         return (
@@ -68,8 +74,8 @@ class ClinicalReplyLeastPrivilegeTests(TestCase):
                 self.assertTrue(can_author_clinical_reply(self.doctor, guest=guest))
                 self.assertTrue(can_author_clinical_reply(self.superuser, guest=guest))
         self.assertTrue(can_author_clinical_reply(self.registered_only))
-        self.assertFalse(can_author_clinical_reply(self.registered_only, guest=True))
-        self.assertFalse(can_author_clinical_reply(self.guest_only))
+        self.assertTrue(can_author_clinical_reply(self.registered_only, guest=True))
+        self.assertTrue(can_author_clinical_reply(self.guest_only))
         self.assertTrue(can_author_clinical_reply(self.guest_only, guest=True))
         self.doctor.is_active = False
         self.assertFalse(can_author_clinical_reply(self.doctor))
@@ -112,6 +118,13 @@ class ClinicalReplyLeastPrivilegeTests(TestCase):
                 self.assertEqual(consultation.staff_reply, "")
 
     def test_single_model_permission_cannot_author_another_type(self):
+        # The normal Doctor group grants both; restrict its permissions here
+        # to prove the service also checks the individual model permission.
+        doctor_group = Group.objects.get(name=CLINIC_DOCTOR_GROUP)
+        doctor_group.permissions.clear()
+        for user in (self.registered_only, self.guest_only):
+            for key in ("_perm_cache", "_group_perm_cache", "_user_perm_cache"):
+                user.__dict__.pop(key, None)
         for consultation, guest, route in self._cases():
             allowed = self.guest_only if guest else self.registered_only
             denied = self.registered_only if guest else self.guest_only
@@ -130,6 +143,20 @@ class ClinicalReplyLeastPrivilegeTests(TestCase):
             consultation.refresh_from_db()
             self.assertEqual(consultation.staff_reply, "Synthetic authorized reply")
             self.assertEqual(consultation.replied_by_id, allowed.pk)
+
+    def test_direct_model_permission_cannot_bypass_clinic_staff_role(self):
+        permissions = Permission.objects.filter(
+            content_type__app_label="patients",
+            codename__in=("change_consultation", "change_transientconsultation"),
+        )
+        self.front_desk.user_permissions.add(*permissions)
+        for guest in (False, True):
+            self.assertFalse(can_author_clinical_reply(self.front_desk, guest=guest))
+
+    def test_conflicting_group_memberships_fail_closed(self):
+        self.doctor.groups.add(Group.objects.get(name=CLINIC_STAFF_GROUP))
+        for guest in (False, True):
+            self.assertFalse(can_author_clinical_reply(self.doctor, guest=guest))
 
     def test_superuser_retains_regular_django_model_permission_semantics(self):
         self.client.force_login(self.superuser)

@@ -454,6 +454,8 @@ class ConsultationSafeDeleteTests(OwnerExpansionMixin, TestCase):
         self.assertFalse(ConsultationAttachment.objects.filter(pk=attachment.pk).exists())
         self.assertTrue(attachment.file.storage.exists(attachment.file.name))
         self.assertIn("Consultation deleted; private file cleanup failed", logs.output[0])
+        self.assertNotIn(attachment.file.name, logs.output[0])
+        self.assertNotIn("synthetic storage failure", logs.output[0])
         self.assertNotContains(response, attachment.file.name)
 
     def test_multi_file_cleanup_continues_after_second_file_failure(self):
@@ -515,10 +517,13 @@ class ConsultationSafeDeleteTests(OwnerExpansionMixin, TestCase):
 
         self.client.force_login(self.user)
         with patch.object(Consultation, "delete", fail_after_delete):
-            with self.assertLogs(consultation_services.logger, level="ERROR"):
+            with self.assertLogs(consultation_services.logger, level="ERROR") as logs:
                 with self.captureOnCommitCallbacks(execute=True) as callbacks:
                     response = self.client.post(self.delete_url(consultation, english=True), follow=True)
         self.assertEqual(callbacks, [])
+        self.assertIn("Consultation database deletion failed", logs.output[0])
+        self.assertNotIn("synthetic failure after cascade", logs.output[0])
+        self.assertNotIn(str(consultation.public_id), logs.output[0])
         self.assertRedirects(response, reverse(
             "patient_portal_consultation_detail_en", kwargs={"public_id": consultation.public_id},
         ))

@@ -13,8 +13,12 @@ Django Admin model permissions are not currently checked by those operations.
 
 ## Narrow code change
 
-Reuse Django's existing model permissions; no new roles, permission migrations
-or third-party dependencies:
+Reuse the two existing Django Groups provisioned in PR #120 and their
+model permissions; no new roles, migrations or third-party dependencies:
+- Clinicians must have the exclusive `KBC Doctor` classification (or the
+  documented, strictly scoped authorized superuser exception). A `KBC Clinic
+  Staff` account, unassigned user or dual-group account cannot write a
+  clinical reply even when a model permission was granted directly.
 
 - Registered clinical reply/status/audio writes require
   `patients.change_consultation`.
@@ -22,8 +26,8 @@ or third-party dependencies:
   `patients.change_transientconsultation`.
 - Request authorization is checked before form validation/file processing;
   the service layer enforces it independently to stop API/internal bypass.
-- Authorized clinician and active superuser behavior follow normal Django
-  permission semantics. Staff without permissions receive HTTP 403 on POST and
+- Authorized clinician and active superuser behavior require both role
+  and Django model-permission checks. Staff without privileges receive HTTP 403 on POST and
   a read-only, localized state on the existing detail page; the existing
   audio recorder/form is not rendered.
 - Existing patient/guest access, OTP, booking, attachments, visibility and
@@ -34,11 +38,12 @@ or third-party dependencies:
 **Do not merge/deploy this branch until a named clinic operator validates
 actual production staff accounts privately.** Required evidence:
 
-1. Confirm the active treating doctor's individual account has
-   `patients.change_consultation` and
+1. Confirm the active treating doctor's individual account has the
+   exclusive `KBC Doctor` group plus `patients.change_consultation` and
    `patients.change_transientconsultation`, or has documented authorized
    superuser status. Verify with the exact authenticated account used for replies.
-2. Confirm receptionist/administrative-only accounts have neither permission;
+2. Confirm receptionist/administrative-only accounts have exclusive
+   `KBC Clinic Staff` membership and neither clinical model permission;
    if a non-doctor requires a clinical write, that delegation needs a documented
    owner/clinical decision before granting it.
 3. Verify a synthetic registered and guest reply using an authorized account
@@ -72,6 +77,7 @@ production change should occur until the activation gate is approved.
 - Inactive staff and patient users cannot write; superuser retains usual
   Django permission behavior.
 - Existing CSRF, row locks, transaction rollback and privacy no-store remain.
-- Add synthetic test fixtures with explicit relevant native model permissions.
+- Add synthetic test fixtures with the Doctor group and scoped native model
+  permissions, including direct-permission and conflicting-group bypass tests.
 - Django checks, migration check, full CI and production-like PostgreSQL/Redis
   gate required; create PR and leave unmerged until account validation.
