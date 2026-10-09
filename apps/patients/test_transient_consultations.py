@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes
 from django.db import transaction
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -86,7 +87,7 @@ class GuestConsultationTests(TestCase):
     def upload(self, category="image", name=None):
         names = {"image": "synthetic.jpg", "short_video": "synthetic.mp4", "pdf": "synthetic.pdf"}
         types = {"image": "image/jpeg", "short_video": "video/mp4", "pdf": "application/pdf"}
-        return SimpleUploadedFile(name or names[category], b"synthetic-content", content_type=types[category])
+        return SimpleUploadedFile(name or names[category], synthetic_media_bytes(types[category]), content_type=types[category])
 
     def test_bilingual_entry_and_registered_destination(self):
         for language, direction in (("ar", "rtl"), ("en", "ltr")):
@@ -280,7 +281,7 @@ class GuestConsultationTests(TestCase):
         guest = self.guest()
         attachment = TransientConsultationAttachment.objects.create(consultation=guest, file=self.upload())
         audio = TransientConsultationAudioReply.objects.create(consultation=guest, created_by=self.staff,
-            file=SimpleUploadedFile("synthetic.webm", b"synthetic", content_type="audio/webm"))
+            file=SimpleUploadedFile("synthetic.webm", synthetic_media_bytes("audio/webm"), content_type="audio/webm"))
         other = Client()
         self.verify(other, phone="+12025550102")
         for kind, media in (("attachment", attachment), ("audio", audio)):
@@ -340,7 +341,7 @@ class GuestConsultationTests(TestCase):
         guest = self.guest()
         attachment = TransientConsultationAttachment.objects.create(consultation=guest, file=self.upload())
         audio = TransientConsultationAudioReply.objects.create(consultation=guest, created_by=self.staff,
-            file=SimpleUploadedFile("synthetic.webm", b"synthetic", content_type="audio/webm"))
+            file=SimpleUploadedFile("synthetic.webm", synthetic_media_bytes("audio/webm"), content_type="audio/webm"))
         for route, item in (("detail", guest), ("attachment", attachment), ("audio_reply", audio)):
             url = reverse("dashboard_guest_consultation_" + route, kwargs={"public_id": item.public_id})
             self.assertEqual(Client().get(url).status_code, 302)
@@ -366,7 +367,7 @@ class GuestConsultationTests(TestCase):
         staff_client.force_login(self.staff)
         url = reverse("dashboard_guest_consultation_detail", kwargs={"public_id": guest.public_id})
         response = staff_client.post(url, {"status": "answered", "staff_reply": "Synthetic staff reply",
-            "audio_reply": SimpleUploadedFile("synthetic.webm", b"synthetic", content_type="audio/webm")})
+            "audio_reply": SimpleUploadedFile("synthetic.webm", synthetic_media_bytes("audio/webm"), content_type="audio/webm")})
         self.assertEqual(response.status_code, 302)
         guest.refresh_from_db()
         self.assertEqual(guest.replied_by, self.staff)
@@ -375,7 +376,7 @@ class GuestConsultationTests(TestCase):
         old = guest.audio_reply.file.name
         with self.captureOnCommitCallbacks(execute=True):
             response = staff_client.post(url, {"status": "answered", "staff_reply": "Synthetic staff reply",
-                "audio_reply": SimpleUploadedFile("replacement.ogg", b"synthetic", content_type="audio/ogg")})
+                "audio_reply": SimpleUploadedFile("replacement.ogg", synthetic_media_bytes("audio/ogg"), content_type="audio/ogg")})
         self.assertEqual(response.status_code, 302)
         self.assertFalse(guest.audio_reply.file.storage.exists(old))
         with self.captureOnCommitCallbacks(execute=True):
