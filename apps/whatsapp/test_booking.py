@@ -13,7 +13,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from apps.booking.forms import PublicBookingForm
-from apps.booking.models import Appointment
+from apps.booking.models import Appointment, BOOKING_WHATSAPP_CONSENT_VERSION
 from apps.booking.services import create_public_appointment
 from apps.clinic.models import Doctor, VisitType
 from apps.patients.models import Patient
@@ -57,6 +57,9 @@ class WhatsAppBookingTests(TestCase):
                 "ends_at": starts_at + timedelta(minutes=30),
                 "booking_note": "private-payload-sentinel",
                 "whatsapp_phone_e164": SYNTHETIC_PHONE,
+                "booking_whatsapp_consent_at": self.now,
+                "booking_whatsapp_consent_version": BOOKING_WHATSAPP_CONSENT_VERSION,
+                "booking_whatsapp_consent_language": "ar",
                 **changes,
             }
         )
@@ -73,6 +76,8 @@ class WhatsAppBookingTests(TestCase):
             self.appointment(status=status)
         self.appointment(reminder_enabled=False)
         self.appointment(reminder_sent_at=self.now)
+        self.appointment(booking_whatsapp_consent_at=None, booking_whatsapp_consent_version="")
+        self.appointment(booking_whatsapp_consent_withdrawn_at=self.now)
         self.appointment(reminder_offset=timedelta(minutes=15))
         self.appointment(starts_at=self.now - timedelta(minutes=10))
         self.appointment(
@@ -133,6 +138,8 @@ class WhatsAppBookingTests(TestCase):
             {"status": Appointment.Status.CANCELLED},
             {"reminder_enabled": False},
             {"reminder_sent_at": self.now},
+            {"booking_whatsapp_consent_withdrawn_at": self.now},
+            {"booking_whatsapp_consent_at": None},
         ):
             appointment = self.appointment()
             self.assertIn(
@@ -141,6 +148,22 @@ class WhatsAppBookingTests(TestCase):
             )
             Appointment.objects.filter(pk=appointment.pk).update(**changes)
             self.assertEqual(booking.send_due_reminder(appointment.pk), "skipped")
+        self.http.assert_not_called()
+
+    def test_missing_or_withdrawn_consent_suppresses_reminder_and_confirmation(self):
+        for changes in (
+            {"booking_whatsapp_consent_at": None},
+            {"booking_whatsapp_consent_version": ""},
+            {"booking_whatsapp_consent_withdrawn_at": self.now},
+        ):
+            with self.subTest(changes=changes):
+                appointment = self.appointment(**changes)
+                self.assertNotIn(
+                    appointment.pk,
+                    booking.due_reminders(self.now).values_list("pk", flat=True),
+                )
+                self.assertEqual(booking.send_due_reminder(appointment.pk), "skipped")
+                self.assertFalse(booking.send_booking_confirmation(appointment.pk, "ar"))
         self.http.assert_not_called()
 
     def test_command_dry_run_and_missing_configuration_do_not_send(self):
@@ -222,6 +245,7 @@ class WhatsAppBookingTests(TestCase):
                     visit_type_id=self.visit_type.pk,
                     starts_at=starts_at,
                     language="en",
+                    whatsapp_notifications_consent=True,
                 )
                 self.http.assert_not_called()
         payload = json.loads(self.http.return_value.request.call_args.kwargs["body"])
@@ -233,6 +257,27 @@ class WhatsAppBookingTests(TestCase):
             with self.assertRaises(RuntimeError), transaction.atomic():
                 booking.schedule_booking_confirmation(appointment.pk, "ar")
                 raise RuntimeError("synthetic rollback")
+        self.http.assert_not_called()
+
+    def test_declined_booking_consent_preserves_appointment_without_meta_send(self):
+        starts_at = self.now + timedelta(days=3)
+        with patch(
+            "apps.booking.services.validate_public_booking_request",
+            return_value=(self.doctor, starts_at, starts_at + timedelta(minutes=30)),
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                appointment = create_public_appointment(
+                    full_name="Synthetic Declining Patient",
+                    phone_raw=SYNTHETIC_PHONE,
+                    visit_type_id=self.visit_type.pk,
+                    starts_at=starts_at,
+                    whatsapp_notifications_consent=False,
+                )
+        self.assertTrue(Appointment.objects.filter(pk=appointment.pk).exists())
+        self.assertFalse(appointment.reminder_enabled)
+        self.assertIsNone(appointment.booking_whatsapp_consent_at)
+        self.assertEqual(booking.send_due_reminder(appointment.pk), "skipped")
+        self.assertFalse(booking.send_booking_confirmation(appointment.pk, "ar"))
         self.http.assert_not_called()
 
     def test_confirmation_failure_preserves_booking_and_retry_deduplicates(self):
@@ -261,3 +306,4 @@ class WhatsAppBookingTests(TestCase):
         ):
             form.save()
         self.assertEqual(create.call_args.kwargs["language"], "en")
+        self.assertFalse(create.call_args.kwargs["whatsapp_notifications_consent"])

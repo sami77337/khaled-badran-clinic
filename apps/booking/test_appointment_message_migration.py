@@ -7,7 +7,8 @@ class AppointmentMessageDefaultMigrationTests(TransactionTestCase):
     previous = [("booking", "0005_appointmentmessagetemplate")]
     current = [("booking", "0006_approved_appointment_message_defaults")]
     seeded = [("booking", "0007_appointmentstaffnotification")]
-    latest = [("booking", "0008_editable_message_defaults")]
+    editable_defaults = [("booking", "0008_editable_message_defaults")]
+    latest = [("booking", "0009_booking_whatsapp_consent")]
 
     def migrate(self, target):
         executor = MigrationExecutor(connection)
@@ -70,7 +71,7 @@ class AppointmentMessageDefaultMigrationTests(TransactionTestCase):
         no_show.is_active = False
         no_show.save(update_fields=["is_active"])
 
-        template = self.migrate(self.latest)
+        template = self.migrate(self.editable_defaults)
         arrived = template.objects.get(event="arrived")
         no_show = template.objects.get(event="no_show")
 

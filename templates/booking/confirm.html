@@ -90,6 +90,12 @@
                             {% if form.booking_note.errors %}<div class="booking-field-errors" role="alert">{{ form.booking_note.errors }}</div>{% endif %}
                         </div>
 
+                        <div class="form-field form-check{% if form.whatsapp_notifications_consent.errors %} has-error{% endif %}" data-booking-field="whatsapp-consent">
+                            {{ form.whatsapp_notifications_consent }}
+                            <label for="{{ form.whatsapp_notifications_consent.id_for_label }}">{{ form.whatsapp_notifications_consent.label }}</label>
+                            {% if form.whatsapp_notifications_consent.errors %}<div class="booking-field-errors" role="alert">{{ form.whatsapp_notifications_consent.errors }}</div>{% endif %}
+                        </div>
+
                         <p class="booking-phone-hint" data-booking-privacy-notice>
                             {% if is_arabic %}
                                 تستخدم العيادة البيانات التي تدخلها لإدارة موعدك وتقديم الخدمة المرتبطة به. لمعرفة التفاصيل عن استخدام بياناتك وحقوقك، راجع

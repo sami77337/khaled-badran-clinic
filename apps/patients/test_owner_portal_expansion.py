@@ -595,6 +595,14 @@ class AccountPhonePropagationTests(OwnerExpansionMixin, TestCase):
             contact=self.old_phone,
             whatsapp=self.old_phone,
         )
+        from apps.booking.models import BOOKING_WHATSAPP_CONSENT_VERSION
+        future_a.booking_whatsapp_consent_at = timezone.now()
+        future_a.booking_whatsapp_consent_version = BOOKING_WHATSAPP_CONSENT_VERSION
+        future_a.booking_whatsapp_consent_language = "ar"
+        future_a.save(update_fields=[
+            "booking_whatsapp_consent_at", "booking_whatsapp_consent_version",
+            "booking_whatsapp_consent_language",
+        ])
         custom = "+962799999999"
         future_b = self.create_appointment(
             self.patient,
@@ -633,6 +641,10 @@ class AccountPhonePropagationTests(OwnerExpansionMixin, TestCase):
             (future_b.contact_phone_e164, future_b.whatsapp_phone_e164),
             (custom, custom),
         )
+        self.assertFalse(future_a.reminder_enabled)
+        self.assertIsNotNone(future_a.booking_whatsapp_consent_withdrawn_at)
+        self.assertIsNotNone(future_a.booking_whatsapp_consent_at)
+        self.assertIsNone(future_b.booking_whatsapp_consent_withdrawn_at)
         self.assertEqual(
             (historical.contact_phone_e164, historical.whatsapp_phone_e164),
             (self.old_phone, self.old_phone),

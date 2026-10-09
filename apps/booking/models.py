@@ -12,6 +12,10 @@ def default_appointment_reminder_offset():
     return timedelta(hours=3)
 
 
+# Fixed purpose-specific text used at booking, not a global marketing opt-in.
+BOOKING_WHATSAPP_CONSENT_VERSION = "booking-whatsapp-v1"
+
+
 class Appointment(models.Model):
     class Status(models.TextChoices):
         CONFIRMED = "confirmed", "Confirmed"
@@ -55,6 +59,12 @@ class Appointment(models.Model):
     reminder_offset = models.DurationField(default=default_appointment_reminder_offset)
     reminder_enabled = models.BooleanField(default=True)
     reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    # Legacy rows remain unknown/unconsented; no consent is backfilled from phones
+    # or the pre-existing reminder_enabled operational flag.
+    booking_whatsapp_consent_at = models.DateTimeField(null=True, blank=True)
+    booking_whatsapp_consent_version = models.CharField(max_length=40, blank=True)
+    booking_whatsapp_consent_language = models.CharField(max_length=2, blank=True)
+    booking_whatsapp_consent_withdrawn_at = models.DateTimeField(null=True, blank=True)
     booking_note = models.TextField(blank=True)
     contact_phone_raw = models.CharField(max_length=50, blank=True)
     contact_phone_e164 = models.CharField(max_length=20, blank=True)

@@ -21,7 +21,7 @@ from django.test import (
 )
 from django.utils import timezone
 
-from apps.booking.models import Appointment
+from apps.booking.models import Appointment, BOOKING_WHATSAPP_CONSENT_VERSION
 from apps.clinic.models import Doctor, VisitType
 from apps.patients.models import Patient
 from .booking import send_due_reminder
@@ -50,6 +50,9 @@ class ReminderConcurrencyTests(TransactionTestCase):
             starts_at=starts_at,
             ends_at=starts_at + timedelta(minutes=30),
             whatsapp_phone_e164=SYNTHETIC_PHONE,
+            booking_whatsapp_consent_at=timezone.now(),
+            booking_whatsapp_consent_version=BOOKING_WHATSAPP_CONSENT_VERSION,
+            booking_whatsapp_consent_language="ar",
         )
         entered, release = Event(), Event()
 
