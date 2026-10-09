@@ -13,6 +13,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone, translation
@@ -181,7 +182,7 @@ class FinalCloseoutLayoutTests(TestCase):
                 )
                 ConsultationAttachment.objects.create(
                     consultation=consultation, file_category="image",
-                    file=SimpleUploadedFile("W" * 170 + ".jpg", b"synthetic-media", content_type="image/jpeg"),
+                    file=SimpleUploadedFile("W" * 170 + ".jpg", synthetic_media_bytes("image/jpeg"), content_type="image/jpeg"),
                 )
                 public_case = PublicCase.objects.create(
                     title="W" * 180, note=long_text, detail_note=long_text, consent_confirmed=True,

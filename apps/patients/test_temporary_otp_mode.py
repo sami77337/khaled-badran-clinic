@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes
 from django.db import IntegrityError
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.urls import reverse
@@ -243,7 +244,7 @@ class TemporaryGuestTests(TemporaryModeFixture):
                     _ = attachment.file.url
                 author = get_user_model().objects.create_user(username="synthetic-audio-author", is_staff=True)
                 audio = TransientConsultationAudioReply.objects.create(created_by=author,
-                    consultation=guest, file=SimpleUploadedFile("synthetic.webm", b"synthetic audio", content_type="audio/webm"),
+                    consultation=guest, file=SimpleUploadedFile("synthetic.webm", synthetic_media_bytes("audio/webm"), content_type="audio/webm"),
                     content_type="audio/webm", file_size=15)
                 for browser in (self.client, Client()):
                     for route, obj in (("guest_consultation_detail", guest),

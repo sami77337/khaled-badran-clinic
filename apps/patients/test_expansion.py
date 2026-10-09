@@ -7,6 +7,7 @@ from django.contrib.auth.hashers import check_password
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes_of_size
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -351,7 +352,7 @@ class ConsultationExpansionTests(ExpansionTestMixin, TestCase):
         self.private_dir.cleanup()
 
     def upload(self, name="synthetic.jpg", content_type="image/jpeg", size=12):
-        return SimpleUploadedFile(name, b"x" * size, content_type=content_type)
+        return SimpleUploadedFile(name, synthetic_media_bytes_of_size(content_type, size), content_type=content_type)
 
     def create_consultation_with_attachment(self, patient=None):
         patient = patient or self.patient_a
@@ -379,6 +380,18 @@ class ConsultationExpansionTests(ExpansionTestMixin, TestCase):
         response = self.client.get(reverse("patient_portal_consultation_list"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.context["consultations"]), 1)
+
+    def test_nonimage_bytes_cannot_be_saved_as_consultation_image(self):
+        self.client.force_login(self.user_a)
+        file = SimpleUploadedFile("test.jpg", b"<html>synthetic</html>", content_type="image/jpeg")
+        response = self.client.post(
+            reverse("patient_portal_consultation_new"),
+            {"question": "Synthetic question", "attachments": file},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["form"].errors)
+        self.assertFalse(Consultation.objects.exists())
+        self.assertFalse(ConsultationAttachment.objects.exists())
 
     def test_patient_cannot_view_or_fetch_other_patient_content(self):
         consultation, attachment = self.create_consultation_with_attachment(self.patient_b)

@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes
 from django.db import DatabaseError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -83,7 +84,7 @@ class ConsultationAudioReplyTests(TestCase):
         content_type="audio/webm",
         content=b"synthetic-browser-audio",
     ):
-        return SimpleUploadedFile(name, content, content_type=content_type)
+        return SimpleUploadedFile(name, synthetic_media_bytes(content_type, content), content_type=content_type)
 
     def create_audio_reply(self, consultation, **upload_kwargs):
         upload = self.audio_upload(**upload_kwargs)
@@ -206,8 +207,20 @@ class ConsultationAudioReplyTests(TestCase):
             },
         )
 
+        incompatible_content = self.client.post(
+            f"{self.staff_reply_url(consultation)}?lang=en",
+            {
+                "staff_reply": "",
+                "status": Consultation.Status.ANSWERED,
+                "audio_reply": SimpleUploadedFile(
+                    "synthetic.webm", b"invalid synthetic audio",
+                    content_type="audio/webm",
+                ),
+            },
+        )
         self.assertEqual(mismatch.status_code, 200)
         self.assertEqual(oversized.status_code, 200)
+        self.assertEqual(incompatible_content.status_code, 200)
         self.assertContains(oversized, "15 MiB")
         consultation.refresh_from_db()
         self.assertEqual(consultation.status, Consultation.Status.NEW)
