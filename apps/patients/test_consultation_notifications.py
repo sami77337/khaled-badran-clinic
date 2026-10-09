@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes
 from django.db import IntegrityError, transaction
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -67,7 +68,7 @@ class ConsultationNotificationEventTests(TestCase):
         return Consultation.objects.create(patient=self.patient, question=question)
 
     def audio_upload(self, name="reply.webm", content=b"synthetic-audio"):
-        return SimpleUploadedFile(name, content, content_type="audio/webm")
+        return SimpleUploadedFile(name, synthetic_media_bytes("audio/webm", content), content_type="audio/webm")
 
     def test_creation_notifies_each_active_staff_recipient_and_no_patient(self):
         consultation = consultation_services.create_consultation(
