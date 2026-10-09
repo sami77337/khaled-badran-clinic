@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
+from apps.patients.upload_content import validate_private_upload_content
 from apps.patients.storage import (
     consultation_attachment_storage,
     consultation_attachment_upload_path,
@@ -96,6 +97,7 @@ def validate_consultation_upload(uploaded_file, *, category=""):
         raise ValidationError("Unsupported consultation attachment content type.")
     if size > policy["max_bytes"]:
         raise ValidationError("Consultation attachment exceeds the allowed size.")
+    validate_private_upload_content(uploaded_file, filename=filename, content_type=content_type, size=size, max_bytes=policy["max_bytes"])
     return {
         "file_category": resolved_category,
         "original_filename": filename,
@@ -124,6 +126,7 @@ def validate_consultation_audio_upload(uploaded_file):
         raise ValidationError("Consultation audio cannot be empty.")
     if size > CONSULTATION_AUDIO_MAX_BYTES:
         raise ValidationError("Consultation audio exceeds the allowed size.")
+    validate_private_upload_content(uploaded_file, filename=filename, content_type=content_type, size=size, max_bytes=CONSULTATION_AUDIO_MAX_BYTES)
     return {
         "content_type": content_type,
         "file_size": size,
