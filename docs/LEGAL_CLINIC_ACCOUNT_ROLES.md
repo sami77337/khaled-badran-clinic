@@ -12,7 +12,7 @@ data table, new passwords, or new public form is introduced.
 | Doctor / طبيب | `KBC Doctor` | Existing appointment/dashboard access; registered and guest clinical reply writes through `patients.change_consultation` and `patients.change_transientconsultation`; clinical records once their separate role-to-action gates are approved |
 | Clinic Staff / طاقم العيادة | `KBC Clinic Staff` | Existing administrative appointment and clinic workflow access; **no clinical reply change permission** supplied by this role |
 
-Both types use the same existing staff login and must have `is_staff=True`.
+Both types use the same existing staff login, now labeled **Doctor / Staff** (الطبيب / الطاقم) in the existing tab, and must have `is_staff=True`. No login route, password scheme, tab structure, CSS or authentication boundary changes.
 Patient registration cannot assign either group or set staff privileges.
 Django `is_superuser` remains an exceptional technical/admin capability;
 never use it for reception staff. A person must belong to exactly one KBC
