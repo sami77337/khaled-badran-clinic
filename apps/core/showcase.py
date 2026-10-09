@@ -37,6 +37,7 @@ def _published_reviews():
     return PublicReview.objects.filter(
         is_approved_for_publication=True,
         is_active=True,
+        publication_withdrawn_at__isnull=True,
     )
 
 
