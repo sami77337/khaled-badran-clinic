@@ -297,6 +297,7 @@ class GuestConsultationTests(TestCase):
             [SimpleUploadedFile("synthetic.html", b"synthetic", content_type="text/html")],
             [SimpleUploadedFile("synthetic.jpg", b"synthetic", content_type="text/html")],
             [SimpleUploadedFile("synthetic.pdf", b"", content_type="application/pdf")],
+            [SimpleUploadedFile("synthetic.pdf", b"synthetic wrong body", content_type="application/pdf")],
             [self.upload() for _ in range(6)],
         ]
         for files in invalid:
