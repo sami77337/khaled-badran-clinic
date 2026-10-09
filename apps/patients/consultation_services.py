@@ -107,6 +107,26 @@ def create_consultation(*, user, question, uploaded_files):
     return consultation
 
 
+def can_author_clinical_reply(user, *, guest=False):
+    """Django's existing model permission, separate from generic staff access.
+
+    A staff flag alone permits operational work, not medical authorship. The
+    explicit permission may be assigned per named account or Django group;
+    active superusers retain Django's ordinary permission semantics.
+    """
+    permission = (
+        "patients.change_transientconsultation"
+        if guest else "patients.change_consultation"
+    )
+    return bool(
+        user is not None
+        and user.is_authenticated
+        and user.is_active
+        and user.is_staff
+        and user.has_perm(permission)
+    )
+
+
 def update_consultation_reply(
     *,
     consultation,
@@ -116,9 +136,9 @@ def update_consultation_reply(
     audio_file=None,
     remove_audio=False,
 ):
-    if not staff_user.is_active or not staff_user.is_staff:
-        raise PermissionDenied("Staff access required.")
     guest = isinstance(consultation, TransientConsultation)
+    if not can_author_clinical_reply(staff_user, guest=guest):
+        raise PermissionDenied("Clinical reply permission required.")
     consultation_model = TransientConsultation if guest else Consultation
     audio_model = TransientConsultationAudioReply if guest else ConsultationAudioReply
     audio_metadata = validate_consultation_audio_upload(audio_file) if audio_file else None
