@@ -30,6 +30,7 @@
         <section class="appointment-panel appointment-operations">
             <div class="appointments-section-heading"><h2>{% if is_arabic %}رد الطبيب{% else %}Doctor Reply{% endif %}</h2></div>
             {% if notification_unavailable %}<p class="muted" role="status">{% if is_arabic %}تنبيهات واتساب غير متاحة حاليًا. سيُحفظ الرد ويكون متاحًا على الموقع.{% else %}WhatsApp notifications are currently unavailable. The reply will still be saved and available on the website.{% endif %}</p>{% endif %}
+            {% if can_reply_to_consultation %}
             <form class="appointment-operation-form" method="post" enctype="multipart/form-data" data-consultation-reply-form>
                 {% csrf_token %}
                 {{ form.non_field_errors }}
@@ -74,6 +75,11 @@
                 <div class="appointment-field">{{ form.status.label_tag }}{{ form.status }}{{ form.status.errors }}</div>
                 <button class="appointment-button appointment-button-primary" type="submit">{% if is_arabic %}حفظ الرد والحالة{% else %}Save Reply and Status{% endif %}</button>
             </form>
+            {% else %}
+                <p class="muted" role="status" data-consultation-read-only>
+                    {% if is_arabic %}هذا الحساب ليس لديه صلاحية حفظ رد طبي. يمكن لصاحب الصلاحية السريرية فقط كتابة الرد أو تسجيله.{% else %}This account cannot save clinical replies. Only authorized clinical staff can write or record a reply.{% endif %}
+                </p>
+            {% endif %}
         </section>
     </div>
     {% if consultation.attachments.all %}
