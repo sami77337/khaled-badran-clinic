@@ -55,6 +55,7 @@ class ReviewModerationTests(TestCase):
         self.client.force_login(self.patient)
         response = self.client.post(reverse("patient_portal_review_edit_en", args=[self.review.pk]), {
             "reviewer_name": "Updated display", "rating": 2, "body": "New patient-authored text.",
+            "publication_consent": "on",
         })
         self.assertEqual(response.status_code, 302)
         self.client.force_login(self.staff)
