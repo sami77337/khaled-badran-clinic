@@ -47,4 +47,12 @@ def may_author_clinical_reply(user):
         or not user.is_staff
     ):
         return False
-    return user.is_superuser or clinic_role(user) == ROLE_DOCTOR
+    assigned_role = clinic_role(user)
+    if assigned_role is not None:
+        return assigned_role == ROLE_DOCTOR
+    # A conflicting Doctor+Staff assignment fails closed even for superusers.
+    if user.groups.filter(
+        name__in=(CLINIC_DOCTOR_GROUP, CLINIC_STAFF_GROUP)
+    ).exists():
+        return False
+    return user.is_superuser
