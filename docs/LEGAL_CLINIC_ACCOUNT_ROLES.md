@@ -35,7 +35,15 @@ for a dry run, then explicitly repeat with `--apply`. Use
 the same role or switch between the two. The command changes the two role
 groups only, keeps other group memberships, requires a pre-existing
 `is_staff=True` account, rejects patient-linked/unverified/inactive
-accounts and refuses assigning a superuser as administrative-only staff. It never prints usernames or
+accounts and refuses assigning a superuser as administrative-only staff.
+When assigning `staff`, it also fails closed if there are existing
+registered/guest consultation-change permissions granted directly, inherited
+from an unrelated group, or incorrectly granted to `KBC Clinic Staff`.
+Operators must review and correct those privileges explicitly before retrying;
+neither dry-run nor `--apply` silently erases external permissions. Existing
+Doctor -> Staff transitions remain valid when the Doctor group was the sole
+source of those two permissions. This check only covers the clinical reply
+permissions; separate record/media permissions await their approved matrix. It never prints usernames or
 credentials. A superuser can alternatively assign groups through Django
 Admin, ensuring `is_staff` and the exclusive-group rule.
 
