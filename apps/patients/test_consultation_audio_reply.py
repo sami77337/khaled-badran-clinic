@@ -19,7 +19,9 @@ from apps.patients.models import (
     validate_consultation_audio_upload,
 )
 from apps.patients.storage import consultation_audio_reply_storage
-from apps.patients.consultation_services import update_consultation_reply
+from apps.patients.consultation_services import (
+    _delete_replaced_audio_file, update_consultation_reply,
+)
 from apps.records.models import ClinicalNote, PublicCaseMedia, RecordMedia
 
 
@@ -453,7 +455,7 @@ class ConsultationAudioReplyTests(TestCase):
 
         with (
             patch.object(consultation_audio_reply_storage, "delete", side_effect=OSError("synthetic storage failure")),
-            self.assertLogs("apps.patients.consultation_services", level="ERROR"),
+            self.assertLogs("apps.patients.consultation_services", level="ERROR") as logs,
             self.captureOnCommitCallbacks(execute=True),
         ):
             response = self.client.post(
@@ -466,6 +468,8 @@ class ConsultationAudioReplyTests(TestCase):
             )
 
         self.assertEqual(response.status_code, 302)
+        self.assertNotIn(original_name, "\n".join(logs.output))
+        self.assertNotIn("synthetic storage failure", "\n".join(logs.output))
         consultation.refresh_from_db()
         self.assertFalse(ConsultationAudioReply.objects.filter(pk=audio_reply.pk).exists())
         self.assertEqual(consultation.staff_reply, "Changed reply")
@@ -478,6 +482,22 @@ class ConsultationAudioReplyTests(TestCase):
         ):
             self.client.force_login(user)
             self.assertEqual(self.client.get(reverse(route, kwargs={"public_id": audio_reply.public_id})).status_code, 404)
+
+    def test_obsolete_audio_cleanup_failure_never_logs_private_storage_key(self):
+        sensitive_name = "private/consultations/SYNTHETIC_PRIVATE_PATH.webm"
+        with (
+            patch.object(
+                consultation_audio_reply_storage,
+                "delete",
+                side_effect=OSError("SYNTHETIC_PRIVATE_ERROR: " + sensitive_name),
+            ),
+            self.assertLogs("apps.patients.consultation_services", level="ERROR") as logs,
+        ):
+            _delete_replaced_audio_file(consultation_audio_reply_storage, sensitive_name)
+        combined = "\n".join(logs.output)
+        self.assertIn("Obsolete consultation audio cleanup failed", combined)
+        self.assertNotIn(sensitive_name, combined)
+        self.assertNotIn("SYNTHETIC_PRIVATE_ERROR", combined)
 
     def test_missing_audio_file_returns_404(self):
         consultation = self.create_consultation()

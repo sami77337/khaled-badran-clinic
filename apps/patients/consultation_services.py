@@ -41,8 +41,12 @@ def consultation_has_audio_reply(consultation):
 def _delete_replaced_audio_file(storage, name):
     try:
         storage.delete(name)
-    except Exception:
-        logger.exception("Could not remove an obsolete consultation audio file: %s", name)
+    except Exception as exc:
+        # Provider exception messages and stack traces may contain private
+        # storage names. Log only a fixed operation and exception class.
+        logger.error(
+            "Obsolete consultation audio cleanup failed (%s).", type(exc).__name__
+        )
 
 
 def patient_can_delete_consultation(consultation, user):
@@ -172,10 +176,10 @@ def update_consultation_reply(
                     ):
                         try:
                             current_audio.file.storage.delete(current_audio.file.name)
-                        except Exception:
-                            logger.exception(
-                                "Could not clean up a failed consultation audio upload: %s",
-                                current_audio.file.name,
+                        except Exception as exc:
+                            logger.error(
+                                "Consultation audio cleanup after failed upload failed (%s).",
+                                type(exc).__name__,
                             )
                     raise
                 new_file_reference = (current_audio.file.storage, current_audio.file.name)
@@ -244,10 +248,10 @@ def update_consultation_reply(
         if new_file_reference:
             try:
                 new_file_reference[0].delete(new_file_reference[1])
-            except Exception:
-                logger.exception(
-                    "Could not clean up rolled-back consultation audio: %s",
-                    new_file_reference[1],
+            except Exception as exc:
+                logger.error(
+                    "Rolled-back consultation audio cleanup failed (%s).",
+                    type(exc).__name__,
                 )
         raise
     return locked
@@ -280,7 +284,10 @@ def delete_unhandled_consultation(*, user, public_id):
             # database deletion commits, including any enclosing transaction.
             transaction.on_commit(lambda: _delete_consultation_files(files))
     except DatabaseError as exc:
-        logger.exception("Consultation database deletion failed: %s", public_id)
+        # The public_id is a protected route identifier, not log metadata.
+        logger.error(
+            "Consultation database deletion failed (%s).", type(exc).__name__
+        )
         raise ConsultationDeleteError("Consultation could not be deleted.") from exc
 
 
@@ -291,10 +298,11 @@ def _delete_consultation_files(files):
         except FileNotFoundError:
             # An already missing file needs no further cleanup.
             continue
-        except Exception:
-            # The consultation is deleted. Continue cleaning up the remaining
-            # private files; never report a rollback that did not occur.
-            logger.exception(
-                "Consultation deleted; private file cleanup failed for attachment %s",
-                attachment_id,
+        except Exception as exc:
+            # Continue remaining cleanup; never report a rollback or expose a
+            # private storage key through exception text/traceback.
+            logger.error(
+                "Consultation deleted; private file cleanup failed "
+                "(attachment_id=%s, error_class=%s).",
+                attachment_id, type(exc).__name__,
             )
