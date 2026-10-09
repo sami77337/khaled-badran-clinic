@@ -30,6 +30,23 @@ def _own_reviews(user):
     return PublicReview.objects.filter(submitted_by=user, source=PublicReview.Source.PATIENT_PORTAL)
 
 
+def _record_publication_consent(request, review, language):
+    # Each publish/revision leaves bounded metadata evidence, not a second
+    # copy of the patient's public text or display name.
+    AuditLog.objects.create(
+        user=request.user,
+        action=AuditLog.Action.STATUS_CHANGE,
+        app_label="core",
+        model_name="PublicReview",
+        object_id=str(review.pk),
+        metadata={
+            "action": "patient_review_publication_consent",
+            "version": PORTAL_REVIEW_PUBLICATION_CONSENT_VERSION,
+            "language": language,
+        },
+    )
+
+
 def _review_context(request, language, review, *, form=None, editing=False):
     status = (
         "published"
@@ -80,6 +97,7 @@ def my_review(request, language="ar"):
                 review.publication_consent_language = language
                 review.publication_withdrawn_at = None
                 review.save()
+                _record_publication_consent(request, review, language)
         except IntegrityError:
             # Concurrent submissions are bounded by the scoped database constraint.
             if not _own_reviews(request.user).exists():
@@ -116,6 +134,7 @@ def edit_review(request, review_id, language="ar"):
                 "publication_consent_version", "publication_consent_language",
                 "publication_withdrawn_at", "updated_at",
             ])
+            _record_publication_consent(request, updated, language)
             messages.success(request, "تم حفظ التعديلات ونشر التقييم مباشرة." if language == "ar" else "Changes saved and published immediately.")
             return redirect(_portal_url("patient_portal_review", language))
     return render(request, "patients/my_review.html", _review_context(request, language, review, form=form, editing=True))
