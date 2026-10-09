@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes
 from django.db import DatabaseError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -83,7 +84,7 @@ class ConsultationAudioReplyTests(TestCase):
         content_type="audio/webm",
         content=b"synthetic-browser-audio",
     ):
-        return SimpleUploadedFile(name, content, content_type=content_type)
+        return SimpleUploadedFile(name, synthetic_media_bytes(content_type, content), content_type=content_type)
 
     def create_audio_reply(self, consultation, **upload_kwargs):
         upload = self.audio_upload(**upload_kwargs)
