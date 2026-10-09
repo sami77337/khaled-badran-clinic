@@ -6,6 +6,7 @@ from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import resolve, reverse
 
 from apps.patients.consultation_services import update_consultation_reply
+from apps.patients.clinical_test_utils import grant_clinical_reply_permissions
 from apps.patients.models import Consultation, Patient, TransientConsultation
 from apps.whatsapp.actions import entry_actions
 from apps.whatsapp.notifications import REPLY_MESSAGES
@@ -16,6 +17,7 @@ class ConsultationWhatsAppTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.staff = get_user_model().objects.create_user(username="synthetic-notification-staff", is_staff=True)
+        grant_clinical_reply_permissions(cls.staff)
         cls.owner = get_user_model().objects.create_user(username="synthetic-notification-owner")
         cls.patient = Patient.objects.create(user=cls.owner, full_name="Synthetic", phone_e164="+12025550101")
         cls.registered = Consultation.objects.create(patient=cls.patient, question="Synthetic sensitive question")
@@ -103,6 +105,7 @@ class ConsultationWhatsAppTests(TestCase):
 class ConsultationNotificationCommitTests(TransactionTestCase):
     def test_provider_exception_after_real_commit_preserves_both_reply_types(self):
         staff = get_user_model().objects.create_user(username="synthetic-commit-staff", is_staff=True)
+        grant_clinical_reply_permissions(staff)
         patient = Patient.objects.create(full_name="Synthetic", phone_e164="+12025550101")
         items = [Consultation.objects.create(patient=patient, question="Synthetic question"),
                  TransientConsultation.objects.create(phone_e164="+12025550102", question="Synthetic question")]
