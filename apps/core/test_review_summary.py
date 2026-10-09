@@ -55,6 +55,22 @@ class PublishedReviewSummaryTests(TestCase):
         self.assertContains(home, "13 published reviews")
         self.assertEqual(len(approved_reviews(limit=12)), 12)
 
+    def test_withdrawn_portal_review_cannot_reappear_via_stale_publication_flag(self):
+        from django.utils import timezone
+        withdrawn = self.create_review(
+            source=PublicReview.Source.PATIENT_PORTAL,
+            body="Synthetic withdrawn rating", publication_withdrawn_at=timezone.now(),
+        )
+        google = self.create_review(
+            source=PublicReview.Source.GOOGLE, body="Synthetic external rating", rating=4,
+        )
+        self.assertEqual(review_source_summary(), {"average_rating": "4.00", "review_count": 1})
+        self.assertEqual([r.pk for r in approved_reviews()], [google.pk])
+        for name in ("home", "home_en", "reviews", "reviews_en"):
+            response = self.client.get(reverse(name))
+            self.assertNotContains(response, withdrawn.body)
+            self.assertContains(response, google.body)
+
     def test_status_changes_and_deletion_recalculate_without_stale_cache(self):
         self.create_review(rating=5)
         review = self.create_review(rating=4, is_approved_for_publication=False)
@@ -81,7 +97,7 @@ class PublishedReviewSummaryTests(TestCase):
         owner = get_user_model().objects.create_user(username="synthetic-summary-patient")
         moderator = get_user_model().objects.create_superuser(username="synthetic-summary-moderator")
         self.client.force_login(owner)
-        response = self.client.post(reverse("patient_portal_review_en"), {"rating": 4, "body": "My feedback."})
+        response = self.client.post(reverse("patient_portal_review_en"), {"rating": 4, "body": "My feedback.", "publication_consent": "on"})
         self.assertEqual(response.status_code, 302)
         review = PublicReview.objects.get(submitted_by=owner)
         self.assertEqual(review_source_summary(), {"average_rating": "4.00", "review_count": 1})
@@ -98,6 +114,7 @@ class PublishedReviewSummaryTests(TestCase):
         self.client.force_login(owner)
         response = self.client.post(reverse("patient_portal_review_edit_en", args=[review.pk]), {
             "rating": 5, "body": "Edited patient feedback.",
+            "publication_consent": "on",
         })
         self.assertEqual(response.status_code, 302)
         review.refresh_from_db()

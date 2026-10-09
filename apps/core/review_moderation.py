@@ -49,6 +49,9 @@ def set_patient_review_visibility(review, action):
     """Save only visibility fields on an already locked, revision-validated row."""
     if not is_patient_review(review) or action not in VISIBILITY_ACTIONS:
         raise PermissionDenied
+    if action == "show" and review.publication_withdrawn_at is not None:
+        # Staff moderation cannot override the patient's recorded withdrawal.
+        raise PermissionDenied
     review.is_approved_for_publication = action == "show"
     fields = ["is_approved_for_publication", "updated_at"]
     if action == "show":

@@ -57,10 +57,16 @@ def patient_review_list(request):
     page = Paginator(review_moderation.patient_reviews().order_by("-created_at", "-pk"), 20).get_page(request.GET.get("page"))
     items = []
     for review in page:
-        visible = review.is_active and review.is_approved_for_publication
+        visible = (
+            review.is_active and review.is_approved_for_publication
+            and review.publication_withdrawn_at is None
+        )
         action = "hide" if visible else "show"
         items.append({
             "review": review, "visible": visible, "action": action,
+            "can_manage_visibility": (
+                visible or review.publication_withdrawn_at is None
+            ),
             "form": PatientReviewActionForm(review=review, action=action),
             "visibility_url": _review_url(language, "dashboard_patient_review_visibility", review_id=review.pk),
             "delete_url": _review_url(language, "dashboard_patient_review_delete", review_id=review.pk),
@@ -98,6 +104,8 @@ def patient_review_visibility(request, review_id):
         review = get_object_or_404(review_moderation.patient_reviews().select_for_update(), pk=review_id)
         form = PatientReviewActionForm(request.POST, review=review, action=action)
         if action not in review_moderation.VISIBILITY_ACTIONS or not form.is_valid():
+            return _action_error(request)
+        if action == "show" and review.publication_withdrawn_at is not None:
             return _action_error(request)
         review_moderation.set_patient_review_visibility(review, action)
         _audit(request, review, action)

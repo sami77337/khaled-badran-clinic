@@ -185,6 +185,10 @@ class PublicSiteContent(models.Model):
         ordering = ["key"]
 
 
+# Exact AR/EN checkbox text version captured when a patient explicitly publishes.
+PORTAL_REVIEW_PUBLICATION_CONSENT_VERSION = "portal-review-publication-v1"
+
+
 class PublicReview(models.Model):
     class Language(models.TextChoices):
         ARABIC = "ar", "Arabic"
@@ -216,6 +220,11 @@ class PublicReview(models.Model):
     )
     is_approved_for_publication = models.BooleanField(default=False, db_index=True)
     is_active = models.BooleanField(default=True, db_index=True)
+    # Unknown legacy consent remains NULL; never infer a historical opt-in.
+    publication_consent_at = models.DateTimeField(blank=True, null=True)
+    publication_consent_version = models.CharField(max_length=48, blank=True)
+    publication_consent_language = models.CharField(max_length=2, blank=True)
+    publication_withdrawn_at = models.DateTimeField(blank=True, null=True)
     is_featured = models.BooleanField(default=False, db_index=True)
     display_order = models.PositiveIntegerField(default=0)
     reviewed_at = models.DateField(null=True, blank=True)

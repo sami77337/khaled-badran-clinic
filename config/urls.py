@@ -196,6 +196,7 @@ urlpatterns = [
     path("portal/review/", patient_review_views.my_review, {"language": "ar"}, name="patient_portal_review"),
     path("portal/review/<int:review_id>/edit/", patient_review_views.edit_review, {"language": "ar"}, name="patient_portal_review_edit"),
     path("portal/review/<int:review_id>/delete/", patient_review_views.delete_review, {"language": "ar"}, name="patient_portal_review_delete"),
+    path("portal/review/<int:review_id>/withdraw/", patient_review_views.withdraw_review, {"language": "ar"}, name="patient_portal_review_withdraw"),
     path(
         "portal/password/change/",
         patient_views.portal_password_change,
@@ -314,6 +315,7 @@ urlpatterns = [
     path("en/portal/review/", patient_review_views.my_review, {"language": "en"}, name="patient_portal_review_en"),
     path("en/portal/review/<int:review_id>/edit/", patient_review_views.edit_review, {"language": "en"}, name="patient_portal_review_edit_en"),
     path("en/portal/review/<int:review_id>/delete/", patient_review_views.delete_review, {"language": "en"}, name="patient_portal_review_delete_en"),
+    path("en/portal/review/<int:review_id>/withdraw/", patient_review_views.withdraw_review, {"language": "en"}, name="patient_portal_review_withdraw_en"),
     path(
         "en/portal/password/change/",
         patient_views.portal_password_change,

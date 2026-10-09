@@ -7,6 +7,8 @@
             {% if has_change_permission %}
                 {% if original.is_approved_for_publication and original.is_active %}
                     <button type="submit" name="moderation_action" value="hide" class="button default">{% if review_actions_arabic %}إخفاء{% else %}Hide{% endif %}</button>
+                {% elif original.publication_withdrawn_at %}
+                    <span>{% if review_actions_arabic %}المريض سحب موافقة النشر{% else %}Publication consent withdrawn by patient{% endif %}</span>
                 {% else %}
                     <button type="submit" name="moderation_action" value="show" class="button default">{% if review_actions_arabic %}إظهار{% else %}Show{% endif %}</button>
                 {% endif %}

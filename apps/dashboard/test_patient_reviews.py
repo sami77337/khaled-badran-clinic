@@ -75,6 +75,25 @@ class DashboardPatientReviewTests(TestCase):
                     self.assertEqual(self.client.get(url).status_code, 404)
             self.assertEqual(PublicReview.objects.filter(pk=imported.pk).values().get(), before)
 
+    def test_withdrawal_blocks_dashboard_republication_even_with_a_valid_revision(self):
+        from django.utils import timezone
+
+        self.review.publication_withdrawn_at = timezone.now()
+        self.review.is_active = False
+        self.review.is_approved_for_publication = False
+        self.review.save(update_fields=[
+            "publication_withdrawn_at", "is_active",
+            "is_approved_for_publication", "updated_at",
+        ])
+        page = self.client.get(self.list_url)
+        self.assertContains(page, "Publication consent withdrawn")
+        self.assertNotContains(page, 'name="moderation_action"')
+        before = self.snapshot()
+        response = self.client.post(self.visibility_url, self.action_data() | {"moderation_action": "show"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.snapshot(), before)
+        self.assert_public(False)
+
     def test_hide_show_update_public_surfaces_and_aggregates(self):
         for action in ("hide", "show", "hide", "show"):
             data = self.action_data()
@@ -115,6 +134,7 @@ class DashboardPatientReviewTests(TestCase):
         self.client.force_login(self.patient)
         response = self.client.post(reverse("patient_portal_review_edit_en", args=[self.review.pk]), {
             "reviewer_name": "Updated patient display", "rating": 2, "body": "Updated synthetic feedback.",
+            "publication_consent": "on",
         })
         self.assertEqual(response.status_code, 302)
         self.assert_public(True, body="Updated synthetic feedback.", rating=2)
@@ -151,7 +171,9 @@ class DashboardPatientReviewTests(TestCase):
         for unused in range(2):
             self.assertEqual(self.client.post(self.visibility_url, self.action_data()).status_code, 302)
         self.assertEqual(self.client.post(self.delete_url, self.delete_data()).status_code, 302)
-        entries = list(AuditLog.objects.filter(model_name="PublicReview").order_by("created_at"))
+        entries = list(AuditLog.objects.filter(
+            model_name="PublicReview", user=self.moderator,
+        ).order_by("created_at"))
         self.assertEqual([entry.metadata for entry in entries], [
             {"action": "patient_review_hide"}, {"action": "patient_review_show"}, {"action": "patient_review_delete"},
         ])
