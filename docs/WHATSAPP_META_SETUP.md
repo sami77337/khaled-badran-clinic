@@ -168,8 +168,16 @@ it reads at most 16 KiB and never logs response bodies, headers, tokens or numbe
 Provider acceptance is not a guarantee of delivery; delivery-status events are
 acknowledged but not persisted by this adapter.
 
-Booking confirmation is scheduled after the booking transaction commits, using
-the booking page language. Failed delivery retains the booking and emits a neutral
+Booking confirmation is scheduled after the booking transaction commits **only
+when the patient explicitly checks the optional appointment-specific WhatsApp
+notifications box**. Its displayed AR/EN text is versioned as
+`booking-whatsapp-v1`; the appointment saves the server timestamp, text version,
+and language of the affirmative choice. The checkbox is never preselected.
+Unchecked or legacy appointments without this evidence are **not eligible** for
+automated confirmation or reminders, irrespective of a saved WhatsApp number or
+a legacy `reminder_enabled` flag. Booking and transactional OTP are unaffected.
+
+Failed delivery retains the booking and emits a neutral
 warning. A seven-day cache receipt prevents repeated confirmation callbacks.
 No background confirmation/reply outbox is introduced. A failed confirmation can
 be retried by calling `apps.whatsapp.booking.send_booking_confirmation` with the
@@ -207,7 +215,9 @@ template; the application supplies only the appointment date and time parameters
 Existing appointments retain their saved `reminder_offset` when the default changes.
 
 Eligibility requires a future confirmed/rescheduled appointment, the global reminder
-control enabled, the appointment's own reminder flag enabled, no `reminder_sent_at`,
+control enabled, the appointment's own reminder flag enabled, a current scoped
+`booking_whatsapp_consent_at` with the expected notice version and no withdrawal,
+no `reminder_sent_at`,
 and `starts_at - reminder_offset <= now`. Arrived, cancelled,
 completed, no-show, past, not-yet-due and previously notified appointments are skipped.
 Each row is rechecked under a PostgreSQL lock held through the send and timestamp
