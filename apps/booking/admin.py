@@ -32,7 +32,11 @@ class AppointmentAdmin(admin.ModelAdmin):
         "visit_type__name_ar",
     )
     autocomplete_fields = ("doctor", "patient", "visit_type")
-    readonly_fields = ("public_token", "created_at", "updated_at", "reminder_due_at_display")
+    readonly_fields = (
+        "public_token", "created_at", "updated_at", "reminder_due_at_display",
+        "booking_whatsapp_consent_at", "booking_whatsapp_consent_version",
+        "booking_whatsapp_consent_language", "booking_whatsapp_consent_withdrawn_at",
+    )
     date_hierarchy = "starts_at"
     list_select_related = ("doctor", "patient", "visit_type")
 
