@@ -7,6 +7,7 @@ from django.contrib.auth.models import Group
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
+from django.urls import reverse
 
 from apps.patients.clinic_roles import (
     CLINIC_DOCTOR_GROUP,
@@ -45,6 +46,17 @@ class ClinicAccountRoleTests(TestCase):
             stdout=output, **kwargs,
         )
         return output.getvalue()
+
+    def test_staff_login_copy_is_bilingual(self):
+        for route, text in (
+            ("login", "الطبيب / الطاقم"),
+            ("login_en", "Doctor / Staff"),
+        ):
+            with self.subTest(route=route):
+                response = self.client.get(reverse(route), {"role": "doctor"})
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, text)
+                self.assertContains(response, 'data-auth-role="doctor"')
 
     def test_migration_creates_two_distinct_groups_without_assigning_users(self):
         doctor = Group.objects.get(name=CLINIC_DOCTOR_GROUP)
