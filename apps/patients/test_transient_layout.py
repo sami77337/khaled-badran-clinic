@@ -16,6 +16,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.patients.clinical_test_utils import grant_clinical_reply_permissions
 from apps.patients.models import TransientConsultation, TransientConsultationAudioReply, TransientConsultationChallenge
 
 
@@ -31,6 +32,7 @@ class GuestConsultationLayoutTests(TestCase):
                 self.fail("Node and Chromium are required for guest layout QA in CI")
             self.skipTest("Install Chromium or set KBC_QA_BROWSER for guest layout QA")
         staff = get_user_model().objects.create_user(username="synthetic-guest-layout-staff", is_staff=True)
+        grant_clinical_reply_permissions(staff)
         pages = {}
         with TemporaryDirectory(prefix="kbc-guest-layout-") as directory:
             with override_settings(PRIVATE_MEDIA_ROOT=Path(directory) / "private", GUEST_CONSULTATION_OTP_SENDER=lambda *args: True):
