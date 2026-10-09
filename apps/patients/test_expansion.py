@@ -7,6 +7,7 @@ from django.contrib.auth.hashers import check_password
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes_of_size
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -351,7 +352,7 @@ class ConsultationExpansionTests(ExpansionTestMixin, TestCase):
         self.private_dir.cleanup()
 
     def upload(self, name="synthetic.jpg", content_type="image/jpeg", size=12):
-        return SimpleUploadedFile(name, b"x" * size, content_type=content_type)
+        return SimpleUploadedFile(name, synthetic_media_bytes_of_size(content_type, size), content_type=content_type)
 
     def create_consultation_with_attachment(self, patient=None):
         patient = patient or self.patient_a
