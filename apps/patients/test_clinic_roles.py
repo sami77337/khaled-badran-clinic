@@ -147,6 +147,20 @@ class ClinicAccountRoleTests(TestCase):
         self.staff.save(update_fields=["is_staff"])
         self.assertIsNone(clinic_role(self.staff))
 
+    def test_superuser_clinical_exception_cannot_override_staff_or_conflicting_roles(self):
+        admin = get_user_model().objects.create_superuser(
+            username="synthetic-role-superuser",
+            password="Synthetic-test-password-450!",
+        )
+        self.assertTrue(may_author_clinical_reply(admin))
+        doctor_group = Group.objects.get(name=CLINIC_DOCTOR_GROUP)
+        staff_group = Group.objects.get(name=CLINIC_STAFF_GROUP)
+        admin.groups.add(staff_group)
+        self.assertFalse(may_author_clinical_reply(admin))
+        admin.groups.add(doctor_group)
+        self.assertIsNone(clinic_role(admin))
+        self.assertFalse(may_author_clinical_reply(admin))
+
     def test_role_assignment_refuses_public_accounts_and_creates_no_users(self):
         baseline = get_user_model().objects.count()
         other = get_user_model().objects.create_user(
