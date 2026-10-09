@@ -1,13 +1,14 @@
 """Assign one clinic staff category to an existing, verified user account."""
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from apps.patients.clinic_roles import (
     CLINIC_DOCTOR_GROUP,
     CLINIC_STAFF_GROUP,
+    CLINICAL_CHANGE_CODENAMES,
     ROLE_DOCTOR,
     ROLE_STAFF,
 )
@@ -66,6 +67,30 @@ class Command(BaseCommand):
                 staff_group = Group.objects.get(name=CLINIC_STAFF_GROUP)
             except Group.DoesNotExist:
                 raise CommandError("Clinic account groups are not provisioned.") from None
+
+            if role == ROLE_STAFF:
+                # A group label is not a privilege boundary if this account
+                # still inherits clinical rights from direct grants, other
+                # groups or a misconfigured Clinic Staff group. Refuse rather
+                # than silently revoking privileges without the owner review.
+                clinical_permissions = Permission.objects.filter(
+                    content_type__app_label="patients",
+                    codename__in=CLINICAL_CHANGE_CODENAMES,
+                )
+                if (
+                    user.user_permissions.filter(pk__in=clinical_permissions).exists()
+                    or user.groups.exclude(
+                        pk__in=(doctor_group.pk, staff_group.pk)
+                    ).filter(permissions__in=clinical_permissions).exists()
+                    or staff_group.permissions.filter(
+                        pk__in=clinical_permissions
+                    ).exists()
+                ):
+                    raise CommandError(
+                        "Existing clinical permissions must be reviewed and "
+                        "revoked through approved access governance before "
+                        "assigning the Clinic Staff role."
+                    )
 
             if not options["apply"]:
                 self.stdout.write(

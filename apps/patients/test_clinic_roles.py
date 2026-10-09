@@ -3,7 +3,7 @@
 from io import StringIO
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
@@ -124,6 +124,49 @@ class ClinicAccountRoleTests(TestCase):
             self._assign(unverified, ROLE_STAFF, apply=True)
         unverified.refresh_from_db()
         self.assertFalse(unverified.is_staff)
+
+    def test_staff_assignment_refuses_direct_clinical_change_grants(self):
+        permission = Permission.objects.get(
+            content_type__app_label="patients", codename="change_consultation",
+        )
+        self.staff.user_permissions.add(permission)
+        for apply in (False, True):
+            with self.subTest(apply=apply):
+                with self.assertRaisesMessage(
+                    CommandError, "Existing clinical permissions must be reviewed",
+                ):
+                    self._assign(self.staff, ROLE_STAFF, **({"apply": True} if apply else {}))
+                self.assertFalse(
+                    self.staff.groups.filter(name=CLINIC_STAFF_GROUP).exists()
+                )
+                self.assertTrue(self.staff.user_permissions.filter(pk=permission.pk).exists())
+
+    def test_staff_assignment_refuses_permissions_in_unrelated_groups(self):
+        permission = Permission.objects.get(
+            content_type__app_label="patients",
+            codename="change_transientconsultation",
+        )
+        legacy = Group.objects.create(name="Synthetic legacy clinical access")
+        legacy.permissions.add(permission)
+        self.staff.groups.add(legacy)
+        with self.assertRaisesMessage(
+            CommandError, "Existing clinical permissions must be reviewed",
+        ):
+            self._assign(self.staff, ROLE_STAFF, apply=True)
+        self.assertFalse(self.staff.groups.filter(name=CLINIC_STAFF_GROUP).exists())
+        self.assertTrue(self.staff.groups.filter(pk=legacy.pk).exists())
+
+    def test_staff_assignment_refuses_misconfigured_staff_group(self):
+        permission = Permission.objects.get(
+            content_type__app_label="patients", codename="change_consultation",
+        )
+        clinic_staff = Group.objects.get(name=CLINIC_STAFF_GROUP)
+        clinic_staff.permissions.add(permission)
+        with self.assertRaisesMessage(
+            CommandError, "Existing clinical permissions must be reviewed",
+        ):
+            self._assign(self.staff, ROLE_STAFF, apply=True)
+        self.assertFalse(self.staff.groups.filter(pk=clinic_staff.pk).exists())
 
     def test_staff_role_rejects_superuser_and_inactive_accounts(self):
         admin = get_user_model().objects.create_superuser(
