@@ -12,6 +12,7 @@ from django.utils import timezone
 from apps.booking.models import Appointment, AppointmentStaffNotification
 from apps.clinic.models import Doctor, VisitType
 from apps.patients import consultation_services
+from apps.patients.clinical_test_utils import grant_clinical_reply_permissions
 from apps.patients.models import (
     Consultation,
     ConsultationAudioReply,
@@ -48,6 +49,7 @@ class ConsultationNotificationEventTests(TestCase):
             username="notification-second-staff",
             is_staff=True,
         )
+        grant_clinical_reply_permissions(self.staff, self.second_staff)
         self.inactive_staff = user_model.objects.create_user(
             username="notification-inactive-staff",
             is_staff=True,
@@ -515,6 +517,7 @@ class StaffAttentionBellTests(TestCase):
             username="attention-doctor",
             is_staff=True,
         )
+        grant_clinical_reply_permissions(self.staff)
         self.patient_user = user_model.objects.create_user(username="attention-patient")
         self.patient = Patient.objects.create(
             user=self.patient_user,
