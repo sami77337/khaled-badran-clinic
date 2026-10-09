@@ -33,9 +33,9 @@ To classify an **existing verified account**, a trusted operator may use
 for a dry run, then explicitly repeat with `--apply`. Use
 `--role staff` for the clinic team. It is safe/idempotent to reassign
 the same role or switch between the two. The command changes the two role
-groups only, keeps other group memberships, marks the account as staff,
-rejects patient-linked/unverified/inactive accounts and refuses assigning
-a superuser as administrative-only staff. It never prints usernames or
+groups only, keeps other group memberships, requires a pre-existing
+`is_staff=True` account, rejects patient-linked/unverified/inactive
+accounts and refuses assigning a superuser as administrative-only staff. It never prints usernames or
 credentials. A superuser can alternatively assign groups through Django
 Admin, ensuring `is_staff` and the exclusive-group rule.
 
