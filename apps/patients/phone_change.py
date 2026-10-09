@@ -102,7 +102,10 @@ def _apply_patient_phone_change(*, patient, challenge, old_account_phone, now):
                 update_fields.extend(["whatsapp_phone_raw", "whatsapp_phone_e164"])
                 # Consent to send to the previous destination cannot be
                 # silently transferred to a different phone number.
-                if appointment.booking_whatsapp_consent_at is not None:
+                if (
+                    appointment.booking_whatsapp_consent_at is not None
+                    and appointment.booking_whatsapp_consent_withdrawn_at is None
+                ):
                     appointment.booking_whatsapp_consent_withdrawn_at = now
                     appointment.reminder_enabled = False
                     update_fields.extend(["booking_whatsapp_consent_withdrawn_at", "reminder_enabled"])
