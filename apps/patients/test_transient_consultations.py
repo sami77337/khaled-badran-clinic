@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from apps.core.test_utils import close_test_response
 from apps.patients.consultation_services import update_consultation_reply
+from apps.patients.clinical_test_utils import grant_clinical_reply_permissions
 from apps.patients.models import (
     Consultation, Patient, TransientConsultation, TransientConsultationAttachment,
     TransientConsultationAudioReply, TransientConsultationChallenge,
@@ -39,6 +40,7 @@ class GuestConsultationTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.staff = get_user_model().objects.create_user(username="synthetic-guest-staff", is_staff=True)
+        grant_clinical_reply_permissions(cls.staff)
         cls.patient_user = get_user_model().objects.create_user(username="synthetic-guest-patient", password="Synthetic-pass-952!")
         cls.patient = Patient.objects.create(user=cls.patient_user, full_name="Synthetic unrelated patient", phone_e164=cls.phone)
         cls.registered = Consultation.objects.create(patient=cls.patient, question="Synthetic registered secret")
