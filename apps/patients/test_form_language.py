@@ -86,6 +86,20 @@ class PageFormLanguageTests(TestCase):
                     self.assertContains(response, escape(message))
                 self.assertContains(response, expected_help)
 
+    def test_registration_discloses_account_data_use_without_privacy_checkbox(self):
+        for route, privacy_route, text in (
+            ("patient_portal_register", "privacy", "نستخدم اسمك ورقم هاتفك"),
+            ("patient_portal_register_en", "privacy_en", "We use your name, phone number"),
+        ):
+            with self.subTest(route=route):
+                response = self.client.get(reverse(route))
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "data-register-privacy-notice")
+                self.assertContains(response, text)
+                self.assertContains(response, f'href="{reverse(privacy_route)}"')
+                self.assertNotContains(response, 'name="privacy_consent"')
+                self.assertContains(response, "auth-submit")
+
     def test_registered_consultation_shows_non_emergency_notice_in_both_languages(self):
         self.client.force_login(self.user)
         for language, route, expected, opposite in (
