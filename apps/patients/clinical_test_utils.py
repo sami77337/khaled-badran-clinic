@@ -14,7 +14,10 @@ def grant_clinical_reply_permissions(*users):
     )
     if len(permissions) != 2:
         raise AssertionError("Both clinical model permissions must exist.")
-    doctor_role = Group.objects.get(name=CLINIC_DOCTOR_GROUP)
+    # TransactionTestCase flushes data between methods and does not rerun
+    # custom data migrations. Recreate only synthetic test role definitions.
+    doctor_role, _created = Group.objects.get_or_create(name=CLINIC_DOCTOR_GROUP)
+    doctor_role.permissions.add(*permissions)
     for user in users:
         user.groups.add(doctor_role)
         user.user_permissions.add(*permissions)
