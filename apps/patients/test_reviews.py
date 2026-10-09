@@ -5,7 +5,9 @@ from django.urls import reverse
 from django.utils import timezone, translation
 from django.utils.html import escape
 
-from apps.core.models import PublicReview
+from apps.core.models import (
+    AuditLog, PORTAL_REVIEW_PUBLICATION_CONSENT_VERSION, PublicReview,
+)
 
 
 class PatientReviewTests(TestCase):
@@ -38,7 +40,7 @@ class PatientReviewTests(TestCase):
         review = self.create_review()
         self.client.logout()
         for language in ("ar", "en"):
-            for action in ("", "edit", "delete"):
+            for action in ("", "edit", "delete", "withdraw"):
                 for method in (self.client.get, self.client.post):
                     with self.subTest(language=language, action=action, method=method.__name__):
                         response = method(self.url(action, language, review if action else None))
@@ -52,7 +54,7 @@ class PatientReviewTests(TestCase):
         for user in (self.staff, self.superuser):
             self.client.force_login(user)
             for language in ("ar", "en"):
-                for action in ("", "edit", "delete"):
+                for action in ("", "edit", "delete", "withdraw"):
                     for method in (self.client.get, self.client.post):
                         with self.subTest(user=user.pk, language=language, action=action):
                             response = method(self.url(action, language, review if action else None))
@@ -63,7 +65,7 @@ class PatientReviewTests(TestCase):
     def test_other_patient_cannot_access_or_mutate_review(self):
         review = self.create_review(submitted_by=self.other)
         for language in ("ar", "en"):
-            for action in ("edit", "delete"):
+            for action in ("edit", "delete", "withdraw"):
                 response = self.client.post(self.url(action, language, review), {"rating": 1, "body": "Forged"})
                 self.assertEqual(response.status_code, 404)
             self.assertEqual(self.client.get(self.url("edit", language, review)).status_code, 404)
@@ -75,7 +77,8 @@ class PatientReviewTests(TestCase):
         review = self.create_review(source=PublicReview.Source.GOOGLE)
         self.assertEqual(self.client.get(self.url("edit", review=review)).status_code, 404)
         self.assertEqual(self.client.post(self.url("delete", review=review)).status_code, 404)
-        response = self.client.post(self.url(), {"rating": 5, "body": "Portal review"})
+        self.assertEqual(self.client.post(self.url("withdraw", review=review)).status_code, 404)
+        response = self.client.post(self.url(), {"rating": 5, "body": "Portal review", "publication_consent": "on"})
         self.assertRedirects(response, self.url())
         self.assertEqual(PublicReview.objects.filter(submitted_by=self.owner).count(), 2)
 
@@ -86,6 +89,9 @@ class PatientReviewTests(TestCase):
                     "reviewer_name": "   ", "body": "  Synthetic submitted review.  ", "rating": 5,
                     "submitted_by": self.other.pk, "source": "google", "language": "invalid",
                     "is_approved_for_publication": "on", "is_active": "", "is_featured": "on",
+                    "publication_consent": "on", "publication_consent_at": "2000-01-01",
+                    "publication_consent_version": "forged-version",
+                    "publication_withdrawn_at": "1999-01-01",
                     "display_order": 900, "source_reference": "private-reference",
                 })
                 self.assertRedirects(response, self.url(language=language))
@@ -102,7 +108,19 @@ class PatientReviewTests(TestCase):
                 self.assertTrue(review.is_active)
                 self.assertTrue(review.is_approved_for_publication)
                 self.assertFalse(review.is_featured)
+                self.assertIsNotNone(review.publication_consent_at)
+                self.assertEqual(review.publication_consent_version, PORTAL_REVIEW_PUBLICATION_CONSENT_VERSION)
+                self.assertEqual(review.publication_consent_language, language)
+                self.assertIsNone(review.publication_withdrawn_at)
+                audit = AuditLog.objects.get(
+                    user=self.owner, model_name="PublicReview",
+                    metadata__action="patient_review_publication_consent",
+                    object_id=str(review.pk),
+                )
+                self.assertEqual(audit.metadata["language"], language)
+                self.assertNotIn(review.body, str(audit.metadata))
                 review.delete()
+                audit.delete()
 
     def test_duplicate_submission_preserves_original_review(self):
         review = self.create_review()
@@ -143,6 +161,7 @@ class PatientReviewTests(TestCase):
         response = self.client.post(self.url("edit", review=review), {
             "reviewer_name": "Updated display", "rating": 2, "body": "Updated patient review.",
             "submitted_by": self.other.pk, "source": "google", "is_approved_for_publication": "on",
+            "publication_consent": "on",
         })
         self.assertRedirects(response, self.url())
         review.refresh_from_db()
@@ -170,14 +189,14 @@ class PatientReviewTests(TestCase):
         self.assertRedirects(self.client.post(url), self.url())
         self.assertFalse(PublicReview.objects.filter(pk=review.pk).exists())
         self.assertEqual(self.client.post(url).status_code, 404)
-        self.assertRedirects(self.client.post(self.url(), {"body": "New submission", "rating": 3}), self.url())
+        self.assertRedirects(self.client.post(self.url(), {"body": "New submission", "rating": 3, "publication_consent": "on"}), self.url())
 
     def test_all_mutations_require_csrf(self):
         review = self.create_review()
         client = Client(enforce_csrf_checks=True)
         client.force_login(self.owner)
         for language in ("ar", "en"):
-            for action in ("", "edit", "delete"):
+            for action in ("", "edit", "delete", "withdraw"):
                 response = client.post(self.url(action, language, review if action else None), {"rating": 5, "body": "Forged"})
                 self.assertEqual(response.status_code, 403)
         review.refresh_from_db()
@@ -189,6 +208,7 @@ class PatientReviewTests(TestCase):
         client.get(self.url())
         response = client.post(self.url(), {
             "csrfmiddlewaretoken": client.cookies["csrftoken"].value, "rating": 4, "body": "CSRF verified review",
+            "publication_consent": "on",
         })
         self.assertRedirects(response, self.url())
 
