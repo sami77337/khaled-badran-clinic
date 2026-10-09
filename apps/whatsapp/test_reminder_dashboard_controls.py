@@ -4,7 +4,7 @@ from unittest.mock import patch
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from apps.booking.models import Appointment
+from apps.booking.models import Appointment, BOOKING_WHATSAPP_CONSENT_VERSION
 from apps.clinic.models import Doctor, VisitType
 from apps.core.models import SystemSetting
 from apps.patients.models import Patient
@@ -37,6 +37,9 @@ class ReminderDashboardControlsTests(TestCase):
             starts_at=self.now + timedelta(hours=1),
             ends_at=self.now + timedelta(hours=1, minutes=30),
             whatsapp_phone_e164=SYNTHETIC_PHONE,
+            booking_whatsapp_consent_at=self.now,
+            booking_whatsapp_consent_version=BOOKING_WHATSAPP_CONSENT_VERSION,
+            booking_whatsapp_consent_language="ar",
         )
 
     def test_global_reminder_setting_gates_due_query_and_send(self):
