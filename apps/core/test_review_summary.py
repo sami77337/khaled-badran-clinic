@@ -81,7 +81,7 @@ class PublishedReviewSummaryTests(TestCase):
         owner = get_user_model().objects.create_user(username="synthetic-summary-patient")
         moderator = get_user_model().objects.create_superuser(username="synthetic-summary-moderator")
         self.client.force_login(owner)
-        response = self.client.post(reverse("patient_portal_review_en"), {"rating": 4, "body": "My feedback."})
+        response = self.client.post(reverse("patient_portal_review_en"), {"rating": 4, "body": "My feedback.", "publication_consent": "on"})
         self.assertEqual(response.status_code, 302)
         review = PublicReview.objects.get(submitted_by=owner)
         self.assertEqual(review_source_summary(), {"average_rating": "4.00", "review_count": 1})
@@ -98,6 +98,7 @@ class PublishedReviewSummaryTests(TestCase):
         self.client.force_login(owner)
         response = self.client.post(reverse("patient_portal_review_edit_en", args=[review.pk]), {
             "rating": 5, "body": "Edited patient feedback.",
+            "publication_consent": "on",
         })
         self.assertEqual(response.status_code, 302)
         review.refresh_from_db()
