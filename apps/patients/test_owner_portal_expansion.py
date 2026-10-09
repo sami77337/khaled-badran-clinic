@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes
 from django.db import DatabaseError, transaction
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -345,7 +346,7 @@ class ConsultationSafeDeleteTests(OwnerExpansionMixin, TestCase):
         )
 
     def add_attachment(self, consultation):
-        upload = SimpleUploadedFile("private.jpg", b"private-bytes", content_type="image/jpeg")
+        upload = SimpleUploadedFile("private.jpg", synthetic_media_bytes("image/jpeg", b"private-bytes"), content_type="image/jpeg")
         return ConsultationAttachment.objects.create(
             consultation=consultation,
             file=upload,
