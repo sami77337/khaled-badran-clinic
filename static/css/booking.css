@@ -1227,6 +1227,18 @@ body.page-booking.is-ltr {
     line-height: 1.6;
 }
 
+.page-booking [data-booking-privacy-notice] {
+    font-size: 0.84rem;
+}
+
+.page-booking [data-booking-privacy-notice] a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+    text-decoration: underline;
+    text-underline-offset: 0.15rem;
+}
+
 .page-booking [data-booking-whatsapp-field].is-disabled {
     opacity: 0.58;
 }

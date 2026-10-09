@@ -1024,6 +1024,50 @@ class PublicBookingViewTests(BookingTestDataMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, appointment.confirmation_reference)
 
+    def test_confirm_has_localized_privacy_notice_without_extra_checkbox(self):
+        _doctor, visit_type, _day, slot = self.setup_public_booking()
+
+        for route, privacy_route, notice_text in (
+            ("booking_confirm", "privacy", "تستخدم العيادة البيانات"),
+            ("booking_confirm_en", "privacy_en", "The clinic uses the details"),
+        ):
+            with self.subTest(route=route):
+                response = self.client.get(
+                    reverse(route),
+                    {"visit_type": visit_type.id, "starts_at": slot.value},
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "data-booking-privacy-notice")
+                self.assertContains(response, notice_text)
+                self.assertContains(response, f'href="{reverse(privacy_route)}"')
+                self.assertNotContains(response, 'name="privacy_consent"')
+                self.assertContains(response, "booking-confirm-action")
+
+    def test_tokenized_success_has_privacy_headers_and_no_canonical_token(self):
+        appointment = services.create_public_appointment(
+            full_name="Synthetic Receipt Patient",
+            phone_raw="0791234567",
+            visit_type_id=self.visit_type.id,
+            starts_at=self.slot.value,
+        )
+        for route in ("booking_success", "booking_success_en"):
+            with self.subTest(route=route):
+                response = self.client.get(
+                    reverse(route, kwargs={"public_token": appointment.public_token})
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response["Referrer-Policy"], "no-referrer")
+                self.assertEqual(
+                    response["X-Robots-Tag"], "noindex, nofollow, noarchive"
+                )
+                self.assertIn("no-store", response["Cache-Control"])
+                self.assertContains(
+                    response, '<meta name="robots" content="noindex,nofollow,noarchive">'
+                )
+                self.assertNotIn(
+                    str(appointment.public_token), response.context["canonical_url"]
+                )
+
     def test_numeric_success_url_no_longer_resolves(self):
         appointment = services.create_public_appointment(
             full_name="Test Patient",
@@ -2758,13 +2802,13 @@ class AppointmentOperationServiceTests(BookingTestDataMixin, TestCase):
                 new_status=Appointment.Status.CONFIRMED,
             ).exists()
         )
-        self.assertTrue(
-            AuditLog.objects.filter(
-                action=AuditLog.Action.CREATE,
-                object_id=str(appointment.id),
-                metadata__public_token=str(appointment.public_token),
-            ).exists()
+        audit = AuditLog.objects.get(
+            action=AuditLog.Action.CREATE,
+            object_id=str(appointment.id),
         )
+        self.assertEqual(audit.metadata["appointment_id"], appointment.id)
+        self.assertNotIn("public_token", audit.metadata)
+        self.assertNotIn(str(appointment.public_token), str(audit.metadata))
 
     def test_staff_can_cancel_confirmed_appointment(self):
         operations.cancel_appointment(self.appointment.id, actor=self.staff, note="Patient called.")

@@ -21,10 +21,9 @@ def appointment_metadata(
     note="",
     actor=None,
 ):
-    metadata = {
-        "appointment_id": appointment.id,
-        "public_token": str(appointment.public_token),
-    }
+    # Appointment.public_token is a bearer credential, not an audit identifier.
+    # Existing object_id and appointment_id are sufficient for staff operations.
+    metadata = {"appointment_id": appointment.id}
     if old_status:
         metadata["old_status"] = old_status
     if new_status:

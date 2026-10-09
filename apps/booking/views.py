@@ -321,7 +321,7 @@ def booking_success(request, public_token, language="ar"):
         Appointment.objects.select_related("doctor", "patient", "visit_type"),
         public_token=public_token,
     )
-    return render(
+    response = render(
         request,
         "booking/success.html",
         _context(
@@ -331,6 +331,10 @@ def booking_success(request, public_token, language="ar"):
             appointment=appointment,
         ),
     )
+    # This is a bearer-token receipt, not a page for search indexes/referrals.
+    response["Referrer-Policy"] = "no-referrer"
+    response["X-Robots-Tag"] = "noindex, nofollow, noarchive"
+    return response
 
 
 STAFF_APPOINTMENT_FILTER_KEYS = (
