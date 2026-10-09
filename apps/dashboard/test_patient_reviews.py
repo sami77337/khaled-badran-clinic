@@ -75,6 +75,25 @@ class DashboardPatientReviewTests(TestCase):
                     self.assertEqual(self.client.get(url).status_code, 404)
             self.assertEqual(PublicReview.objects.filter(pk=imported.pk).values().get(), before)
 
+    def test_withdrawal_blocks_dashboard_republication_even_with_a_valid_revision(self):
+        from django.utils import timezone
+
+        self.review.publication_withdrawn_at = timezone.now()
+        self.review.is_active = False
+        self.review.is_approved_for_publication = False
+        self.review.save(update_fields=[
+            "publication_withdrawn_at", "is_active",
+            "is_approved_for_publication", "updated_at",
+        ])
+        page = self.client.get(self.list_url)
+        self.assertContains(page, "Publication consent withdrawn")
+        self.assertNotContains(page, 'name="moderation_action"')
+        before = self.snapshot()
+        response = self.client.post(self.visibility_url, self.action_data() | {"moderation_action": "show"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.snapshot(), before)
+        self.assert_public(False)
+
     def test_hide_show_update_public_surfaces_and_aggregates(self):
         for action in ("hide", "show", "hide", "show"):
             data = self.action_data()
