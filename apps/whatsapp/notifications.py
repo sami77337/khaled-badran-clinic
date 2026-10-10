@@ -60,7 +60,7 @@ def send_reply_notification_if_consented(*, consultation_pk, guest=False):
             whatsapp_reply_consent_at__isnull=False,
             whatsapp_reply_consent_version=CONSULTATION_WHATSAPP_REPLY_CONSENT_VERSION,
             whatsapp_reply_consent_withdrawn_at__isnull=True,
-        ).select_related(*([] if guest else ["patient"])).first()
+        ).select_related(*([] if guest else ["patient__user"])).first()
         if consultation is None:
             return False
         # A later OTP verification cannot legitimize an alert to a guest
@@ -68,11 +68,23 @@ def send_reply_notification_if_consented(*, consultation_pk, guest=False):
         if guest and not consultation.phone_verified_at_submission:
             return False
 
+        if guest:
+            phone = consultation.phone_e164
+        else:
+            from apps.patients import temporary_otp
+
+            owner = consultation.patient.user
+            if (
+                owner is None or not owner.is_active or owner.is_staff
+                or temporary_otp.is_unverified(owner)
+            ):
+                return False
+            phone = normalize_phone(owner.username)
+            if consultation.patient.phone_e164 != phone:
+                return False
+
         language = consultation.whatsapp_reply_consent_language
         language = "en" if language == "en" else "ar"
-        phone = consultation.phone_e164 if guest else (
-            consultation.patient.whatsapp_phone_e164 or consultation.patient.phone_e164
-        )
         route = "guest_consultation_detail" if guest else "patient_portal_consultation_detail"
         return send_reply_notification(
             phone_e164=phone,
