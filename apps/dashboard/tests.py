@@ -1424,6 +1424,26 @@ class DashboardCreateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
         self.assertContains(response, "امتداد ملف الصورة غير مدعوم.", status_code=400)
         self.assertEqual(RecordMedia.objects.filter(patient=self.patient).count(), 0)
 
+    def test_fake_private_medical_image_is_rejected_by_staff_upload(self):
+        response = self.client.post(
+            reverse("dashboard_media_create", kwargs={"patient_id": self.patient.id}),
+            {
+                "visit": "",
+                "media_type": RecordMedia.MediaType.IMAGE,
+                "file": SimpleUploadedFile(
+                    "synthetic-fake-image.jpg",
+                    b"synthetic bytes without a JPEG signature",
+                    content_type="image/jpeg",
+                ),
+                "title": "Synthetic blocked upload",
+                "description": "No private medical file should be created.",
+                "visibility": RecordMedia.Visibility.PRIVATE_ONLY,
+                "is_active": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(RecordMedia.objects.filter(patient=self.patient).count(), 0)
+
     def test_generic_media_cannot_create_approved_public_case_orphan(self):
         response = self.client.post(
             reverse("dashboard_media_create", kwargs={"patient_id": self.patient.id}),
