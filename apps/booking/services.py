@@ -408,14 +408,31 @@ def create_public_appointment(
 
         patient = resolve_authenticated_patient(authenticated_user)
     else:
-        # A caller who only knows an account owner's phone must never
-        # attach an anonymous appointment to that owner's protected Patient.
-        # Reuse only legacy unlinked booking profiles; authenticated bookings
-        # still resolve their existing Patient through verified login.
-        patient = Patient.objects.filter(
-            phone_e164=normalized_phone,
-            user__isnull=True,
-        ).order_by("id").first()
+        # Knowing a phone number is not proof of identity. Never attach an
+        # anonymous booking to an account-owned or clinically enriched record.
+        # Retain prior phone-only reuse for simple unlinked booking profiles.
+        patient = (
+            Patient.objects.filter(
+                phone_e164=normalized_phone,
+                user__isnull=True,
+                notes="",
+                date_of_birth__isnull=True,
+                gender="",
+            ).exclude(
+                Q(visit_records__isnull=False)
+                | Q(clinical_notes__isnull=False)
+                | Q(record_media__isnull=False)
+                | Q(media_folders__isnull=False)
+                | Q(consultations__isnull=False)
+                | Q(timeline_events__isnull=False)
+                | Q(appointments__status__in=[
+                    Appointment.Status.ARRIVED,
+                    Appointment.Status.COMPLETED,
+                    Appointment.Status.NO_SHOW,
+                ])
+                | Q(appointments__booking_note__gt="")
+            ).order_by("id").first()
+        )
         if patient is None:
             patient = Patient.objects.create(
                 full_name=full_name.strip(),

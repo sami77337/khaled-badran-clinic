@@ -27,7 +27,10 @@ from apps.booking.phone import normalize_phone
 from apps.booking import operations, rate_limits, services
 from apps.clinic.models import ClosedDay, Doctor, DoctorSchedule, DoctorScheduleOverride, VisitType
 from apps.core.models import AuditLog, SystemSetting
-from apps.patients.models import Patient
+from apps.patients.models import Patient, Consultation
+from apps.records.models import (
+    ClinicalNote, PatientTimelineEvent, RecordMedia, RecordMediaFolder, VisitRecord,
+)
 
 
 def aware(year=2026, month=1, day=5, hour=8, minute=0):
@@ -247,6 +250,130 @@ class AnonymousBookingPatientContactIsolationTests(BookingTestDataMixin, TestCas
         self.assertTrue(
             Appointment.objects.filter(patient__user=owner, pk=appointment.pk).exists()
         )
+
+    def test_historical_unlinked_clinical_records_are_never_reused_by_anonymous_booking(self):
+        doctor, visit_type, target_day, _slot = self.setup_public_booking()
+        # Keep this test entirely synthetic; enough slots to cover every
+        # independent protected-record shape, with no real media file access.
+        DoctorSchedule.objects.filter(
+            doctor=doctor, weekday=target_day.weekday()
+        ).update(end_time=time(18, 0))
+        protected_cases = (
+            "visit", "clinical_note", "record_media", "media_folder",
+            "consultation", "patient_timeline", "patient_notes",
+            "date_of_birth", "gender", "completed_visit",
+            "arrived_visit", "no_show_visit", "booking_note",
+        )
+        for index, case in enumerate(protected_cases):
+            with self.subTest(protected_kind=case):
+                phone = f"+9627912{index:05d}"
+                old = Patient.objects.create(
+                    full_name="Synthetic Historical Patient",
+                    phone_raw=phone,
+                    phone_e164=phone,
+                    whatsapp_phone_raw=phone,
+                    whatsapp_phone_e164=phone,
+                )
+                if case == "visit":
+                    VisitRecord.objects.create(
+                        patient=old, visit_reason="Synthetic past clinical encounter",
+                    )
+                elif case == "clinical_note":
+                    ClinicalNote.objects.create(
+                        patient=old, body="Synthetic private clinical note",
+                    )
+                elif case == "record_media":
+                    # Historical metadata only, no storage operations or bytes.
+                    RecordMedia.objects.bulk_create([
+                        RecordMedia(
+                            patient=old,
+                            media_type=RecordMedia.MediaType.IMAGE,
+                            file="records/image/synthetic/opaque.jpg",
+                        )
+                    ])
+                elif case == "media_folder":
+                    RecordMediaFolder.objects.create(
+                        patient=old, name="Synthetic historical clinical folder",
+                    )
+                elif case == "consultation":
+                    Consultation.objects.create(
+                        patient=old, question="Synthetic sensitive consultation",
+                    )
+                elif case == "patient_timeline":
+                    PatientTimelineEvent.objects.create(patient=old)
+                elif case == "patient_notes":
+                    old.notes = "Synthetic historical confidential medical notes"
+                    old.save(update_fields=["notes"])
+                elif case == "date_of_birth":
+                    old.date_of_birth = timezone.localdate() - timedelta(days=11000)
+                    old.save(update_fields=["date_of_birth"])
+                elif case == "gender":
+                    old.gender = Patient.Gender.PREFER_NOT_TO_SAY
+                    old.save(update_fields=["gender"])
+                elif case in {
+                    "completed_visit", "arrived_visit", "no_show_visit",
+                    "booking_note",
+                }:
+                    state = {
+                        "completed_visit": Appointment.Status.COMPLETED,
+                        "arrived_visit": Appointment.Status.ARRIVED,
+                        "no_show_visit": Appointment.Status.NO_SHOW,
+                        "booking_note": Appointment.Status.CANCELLED,
+                    }[case]
+                    historical_start = timezone.now() - timedelta(days=index + 1)
+                    Appointment.objects.create(
+                        doctor=doctor, patient=old, visit_type=visit_type,
+                        starts_at=historical_start,
+                        ends_at=historical_start + timedelta(minutes=30),
+                        status=state,
+                        booking_note=(
+                            "Synthetic sensitive historical booking note"
+                            if case == "booking_note" else ""
+                        ),
+                    )
+                available = services.generate_available_slots(
+                    visit_type, target_date=target_day, doctor=doctor,
+                )
+                self.assertTrue(available)
+                result = services.create_public_appointment(
+                    full_name="Synthetic Different Anonymous Booker",
+                    phone_raw=phone, visit_type_id=visit_type.pk,
+                    starts_at=available[0].value,
+                )
+                old.refresh_from_db()
+                self.assertNotEqual(result.patient_id, old.pk)
+                self.assertIsNone(result.patient.user_id)
+                self.assertEqual(
+                    result.patient.full_name,
+                    "Synthetic Different Anonymous Booker",
+                )
+                self.assertEqual(old.full_name, "Synthetic Historical Patient")
+                self.assertEqual(old.whatsapp_phone_e164, phone)
+                self.assertEqual(result.contact_phone_e164, phone)
+                self.assertEqual(Patient.objects.filter(phone_e164=phone).count(), 2)
+
+    def test_booking_only_unlinked_profile_can_be_reused_after_protected_one(self):
+        old = Patient.objects.create(
+            full_name="Synthetic Enriched Profile",
+            phone_e164="+962791234567",
+            notes="Synthetic confidential record",
+        )
+        clean = Patient.objects.create(
+            full_name="Synthetic Booking Profile",
+            phone_e164="+962791234567",
+        )
+        _doctor, visit_type, _day, slot = self.setup_public_booking()
+        appointment = services.create_public_appointment(
+            full_name="Synthetic Repeat Guest",
+            phone_raw="+962791234567",
+            visit_type_id=visit_type.pk,
+            starts_at=slot.value,
+        )
+        self.assertEqual(appointment.patient_id, clean.pk)
+        self.assertNotEqual(appointment.patient_id, old.pk)
+        self.assertEqual(Patient.objects.filter(phone_e164="+962791234567").count(), 2)
+        old.refresh_from_db()
+        self.assertEqual(old.notes, "Synthetic confidential record")
 
     def test_anonymous_booking_preserves_unlinked_patient_update_flow(self):
         patient = Patient.objects.create(
