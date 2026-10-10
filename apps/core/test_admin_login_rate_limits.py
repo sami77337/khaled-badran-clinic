@@ -31,6 +31,7 @@ class AdminLoginRateLimitTests(TestCase):
             {
                 "username": username if username is not None else self.admin_user.username,
                 "password": password if password is not None else self.password,
+                "next": reverse("admin:index"),
             },
             REMOTE_ADDR=ip,
         )
