@@ -307,6 +307,28 @@
     text-underline-offset: 0.18rem;
 }
 
+/* Keep follow-up controls separated without changing table-cell semantics
+   or the existing appointment button visual language, including mobile. */
+.appointment-row-actions {
+    display: grid;
+    justify-items: start;
+    align-content: start;
+    gap: 0.65rem;
+}
+
+.appointment-row-actions > form,
+.appointment-row-actions > details {
+    margin: 0;
+}
+
+.appointment-row-actions > .appointment-inline-link {
+    margin-block-start: 0;
+}
+
+.appointment-row-actions .appointment-button {
+    min-height: 2.75rem;
+}
+
 .appointment-status {
     display: inline-flex;
     min-height: 1.85rem;

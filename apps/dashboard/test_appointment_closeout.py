@@ -146,6 +146,40 @@ class AppointmentOperationsCloseoutTests(TestCase):
         self.assertNotContains(response, future.patient.full_name)
         self.assertContains(response, "بحاجة إلى تصنيف")
 
+    def test_follow_up_actions_are_spaced_and_preserve_routes_in_ar_en(self):
+        queued = self.appointment(-120)
+        arrived = self.appointment(-90, status=Appointment.Status.ARRIVED)
+        self.client.force_login(self.staff)
+
+        for query, heading in (("", "الإجراءات"), ("?lang=en", "Actions")):
+            with self.subTest(language=query or "ar"):
+                response = self.client.get(
+                    reverse("dashboard_appointment_follow_up") + query
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(
+                    response, 'class="appointment-row-actions"', count=2,
+                )
+                self.assertContains(response, heading, count=2)
+                for route, item_id in (
+                    ("dashboard_appointment_follow_up_arrived", queued.id),
+                    ("dashboard_appointment_follow_up_no_show", queued.id),
+                    ("dashboard_appointment_follow_up_complete", arrived.id),
+                ):
+                    self.assertContains(
+                        response,
+                        reverse(route, kwargs={"appointment_id": item_id}),
+                    )
+
+        from django.conf import settings
+
+        css = (
+            settings.BASE_DIR / "static" / "css" / "dashboard-appointments.css"
+        ).read_text(encoding="utf-8")
+        self.assertIn(".appointment-row-actions {", css)
+        self.assertIn("gap: 0.65rem;", css)
+        self.assertIn(".appointment-row-actions > .appointment-inline-link", css)
+
     def test_follow_up_arrived_quick_action_moves_item_to_arrived(self):
         appointment = self.appointment(-90)
         self.client.force_login(self.staff)
