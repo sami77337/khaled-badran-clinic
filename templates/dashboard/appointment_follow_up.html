@@ -67,32 +67,32 @@
                             <td><span class="appointment-status status-{{ appointment.status }}">{{ appointment.follow_up_status_label }}</span></td>
                             <td>
                                 <div class="appointment-row-actions">
-                                <form method="post" action="{{ appointment.follow_up_arrived_url }}">
-                                    {% csrf_token %}
-                                    <button class="appointment-button appointment-button-primary appointment-button-small" type="submit">
-                                        {% if is_arabic %}وصل{% else %}Arrived{% endif %}
-                                    </button>
-                                </form>
-
-                                <details>
-                                    <summary class="appointment-button appointment-button-secondary appointment-button-small">
-                                        {% if is_arabic %}لم يحضر{% else %}No-show{% endif %}
-                                    </summary>
-                                    <form class="appointment-operation-form" method="post" action="{{ appointment.follow_up_no_show_url }}">
+                                    <form method="post" action="{{ appointment.follow_up_arrived_url }}">
                                         {% csrf_token %}
-                                        <div class="appointment-field">
-                                            <label for="no-show-note-{{ appointment.id }}">{% if is_arabic %}سبب عدم الحضور{% else %}No-show reason{% endif %}</label>
-                                            <textarea id="no-show-note-{{ appointment.id }}" name="note" maxlength="500" rows="3" required></textarea>
-                                        </div>
-                                        <button class="appointment-button appointment-button-danger appointment-button-small" type="submit">
-                                            {% if is_arabic %}تأكيد عدم الحضور{% else %}Confirm no-show{% endif %}
+                                        <button class="appointment-button appointment-button-primary appointment-button-small" type="submit">
+                                            {% if is_arabic %}وصل{% else %}Arrived{% endif %}
                                         </button>
                                     </form>
-                                </details>
 
-                                <a class="appointment-inline-link" href="{{ appointment.follow_up_detail_url }}">
-                                    {% if is_arabic %}فتح الموعد{% else %}Open appointment{% endif %}
-                                </a>
+                                    <details>
+                                        <summary class="appointment-button appointment-button-secondary appointment-button-small">
+                                            {% if is_arabic %}لم يحضر{% else %}No-show{% endif %}
+                                        </summary>
+                                        <form class="appointment-operation-form" method="post" action="{{ appointment.follow_up_no_show_url }}">
+                                            {% csrf_token %}
+                                            <div class="appointment-field">
+                                                <label for="no-show-note-{{ appointment.id }}">{% if is_arabic %}سبب عدم الحضور{% else %}No-show reason{% endif %}</label>
+                                                <textarea id="no-show-note-{{ appointment.id }}" name="note" maxlength="500" rows="3" required></textarea>
+                                            </div>
+                                            <button class="appointment-button appointment-button-danger appointment-button-small" type="submit">
+                                                {% if is_arabic %}تأكيد عدم الحضور{% else %}Confirm no-show{% endif %}
+                                            </button>
+                                        </form>
+                                    </details>
+
+                                    <a class="appointment-inline-link" href="{{ appointment.follow_up_detail_url }}">
+                                        {% if is_arabic %}فتح الموعد{% else %}Open appointment{% endif %}
+                                    </a>
                                 </div>
                             </td>
                         </tr>
@@ -144,14 +144,14 @@
                             <td>{{ appointment.follow_up_visit_type_label }}</td>
                             <td>
                                 <div class="appointment-row-actions">
-                                <a class="appointment-button appointment-button-secondary appointment-button-small" href="{{ appointment.follow_up_message_url }}">{% if is_arabic %}رسالة{% else %}Message{% endif %}</a>
-                                <form method="post" action="{{ appointment.follow_up_complete_url }}">
-                                    {% csrf_token %}
-                                    <button class="appointment-button appointment-button-primary appointment-button-small" type="submit">
-                                        {% if is_arabic %}إكمال الزيارة{% else %}Complete Visit{% endif %}
-                                    </button>
-                                </form>
-                                <a class="appointment-inline-link" href="{{ appointment.follow_up_detail_url }}">{% if is_arabic %}فتح الموعد{% else %}Open appointment{% endif %}</a>
+                                    <a class="appointment-button appointment-button-secondary appointment-button-small" href="{{ appointment.follow_up_message_url }}">{% if is_arabic %}رسالة{% else %}Message{% endif %}</a>
+                                    <form method="post" action="{{ appointment.follow_up_complete_url }}">
+                                        {% csrf_token %}
+                                        <button class="appointment-button appointment-button-primary appointment-button-small" type="submit">
+                                            {% if is_arabic %}إكمال الزيارة{% else %}Complete Visit{% endif %}
+                                        </button>
+                                    </form>
+                                    <a class="appointment-inline-link" href="{{ appointment.follow_up_detail_url }}">{% if is_arabic %}فتح الموعد{% else %}Open appointment{% endif %}</a>
                                 </div>
                             </td>
                         </tr>
