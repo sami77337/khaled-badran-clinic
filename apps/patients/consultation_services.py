@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from apps.patients.models import (
     CONSULTATION_MAX_ATTACHMENTS,
+    CONSULTATION_WHATSAPP_REPLY_CONSENT_VERSION,
     Consultation,
     ConsultationAttachment,
     ConsultationAudioReply,
@@ -62,7 +63,7 @@ def patient_can_delete_consultation(consultation, user):
     )
 
 
-def create_consultation(*, user, question, uploaded_files):
+def create_consultation(*, user, question, uploaded_files, whatsapp_reply_notifications_consent=False, consent_language="ar"):
     uploaded_files = list(uploaded_files or [])
     if len(uploaded_files) > CONSULTATION_MAX_ATTACHMENTS:
         raise ValueError("Too many consultation attachments.")
@@ -72,7 +73,16 @@ def create_consultation(*, user, question, uploaded_files):
         # Keep commit failures inside the same storage cleanup boundary.
         with transaction.atomic():
             patient = resolve_authenticated_patient(user)
-            consultation = Consultation.objects.create(patient=patient, question=question.strip())
+            evidence = {}
+            if whatsapp_reply_notifications_consent:
+                evidence = {
+                    "whatsapp_reply_consent_at": timezone.now(),
+                    "whatsapp_reply_consent_version": CONSULTATION_WHATSAPP_REPLY_CONSENT_VERSION,
+                    "whatsapp_reply_consent_language": "en" if consent_language == "en" else "ar",
+                }
+            consultation = Consultation.objects.create(
+                patient=patient, question=question.strip(), **evidence,
+            )
             for uploaded_file, metadata in zip(uploaded_files, metadata_items):
                 attachment = ConsultationAttachment(
                     consultation=consultation,

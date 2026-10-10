@@ -16,6 +16,11 @@
                 <p class="muted" data-consultation-safety-notice>{% if is_arabic %}هذه الخدمة ليست للطوارئ ولا تضمن ردًا فوريًا. في الحالة الطارئة اتصل بخدمات الطوارئ المحلية أو اطلب رعاية عاجلة. قد يطلب الطبيب مراجعة حضورية.{% else %}This service is not for emergencies and does not promise an immediate response. For an emergency, contact local emergency services or seek urgent care. The clinician may request an in-person visit.{% endif %}</p>
                 <div class="form-field">{{ form.question.label_tag }}{{ form.question }}{{ form.question.errors }}</div>
                 <div class="form-field">{{ form.attachments.label_tag }}{{ form.attachments }}{{ form.attachments.errors }}<p class="muted">{% if is_arabic %}حتى 5 ملفات: JPG أو PNG أو WebP أو PDF بحجم 10 ميجابايت لكل ملف، أو MP4 قصير بحجم 50 ميجابايت.{% else %}Up to 5 files: JPG, PNG, WebP, or PDF up to 10 MiB each; short MP4 up to 50 MiB.{% endif %}</p></div>
+                <div class="form-field form-check" data-consultation-whatsapp-consent>
+                    {{ form.whatsapp_reply_notifications_consent }}
+                    <label for="{{ form.whatsapp_reply_notifications_consent.id_for_label }}">{{ form.whatsapp_reply_notifications_consent.label }}</label>
+                    {{ form.whatsapp_reply_notifications_consent.errors }}
+                </div>
                 <div class="patient-form-actions"><button class="patient-primary-action" type="submit">{% if is_arabic %}إرسال الاستشارة{% else %}Submit Consultation{% endif %}</button><a class="patient-secondary-action" href="{{ portal_consultations_url }}">{% if is_arabic %}إلغاء{% else %}Cancel{% endif %}</a></div>
             </form>
         </div>

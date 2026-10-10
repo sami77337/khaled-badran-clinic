@@ -13,7 +13,7 @@
         <h1>{% if is_arabic %}استشارة كزائر{% else %}Guest Consultation{% endif %}</h1>
         {% if patient_otp_temporary_mode and state != "detail" %}
         <p>{% if is_arabic %}يمكنك إرسال استشارة دون رمز تحقق مؤقتًا. سيبقى رقم الهاتف غير متحقق منه. عرض الاستشارة والرد عبر هذا المسار غير متاح حاليًا.{% else %}You can temporarily submit a consultation without a verification code. Your phone remains unverified. Viewing the consultation and reply through this submission path is currently unavailable.{% endif %}</p>
-        {% else %}<p>{% if is_arabic %}أرسل استشارتك واقرأ الرد الكامل هنا بأمان. نستخدم واتساب للتحقق والتنبيهات وروابط الوصول الآمن.{% else %}Submit your consultation and read the full reply securely here. WhatsApp is used for verification, notifications, and secure access links.{% endif %}</p>{% endif %}
+        {% else %}<p>{% if is_arabic %}أرسل استشارتك واقرأ الرد الكامل هنا بأمان. نستخدم واتساب للتحقق وروابط الوصول الآمن. إشعار الرد اختياري ويحتاج موافقتك.{% else %}Submit your consultation and read the full reply securely here. WhatsApp verifies access; reply alerts are optional and require your consent.{% endif %}</p>{% endif %}
     </header>
     {% if error_message %}<div class="guest-alert" role="alert">{{ error_message }}</div>{% endif %}
     {% if state == "phone" or state == "reverify" %}
@@ -86,6 +86,12 @@
             {% else %}<p>{% if is_arabic %}بانتظار رد العيادة. لم يُضف رد بعد.{% else %}Awaiting the clinic’s reply. No reply has been added yet.{% endif %}</p>{% endif %}
             {% if audio_url %}<audio class="guest-media" controls preload="metadata" aria-label="{% if is_arabic %}رد الطبيب الصوتي{% else %}Doctor voice reply{% endif %}"><source src="{{ audio_url }}" type="{{ consultation.audio_reply.content_type }}"></audio>{% endif %}
         </section>
+        {% if consultation.whatsapp_reply_consent_at and not consultation.whatsapp_reply_consent_withdrawn_at %}
+        <form method="post" class="guest-actions">
+            {% csrf_token %}
+            <button type="submit" name="action" value="withdraw_whatsapp_reply" class="btn btn-secondary">{% if is_arabic %}إيقاف إشعارات واتساب لهذه الاستشارة{% else %}Stop WhatsApp alerts for this consultation{% endif %}</button>
+        </form>
+        {% endif %}
         <a href="{{ entry_url }}">{% if is_arabic %}استشارة جديدة{% else %}New consultation{% endif %}</a>
     {% endif %}
 </div>

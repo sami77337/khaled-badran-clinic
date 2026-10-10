@@ -264,6 +264,12 @@ urlpatterns = [
         name="patient_portal_consultation_delete",
     ),
     path(
+        "portal/consultations/<uuid:public_id>/whatsapp-withdraw/",
+        patient_views.portal_consultation_whatsapp_withdraw,
+        {"language": "ar"},
+        name="patient_portal_consultation_whatsapp_withdraw",
+    ),
+    path(
         "portal/consultations/attachments/<uuid:public_id>/",
         patient_views.portal_consultation_attachment,
         {"language": "ar"},
@@ -381,6 +387,12 @@ urlpatterns = [
         patient_views.portal_consultation_delete,
         {"language": "en"},
         name="patient_portal_consultation_delete_en",
+    ),
+    path(
+        "en/portal/consultations/<uuid:public_id>/whatsapp-withdraw/",
+        patient_views.portal_consultation_whatsapp_withdraw,
+        {"language": "en"},
+        name="patient_portal_consultation_whatsapp_withdraw_en",
     ),
     path(
         "en/portal/consultations/attachments/<uuid:public_id>/",

@@ -46,14 +46,59 @@ def send_reply_notification(*, phone_e164, path, language):
         return False
 
 
+def send_reply_notification_if_consented(*, consultation_pk, guest=False):
+    """Recheck recorded purpose consent after commit and on any retry."""
+    try:
+        from apps.patients.models import (
+            CONSULTATION_WHATSAPP_REPLY_CONSENT_VERSION,
+            Consultation, TransientConsultation,
+        )
+
+        model = TransientConsultation if guest else Consultation
+        consultation = model.objects.filter(
+            pk=consultation_pk,
+            whatsapp_reply_consent_at__isnull=False,
+            whatsapp_reply_consent_version=CONSULTATION_WHATSAPP_REPLY_CONSENT_VERSION,
+            whatsapp_reply_consent_withdrawn_at__isnull=True,
+        ).select_related(*([] if guest else ["patient__user"])).first()
+        if consultation is None:
+            return False
+        # A later OTP verification cannot legitimize an alert to a guest
+        # number that was not verified at the original submission.
+        if guest and not consultation.phone_verified_at_submission:
+            return False
+
+        if guest:
+            phone = consultation.phone_e164
+        else:
+            from apps.patients import temporary_otp
+
+            owner = consultation.patient.user
+            if (
+                owner is None or not owner.is_active or owner.is_staff
+                or temporary_otp.is_unverified(owner)
+            ):
+                return False
+            phone = normalize_phone(owner.username)
+            if consultation.patient.phone_e164 != phone:
+                return False
+
+        language = consultation.whatsapp_reply_consent_language
+        language = "en" if language == "en" else "ar"
+        route = "guest_consultation_detail" if guest else "patient_portal_consultation_detail"
+        return send_reply_notification(
+            phone_e164=phone,
+            path=localized_url(route, language, public_id=consultation.public_id),
+            language=language,
+        )
+    except Exception:
+        # Database faults after commit must not surface clinical metadata or
+        # turn a successfully saved reply into an apparent failed submission.
+        logger.warning("Consultation reply alert consent check unavailable; saved reply retained.")
+        return False
+
 def schedule_reply_notification(consultation, *, guest=False):
-    language = consultation.language if guest else getattr(settings, "WHATSAPP_DEFAULT_LANGUAGE", "ar")
-    language = "en" if language == "en" else "ar"
-    phone = consultation.phone_e164 if guest else (
-        consultation.patient.whatsapp_phone_e164 or consultation.patient.phone_e164
-    )
-    route = "guest_consultation_detail" if guest else "patient_portal_consultation_detail"
+    """Queue only a PK; no phone, clinical text or authorization snapshot."""
     transaction.on_commit(partial(
-        send_reply_notification, phone_e164=phone,
-        path=localized_url(route, language, public_id=consultation.public_id), language=language,
+        send_reply_notification_if_consented, consultation_pk=consultation.pk, guest=guest,
     ))

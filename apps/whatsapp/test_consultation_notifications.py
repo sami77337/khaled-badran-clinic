@@ -1,12 +1,17 @@
+from datetime import timedelta
 from unittest.mock import Mock
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import resolve, reverse
+from django.utils import timezone
 
 from apps.patients.consultation_services import update_consultation_reply
-from apps.patients.models import Consultation, Patient, TransientConsultation
+from apps.patients.models import (
+    CONSULTATION_WHATSAPP_REPLY_CONSENT_VERSION,
+    Consultation, Patient, TransientConsultation, TransientConsultationChallenge,
+)
 from apps.whatsapp.actions import entry_actions
 from apps.whatsapp.notifications import REPLY_MESSAGES
 
@@ -16,10 +21,29 @@ class ConsultationWhatsAppTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.staff = get_user_model().objects.create_user(username="synthetic-notification-staff", is_staff=True)
-        cls.owner = get_user_model().objects.create_user(username="synthetic-notification-owner")
+        cls.owner = get_user_model().objects.create_user(username="+12025550101")
         cls.patient = Patient.objects.create(user=cls.owner, full_name="Synthetic", phone_e164="+12025550101")
-        cls.registered = Consultation.objects.create(patient=cls.patient, question="Synthetic sensitive question")
-        cls.guest = TransientConsultation.objects.create(phone_e164="+12025550102", question="Synthetic sensitive guest question", language="en")
+        evidence = {
+            "whatsapp_reply_consent_at": timezone.now(),
+            "whatsapp_reply_consent_version": CONSULTATION_WHATSAPP_REPLY_CONSENT_VERSION,
+            "whatsapp_reply_consent_language": "en",
+        }
+        cls.registered = Consultation.objects.create(
+            patient=cls.patient, question="Synthetic sensitive question", **evidence,
+        )
+        cls.guest = TransientConsultation.objects.create(
+            phone_e164="+12025550102", question="Synthetic sensitive guest question",
+            language="en", **evidence,
+        )
+        TransientConsultationChallenge.objects.create(
+            consultation=cls.guest,
+            session_digest="synthetic-verified-session",
+            phone_e164=cls.guest.phone_e164,
+            otp_digest="synthetic-otp-digest",
+            verified_at=cls.guest.created_at - timedelta(seconds=1),
+            expires_at=timezone.now() + timedelta(minutes=10),
+            grant_expires_at=timezone.now() + timedelta(minutes=10),
+        )
 
     def reply(self, consultation, text="Synthetic sensitive reply"):
         return update_consultation_reply(consultation=consultation, staff_user=self.staff, reply=text, status="answered")
@@ -39,9 +63,12 @@ class ConsultationWhatsAppTests(TestCase):
         for guest in (False, True):
             for language in ("ar", "en"):
                 item = self.guest if guest else self.registered
+                item.whatsapp_reply_consent_language = language
                 if guest:
                     item.language = language
-                    item.save(update_fields=["language"])
+                    item.save(update_fields=["language", "whatsapp_reply_consent_language"])
+                else:
+                    item.save(update_fields=["whatsapp_reply_consent_language"])
                 with self.settings(WHATSAPP_CONSULTATION_NOTIFICATION_SENDER=sender, WHATSAPP_DEFAULT_LANGUAGE=language):
                     with self.captureOnCommitCallbacks(execute=True):
                         self.reply(item, text="Synthetic sensitive reply " + language)
@@ -103,9 +130,25 @@ class ConsultationWhatsAppTests(TestCase):
 class ConsultationNotificationCommitTests(TransactionTestCase):
     def test_provider_exception_after_real_commit_preserves_both_reply_types(self):
         staff = get_user_model().objects.create_user(username="synthetic-commit-staff", is_staff=True)
-        patient = Patient.objects.create(full_name="Synthetic", phone_e164="+12025550101")
-        items = [Consultation.objects.create(patient=patient, question="Synthetic question"),
-                 TransientConsultation.objects.create(phone_e164="+12025550102", question="Synthetic question")]
+        owner = get_user_model().objects.create_user(username="+12025550101")
+        patient = Patient.objects.create(user=owner, full_name="Synthetic", phone_e164="+12025550101")
+        evidence = {
+            "whatsapp_reply_consent_at": timezone.now(),
+            "whatsapp_reply_consent_version": CONSULTATION_WHATSAPP_REPLY_CONSENT_VERSION,
+            "whatsapp_reply_consent_language": "ar",
+        }
+        items = [
+            Consultation.objects.create(patient=patient, question="Synthetic question", **evidence),
+            TransientConsultation.objects.create(phone_e164="+12025550102", question="Synthetic question", **evidence),
+        ]
+        guest = items[1]
+        TransientConsultationChallenge.objects.create(
+            consultation=guest, session_digest="synthetic-verified-session",
+            phone_e164=guest.phone_e164, otp_digest="synthetic-otp-digest",
+            verified_at=guest.created_at - timedelta(seconds=1),
+            expires_at=timezone.now() + timedelta(minutes=10),
+            grant_expires_at=timezone.now() + timedelta(minutes=10),
+        )
         for item in items:
             committed = []
             def fail_after_commit(*args):

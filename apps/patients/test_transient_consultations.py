@@ -115,6 +115,58 @@ class GuestConsultationTests(TestCase):
         self.assertContains(self.client.get(self.url("detail", guest)), "submitted successfully")
         self.assertContains(self.client.get(self.url("detail", guest)), "Awaiting")
 
+    def test_verified_guest_reply_alert_opt_in_withdrawal_requires_own_grant(self):
+        self.verify()
+        posted = self.client.post(self.url(language="en"), {
+            "action": "submit",
+            "question": "Synthetic opt-in consultation",
+            "whatsapp_reply_notifications_consent": "on",
+        })
+        self.assertEqual(posted.status_code, 302)
+        guest = TransientConsultation.objects.latest("pk")
+        self.assertIsNotNone(guest.whatsapp_reply_consent_at)
+        self.assertEqual(guest.whatsapp_reply_consent_language, "en")
+        detail = self.url("detail", guest, language="en")
+        self.assertContains(self.client.get(detail), "Stop WhatsApp alerts")
+
+        # Holding the URL (even with a different verified guest session)
+        # must not authorize consent withdrawal.
+        other = Client()
+        self.verify(other, phone="+12025550102")
+        rejected = other.post(detail, {"action": "withdraw_whatsapp_reply"})
+        self.assertIn(rejected.status_code, (403, 404))
+        guest.refresh_from_db()
+        self.assertIsNone(guest.whatsapp_reply_consent_withdrawn_at)
+
+        self.assertEqual(
+            self.client.post(detail, {"action": "withdraw_whatsapp_reply"}).status_code,
+            302,
+        )
+        guest.refresh_from_db()
+        self.assertIsNotNone(guest.whatsapp_reply_consent_withdrawn_at)
+        first = guest.whatsapp_reply_consent_withdrawn_at
+        self.assertEqual(
+            self.client.post(detail, {"action": "withdraw_whatsapp_reply"}).status_code,
+            302,
+        )
+        guest.refresh_from_db()
+        self.assertEqual(guest.whatsapp_reply_consent_withdrawn_at, first)
+        self.assertNotContains(self.client.get(detail), "Stop WhatsApp alerts")
+
+        sender = Mock(return_value=True)
+        with self.settings(
+            WHATSAPP_CONSULTATION_NOTIFICATION_SENDER=sender,
+            WHATSAPP_WEBSITE_ORIGIN="https://clinic.example.test",
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                update_consultation_reply(
+                    consultation=guest,
+                    staff_user=self.staff,
+                    reply="Synthetic private reply",
+                    status="answered",
+                )
+        sender.assert_not_called()
+
     def test_forwarded_url_alone_cannot_read(self):
         guest = self.guest()
         response = Client().get(self.url("detail", guest))

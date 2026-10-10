@@ -72,6 +72,13 @@ def guest_entry(request, language="ar", public_id=None):
     target = get_object_or_404(TransientConsultation, public_id=public_id) if public_id else None
     grant = access.active_grant(request, target)
     if target and grant:
+        if request.method == "POST" and request.POST.get("action") == "withdraw_whatsapp_reply":
+            TransientConsultation.objects.filter(
+                pk=target.pk,
+                whatsapp_reply_consent_at__isnull=False,
+                whatsapp_reply_consent_withdrawn_at__isnull=True,
+            ).update(whatsapp_reply_consent_withdrawn_at=timezone.now())
+            return redirect(_url(language, target))
         return _detail(request, target, language)
     if temporary_otp.enabled():
         if target:
@@ -99,6 +106,7 @@ def guest_entry(request, language="ar", public_id=None):
                     consultation = access.create_guest_consultation(request, language=language,
                         question=form.cleaned_data["question"], display_name=form.cleaned_data["display_name"],
                         uploaded_files=form.cleaned_data["attachments"],
+                        whatsapp_reply_notifications_consent=form.cleaned_data["whatsapp_reply_notifications_consent"],
                     )
                 except access.GuestAccessDenied:
                     return redirect(_url(language))
@@ -157,7 +165,7 @@ def _temporary_entry(request, language):
     state = "form" if phone else "phone"
     status, error = 200, ""
     phone_form = GuestPhoneForm(language=language)
-    form = GuestConsultationForm(language=language)
+    form = GuestConsultationForm(language=language, allow_whatsapp_notifications=False)
     if request.method == "GET" and request.session.pop("guest_consultation_temporary_receipt", False):
         state = "receipt"
     elif request.method == "POST":
@@ -172,7 +180,7 @@ def _temporary_entry(request, language):
                 request.session[access.TEMPORARY_PHONE_KEY] = candidate
                 return redirect(_url(language))
         elif action == "submit" and phone:
-            form = GuestConsultationForm(request.POST, request.FILES, language=language)
+            form = GuestConsultationForm(request.POST, request.FILES, language=language, allow_whatsapp_notifications=False)
             if not access.check_limit(request, "submit", phone):
                 error, status = COPY["limited"][language == "en"], 429
             elif form.is_valid():
