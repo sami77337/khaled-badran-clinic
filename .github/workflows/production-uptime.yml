@@ -79,6 +79,65 @@ jobs:
           check_endpoint "Arabic Home" "https://drkhaledbadran.com/"
           check_endpoint "English Home" "https://drkhaledbadran.com/en/"
 
+          # HTML HTTP 200 alone does not prove CSS/hero assets are deliverable.
+          # Probe public static content using an iPhone Safari UA. Only status,
+          # MIME and byte counts are printed; no HTML/body/patient data.
+          check_public_asset() {
+            local label="$1"
+            local url="$2"
+            local expected_mime="$3"
+            local result
+            local curl_exit
+            local status
+            local content_type
+            local downloaded_bytes
+
+            set +e
+            result="$(curl \
+              --location \
+              --silent \
+              --show-error \
+              --retry 2 \
+              --retry-delay 5 \
+              --retry-all-errors \
+              --max-time 20 \
+              --user-agent 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.7 Mobile/15E148 Safari/604.1' \
+              --header 'Cache-Control: no-cache' \
+              --output /dev/null \
+              --write-out "%{http_code}|%{content_type}|%{size_download}" \
+              "$url")"
+            curl_exit=$?
+            set -e
+            if [ "$curl_exit" -ne 0 ]; then
+              echo "::error title=$label unavailable::curl exited $curl_exit; no response body was printed"
+              failures=1
+              return
+            fi
+
+            IFS='|' read -r status content_type downloaded_bytes <<< "$result"
+            printf '%s status=%s type=%s downloaded_bytes=%s\n' "$label" "$status" "$content_type" "$downloaded_bytes"
+            if [ "$status" != "200" ]; then
+              echo "::error title=$label bad status::expected 200, saw $status"
+              failures=1
+            fi
+            case "$content_type" in
+              "$expected_mime"*) ;;
+              *)
+                echo "::error title=$label wrong MIME type::expected $expected_mime"
+                failures=1
+                ;;
+            esac
+            if awk "BEGIN { exit !(($downloaded_bytes + 0) < 1) }"; then
+              echo "::error title=$label empty asset::response contained no body bytes"
+              failures=1
+            fi
+          }
+
+          check_public_asset "iPhone site CSS" "https://drkhaledbadran.com/static/css/site.css" "text/css"
+          check_public_asset "iPhone public CSS" "https://drkhaledbadran.com/static/css/public.css" "text/css"
+          check_public_asset "iPhone homepage CSS" "https://drkhaledbadran.com/static/css/public-closeout.css" "text/css"
+          check_public_asset "iPhone hero image" "https://drkhaledbadran.com/static/img/clinic/clinic-interior-1.png" "image/png"
+
           redirect_result="$(curl --silent --show-error --output /dev/null --max-time 20 --write-out "%{http_code}|%{redirect_url}" "http://drkhaledbadran.com/health/")"
           IFS='|' read -r redirect_status redirect_url <<< "$redirect_result"
           printf 'HTTP redirect status=%s target=%s\n' "$redirect_status" "$redirect_url"
