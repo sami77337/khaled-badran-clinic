@@ -429,10 +429,17 @@ def portal_login(request, language="ar"):
         failure_code = "login_generic"
         if selected_role == "doctor":
             doctor_form = StaffLoginForm(request.POST, request=request, language=language)
-            if doctor_form.is_valid():
+            # Bound clinic-account guesses before calling authenticate().
+            # This never changes the existing named staff account or its session.
+            attempt_limit = rate_limits.check_staff_login_attempt_rate_limit(
+                request, username=request.POST.get("username", ""),
+            )
+            if not attempt_limit.allowed:
+                failure_code = "rate_limit"
+            elif doctor_form.is_valid():
                 auth_login(request, doctor_form.user)
                 return redirect(next_url or _doctor_dashboard_url(language))
-            if doctor_form.has_error("username", "required"):
+            elif doctor_form.has_error("username", "required"):
                 failure_code = "username_required"
             elif doctor_form.has_error("password", "required"):
                 failure_code = "password_required"
