@@ -21,7 +21,7 @@ from apps.clinic.models import Doctor, VisitType
 from apps.core.models import AuditLog
 from apps.core.test_utils import close_test_response
 from apps.patients.models import Patient
-from apps.patients.test_upload_fixtures import synthetic_media_bytes_of_size
+from apps.patients.test_upload_fixtures import synthetic_media_bytes, synthetic_media_bytes_of_size
 from apps.records.models import (
     IMAGE_MAX_BYTES,
     SHORT_VIDEO_MAX_BYTES,
@@ -716,6 +716,91 @@ class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
             media.full_clean()
 
         self.assertIn("file_size", context.exception.message_dict)
+
+    def test_private_images_support_jpeg_png_and_webp_signatures(self):
+        for name, mime in (
+            ("synthetic.jpg", "image/jpeg"),
+            ("synthetic.png", "image/png"),
+            ("synthetic.webp", "image/webp"),
+        ):
+            with self.subTest(name=name):
+                upload = SimpleUploadedFile(name, synthetic_media_bytes(mime), content_type=mime)
+                upload.seek(4)
+                media = RecordMedia(
+                    patient=self.create_patient(), media_type=RecordMedia.MediaType.IMAGE,
+                    file=upload,
+                )
+                media.full_clean()
+                self.assertEqual(upload.tell(), 4)
+
+    def test_spoofed_private_media_is_rejected_before_storage(self):
+        for name, mime, media_type in (
+            ("synthetic.jpg", "image/jpeg", RecordMedia.MediaType.IMAGE),
+            ("synthetic.png", "image/png", RecordMedia.MediaType.IMAGE),
+            ("synthetic.webp", "image/webp", RecordMedia.MediaType.IMAGE),
+            ("synthetic.mp4", "video/mp4", RecordMedia.MediaType.SHORT_VIDEO),
+        ):
+            with self.subTest(name=name):
+                fake = SimpleUploadedFile(
+                    name, b"invalid synthetic bytes", content_type=mime,
+                )
+                media = RecordMedia(
+                    patient=self.create_patient(), media_type=media_type, file=fake,
+                )
+                with self.assertRaises(ValidationError) as caught:
+                    media.save()
+                self.assertIn("file", caught.exception.message_dict)
+                self.assertNotIn(name, str(caught.exception))
+                self.assertFalse(RecordMedia.objects.filter(pk=media.pk).exists())
+
+    def test_private_image_extension_must_match_actual_mime(self):
+        media = RecordMedia(
+            patient=self.create_patient(),
+            media_type=RecordMedia.MediaType.IMAGE,
+            file=SimpleUploadedFile(
+                "synthetic.jpg", synthetic_media_bytes("image/png"),
+                content_type="image/png",
+            ),
+        )
+        with self.assertRaises(ValidationError):
+            media.full_clean()
+
+    def test_private_media_byte_length_forgery_is_rejected(self):
+        upload = self.synthetic_image_file(size=128)
+        upload.size = 64
+        media = RecordMedia(
+            patient=self.create_patient(),
+            media_type=RecordMedia.MediaType.IMAGE,
+            file=upload,
+        )
+        with self.assertRaises(ValidationError) as caught:
+            media.full_clean()
+        self.assertIn("file", caught.exception.message_dict)
+
+    def test_rejecting_private_media_replacement_preserves_existing_file(self):
+        media = self.create_record_media()
+        original_name = media.file.name
+        media.file = SimpleUploadedFile(
+            "replacement.jpg", b"not a real image", content_type="image/jpeg",
+        )
+        with self.assertRaises(ValidationError):
+            media.save()
+        media.refresh_from_db()
+        self.assertEqual(media.file.name, original_name)
+        self.assertTrue(media.file.storage.exists(original_name))
+
+    def test_metadata_only_change_does_not_reinspect_historical_file(self):
+        media = self.create_record_media()
+        original_name = media.file.name
+        with patch(
+            "apps.records.models.validate_private_upload_content",
+            side_effect=AssertionError("Historical file must not be read"),
+        ):
+            media.title = "Synthetic title edit without revalidating storage"
+            media.save(update_fields=["title"])
+        media.refresh_from_db()
+        self.assertEqual(media.file.name, original_name)
+        self.assertEqual(media.title, "Synthetic title edit without revalidating storage")
 
     def test_private_storage_url_is_unavailable_for_media_files(self):
         media = self.create_record_media()
