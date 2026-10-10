@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from apps.booking.models import Appointment
 from apps.booking.phone import normalize_phone
-from apps.patients.models import AccountPhoneChangeChallenge, Patient
+from apps.patients.models import AccountPhoneChangeChallenge, Consultation, Patient
 from apps.patients.otp import WhatsAppOtpServiceUnavailable, generate_otp_code, send_account_phone_change_otp
 from apps.patients import temporary_otp
 from apps.patients.profile_resolution import assert_profile_phone_available
@@ -144,6 +144,12 @@ def _apply_patient_phone_change(*, patient, challenge, old_account_phone, now):
         patient.whatsapp_phone_e164 = challenge.phone_e164
         update_fields.extend(["whatsapp_phone_raw", "whatsapp_phone_e164"])
     patient.save(update_fields=update_fields)
+    # A verified account-number change must not transfer prior reply-alert consent.
+    Consultation.objects.filter(
+        patient=patient,
+        whatsapp_reply_consent_at__isnull=False,
+        whatsapp_reply_consent_withdrawn_at__isnull=True,
+    ).update(whatsapp_reply_consent_withdrawn_at=now)
 
 
 def _create_and_send_challenge(
