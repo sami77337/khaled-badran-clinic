@@ -1,7 +1,7 @@
 """Synthetic-only consent and dispatch verification for WhatsApp consultation reply alerts."""
 
 from datetime import timedelta
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -181,6 +181,19 @@ class ConsultationReplyConsentTests(TestCase):
                     saved.whatsapp_reply_consent_language,
                     lang if accepted else "",
                 )
+
+    def test_dispatch_database_failure_is_nonfatal_and_privacy_safe(self):
+        c = self._create(consent=True)
+        with patch.object(Consultation.objects, "filter", side_effect=RuntimeError(
+            "SYNTHETIC-PRIVATE-PHONE-AND-MEDICAL-CONTENT"
+        )):
+            with self.assertLogs("apps.whatsapp.notifications", level="WARNING") as log:
+                self.assertFalse(
+                    send_reply_notification_if_consented(consultation_pk=c.pk)
+                )
+        self.assertNotIn(
+            "SYNTHETIC-PRIVATE-PHONE-AND-MEDICAL-CONTENT", " ".join(log.output)
+        )
 
     def test_old_reply_remains_available_in_portal_after_opt_out(self):
         c = self._create(consent=True)
