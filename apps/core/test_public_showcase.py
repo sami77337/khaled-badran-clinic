@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -208,7 +209,7 @@ class PublicCaseGroupingTests(TestCase):
         medical = RecordMedia.objects.create(
             patient=patient,
             media_type=RecordMedia.MediaType.IMAGE,
-            file=SimpleUploadedFile("medical.jpg", b"medical", content_type="image/jpeg"),
+            file=SimpleUploadedFile("medical.jpg", synthetic_media_bytes("image/jpeg", b"medical"), content_type="image/jpeg"),
             title="Private medical title",
             visibility=RecordMedia.Visibility.PRIVATE_ONLY,
         )
