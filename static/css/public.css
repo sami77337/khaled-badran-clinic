@@ -1499,13 +1499,17 @@ summary:focus-visible {
     text-transform: uppercase;
 }
 
-/* Arabic joining must not be broken by Latin-style label tracking on Safari.
-   Keep existing approved families, sizes, colors and English spacing. */
-.is-rtl .eyebrow,
-.is-rtl .credential-chip,
-.is-rtl .footer-heading,
-.is-rtl .brand-subtitle {
-    letter-spacing: normal;
+/* Only iOS WebKit: prevent Latin-style label tracking from interfering
+   with Arabic joining. Other devices and approved font styles are unchanged. */
+@supports (-webkit-touch-callout: none) {
+    @media (max-width: 767px) {
+        .is-rtl .eyebrow,
+        .is-rtl .credential-chip,
+        .is-rtl .footer-heading,
+        .is-rtl .brand-subtitle {
+            letter-spacing: normal;
+        }
+    }
 }
 
 .footer-links {
