@@ -100,6 +100,29 @@ Before launch:
 
 The app does not implement a custom staff MFA feature in Batch 11.
 
+## Shared Clinic Login Brute-Force Protection
+
+The existing Arabic/English Doctor / Staff sign-in form on the shared portal
+now applies the same **15-minute counter window** pattern already used for
+patient login, with independent counters for source IP and the submitted staff
+username. The username and IP are hashed in Redis/cache identity keys; no
+password, submitted username, account existence or source IP appears in the
+key. Exceeding either limit blocks authentication and uses the existing
+localized generic rate-limit notice without reflecting submitted credentials.
+
+Default limits mirror the existing patient portal security baseline:
+`STAFF_LOGIN_IP_ATTEMPTS_PER_WINDOW=30`,
+`STAFF_LOGIN_USERNAME_ATTEMPTS_PER_WINDOW=15`.
+The two limits are configurable through Django settings if an operational
+decision is made; there is no UI redesign, database migration or new auth
+backend. Patient rate-limit counters are separate and unaffected.
+
+**Scope boundary:** This covers the existing shared clinic login form, not
+Django's separate `/admin/` login endpoint or identity-provider MFA.
+Django Admin access, explicit staff idle-session timeout and MFA remain
+separate security decisions with deployment and user workflow verification.
+Do not treat this patch as a general staff account or legal compliance signoff.
+
 ## Superuser Minimization
 
 Superusers should be rare.
