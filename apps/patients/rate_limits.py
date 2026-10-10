@@ -13,6 +13,10 @@ DEFAULT_PORTAL_LINK_ATTEMPTS_PER_HOUR = 12
 DEFAULT_PORTAL_LINK_PHONE_ATTEMPTS_PER_HOUR = 12
 DEFAULT_PORTAL_LOGIN_IP_ATTEMPTS_PER_WINDOW = 30
 DEFAULT_PORTAL_LOGIN_PHONE_ATTEMPTS_PER_WINDOW = 15
+# Follow the established 15-minute portal throttling baseline, with
+# independent counters for the clinic Doctor / Staff sign-in path.
+DEFAULT_STAFF_LOGIN_IP_ATTEMPTS_PER_WINDOW = DEFAULT_PORTAL_LOGIN_IP_ATTEMPTS_PER_WINDOW
+DEFAULT_STAFF_LOGIN_USERNAME_ATTEMPTS_PER_WINDOW = DEFAULT_PORTAL_LOGIN_PHONE_ATTEMPTS_PER_WINDOW
 DEFAULT_PORTAL_REGISTRATION_IP_ATTEMPTS_PER_HOUR = 20
 DEFAULT_PORTAL_REGISTRATION_PHONE_ATTEMPTS_PER_DAY = 8
 
@@ -145,6 +149,40 @@ def check_login_attempt_rate_limit(request, *, normalized_phone=""):
             )
         )
 
+    return _first_blocked(results)
+
+
+def check_staff_login_attempt_rate_limit(request, *, username=""):
+    """Bound attempts by source IP and claimed staff username independently.
+
+    All cache identities are SHA-256 hashed by _rate_limit. Never put staff
+    usernames, submitted passwords, or other credentials in cache keys/logs.
+    """
+    results = [
+        _rate_limit(
+            "staff-login-ip-window",
+            _ip_identity(request),
+            limit=_setting_int(
+                "STAFF_LOGIN_IP_ATTEMPTS_PER_WINDOW",
+                DEFAULT_STAFF_LOGIN_IP_ATTEMPTS_PER_WINDOW,
+            ),
+            timeout=PORTAL_LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+            message=GENERIC_PORTAL_RATE_LIMIT_MESSAGE,
+        )
+    ]
+    if str(username or "").strip():
+        results.append(
+            _rate_limit(
+                "staff-login-username-window",
+                str(username).strip(),
+                limit=_setting_int(
+                    "STAFF_LOGIN_USERNAME_ATTEMPTS_PER_WINDOW",
+                    DEFAULT_STAFF_LOGIN_USERNAME_ATTEMPTS_PER_WINDOW,
+                ),
+                timeout=PORTAL_LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+                message=GENERIC_PORTAL_RATE_LIMIT_MESSAGE,
+            )
+        )
     return _first_blocked(results)
 
 
