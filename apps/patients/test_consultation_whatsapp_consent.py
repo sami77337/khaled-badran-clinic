@@ -171,6 +171,22 @@ class ConsultationReplyConsentTests(TestCase):
             self.assertFalse(send_reply_notification_if_consented(consultation_pk=consultation.pk))
         sender.assert_not_called()
 
+    def test_same_number_phone_verification_keeps_existing_reply_consent(self):
+        from apps.patients.phone_change import _apply_patient_phone_change
+
+        consultation = self._create(consent=True)
+        unchanged_number = SimpleNamespace(
+            phone_raw=self.owner.username,
+            phone_e164=self.owner.username,
+            propagate_to_upcoming_appointments=False,
+        )
+        _apply_patient_phone_change(
+            patient=self.patient, challenge=unchanged_number,
+            old_account_phone=self.owner.username, now=timezone.now(),
+        )
+        consultation.refresh_from_db()
+        self.assertIsNone(consultation.whatsapp_reply_consent_withdrawn_at)
+
     def test_registered_owner_can_withdraw_with_post_and_wrong_user_cannot(self):
         c = self._create(consent=True)
         url = reverse(
