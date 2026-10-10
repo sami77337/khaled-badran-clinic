@@ -156,9 +156,9 @@ class BookingTestDataMixin:
 
 
 class AnonymousBookingPatientContactIsolationTests(BookingTestDataMixin, TestCase):
-    def test_anonymous_booking_keeps_linked_patient_contact_unchanged(self):
+    def test_anonymous_booking_cannot_attach_to_registered_patient_by_phone(self):
         owner = self.create_user(username="+962791234567")
-        patient = Patient.objects.create(
+        linked = Patient.objects.create(
             user=owner,
             full_name="Synthetic Account Patient",
             phone_raw="0791234567",
@@ -173,16 +173,80 @@ class AnonymousBookingPatientContactIsolationTests(BookingTestDataMixin, TestCas
             whatsapp_phone_raw="+962790000000",
             visit_type_id=visit_type.pk,
             starts_at=slot.starts_at,
+            booking_note="Synthetic unverified guest booking",
             whatsapp_notifications_consent=False,
         )
-        patient.refresh_from_db()
-        self.assertEqual(appointment.patient_id, patient.pk)
+        linked.refresh_from_db()
+        self.assertNotEqual(appointment.patient_id, linked.pk)
+        self.assertIsNone(appointment.patient.user_id)
+        self.assertEqual(appointment.patient.full_name, "Synthetic Anonymous Booker")
+        self.assertEqual(appointment.patient.phone_e164, linked.phone_e164)
         self.assertEqual(appointment.whatsapp_phone_e164, "+962790000000")
-        self.assertEqual(appointment.contact_phone_e164, "+962791234567")
-        self.assertIsNone(appointment.booking_whatsapp_consent_at)
-        self.assertEqual(patient.full_name, "Synthetic Account Patient")
-        self.assertEqual(patient.phone_raw, "0791234567")
-        self.assertEqual(patient.whatsapp_phone_e164, "+962791234567")
+        self.assertEqual(appointment.contact_phone_e164, linked.phone_e164)
+        self.assertEqual(linked.full_name, "Synthetic Account Patient")
+        self.assertEqual(linked.phone_raw, "0791234567")
+        self.assertEqual(linked.whatsapp_phone_e164, "+962791234567")
+        self.assertFalse(
+            Appointment.objects.filter(patient__user=owner, pk=appointment.pk).exists()
+        )
+        self.client.force_login(owner)
+        self.assertEqual(
+            self.client.get(reverse(
+                "patient_portal_appointment_detail",
+                kwargs={"public_token": appointment.public_token},
+            )).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.get(reverse(
+                "patient_portal_appointment_detail_en",
+                kwargs={"public_token": appointment.public_token},
+            )).status_code,
+            404,
+        )
+
+    def test_guest_reuses_unlinked_profile_instead_of_matching_linked_patient(self):
+        self_owner = self.create_user(username="+962791234567")
+        linked = Patient.objects.create(
+            user=self_owner,
+            full_name="Synthetic Protected Patient",
+            phone_e164="+962791234567",
+        )
+        unlinked = Patient.objects.create(
+            full_name="Synthetic Unlinked Patient",
+            phone_raw="0791234567",
+            phone_e164="+962791234567",
+        )
+        _doctor, visit_type, _day, slot = self.setup_public_booking()
+        appointment = services.create_public_appointment(
+            full_name="Synthetic Guest",
+            phone_raw="+962791234567",
+            visit_type_id=visit_type.pk,
+            starts_at=slot.starts_at,
+        )
+        self.assertEqual(appointment.patient_id, unlinked.pk)
+        self.assertNotEqual(appointment.patient_id, linked.pk)
+
+    def test_authenticated_booking_still_uses_own_linked_patient(self):
+        owner = self.create_user(username="+962791234567")
+        linked = Patient.objects.create(
+            user=owner,
+            full_name="Synthetic Verified Account Patient",
+            phone_raw="0791234567",
+            phone_e164="+962791234567",
+        )
+        _doctor, visit_type, _day, slot = self.setup_public_booking()
+        appointment = services.create_public_appointment(
+            full_name="Synthetic Verified Account Patient",
+            phone_raw="+962791234567",
+            visit_type_id=visit_type.pk,
+            starts_at=slot.starts_at,
+            authenticated_user=owner,
+        )
+        self.assertEqual(appointment.patient_id, linked.pk)
+        self.assertTrue(
+            Appointment.objects.filter(patient__user=owner, pk=appointment.pk).exists()
+        )
 
     def test_anonymous_booking_preserves_unlinked_patient_update_flow(self):
         patient = Patient.objects.create(
