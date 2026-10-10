@@ -113,7 +113,7 @@ class TemporaryProfileRegistrationTests(TemporaryModeFixture):
         media_url = reverse("patient_portal_medical_record_media_download_en", kwargs={"public_id": media.public_id})
         response = self.client.get(media_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(b"".join(response.streaming_content), b"synthetic-media")
+        self.assertEqual(b"".join(response.streaming_content), synthetic_media_bytes("image/jpeg", b"synthetic-media"))
         response.close()
         with self.assertRaises(ValueError):
             _ = media.file.url
