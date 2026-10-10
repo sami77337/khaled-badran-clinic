@@ -21,6 +21,7 @@ from apps.clinic.models import Doctor, VisitType
 from apps.core.models import AuditLog
 from apps.core.test_utils import close_test_response
 from apps.patients.models import Patient
+from apps.patients.test_upload_fixtures import synthetic_media_bytes_of_size
 from apps.records.models import (
     IMAGE_MAX_BYTES,
     SHORT_VIDEO_MAX_BYTES,
@@ -106,7 +107,7 @@ class PatientRecordTestDataMixin:
         content_type="image/jpeg",
         size=128,
     ):
-        return SimpleUploadedFile(name, b"i" * size, content_type=content_type)
+        return SimpleUploadedFile(name, synthetic_media_bytes_of_size(content_type, size), content_type=content_type)
 
     def synthetic_video_file(
         self,
@@ -114,7 +115,7 @@ class PatientRecordTestDataMixin:
         content_type="video/mp4",
         size=256,
     ):
-        return SimpleUploadedFile(name, b"v" * size, content_type=content_type)
+        return SimpleUploadedFile(name, synthetic_media_bytes_of_size(content_type, size), content_type=content_type)
 
     def create_record_media(self, media_type=RecordMedia.MediaType.IMAGE, file=None, **kwargs):
         patient = kwargs.pop("patient", None) or self.create_patient()
@@ -777,7 +778,7 @@ class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
         self.assertTrue(response.get("Content-Disposition", "").startswith("attachment;"))
         self.assertNotIn(str(settings.PRIVATE_MEDIA_ROOT), response.get("Content-Disposition", ""))
-        self.assertEqual(b"".join(response.streaming_content), b"i" * 32)
+        self.assertEqual(b"".join(response.streaming_content), synthetic_media_bytes_of_size("image/jpeg", 32))
 
     def test_staff_delivery_rejects_cross_patient_uuid_substitution(self):
         media = self.create_record_media(file=self.synthetic_image_file(size=32))
@@ -843,7 +844,7 @@ class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
         self.assertIn(f"record-media-{media.public_id}.jpg", disposition)
         self.assertNotIn("private-clinical-name", disposition)
         self.assertNotIn(str(settings.PRIVATE_MEDIA_ROOT), disposition)
-        self.assertEqual(b"".join(response.streaming_content), b"i" * 32)
+        self.assertEqual(b"".join(response.streaming_content), synthetic_media_bytes_of_size("image/jpeg", 32))
 
     def test_staff_inline_view_rejects_trashed_or_missing_storage_media(self):
         staff = self.create_user(username="records-unavailable-view-staff", is_staff=True)
