@@ -1499,6 +1499,19 @@ summary:focus-visible {
     text-transform: uppercase;
 }
 
+/* Only iOS WebKit: prevent Latin-style label tracking from interfering
+   with Arabic joining. Other devices and approved font styles are unchanged. */
+@supports (-webkit-touch-callout: none) {
+    @media (max-width: 767px) {
+        .is-rtl .eyebrow,
+        .is-rtl .credential-chip,
+        .is-rtl .footer-heading,
+        .is-rtl .brand-subtitle {
+            letter-spacing: normal;
+        }
+    }
+}
+
 .footer-links {
     display: grid;
     gap: 0.75rem;

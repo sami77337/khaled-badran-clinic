@@ -227,19 +227,29 @@ class BrandingContractTests(TestCase):
             self.assertContains(response, "css/brand-closeout.css")
             self.assert_approved_site_icons(response)
 
-    def test_iphone_mobile_headers_keep_approved_logo_visible(self):
+    def test_iphone_logo_uses_same_transparent_mark_as_other_devices(self):
         stylesheet = (
             settings.BASE_DIR / "static" / "css" / "brand-closeout.css"
         ).read_text(encoding="utf-8")
+        self.assertIn(".kb-brand-image {", stylesheet)
+        self.assertIn("object-fit: contain;", stylesheet)
+        self.assertIn(".public-brand-logo {", stylesheet)
+        self.assertIn("@media (max-width: 640px)", stylesheet)
+        # White WebKit-only panels masked the existing approved image.
+        self.assertNotIn("@supports (-webkit-touch-callout: none)", stylesheet)
+        self.assertNotIn("background: #FFFFFF;", stylesheet)
 
-        self.assertIn("@supports (-webkit-touch-callout: none)", stylesheet)
-        self.assertIn("@media (max-width: 767px)", stylesheet)
-        self.assertIn(".site-header .public-brand-logo", stylesheet)
-        self.assertIn(
-            ".dashboard-mobile-header .dashboard-mobile-monogram",
-            stylesheet,
+    def test_public_arabic_labels_keep_joined_script_without_tracking(self):
+        css = (
+            settings.BASE_DIR / "static" / "css" / "public.css"
+        ).read_text(encoding="utf-8")
+        self.assertRegex(
+            css,
+            r"\.is-rtl \.eyebrow,\s*\.is-rtl \.credential-chip,"
+            r"\s*\.is-rtl \.footer-heading,\s*\.is-rtl \.brand-subtitle"
+            r"\s*\{\s*letter-spacing:\s*normal;",
         )
-        self.assertIn("background: #FFFFFF;", stylesheet)
+        self.assertIn("font-family: \"Noto Kufi Arabic\"", css)
 
     def test_each_site_icon_checks_its_own_asset_availability(self):
         for missing_path in (
