@@ -12,6 +12,7 @@ from django.db.models.sql.compiler import SQLCompiler
 from django.test import TestCase
 
 from apps.patients import consultation_services
+from apps.patients.clinical_test_utils import grant_clinical_reply_permissions
 from apps.patients.models import (
     Consultation, ConsultationAttachment, ConsultationAudioReply, Patient,
 )
@@ -22,6 +23,7 @@ class ConsultationPostgreSQLLockTests(TestCase):
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_user(username="synthetic-lock-owner")
         cls.staff = get_user_model().objects.create_user(username="synthetic-lock-staff", is_staff=True)
+        grant_clinical_reply_permissions(cls.staff)
         cls.patient = Patient.objects.create(user=cls.user, full_name="Synthetic lock patient")
 
     @contextmanager

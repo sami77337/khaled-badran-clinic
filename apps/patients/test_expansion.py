@@ -18,6 +18,7 @@ from apps.clinic.models import Doctor, DoctorSchedule, VisitType
 from apps.core.models import SystemSetting
 from apps.core.test_utils import close_test_response
 from apps.patients import phone_change
+from apps.patients.clinical_test_utils import grant_clinical_reply_permissions
 from apps.patients.models import (
     CONSULTATION_IMAGE_MAX_BYTES,
     AccountPhoneChangeChallenge,
@@ -346,6 +347,7 @@ class ConsultationExpansionTests(ExpansionTestMixin, TestCase):
         self.user_b = self.create_user(phone="+962790000702", name="Synthetic Patient B")
         self.patient_b = self.create_patient(user=self.user_b, phone=self.user_b.username, name="Synthetic Patient B")
         self.staff = self.create_user(phone="synthetic-staff", staff=True, name="Synthetic Doctor")
+        grant_clinical_reply_permissions(self.staff)
 
     def tearDown(self):
         self.override.disable()

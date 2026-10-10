@@ -4930,7 +4930,12 @@ def dashboard_consultation_detail(request, public_id, guest=False):
         public_id=public_id,
     )
     has_audio_reply = consultation_services.consultation_has_audio_reply(consultation)
+    can_reply_to_consultation = consultation_services.can_author_clinical_reply(
+        request.user, guest=guest
+    )
     if request.method == "POST":
+        if not can_reply_to_consultation:
+            return HttpResponseForbidden("Clinical reply permission required.")
         form = ConsultationReplyForm(
             request.POST,
             request.FILES,
@@ -4986,6 +4991,7 @@ def dashboard_consultation_detail(request, public_id, guest=False):
         status_label=_dashboard_consultation_status_label(consultation.status, language),
         form=form,
         is_guest=guest,
+        can_reply_to_consultation=can_reply_to_consultation,
         notification_unavailable=not (getattr(settings, "WHATSAPP_CONSULTATION_NOTIFICATION_SENDER", "") and getattr(settings, "WHATSAPP_WEBSITE_ORIGIN", "")),
         staff_attachment_route="dashboard_guest_consultation_attachment" if guest else "dashboard_consultation_attachment",
         staff_audio_route="dashboard_guest_consultation_audio_reply" if guest else "dashboard_consultation_audio_reply",

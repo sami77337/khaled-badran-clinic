@@ -5,6 +5,8 @@ from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.db import DatabaseError, transaction
 from django.utils import timezone
 
+from apps.patients.clinic_roles import may_author_clinical_reply
+
 from apps.patients.models import (
     CONSULTATION_MAX_ATTACHMENTS,
     Consultation,
@@ -111,6 +113,15 @@ def create_consultation(*, user, question, uploaded_files):
     return consultation
 
 
+def can_author_clinical_reply(user, *, guest=False):
+    """Require an exclusive Doctor clinic role AND scoped Django model permission."""
+    permission = (
+        "patients.change_transientconsultation"
+        if guest else "patients.change_consultation"
+    )
+    return bool(may_author_clinical_reply(user) and user.has_perm(permission))
+
+
 def update_consultation_reply(
     *,
     consultation,
@@ -120,9 +131,9 @@ def update_consultation_reply(
     audio_file=None,
     remove_audio=False,
 ):
-    if not staff_user.is_active or not staff_user.is_staff:
-        raise PermissionDenied("Staff access required.")
     guest = isinstance(consultation, TransientConsultation)
+    if not can_author_clinical_reply(staff_user, guest=guest):
+        raise PermissionDenied("Clinical reply permission required.")
     consultation_model = TransientConsultation if guest else Consultation
     audio_model = TransientConsultationAudioReply if guest else ConsultationAudioReply
     audio_metadata = validate_consultation_audio_upload(audio_file) if audio_file else None

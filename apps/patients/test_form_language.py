@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils import timezone, translation
 from django.utils.html import escape
 
+from apps.patients.clinical_test_utils import grant_clinical_reply_permissions
 from apps.patients.models import AccountPhoneChangeChallenge, AppointmentLinkRecoveryChallenge, Consultation, Patient
 
 
@@ -21,6 +22,7 @@ class PageFormLanguageTests(TestCase):
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_user(username="+962790008801", password=cls.password)
         cls.staff = get_user_model().objects.create_user(username="synthetic-locale-staff", is_staff=True)
+        grant_clinical_reply_permissions(cls.staff)
         cls.patient = Patient.objects.create(user=cls.user, full_name="Synthetic locale patient")
         cls.consultation = Consultation.objects.create(patient=cls.patient, question="Synthetic question")
         for model in (AccountPhoneChangeChallenge, AppointmentLinkRecoveryChallenge):

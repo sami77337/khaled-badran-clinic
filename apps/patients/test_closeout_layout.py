@@ -22,6 +22,7 @@ from apps.booking.models import Appointment
 from apps.clinic.models import Doctor, VisitType
 from apps.core.models import PublicReview
 from apps.patients import views as patient_views
+from apps.patients.clinical_test_utils import grant_clinical_reply_permissions
 from apps.patients.models import Consultation, ConsultationAttachment, ConsultationNotification, Patient
 from apps.records.models import ClinicalNote, PublicCase, PublicCaseMedia, RecordMedia, RecordMediaFolder
 
@@ -109,6 +110,7 @@ class FinalCloseoutLayoutTests(TestCase):
             self.skipTest("Install Chromium or set KBC_QA_BROWSER for closeout layout QA")
         user = get_user_model().objects.create_user(username="synthetic-closeout-patient")
         staff = get_user_model().objects.create_user(username="synthetic-closeout-staff", is_staff=True)
+        grant_clinical_reply_permissions(staff)
         patient = Patient.objects.create(
             user=user,
             full_name="PRIVATE-PATIENT-PII-SENTINEL",

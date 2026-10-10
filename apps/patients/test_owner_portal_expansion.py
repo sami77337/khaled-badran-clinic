@@ -15,6 +15,7 @@ from django.utils import timezone
 from apps.booking.models import Appointment
 from apps.clinic.models import Doctor, VisitType
 from apps.patients import consultation_services, link_recovery, phone_change
+from apps.patients.clinical_test_utils import grant_clinical_reply_permissions
 from apps.patients.models import (
     AccountPhoneChangeChallenge,
     AppointmentLinkRecoveryChallenge,
@@ -331,6 +332,7 @@ class ConsultationSafeDeleteTests(OwnerExpansionMixin, TestCase):
         self.user = self.create_user("+962790200001")
         self.other = self.create_user("+962790200002")
         self.staff = self.create_user("owner-staff", staff=True)
+        grant_clinical_reply_permissions(self.staff)
         self.patient = self.create_patient(self.user.username, user=self.user)
         self.other_patient = self.create_patient(self.other.username, user=self.other)
 

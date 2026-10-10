@@ -22,6 +22,7 @@ from apps.booking.models import Appointment
 from apps.booking.services import create_public_appointment
 from apps.clinic.models import Doctor, DoctorSchedule, VisitType
 from apps.patients import consultation_services, transient_services
+from apps.patients.clinical_test_utils import grant_clinical_reply_permissions
 from apps.patients.models import Consultation, ConsultationNotification, Patient, TransientConsultationChallenge
 from .logging import PushPrivacyFilter, push_delivery_in_progress
 from .models import StaffPushSubscription
@@ -363,6 +364,7 @@ class DeliveryTests(PushFixture, TestCase):
 class CreationTests(PushFixture, TransactionTestCase):
     def setUp(self):
         super().setUp()
+        grant_clinical_reply_permissions(self.staff)
         self.subscription()
         self.doctor = Doctor.objects.create(full_name_ar="طبيب تجريبي", full_name_en="Synthetic Doctor", is_active=True)
         self.visit_type = VisitType.objects.create(doctor=self.doctor, name_ar="زيارة", name_en="Visit", duration_minutes=30, is_active=True)
