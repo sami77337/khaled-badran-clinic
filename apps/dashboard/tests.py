@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes
 from django.db import connection
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
@@ -147,7 +148,7 @@ class DashboardRecordWorkflowMixin:
         content=b"synthetic-image-bytes",
         content_type="image/jpeg",
     ):
-        return SimpleUploadedFile(name, content, content_type=content_type)
+        return SimpleUploadedFile(name, synthetic_media_bytes(content_type, content), content_type=content_type)
 
     def synthetic_video_file(
         self,
@@ -155,7 +156,7 @@ class DashboardRecordWorkflowMixin:
         content=b"synthetic-video-bytes",
         content_type="video/mp4",
     ):
-        return SimpleUploadedFile(name, content, content_type=content_type)
+        return SimpleUploadedFile(name, synthetic_media_bytes(content_type, content), content_type=content_type)
 
     def create_media(self, *, patient=None, media_type=RecordMedia.MediaType.IMAGE, file=None, **kwargs):
         patient = patient or self.create_patient()
