@@ -155,6 +155,56 @@ class BookingTestDataMixin:
         return doctor, visit_type, tomorrow, slots[0]
 
 
+class AnonymousBookingPatientContactIsolationTests(BookingTestDataMixin, TestCase):
+    def test_anonymous_booking_keeps_linked_patient_contact_unchanged(self):
+        owner = self.create_user(username="+962791234567")
+        patient = Patient.objects.create(
+            user=owner,
+            full_name="Synthetic Account Patient",
+            phone_raw="0791234567",
+            phone_e164="+962791234567",
+            whatsapp_phone_raw="0791234567",
+            whatsapp_phone_e164="+962791234567",
+        )
+        _doctor, visit_type, _day, slot = self.setup_public_booking()
+        appointment = services.create_public_appointment(
+            full_name="Synthetic Anonymous Booker",
+            phone_raw="+962791234567",
+            whatsapp_phone_raw="+962790000000",
+            visit_type_id=visit_type.pk,
+            starts_at=slot.starts_at,
+            whatsapp_notifications_consent=False,
+        )
+        patient.refresh_from_db()
+        self.assertEqual(appointment.patient_id, patient.pk)
+        self.assertEqual(appointment.whatsapp_phone_e164, "+962790000000")
+        self.assertEqual(appointment.contact_phone_e164, "+962791234567")
+        self.assertIsNone(appointment.booking_whatsapp_consent_at)
+        self.assertEqual(patient.full_name, "Synthetic Account Patient")
+        self.assertEqual(patient.phone_raw, "0791234567")
+        self.assertEqual(patient.whatsapp_phone_e164, "+962791234567")
+
+    def test_anonymous_booking_preserves_unlinked_patient_update_flow(self):
+        patient = Patient.objects.create(
+            full_name="Synthetic Unlinked Patient",
+            phone_raw="0791234567",
+            phone_e164="+962791234567",
+            whatsapp_phone_e164="+962791234567",
+        )
+        _doctor, visit_type, _day, slot = self.setup_public_booking()
+        appointment = services.create_public_appointment(
+            full_name="Synthetic Anonymous Booker",
+            phone_raw="+962791234567",
+            whatsapp_phone_raw="+962790000000",
+            visit_type_id=visit_type.pk,
+            starts_at=slot.starts_at,
+        )
+        patient.refresh_from_db()
+        self.assertEqual(appointment.patient_id, patient.pk)
+        self.assertEqual(patient.whatsapp_phone_e164, "+962790000000")
+        self.assertEqual(appointment.whatsapp_phone_e164, "+962790000000")
+
+
 class StaffBookingNotificationTests(BookingTestDataMixin, TestCase):
     def test_public_booking_creates_unseen_notification_for_each_active_staff(self):
         first_staff = self.create_staff_user("booking-notification-staff-one")
