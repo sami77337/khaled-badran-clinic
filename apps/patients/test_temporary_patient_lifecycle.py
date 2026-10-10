@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes
 from django.core.management import call_command
 from django.db import IntegrityError
 from django.db.models.signals import m2m_changed
@@ -103,7 +104,7 @@ class TemporaryProfileRegistrationTests(TemporaryModeFixture):
         media = RecordMedia.objects.create(
             patient=patient, title="Synthetic visible media", media_type=RecordMedia.MediaType.IMAGE,
             visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
-            file=SimpleUploadedFile("synthetic.jpg", b"synthetic-media", content_type="image/jpeg"),
+            file=SimpleUploadedFile("synthetic.jpg", synthetic_media_bytes("image/jpeg", b"synthetic-media"), content_type="image/jpeg"),
         )
         portal = self.client.get(self.url("patient_portal_medical_records"))
         self.assertContains(portal, visit.visit_reason)
@@ -112,7 +113,7 @@ class TemporaryProfileRegistrationTests(TemporaryModeFixture):
         media_url = reverse("patient_portal_medical_record_media_download_en", kwargs={"public_id": media.public_id})
         response = self.client.get(media_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(b"".join(response.streaming_content), b"synthetic-media")
+        self.assertEqual(b"".join(response.streaming_content), synthetic_media_bytes("image/jpeg", b"synthetic-media"))
         response.close()
         with self.assertRaises(ValueError):
             _ = media.file.url

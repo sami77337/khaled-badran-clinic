@@ -7,6 +7,8 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
+from apps.patients.upload_content import validate_private_upload_content
+
 from .storage import (
     private_record_media_storage,
     private_record_media_upload_path,
@@ -641,6 +643,25 @@ class RecordMedia(models.Model):
 
     def _validate_private_file(self):
         _validate_uploaded_media(self, required_message="Private media file is required.")
+        # Inspect only new/uncommitted private medical uploads. Historical media
+        # must not be opened, changed or revalidated on metadata-only edits.
+        if self.file and not getattr(self.file, "_committed", True):
+            upload = self._uploaded_file()
+            policy = self._media_policy()
+            if upload is None or policy is None:
+                raise ValidationError({"file": "Private media upload could not be verified."})
+            try:
+                validate_private_upload_content(
+                    upload,
+                    filename=self.original_filename or self.file.name,
+                    content_type=self.content_type,
+                    size=self.file_size,
+                    max_bytes=policy["max_bytes"],
+                )
+            except ValidationError:
+                raise ValidationError({
+                    "file": "Private medical upload content does not match its declared type."
+                }) from None
 
     def clean(self):
         self.populate_file_metadata()

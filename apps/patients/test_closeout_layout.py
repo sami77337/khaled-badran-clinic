@@ -169,7 +169,7 @@ class FinalCloseoutLayoutTests(TestCase):
                 folder = RecordMediaFolder.objects.create(patient=patient, name="W" * 120, created_by=staff)
                 RecordMedia.objects.create(
                     patient=patient, folder=folder, media_type=RecordMedia.MediaType.IMAGE,
-                    file=SimpleUploadedFile("synthetic.jpg", b"synthetic-media", content_type="image/jpeg"),
+                    file=SimpleUploadedFile("synthetic.jpg", synthetic_media_bytes("image/jpeg", b"synthetic-media"), content_type="image/jpeg"),
                     visibility=RecordMedia.Visibility.VISIBLE_TO_PATIENT,
                     title="W" * 180, description=long_text,
                 )

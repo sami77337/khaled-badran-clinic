@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes
 from django.db import connection
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
@@ -147,7 +148,7 @@ class DashboardRecordWorkflowMixin:
         content=b"synthetic-image-bytes",
         content_type="image/jpeg",
     ):
-        return SimpleUploadedFile(name, content, content_type=content_type)
+        return SimpleUploadedFile(name, synthetic_media_bytes(content_type, content), content_type=content_type)
 
     def synthetic_video_file(
         self,
@@ -155,7 +156,7 @@ class DashboardRecordWorkflowMixin:
         content=b"synthetic-video-bytes",
         content_type="video/mp4",
     ):
-        return SimpleUploadedFile(name, content, content_type=content_type)
+        return SimpleUploadedFile(name, synthetic_media_bytes(content_type, content), content_type=content_type)
 
     def create_media(self, *, patient=None, media_type=RecordMedia.MediaType.IMAGE, file=None, **kwargs):
         patient = patient or self.create_patient()
@@ -1421,6 +1422,26 @@ class DashboardCreateWorkflowTests(DashboardRecordWorkflowMixin, TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertContains(response, "امتداد ملف الصورة غير مدعوم.", status_code=400)
+        self.assertEqual(RecordMedia.objects.filter(patient=self.patient).count(), 0)
+
+    def test_fake_private_medical_image_is_rejected_by_staff_upload(self):
+        response = self.client.post(
+            reverse("dashboard_media_create", kwargs={"patient_id": self.patient.id}),
+            {
+                "visit": "",
+                "media_type": RecordMedia.MediaType.IMAGE,
+                "file": SimpleUploadedFile(
+                    "synthetic-fake-image.jpg",
+                    b"synthetic bytes without a JPEG signature",
+                    content_type="image/jpeg",
+                ),
+                "title": "Synthetic blocked upload",
+                "description": "No private medical file should be created.",
+                "visibility": RecordMedia.Visibility.PRIVATE_ONLY,
+                "is_active": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 400)
         self.assertEqual(RecordMedia.objects.filter(patient=self.patient).count(), 0)
 
     def test_generic_media_cannot_create_approved_public_case_orphan(self):

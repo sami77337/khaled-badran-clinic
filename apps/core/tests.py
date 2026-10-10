@@ -15,6 +15,7 @@ from unittest.mock import patch
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes
 from django.core.management import CommandError, call_command
 from django.db import connection
 from django.test import SimpleTestCase, TestCase, override_settings
@@ -1108,7 +1109,7 @@ class PublicCasesTestDataMixin:
         defaults = {
             "patient": patient,
             "media_type": RecordMedia.MediaType.IMAGE,
-            "file": self.synthetic_image_file(name="private-medical.jpg", content=b"medical"),
+            "file": SimpleUploadedFile("private-medical.jpg", synthetic_media_bytes("image/jpeg", b"medical"), content_type="image/jpeg"),
             "visibility": RecordMedia.Visibility.PRIVATE_ONLY,
             "title": "Private medical title",
             "description": "Private medical description",

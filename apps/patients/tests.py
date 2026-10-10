@@ -12,6 +12,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.patients.test_upload_fixtures import synthetic_media_bytes
 from django.db import connection
 from django.test import Client, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
@@ -1732,10 +1733,10 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         self.client.force_login(self.user)
 
     def synthetic_image_file(self, name="visible-image.jpg", content=b"image-bytes"):
-        return SimpleUploadedFile(name, content, content_type="image/jpeg")
+        return SimpleUploadedFile(name, synthetic_media_bytes("image/jpeg", content), content_type="image/jpeg")
 
     def synthetic_video_file(self, name="visible-video.mp4", content=b"video-bytes"):
-        return SimpleUploadedFile(name, content, content_type="video/mp4")
+        return SimpleUploadedFile(name, synthetic_media_bytes("video/mp4", content), content_type="video/mp4")
 
     def create_visit(self, *, patient=None, is_visible_to_patient=False, **kwargs):
         defaults = {
@@ -1998,7 +1999,7 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         self.assertNotIn("patient-visible-download.jpg", content_disposition)
         self.assertNotIn(str(settings.PRIVATE_MEDIA_ROOT), content_disposition)
         self.assertNotIn(media.file.name, content_disposition)
-        self.assertEqual(b"".join(response.streaming_content), b"download-bytes")
+        self.assertEqual(b"".join(response.streaming_content), synthetic_media_bytes("image/jpeg", b"download-bytes"))
         close_test_response(response)
 
     def test_linked_patient_cannot_access_disallowed_or_trashed_media(self):
