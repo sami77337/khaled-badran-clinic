@@ -418,18 +418,22 @@ def create_public_appointment(
                 whatsapp_phone_e164=normalized_whatsapp,
             )
         else:
-            changed_fields = []
-            updates = {
-                "phone_raw": phone_raw.strip(),
-                "whatsapp_phone_raw": (whatsapp_phone_raw or phone_raw).strip(),
-                "whatsapp_phone_e164": normalized_whatsapp,
-            }
-            for field, value in updates.items():
-                if getattr(patient, field) != value:
-                    setattr(patient, field, value)
-                    changed_fields.append(field)
-            if changed_fields:
-                patient.save(update_fields=changed_fields)
+            # Anonymous booking must not alter an account-owned Patient's
+            # profile/contact. The new appointment still records the exact
+            # contact numbers for its own scheduling and notifications.
+            if patient.user_id is None:
+                changed_fields = []
+                updates = {
+                    "phone_raw": phone_raw.strip(),
+                    "whatsapp_phone_raw": (whatsapp_phone_raw or phone_raw).strip(),
+                    "whatsapp_phone_e164": normalized_whatsapp,
+                }
+                for field, value in updates.items():
+                    if getattr(patient, field) != value:
+                        setattr(patient, field, value)
+                        changed_fields.append(field)
+                if changed_fields:
+                    patient.save(update_fields=changed_fields)
 
     appointment = Appointment(
         doctor=doctor,
