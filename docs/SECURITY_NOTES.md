@@ -36,6 +36,20 @@ consultations, or historical patient files are scanned or modified by this
 change. Separate private RecordMedia upload checks and comprehensive security
 retesting remain independently scoped.
 
+## New Private Medical Record Uploads
+
+`RecordMedia` now reuses the bounded content-signature checks already
+implemented for consultation attachments. For **new, uncommitted** clinical
+image and short-video uploads, the backend compares filename extension,
+declared MIME, actual signature and byte length before storing the file.
+Unverifiable uploads fail closed; the incoming stream position is restored.
+
+On an existing committed `RecordMedia` file, metadata edits, visibility
+changes, and patient record reads **do not reopen or revalidate** historical
+files. Nothing is migrated, rewritten, scanned or deleted automatically.
+The separate `PublicCaseMedia` publication/upload implementation is not
+modified. This is header validation, not a full decoder or malware scanner.
+
 ## Future Work
 
 Before production:
