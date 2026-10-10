@@ -865,6 +865,29 @@ class RecordMediaFileSecurityTests(PatientRecordTestDataMixin, TestCase):
         self.assertNotIn(str(settings.PRIVATE_MEDIA_ROOT), response.get("Content-Disposition", ""))
         self.assertEqual(b"".join(response.streaming_content), synthetic_media_bytes_of_size("image/jpeg", 32))
 
+    def test_private_media_storage_faults_return_generic_404(self):
+        media = self.create_record_media(file=self.synthetic_image_file(size=32))
+        self.client.force_login(
+            self.create_user(username="synthetic-storage-fault-staff", is_staff=True)
+        )
+        private_marker = "SYNTHETIC-PRIVATE-STORAGE-PATH-DO-NOT-EXPOSE"
+        for route_name in ("record_private_media_view", "record_private_media_download"):
+            url = reverse(
+                route_name,
+                kwargs={"patient_id": media.patient_id, "public_id": media.public_id},
+            )
+            for operation in ("exists", "open"):
+                with self.subTest(route=route_name, operation=operation):
+                    with patch.object(
+                        private_record_media_storage,
+                        operation,
+                        side_effect=OSError(private_marker),
+                    ):
+                        response = self.client.get(url)
+                    self.assertEqual(response.status_code, 404)
+                    self.assertNotIn(private_marker, response.content.decode())
+                    self.assertNotIn(media.file.name, response.content.decode())
+
     def test_staff_delivery_rejects_cross_patient_uuid_substitution(self):
         media = self.create_record_media(file=self.synthetic_image_file(size=32))
         other_patient = self.create_patient()

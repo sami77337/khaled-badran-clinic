@@ -36,13 +36,17 @@ def private_media_download(request, patient_id, public_id):
         is_active=True,
         trashed_at__isnull=True,
     )
-    if not media.file:
+    if not media.file_exists:
         raise Http404("Private media file is unavailable.")
-    if not media.file.storage.exists(media.file.name):
-        raise Http404("Private media file is unavailable.")
+    try:
+        file_handle = media.file.open("rb")
+    except (OSError, ValueError):
+        # Stored paths and storage back-end errors must not escape through
+        # unhandled traces during a missing-file or storage availability race.
+        raise Http404("Private media file is unavailable.") from None
 
     response = FileResponse(
-        media.file.open("rb"),
+        file_handle,
         as_attachment=True,
         filename=media.download_filename,
         content_type=media.content_type or "application/octet-stream",
@@ -61,13 +65,17 @@ def private_media_view(request, patient_id, public_id):
         is_active=True,
         trashed_at__isnull=True,
     )
-    if not media.file:
+    if not media.file_exists:
         raise Http404("Private media file is unavailable.")
-    if not media.file.storage.exists(media.file.name):
-        raise Http404("Private media file is unavailable.")
+    try:
+        file_handle = media.file.open("rb")
+    except (OSError, ValueError):
+        # Stored paths and storage back-end errors must not escape through
+        # unhandled traces during a missing-file or storage availability race.
+        raise Http404("Private media file is unavailable.") from None
 
     response = FileResponse(
-        media.file.open("rb"),
+        file_handle,
         as_attachment=False,
         filename=media.presentation_filename,
         content_type=media.content_type or "application/octet-stream",

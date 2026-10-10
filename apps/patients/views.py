@@ -367,13 +367,17 @@ def _password_change_form(user, data=None, language="ar"):
 
 
 def _patient_media_response(media):
-    if not media.file:
+    if not media.file_exists:
         raise Http404("Media unavailable.")
-    if not media.file.storage.exists(media.file.name):
-        raise Http404("Media unavailable.")
+    try:
+        file_handle = media.file.open("rb")
+    except (OSError, ValueError):
+        # Fail closed if private storage changes between existence and open,
+        # without logging its sensitive paths or provider error details.
+        raise Http404("Media unavailable.") from None
 
     response = FileResponse(
-        media.file.open("rb"),
+        file_handle,
         as_attachment=False,
         filename=_patient_media_presentation_filename(media),
         content_type=media.content_type or "application/octet-stream",
