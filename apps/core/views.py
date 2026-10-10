@@ -789,6 +789,7 @@ def _render_public(
     return render(request, template_name, context)
 
 
+@never_cache
 def home(request, language=DEFAULT_LANGUAGE):
     language = _normalize_language(language)
     services = _visit_types(language)

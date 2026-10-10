@@ -200,7 +200,7 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        "BACKEND": "apps.core.static_storage.ReleaseVersionedStaticFilesStorage",
     },
 }
 
