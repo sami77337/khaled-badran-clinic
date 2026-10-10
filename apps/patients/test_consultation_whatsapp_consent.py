@@ -1,6 +1,7 @@
 """Synthetic-only consent and dispatch verification for WhatsApp consultation reply alerts."""
 
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
@@ -123,6 +124,52 @@ class ConsultationReplyConsentTests(TestCase):
         urls = [call.args[2] for call in sender.call_args_list]
         self.assertTrue(all(u.startswith("https://clinic.example.test/") for u in urls))
         self.assertNotIn("Synthetic private", repr(sender.call_args_list))
+
+    def test_reply_alert_uses_verified_account_phone_not_public_booking_contact(self):
+        self.patient.whatsapp_phone_e164 = "+12025559999"
+        self.patient.save(update_fields=["whatsapp_phone_e164"])
+        consultation = self._create(consent=True)
+        sender = Mock(return_value=True)
+        with self.settings(WHATSAPP_CONSULTATION_NOTIFICATION_SENDER=sender):
+            with self.captureOnCommitCallbacks(execute=True):
+                self._reply(consultation)
+        sender.assert_called_once()
+        self.assertEqual(sender.call_args.args[0], self.owner.username)
+        self.assertNotEqual(sender.call_args.args[0], self.patient.whatsapp_phone_e164)
+
+    def test_temporary_unverified_account_cannot_receive_reply_alert(self):
+        from django.contrib.auth.models import Group
+        from apps.patients.temporary_otp import UNVERIFIED_GROUP
+
+        group, _ = Group.objects.get_or_create(name=UNVERIFIED_GROUP)
+        self.owner.groups.add(group)
+        consultation = self._create(consent=True)
+        sender = Mock(return_value=True)
+        with self.settings(WHATSAPP_CONSULTATION_NOTIFICATION_SENDER=sender):
+            with self.captureOnCommitCallbacks(execute=True):
+                self._reply(consultation)
+        sender.assert_not_called()
+
+    def test_verified_phone_change_withdraws_prior_reply_alert_consent(self):
+        from apps.patients.phone_change import _apply_patient_phone_change
+
+        consultation = self._create(consent=True)
+        change = SimpleNamespace(
+            phone_raw="+12025550199",
+            phone_e164="+12025550199",
+            propagate_to_upcoming_appointments=False,
+        )
+        timestamp = timezone.now()
+        _apply_patient_phone_change(
+            patient=self.patient, challenge=change,
+            old_account_phone=self.owner.username, now=timestamp,
+        )
+        consultation.refresh_from_db()
+        self.assertEqual(consultation.whatsapp_reply_consent_withdrawn_at, timestamp)
+        sender = Mock(return_value=True)
+        with self.settings(WHATSAPP_CONSULTATION_NOTIFICATION_SENDER=sender):
+            self.assertFalse(send_reply_notification_if_consented(consultation_pk=consultation.pk))
+        sender.assert_not_called()
 
     def test_registered_owner_can_withdraw_with_post_and_wrong_user_cannot(self):
         c = self._create(consent=True)
