@@ -6,7 +6,7 @@ from django.views.generic.base import RedirectView
 
 from apps.booking import views as booking_views
 from apps.booking import reschedule_views
-from apps.core import backup_dispatch, review_views, views
+from apps.core import admin_auth, backup_dispatch, review_views, views
 from apps.patients import account_close, account_views
 from apps.patients import views as patient_views
 from apps.patients import transient_views
@@ -424,6 +424,8 @@ urlpatterns = [
         {"language": "en"},
         name="patient_portal_appointment_cancel_en",
     ),
+    # The built-in Admin login is intercepted without replacing AdminSite or its permissions.
+    path("admin/login/", admin_auth.throttled_admin_login),
     path("admin/", admin.site.urls),
 ]
 
