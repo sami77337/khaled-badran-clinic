@@ -13,6 +13,7 @@ from django.utils.crypto import salted_hmac
 from apps.booking.phone import normalize_phone
 from apps.booking.rate_limits import get_client_ip
 from apps.patients.models import (
+    CONSULTATION_WHATSAPP_REPLY_CONSENT_VERSION,
     CONSULTATION_MAX_ATTACHMENTS, TransientConsultation,
     TransientConsultationAttachment, TransientConsultationChallenge,
     validate_consultation_upload,
@@ -138,9 +139,10 @@ def verify_challenge(request, *, challenge, code):
     return "verified" if valid else "invalid"
 
 
-def create_guest_consultation(request, *, question, display_name, uploaded_files, language):
+def create_guest_consultation(request, *, question, display_name, uploaded_files, language, whatsapp_reply_notifications_consent=False):
     return _create_guest_consultation(request, question=question, display_name=display_name,
-                                      uploaded_files=uploaded_files, language=language)
+                                      uploaded_files=uploaded_files, language=language,
+                                      whatsapp_reply_notifications_consent=whatsapp_reply_notifications_consent)
 
 
 def create_unverified_guest_consultation(request, *, question, display_name, uploaded_files, language):
@@ -157,7 +159,7 @@ def create_unverified_guest_consultation(request, *, question, display_name, upl
 
 
 def _create_guest_consultation(request, *, question, display_name, uploaded_files, language,
-                               unverified_phone=None):
+                               unverified_phone=None, whatsapp_reply_notifications_consent=False):
     files = list(uploaded_files or [])
     if len(files) > CONSULTATION_MAX_ATTACHMENTS:
         raise ValidationError("Too many attachments.")
@@ -172,10 +174,17 @@ def _create_guest_consultation(request, *, question, display_name, uploaded_file
                 ).order_by("-created_at").first()
                 if grant is None:
                     raise GuestAccessDenied("Verified entry grant required.")
+            evidence = {}
+            if unverified_phone is None and whatsapp_reply_notifications_consent:
+                evidence = {
+                    "whatsapp_reply_consent_at": timezone.now(),
+                    "whatsapp_reply_consent_version": CONSULTATION_WHATSAPP_REPLY_CONSENT_VERSION,
+                    "whatsapp_reply_consent_language": "en" if language == "en" else "ar",
+                }
             consultation = TransientConsultation(
                 phone_e164=unverified_phone if unverified_phone is not None else grant.phone_e164,
                 display_name=display_name.strip(),
-                question=question.strip(), language=language,
+                question=question.strip(), language=language, **evidence,
             )
             consultation.full_clean()
             consultation.save()

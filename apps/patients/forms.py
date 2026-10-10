@@ -446,6 +446,10 @@ class MultipleFileField(forms.FileField):
 class ConsultationCreateForm(forms.Form):
     question = forms.CharField(max_length=5000, widget=forms.Textarea(attrs={"rows": 8}))
     attachments = MultipleFileField(required=False)
+    whatsapp_reply_notifications_consent = forms.BooleanField(
+        required=False, initial=False,
+        widget=forms.CheckboxInput(),
+    )
 
     def __init__(self, *args, language="ar", **kwargs):
         super().__init__(*args, **kwargs)
@@ -454,6 +458,11 @@ class ConsultationCreateForm(forms.Form):
         self.fields["question"].widget.attrs["class"] = "patient-textarea"
         self.fields["attachments"].label = "المرفقات" if self.language == "ar" else "Attachments"
         self.fields["attachments"].widget.attrs["accept"] = ".jpg,.jpeg,.png,.webp,.mp4,.pdf"
+        self.fields["whatsapp_reply_notifications_consent"].label = (
+            "أوافق اختياريًا على تلقي إشعار عبر واتساب عند إضافة رد على هذه الاستشارة. لا يؤثر الرفض على الاستشارة أو رموز التحقق."
+            if self.language == "ar"
+            else "I optionally agree to a WhatsApp alert when this consultation receives a reply. Declining does not affect consultations or verification codes."
+        )
 
     def clean_question(self):
         question = self.cleaned_data["question"].strip()

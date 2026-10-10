@@ -48,6 +48,9 @@ class GuestConsultationForm(ConsultationCreateForm):
     display_name = forms.CharField(required=False, max_length=100, widget=forms.TextInput(attrs={"autocomplete": "nickname"}))
 
     def __init__(self, *args, **kwargs):
+        allow_whatsapp_notifications = kwargs.pop("allow_whatsapp_notifications", True)
         super().__init__(*args, **kwargs)
+        if not allow_whatsapp_notifications:
+            self.fields.pop("whatsapp_reply_notifications_consent", None)
         self.fields["display_name"].label = "الاسم المعروض (اختياري)" if self.language == "ar" else "Display name (optional)"
-        self.order_fields(["display_name", "question", "attachments"])
+        self.order_fields(["display_name", "question", "attachments", "whatsapp_reply_notifications_consent"])

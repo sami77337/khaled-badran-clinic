@@ -21,6 +21,8 @@ CONSULTATION_PDF_MAX_BYTES = 10 * 1024 * 1024
 CONSULTATION_VIDEO_MAX_BYTES = 50 * 1024 * 1024
 CONSULTATION_MAX_ATTACHMENTS = 5
 CONSULTATION_AUDIO_MAX_BYTES = 15 * 1024 * 1024
+# Versioned, purpose-specific approval for an external reply alert (not OTP).
+CONSULTATION_WHATSAPP_REPLY_CONSENT_VERSION = "consultation-whatsapp-reply-v1"
 
 
 class AccountOtpChallenge(models.Model):
@@ -203,6 +205,11 @@ class Consultation(models.Model):
         db_index=True,
     )
     staff_reply = models.TextField(max_length=5000, blank=True)
+    # Nullable evidence: historical rows are unknown, never implicitly opted in.
+    whatsapp_reply_consent_at = models.DateTimeField(null=True, blank=True)
+    whatsapp_reply_consent_version = models.CharField(max_length=40, blank=True)
+    whatsapp_reply_consent_language = models.CharField(max_length=2, blank=True)
+    whatsapp_reply_consent_withdrawn_at = models.DateTimeField(null=True, blank=True)
     replied_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -440,6 +447,11 @@ class TransientConsultation(models.Model):
     question = models.TextField(max_length=5000)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW, db_index=True)
     staff_reply = models.TextField(max_length=5000, blank=True)
+    # Nullable evidence: historical rows are unknown, never implicitly opted in.
+    whatsapp_reply_consent_at = models.DateTimeField(null=True, blank=True)
+    whatsapp_reply_consent_version = models.CharField(max_length=40, blank=True)
+    whatsapp_reply_consent_language = models.CharField(max_length=2, blank=True)
+    whatsapp_reply_consent_withdrawn_at = models.DateTimeField(null=True, blank=True)
     replied_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
                                   blank=True, related_name="transient_consultations_replied")
     replied_at = models.DateTimeField(null=True, blank=True)

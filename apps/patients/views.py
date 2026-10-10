@@ -1095,6 +1095,8 @@ def portal_consultation_new(request, language="ar"):
                     user=request.user,
                     question=form.cleaned_data["question"],
                     uploaded_files=form.cleaned_data["attachments"],
+                    whatsapp_reply_notifications_consent=form.cleaned_data["whatsapp_reply_notifications_consent"],
+                    consent_language=language,
                 )
             except PatientProfileConflictError:
                 form.add_error(
@@ -1166,8 +1168,32 @@ def portal_consultation_detail(request, public_id, language="ar"):
                 language,
                 public_id=consultation.public_id,
             ),
+            consultation_whatsapp_withdraw_url=_portal_url(
+                "patient_portal_consultation_whatsapp_withdraw",
+                language,
+                public_id=consultation.public_id,
+            ),
             portal_section="consultations",
         ),
+    )
+
+
+
+
+@require_POST
+@_login_required
+def portal_consultation_whatsapp_withdraw(request, public_id, language="ar"):
+    """Own-portal opt-out; no owner existence disclosure or new opt-in path."""
+    consultation = get_object_or_404(
+        Consultation, public_id=public_id, patient__user=request.user,
+    )
+    Consultation.objects.filter(
+        pk=consultation.pk,
+        whatsapp_reply_consent_at__isnull=False,
+        whatsapp_reply_consent_withdrawn_at__isnull=True,
+    ).update(whatsapp_reply_consent_withdrawn_at=timezone.now())
+    return redirect(
+        _portal_url("patient_portal_consultation_detail", language, public_id=public_id)
     )
 
 

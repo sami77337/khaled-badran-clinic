@@ -41,6 +41,16 @@
         </div>
     </section>
     {% endif %}
+    {% if consultation.whatsapp_reply_consent_at and not consultation.whatsapp_reply_consent_withdrawn_at %}
+    <section class="dashboard-card patient-detail-card">
+        <div class="patient-card-body">
+            <form method="post" action="{{ consultation_whatsapp_withdraw_url }}">
+                {% csrf_token %}
+                <button type="submit" class="patient-secondary-action">{% if is_arabic %}إيقاف إشعارات واتساب لهذه الاستشارة{% else %}Stop WhatsApp alerts for this consultation{% endif %}</button>
+            </form>
+        </div>
+    </section>
+    {% endif %}
     {% if can_delete_consultation %}
     <section class="dashboard-card patient-detail-card">
         <div class="patient-card-body">
