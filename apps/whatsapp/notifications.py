@@ -68,7 +68,7 @@ def send_reply_notification_if_consented(*, consultation_pk, guest=False):
         if guest and not consultation.phone_verified_at_submission:
             return False
 
-        language = consultation.language if guest else consultation.whatsapp_reply_consent_language
+        language = consultation.whatsapp_reply_consent_language
         language = "en" if language == "en" else "ar"
         phone = consultation.phone_e164 if guest else (
             consultation.patient.whatsapp_phone_e164 or consultation.patient.phone_e164

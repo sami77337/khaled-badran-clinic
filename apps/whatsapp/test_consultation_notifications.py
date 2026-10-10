@@ -63,9 +63,12 @@ class ConsultationWhatsAppTests(TestCase):
         for guest in (False, True):
             for language in ("ar", "en"):
                 item = self.guest if guest else self.registered
+                item.whatsapp_reply_consent_language = language
                 if guest:
                     item.language = language
-                    item.save(update_fields=["language"])
+                    item.save(update_fields=["language", "whatsapp_reply_consent_language"])
+                else:
+                    item.save(update_fields=["whatsapp_reply_consent_language"])
                 with self.settings(WHATSAPP_CONSULTATION_NOTIFICATION_SENDER=sender, WHATSAPP_DEFAULT_LANGUAGE=language):
                     with self.captureOnCommitCallbacks(execute=True):
                         self.reply(item, text="Synthetic sensitive reply " + language)
