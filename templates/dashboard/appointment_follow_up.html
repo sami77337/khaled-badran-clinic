@@ -66,6 +66,7 @@
                             <td>{{ appointment.follow_up_visit_type_label }}</td>
                             <td><span class="appointment-status status-{{ appointment.status }}">{{ appointment.follow_up_status_label }}</span></td>
                             <td>
+                                <div class="appointment-row-actions">
                                 <form method="post" action="{{ appointment.follow_up_arrived_url }}">
                                     {% csrf_token %}
                                     <button class="appointment-button appointment-button-primary appointment-button-small" type="submit">
@@ -92,6 +93,7 @@
                                 <a class="appointment-inline-link" href="{{ appointment.follow_up_detail_url }}">
                                     {% if is_arabic %}فتح الموعد{% else %}Open appointment{% endif %}
                                 </a>
+                                </div>
                             </td>
                         </tr>
                     {% empty %}
@@ -141,6 +143,7 @@
                             <td>{{ appointment.patient.full_name }}</td>
                             <td>{{ appointment.follow_up_visit_type_label }}</td>
                             <td>
+                                <div class="appointment-row-actions">
                                 <a class="appointment-button appointment-button-secondary appointment-button-small" href="{{ appointment.follow_up_message_url }}">{% if is_arabic %}رسالة{% else %}Message{% endif %}</a>
                                 <form method="post" action="{{ appointment.follow_up_complete_url }}">
                                     {% csrf_token %}
@@ -149,6 +152,7 @@
                                     </button>
                                 </form>
                                 <a class="appointment-inline-link" href="{{ appointment.follow_up_detail_url }}">{% if is_arabic %}فتح الموعد{% else %}Open appointment{% endif %}</a>
+                                </div>
                             </td>
                         </tr>
                     {% empty %}

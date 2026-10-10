@@ -1499,6 +1499,15 @@ summary:focus-visible {
     text-transform: uppercase;
 }
 
+/* Arabic joining must not be broken by Latin-style label tracking on Safari.
+   Keep existing approved families, sizes, colors and English spacing. */
+.is-rtl .eyebrow,
+.is-rtl .credential-chip,
+.is-rtl .footer-heading,
+.is-rtl .brand-subtitle {
+    letter-spacing: normal;
+}
+
 .footer-links {
     display: grid;
     gap: 0.75rem;
