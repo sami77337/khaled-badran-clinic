@@ -2002,6 +2002,28 @@ class PatientPortalMedicalRecordVisibilityTests(PatientPortalTestMixin, TestCase
         self.assertEqual(b"".join(response.streaming_content), synthetic_media_bytes("image/jpeg", b"download-bytes"))
         close_test_response(response)
 
+    def test_visible_patient_media_storage_faults_return_generic_404(self):
+        media = self.create_media(
+            file=self.synthetic_image_file(name="synthetic-private-fault.jpg")
+        )
+        private_marker = "SYNTHETIC-PRIVATE-PATIENT-STORAGE-KEY"
+        for route_name in (
+            "patient_portal_medical_record_media_download",
+            "patient_portal_medical_record_media_download_en",
+        ):
+            url = reverse(route_name, kwargs={"public_id": media.public_id})
+            for operation in ("exists", "open"):
+                with self.subTest(route=route_name, operation=operation):
+                    with patch.object(
+                        media.file.storage,
+                        operation,
+                        side_effect=OSError(private_marker),
+                    ):
+                        response = self.client.get(url)
+                    self.assertEqual(response.status_code, 404)
+                    self.assertNotIn(private_marker, response.content.decode())
+                    self.assertNotIn(media.file.name, response.content.decode())
+
     def test_linked_patient_cannot_access_disallowed_or_trashed_media(self):
         trashed_media = self.create_media(title="Trashed patient media blocked from view")
         RecordMedia.objects.filter(pk=trashed_media.pk).update(trashed_at=timezone.now())
