@@ -21,7 +21,7 @@ class ConsultationWhatsAppTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.staff = get_user_model().objects.create_user(username="synthetic-notification-staff", is_staff=True)
-        cls.owner = get_user_model().objects.create_user(username="synthetic-notification-owner")
+        cls.owner = get_user_model().objects.create_user(username="+12025550101")
         cls.patient = Patient.objects.create(user=cls.owner, full_name="Synthetic", phone_e164="+12025550101")
         evidence = {
             "whatsapp_reply_consent_at": timezone.now(),
@@ -130,7 +130,8 @@ class ConsultationWhatsAppTests(TestCase):
 class ConsultationNotificationCommitTests(TransactionTestCase):
     def test_provider_exception_after_real_commit_preserves_both_reply_types(self):
         staff = get_user_model().objects.create_user(username="synthetic-commit-staff", is_staff=True)
-        patient = Patient.objects.create(full_name="Synthetic", phone_e164="+12025550101")
+        owner = get_user_model().objects.create_user(username="+12025550101")
+        patient = Patient.objects.create(user=owner, full_name="Synthetic", phone_e164="+12025550101")
         evidence = {
             "whatsapp_reply_consent_at": timezone.now(),
             "whatsapp_reply_consent_version": CONSULTATION_WHATSAPP_REPLY_CONSENT_VERSION,
