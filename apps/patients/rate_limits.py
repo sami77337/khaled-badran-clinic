@@ -17,6 +17,9 @@ DEFAULT_PORTAL_LOGIN_PHONE_ATTEMPTS_PER_WINDOW = 15
 # independent counters for the clinic Doctor / Staff sign-in path.
 DEFAULT_STAFF_LOGIN_IP_ATTEMPTS_PER_WINDOW = DEFAULT_PORTAL_LOGIN_IP_ATTEMPTS_PER_WINDOW
 DEFAULT_STAFF_LOGIN_USERNAME_ATTEMPTS_PER_WINDOW = DEFAULT_PORTAL_LOGIN_PHONE_ATTEMPTS_PER_WINDOW
+# Separate Django Admin counters; the portal and Admin must not lock each other.
+DEFAULT_ADMIN_LOGIN_IP_ATTEMPTS_PER_WINDOW = DEFAULT_STAFF_LOGIN_IP_ATTEMPTS_PER_WINDOW
+DEFAULT_ADMIN_LOGIN_USERNAME_ATTEMPTS_PER_WINDOW = DEFAULT_STAFF_LOGIN_USERNAME_ATTEMPTS_PER_WINDOW
 DEFAULT_PORTAL_REGISTRATION_IP_ATTEMPTS_PER_HOUR = 20
 DEFAULT_PORTAL_REGISTRATION_PHONE_ATTEMPTS_PER_DAY = 8
 
@@ -178,6 +181,40 @@ def check_staff_login_attempt_rate_limit(request, *, username=""):
                 limit=_setting_int(
                     "STAFF_LOGIN_USERNAME_ATTEMPTS_PER_WINDOW",
                     DEFAULT_STAFF_LOGIN_USERNAME_ATTEMPTS_PER_WINDOW,
+                ),
+                timeout=PORTAL_LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+                message=GENERIC_PORTAL_RATE_LIMIT_MESSAGE,
+            )
+        )
+    return _first_blocked(results)
+
+
+def check_admin_login_attempt_rate_limit(request, *, username=""):
+    """Throttle Django Admin logins independently from patient and staff portals.
+
+    Reuse the same bounded cache counters and SHA-256 identity hashing.
+    Authentication is never reached when either independent limit is exceeded.
+    """
+    results = [
+        _rate_limit(
+            "admin-login-ip-window",
+            _ip_identity(request),
+            limit=_setting_int(
+                "ADMIN_LOGIN_IP_ATTEMPTS_PER_WINDOW",
+                DEFAULT_ADMIN_LOGIN_IP_ATTEMPTS_PER_WINDOW,
+            ),
+            timeout=PORTAL_LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+            message=GENERIC_PORTAL_RATE_LIMIT_MESSAGE,
+        )
+    ]
+    if str(username or "").strip():
+        results.append(
+            _rate_limit(
+                "admin-login-username-window",
+                str(username).strip(),
+                limit=_setting_int(
+                    "ADMIN_LOGIN_USERNAME_ATTEMPTS_PER_WINDOW",
+                    DEFAULT_ADMIN_LOGIN_USERNAME_ATTEMPTS_PER_WINDOW,
                 ),
                 timeout=PORTAL_LOGIN_RATE_LIMIT_WINDOW_SECONDS,
                 message=GENERIC_PORTAL_RATE_LIMIT_MESSAGE,
